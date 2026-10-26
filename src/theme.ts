@@ -1,4 +1,4 @@
-import { ActionIcon, Button, Input, createTheme, type MantineColorsTuple } from '@mantine/core';
+import { ActionIcon, Button, Input, createTheme, type CSSVariablesResolver, type MantineColorsTuple } from '@mantine/core';
 
 // Sıcak nötr zemin (sand) + terracotta vurgu (ember). Emoji yok, ikon Phosphor.
 const sand: MantineColorsTuple = [
@@ -9,6 +9,18 @@ const ember: MantineColorsTuple = [
   '#fdf1ec', '#f9ddd1', '#f3bfa9', '#eb9d80', '#e07b5a',
   '#d4643f', '#c65d3b', '#a94a2d', '#883a22', '#5f2717',
 ];
+
+// Açık temada 'light' rozet/düğme metinleri ve 'dimmed' metin AA kontrastı için koyulaştırılır.
+const LIGHT_COLORS = ['ember', 'sand', 'teal', 'yellow', 'green', 'blue', 'red', 'orange', 'gray', 'cyan', 'grape', 'pink', 'lime', 'indigo', 'violet'];
+export const cssVariablesResolver: CSSVariablesResolver = () => ({
+  variables: {},
+  light: Object.fromEntries([
+    ['--mantine-color-dimmed', 'var(--mantine-color-gray-7)'],
+    ...LIGHT_COLORS.map((c) => [`--mantine-color-${c}-light-color`, `var(--mantine-color-${c}-8)`]),
+    ...LIGHT_COLORS.map((c) => [`--mantine-color-${c}-outline`, `var(--mantine-color-${c}-8)`]),
+  ]),
+  dark: {},
+});
 
 export const theme = createTheme({
   fontFamily:
@@ -23,7 +35,7 @@ export const theme = createTheme({
   defaultRadius: 'md',
   colors: { sand, ember },
   primaryColor: 'ember',
-  primaryShade: { light: 6, dark: 4 },
+  primaryShade: { light: 7, dark: 4 },
   white: '#fffdf9',
   black: '#1f1a16',
   other: {

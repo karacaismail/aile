@@ -1,13 +1,9 @@
 import { Route, Switch, Redirect } from 'wouter';
-import { Center, Text } from '@mantine/core';
-
-function Placeholder({ title }: { title: string }) {
-  return (
-    <Center h="60vh" data-testid="placeholder">
-      <Text c="dimmed">{title} hazırlanıyor</Text>
-    </Center>
-  );
-}
+import { PurchaseList } from './modules/purchase';
+import { SettingsPage } from './modules/settings/SettingsPage';
+import { LightingModule } from './modules/lighting';
+import { RenovationModule } from './modules/renovation';
+import { LayoutModule } from './modules/layout';
 
 export const MODULES = [
   { key: 'satinalma', path: '/satinalma', label: 'Satınalma' },
@@ -20,19 +16,19 @@ export function AppRoutes() {
   return (
     <Switch>
       <Route path="/satinalma" nest>
-        <Placeholder title="Satınalma" />
+        <PurchaseList />
       </Route>
       <Route path="/aydinlatma" nest>
-        <Placeholder title="Aydınlatma" />
+        <LightingModule />
       </Route>
       <Route path="/tadilat" nest>
-        <Placeholder title="Tadilat" />
+        <RenovationModule />
       </Route>
       <Route path="/yerlesim" nest>
-        <Placeholder title="Yerleşim" />
+        <LayoutModule />
       </Route>
       <Route path="/ayarlar">
-        <Placeholder title="Ayarlar" />
+        <SettingsPage />
       </Route>
       <Route>
         <Redirect to="/satinalma" replace />

@@ -1,0 +1,20 @@
+{
+  "ok": true,
+  "fingerprint": "fx-1",
+  "serverTime": "2026-10-26T10:00:00.000Z",
+  "schemaVersion": 1,
+  "items": [
+    { "id": "01TESTITEM0000000000000001", "tip": "satinalma", "kod": "101", "ad": "Oturma grubu üçlü koltuk", "faz": "1", "durum": "karar", "oda": "salon", "kategori": "mobilya", "tahmini_tl_min": 42000, "tahmini_tl_max": 42000, "adet": 1, "birim": "adet", "oncelik": 1, "version": 1, "updated_at": "2026-10-20T10:00:00.000Z" },
+    { "id": "01TESTITEM0000000000000002", "tip": "satinalma", "kod": "102", "ad": "Çift kişilik baza ve yatak 200x200", "faz": "1", "durum": "arastirma", "oda": "ebeveyn", "kategori": "mobilya", "tahmini_tl_min": 18000, "tahmini_tl_max": 24000, "adet": 1, "oncelik": 1, "siparis_son_tarih": "2026-10-28", "version": 2, "updated_at": "2026-10-21T10:00:00.000Z" },
+    { "id": "01TESTITEM0000000000000003", "tip": "satinalma", "kod": "103", "ad": "Ders masası lambası CRI 90", "faz": "1", "durum": "fikir", "oda": "cocuk", "kategori": "aydinlatma_led", "adet": 1, "oncelik": 2, "version": 1, "updated_at": "2026-10-22T10:00:00.000Z" },
+    { "id": "01TESTITEM0000000000000004", "tip": "satinalma", "kod": "104", "ad": "Kablo kanalı 20x12 (2 m)", "faz": "1", "durum": "karar", "oda": "genel", "kategori": "elektrik", "tahmini_tl_min": 120, "tahmini_tl_max": 160, "adet": 25, "birim": "adet", "oncelik": 2, "linkler": ["https://ornek.example/kanal"], "version": 1, "updated_at": "2026-10-22T11:00:00.000Z" },
+    { "id": "01TESTITEM0000000000000005", "tip": "satinalma", "kod": "105", "ad": "Espresso makinesi", "faz": "2", "durum": "fikir", "oda": "mutfak", "kategori": "mutfak", "adet": 1, "oncelik": 3, "karar_bekliyor": true, "version": 1, "updated_at": "2026-10-22T12:00:00.000Z" },
+    { "id": "01TESTITEM0000000000000006", "tip": "satinalma", "kod": "106", "ad": "Cam çalışma masası (yuvarlak)", "faz": "1", "oda": "calisma", "kategori": "mobilya", "mevcut": true, "adet": 1, "version": 1, "updated_at": "2026-10-22T13:00:00.000Z" },
+    { "id": "01TESTITEM0000000000000007", "tip": "satinalma", "kod": "107", "ad": "Bebek güvenlik bariyeri", "faz": "3", "durum": "fikir", "oda": "hol", "kategori": "bebek", "adet": 2, "oncelik": 2, "version": 1, "updated_at": "2026-10-23T10:00:00.000Z" },
+    { "id": "01TESTITEM0000000000000008", "tip": "satinalma", "kod": "108", "ad": "Perde ve tül (salon + 3 oda) çok uzun bir açıklama metni ile taşma testi", "faz": "1", "durum": "siparis", "oda": "genel", "kategori": "tekstil", "tahmini_tl_min": 30000, "tahmini_tl_max": 30000, "gercek_tl": 28500, "adet": 1, "oncelik": 1, "version": 3, "updated_at": "2026-10-24T10:00:00.000Z" },
+    { "id": "01TESTITEM0000000000000009", "tip": "aydinlatma", "ad": "Salon ana ışık", "oda": "salon", "katman_tur": "ana", "cct_mod": "ayarli", "cct_min": 2700, "cct_max": 4000, "lux_min": 150, "lux_max": 200, "version": 1, "updated_at": "2026-10-24T10:00:00.000Z" }
+  ],
+  "settings": [
+    { "id": "01TESTSET00000000000000001", "tip": "tarih", "anahtar": "tasinma", "deger": "2099-02-19", "etiket": "Taşınma", "version": 1 }
+  ]
+}

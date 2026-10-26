@@ -10,12 +10,12 @@ import { MantineProvider } from '@mantine/core';
 import { Notifications } from '@mantine/notifications';
 import { ModalsProvider } from '@mantine/modals';
 import { DatesProvider } from '@mantine/dates';
-import { theme } from './theme';
+import { theme, cssVariablesResolver } from './theme';
 import { App } from './App';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <MantineProvider theme={theme} defaultColorScheme="auto">
+    <MantineProvider theme={theme} defaultColorScheme="auto" cssVariablesResolver={cssVariablesResolver}>
       <DatesProvider settings={{ locale: 'tr', firstDayOfWeek: 1 }}>
         <ModalsProvider>
           <Notifications position="top-center" limit={3} />

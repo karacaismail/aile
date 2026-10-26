@@ -1,5 +1,5 @@
 // Uygulama durumu: tek kaynak, useSyncExternalStore ile okunur. Optimistic yazım + sunucu satırıyla değiştirme.
-import { useSyncExternalStore, useCallback } from 'react';
+import { useSyncExternalStore, useCallback, useRef } from 'react';
 import type { Item, Setting } from '@shared/schema';
 import type { Conflict, Op, OpResult, ReadFull } from '@shared/api';
 import type { Rec } from '@shared/convert';
@@ -43,8 +43,27 @@ export function setState(patch: Partial<AppState> | ((s: AppState) => Partial<Ap
 export function resetStore(): void { state = initial; emit(); }
 export function subscribe(l: () => void): () => void { listeners.add(l); return () => listeners.delete(l); }
 
+function shallowEqual(a: unknown, b: unknown): boolean {
+  if (Object.is(a, b)) return true;
+  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  const ka = Object.keys(a as object); const kb = Object.keys(b as object);
+  if (ka.length !== kb.length) return false;
+  for (const k of ka) if (!Object.is((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k])) return false;
+  return true;
+}
+
+/** Seçici yeni nesne döndürse bile sığ eşitlikle önbelleklenir (useSyncExternalStore döngüsünü önler). */
 export function useAppStore<T>(selector: (s: AppState) => T): T {
-  const get = useCallback(() => selector(state), [selector]);
+  const cache = useRef<{ state: AppState; value: T } | null>(null);
+  const get = useCallback(() => {
+    const c = cache.current;
+    if (c && c.state === state) return c.value;
+    const next = selector(state);
+    if (c && shallowEqual(c.value, next)) { cache.current = { state, value: c.value }; return c.value; }
+    cache.current = { state, value: next };
+    return next;
+  }, [selector]);
   return useSyncExternalStore(subscribe, get, get);
 }
 

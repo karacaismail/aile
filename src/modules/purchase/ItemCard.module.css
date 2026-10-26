@@ -1,0 +1,15 @@
+.card { cursor: pointer; }
+.card[data-done] .title { color: var(--mantine-color-dimmed); text-decoration: line-through; }
+.card[data-cancelled] { opacity: 0.6; }
+.checkWrap {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  margin: -6px 0 -6px -6px;
+}
+.title { line-height: 1.3; }
+.price { white-space: nowrap; flex-shrink: 0; }
+.linkArea { flex: 1; min-width: 0; min-height: 44px; justify-content: center; }

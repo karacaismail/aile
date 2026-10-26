@@ -2,6 +2,7 @@ import { AppShell } from '@mantine/core';
 import type { ReactNode } from 'react';
 import { BottomTabs } from './BottomTabs';
 import { TopBar } from './TopBar';
+import { SyncStatus } from './SyncStatus';
 
 export function AppShellLayout({ children }: { children: ReactNode }) {
   return (
@@ -11,7 +12,7 @@ export function AppShellLayout({ children }: { children: ReactNode }) {
       padding={0}
     >
       <AppShell.Header>
-        <TopBar />
+        <TopBar right={<SyncStatus />} />
       </AppShell.Header>
       <AppShell.Main>
         {children}
