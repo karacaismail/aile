@@ -15,3 +15,4 @@ seed/private/
 apps-script/.clasprc.json
 .clasprc.json
 .tmp-shots/
+.tmp-live/
