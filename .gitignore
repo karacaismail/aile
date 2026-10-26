@@ -14,3 +14,4 @@ e2e/__screenshots__/**/*-darwin.png
 seed/private/
 apps-script/.clasprc.json
 .clasprc.json
+.tmp-shots/
