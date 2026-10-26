@@ -107,3 +107,28 @@ export async function smallTargets(page: Page): Promise<string[]> {
     return out.slice(0, 12);
   });
 }
+
+/** 1 rem kuralı: görünür metin taşıyan hiçbir öğenin yazı boyutu 16 px'in altında olamaz. */
+export async function smallText(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const out: string[] = [];
+    const seen = new Set<Element>();
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    let n: Node | null;
+    while ((n = walker.nextNode())) {
+      const t = n.textContent?.replace(/\s+/g, ' ').trim();
+      if (!t) continue;
+      const el = n.parentElement;
+      if (!el || seen.has(el)) continue;
+      seen.add(el);
+      if (el.closest('script, style, noscript, svg, [data-allow-small]')) continue;
+      const cs = getComputedStyle(el);
+      if (cs.display === 'none' || cs.visibility === 'hidden' || cs.opacity === '0') continue;
+      const r = el.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) continue;
+      const fs = parseFloat(cs.fontSize);
+      if (fs < 15.99) out.push(`${el.tagName.toLowerCase()}[${t.slice(0, 24)}] ${fs}px`);
+    }
+    return out.slice(0, 15);
+  });
+}

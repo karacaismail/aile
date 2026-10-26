@@ -1,7 +1,11 @@
 :root {
   --aile-safe-bottom: env(safe-area-inset-bottom, 0px);
   --aile-safe-top: env(safe-area-inset-top, 0px);
+  /* İçerik sütunu: 320 taban tam genişlik; ≥768 kenar boşluğu; ≥1280 azami genişlik */
+  --aile-content-max: 100%;
+  --aile-content-pad: 0px;
 }
+html { font-size: 100%; } /* 1 rem = 16 px; metin bunun altına inmez */
 html, body, #root { height: 100%; }
 body {
   margin: 0;
@@ -14,3 +18,21 @@ body {
 [data-mantine-color-scheme='light'] body { background: var(--mantine-color-sand-0); }
 [data-mantine-color-scheme='dark'] body { background: var(--mantine-color-sand-9); }
 .tabular { font-variant-numeric: tabular-nums; }
+
+/* Uyarlamalı kapsayıcı: modül içeriği bu sütunda akar */
+.aile-content {
+  width: 100%;
+  max-width: var(--aile-content-max);
+  margin-inline: auto;
+  padding-inline: var(--aile-content-pad);
+  min-height: 100%;
+}
+@media (min-width: 48em) {   /* tablet */
+  :root { --aile-content-pad: 16px; }
+}
+@media (min-width: 64em) {   /* laptop */
+  :root { --aile-content-pad: 24px; --aile-content-max: 1120px; }
+}
+@media (min-width: 80em) {   /* masaüstü */
+  :root { --aile-content-pad: 32px; --aile-content-max: 1280px; }
+}

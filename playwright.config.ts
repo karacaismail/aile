@@ -29,6 +29,18 @@ export default defineConfig({
       name: 'iphone12-webkit',
       use: { ...devices['iPhone 12'] },
     },
+    {
+      name: 'tablet',
+      use: { ...devices['Desktop Chrome'], viewport: { width: 768, height: 1024 }, hasTouch: true },
+    },
+    {
+      name: 'laptop',
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } },
+    },
+    {
+      name: 'desktop',
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } },
+    },
   ],
   webServer: {
     command: 'pnpm dev',

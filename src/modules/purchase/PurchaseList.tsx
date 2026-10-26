@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ActionIcon, Box, EmptyState, Group, Indicator, Stack, TextInput, Button, Skeleton } from '@mantine/core';
+import { ActionIcon, Box, EmptyState, Group, Indicator, SimpleGrid, TextInput, Button, Skeleton } from '@mantine/core';
 import { FunnelSimpleIcon, MagnifyingGlassIcon, ShoppingCartIcon, PlusIcon, GearSixIcon } from '@phosphor-icons/react';
 import { useDebouncedValue, useLocalStorage } from '@mantine/hooks';
 import { Link, Route, useLocation } from 'wouter';
@@ -47,13 +47,14 @@ export function PurchaseList() {
           </ActionIcon>
         </Indicator>
       </Group>
-      <Stack gap="xs" p="sm" data-testid="item-list">
+      <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="xs" p="sm" data-testid="item-list">
         {!hydrated && status !== 'unconfigured' ? (
           <>
             <Skeleton h={72} radius="md" /><Skeleton h={72} radius="md" /><Skeleton h={72} radius="md" />
           </>
         ) : list.length === 0 ? (
           <EmptyState
+            style={{ gridColumn: '1 / -1' }}
             icon={<ShoppingCartIcon size={40} aria-hidden />}
             title={hasAny ? 'Filtreye uyan kalem yok' : 'Henüz kalem yok'}
             description={hasAny ? 'Filtreyi gevşetin ya da aramayı temizleyin.' : status === 'unconfigured' ? 'Sheets bağlantısını Ayarlar\'dan kurun ya da + ile kalem ekleyin.' : 'İlk kalemi + ile ekleyin.'}
@@ -67,7 +68,7 @@ export function PurchaseList() {
         ) : (
           list.map((item) => <ItemCard key={item.id} item={item} onToggleDone={toggleDone} />)
         )}
-      </Stack>
+      </SimpleGrid>
       <FilterDrawer opened={drawer} onClose={() => setDrawer(false)} filters={f} onChange={(nf) => setFilters({ ...nf, q: '' })} sort={sort} onSort={setSort} />
       {list.length > 0 && <Fab onClick={() => navigate('~/satinalma/yeni')} label="Kalem ekle" />}
       <Route path="/:id">{(params) => <ItemDetail key={params.id} id={params.id} />}</Route>

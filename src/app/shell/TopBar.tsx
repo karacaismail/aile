@@ -1,4 +1,4 @@
-import { Group, Title, ActionIcon } from '@mantine/core';
+import { Group, Title, ActionIcon, Box } from '@mantine/core';
 import { GearSixIcon } from '@phosphor-icons/react';
 import { Link, useLocation } from 'wouter';
 import { MODULES } from '../../routes';
@@ -10,14 +10,16 @@ export function TopBar({ right }: { right?: ReactNode }) {
   const title = location.startsWith('/ayarlar') ? 'Ayarlar' : (current?.label ?? 'aile');
   return (
     <Group h="100%" px="sm" justify="space-between" wrap="nowrap" gap="xs">
-      <Title order={1} size="h4" lineClamp={1} data-testid="topbar-title">
+      <Title order={1} size="h3" lineClamp={1} data-allow-clamp data-testid="topbar-title">
         {title}
       </Title>
       <Group gap={4} wrap="nowrap">
         {right}
-        <ActionIcon component={Link} href="/ayarlar" aria-label="Ayarlar" variant="subtle" color="gray">
-          <GearSixIcon size={22} aria-hidden />
-        </ActionIcon>
+        <Box hiddenFrom="sm">
+          <ActionIcon component={Link} href="/ayarlar" aria-label="Ayarlar" variant="subtle" color="gray">
+            <GearSixIcon size={22} aria-hidden />
+          </ActionIcon>
+        </Box>
       </Group>
     </Group>
   );

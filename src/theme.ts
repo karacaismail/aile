@@ -1,4 +1,4 @@
-import { ActionIcon, Button, Checkbox, Chip, Input, SegmentedControl, Switch, createTheme, type CSSVariablesResolver, type MantineColorsTuple } from '@mantine/core';
+import { ActionIcon, Badge, Button, Checkbox, Chip, Input, NavLink, SegmentedControl, Stepper, Switch, Table, createTheme, type CSSVariablesResolver, type MantineColorsTuple } from '@mantine/core';
 
 // Sıcak nötr zemin (sand) + terracotta vurgu (ember). Emoji yok, ikon Phosphor.
 const sand: MantineColorsTuple = [
@@ -22,14 +22,32 @@ export const cssVariablesResolver: CSSVariablesResolver = () => ({
   dark: {},
 });
 
+/**
+ * Tipografi kuralı: içerik metni hiçbir yerde 1 rem'in altına inmez (kullanıcı kuralı).
+ * Mantine'in kendi px ölçekli bileşenleri (Badge) de 1 rem'e sabitlenir.
+ */
+export const MIN_FONT = '1rem';
+
 export const theme = createTheme({
   fontFamily:
     "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
   fontFamilyMonospace: "ui-monospace, 'SF Mono', Menlo, Consolas, monospace",
-  headings: { fontWeight: '700', fontFamily: 'inherit' },
-  fontSizes: { xs: '12px', sm: '14px', md: '15px', lg: '17px', xl: '20px' },
-  lineHeights: { xs: '1.35', sm: '1.4', md: '1.47', lg: '1.5', xl: '1.5' },
-  // Dar ekranda sıkı boşluk; dokunma hedefi büyük kalır.
+  headings: {
+    fontWeight: '700',
+    fontFamily: 'inherit',
+    sizes: {
+      h1: { fontSize: '1.5rem', lineHeight: '1.3' },
+      h2: { fontSize: '1.25rem', lineHeight: '1.35' },
+      h3: { fontSize: '1.125rem', lineHeight: '1.4' },
+      h4: { fontSize: '1.0625rem', lineHeight: '1.4' },
+      h5: { fontSize: '1rem', lineHeight: '1.45' },
+      h6: { fontSize: '1rem', lineHeight: '1.45' },
+    },
+  },
+  // xs/sm/md hepsi 1 rem: küçük yazı yok; lg/xl vurgular.
+  fontSizes: { xs: MIN_FONT, sm: MIN_FONT, md: MIN_FONT, lg: '1.125rem', xl: '1.25rem' },
+  lineHeights: { xs: '1.4', sm: '1.45', md: '1.5', lg: '1.5', xl: '1.4' },
+  // Dar ekranda sıkı boşluk; dokunma hedefi büyük kalır. Boşluk ölçeği ≥768'de kabukta genişletilir.
   spacing: { xs: '6px', sm: '10px', md: '14px', lg: '20px', xl: '28px' },
   radius: { xs: '4px', sm: '6px', md: '10px', lg: '14px', xl: '20px' },
   defaultRadius: 'md',
@@ -38,21 +56,34 @@ export const theme = createTheme({
   primaryShade: { light: 7, dark: 4 },
   white: '#fffdf9',
   black: '#1f1a16',
+  breakpoints: { xs: '22.5em', sm: '48em', md: '64em', lg: '80em', xl: '90em' }, // 360 / 768 / 1024 / 1280 / 1440
   other: {
     success: '#2f7d4f',
     warning: '#b7791f',
-    tabBarHeight: 56,
-    topBarHeight: 48,
+    tabBarHeight: 60,
+    topBarHeight: 52,
   },
   components: {
     ActionIcon: ActionIcon.extend({ defaultProps: { size: 'xl', variant: 'subtle' } }),
-    Button: Button.extend({ styles: { root: { minHeight: 44 } } }),
-    Input: Input.extend({ styles: { input: { minHeight: 44, fontSize: 16 } } }),
+    Button: Button.extend({ styles: { root: { minHeight: 44, fontSize: MIN_FONT } } }),
+    Input: Input.extend({ styles: { input: { minHeight: 44, fontSize: MIN_FONT } } }),
+    InputWrapper: Input.Wrapper.extend({ styles: { label: { fontSize: MIN_FONT }, description: { fontSize: MIN_FONT }, error: { fontSize: MIN_FONT } } }),
+    // Rozet: Mantine px ölçeği yerine 1 rem, normal harf, kendi yüksekliği.
+    Badge: Badge.extend({
+      defaultProps: { size: 'lg' },
+      styles: {
+        root: { fontSize: MIN_FONT, height: 'auto', minHeight: 30, paddingBlock: 2, paddingInline: 10, textTransform: 'none', letterSpacing: 0, fontWeight: 600, lineHeight: 1.3 },
+        label: { overflow: 'visible' },
+      },
+    }),
     // Dokunma hedefi ≥44 px (320×480 kuralı): görünmez native input'lu bileşenlerde dokunulan kutu gövde/etikettir.
-    Switch: Switch.extend({ styles: { body: { minHeight: 44, alignItems: 'center' } } }),
-    Checkbox: Checkbox.extend({ styles: (_theme, props) => (props.label ? { body: { minHeight: 44, alignItems: 'center' } } : {}) }),
+    Switch: Switch.extend({ styles: { body: { minHeight: 44, alignItems: 'center' }, label: { fontSize: MIN_FONT } } }),
+    Checkbox: Checkbox.extend({ styles: (_theme, props) => (props.label ? { body: { minHeight: 44, alignItems: 'center' }, label: { fontSize: MIN_FONT } } : {}) }),
     // Satır yüksekliğiyle ortalanır; `display: block` kalır (dar segmentte üç nokta çalışır).
-    SegmentedControl: SegmentedControl.extend({ styles: { label: { minHeight: 44, paddingBlock: 0, lineHeight: '44px' } } }),
-    Chip: Chip.extend({ styles: { label: { height: 44 } } }),
+    SegmentedControl: SegmentedControl.extend({ styles: { label: { minHeight: 44, paddingBlock: 0, lineHeight: '44px', fontSize: MIN_FONT } } }),
+    Chip: Chip.extend({ styles: { label: { height: 44, fontSize: MIN_FONT } } }),
+    NavLink: NavLink.extend({ styles: { root: { minHeight: 44, borderRadius: 'var(--mantine-radius-md)' }, label: { fontSize: MIN_FONT } } }),
+    Stepper: Stepper.extend({ styles: { stepLabel: { fontSize: MIN_FONT }, stepDescription: { fontSize: MIN_FONT } } }),
+    Table: Table.extend({ styles: { table: { fontSize: MIN_FONT } } }),
   },
 });

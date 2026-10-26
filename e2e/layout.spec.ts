@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { mockApi, ROUTES, horizontalOverflow, smallTargets } from './helpers';
+import { mockApi, ROUTES, horizontalOverflow, smallTargets, smallText } from './helpers';
 
 for (const route of ROUTES) {
   test(`yatay taşma yok ve dokunma hedefleri ≥44px: ${route}`, async ({ page }) => {
@@ -9,6 +9,7 @@ for (const route of ROUTES) {
     await expect(page.getByTestId('topbar-title')).toBeVisible();
     expect(await horizontalOverflow(page)).toEqual([]);
     expect(await smallTargets(page)).toEqual([]);
+    expect(await smallText(page), 'metin < 1rem').toEqual([]);
   });
 }
 
@@ -30,6 +31,7 @@ test('detay modalında taşma yok ve kaydet erişilebilir', async ({ page }) => 
   await expect(page.getByTestId('item-detail')).toBeVisible();
   expect(await horizontalOverflow(page)).toEqual([]);
   expect(await smallTargets(page)).toEqual([]);
+  expect(await smallText(page), 'modal metin < 1rem').toEqual([]);
   await expect(page.getByRole('button', { name: 'Kaydet' })).toBeVisible();
 });
 
