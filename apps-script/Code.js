@@ -649,7 +649,14 @@ var __aile = (() => {
   function doGet(e) {
     const action = e?.parameter?.action ?? "health";
     if (action === "health") return json(healthCheck());
-    return json(fail("bad_request", "GET yaln\u0131z health i\xE7in"));
+    if (action === "setup") {
+      try {
+        return json({ ok: true, app: "aile", message: setup(), health: healthCheck() });
+      } catch (error) {
+        return json(fail("internal", String(error?.message ?? error)));
+      }
+    }
+    return json(fail("bad_request", "GET yaln\u0131z health/setup i\xE7in"));
   }
   function healthCheck() {
     const ss = SpreadsheetApp.getActive();

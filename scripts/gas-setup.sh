@@ -14,7 +14,7 @@ case "${1:-}" in
     $CLASP show-authorized-user >/dev/null 2>&1 || { echo "Önce: pnpm exec clasp login"; exit 1; }
     pnpm gas:build
     if [ -f .clasp.json ]; then echo ".clasp.json zaten var; 'push' kullanın"; exit 1; fi
-    $CLASP create-script --type sheets --parentId "$SPREADSHEET_ID" --title "aile" --rootDir apps-script
+    $CLASP create-script --parentId "$SPREADSHEET_ID" --title "aile" --rootDir apps-script
     $CLASP push -f
     echo "Şimdi editörde setup'ı bir kez çalıştırıp yetki verin: pnpm exec clasp open-script  (Fonksiyon: setup → Çalıştır)"
     ;;

@@ -102,7 +102,12 @@ export function doPost(e: GoogleAppsScript.Events.DoPost) {
 export function doGet(e: GoogleAppsScript.Events.DoGet) {
   const action = e?.parameter?.action ?? 'health';
   if (action === 'health') return json(healthCheck());
-  return json(fail('bad_request', 'GET yalnız health için'));
+  if (action === 'setup') {
+    // İdempotent kurulum: sekmeler + başlıklar + tetikleyici. Yalnız bu scriptin sahibi adına çalışır.
+    try { return json({ ok: true, app: 'aile', message: setup(), health: healthCheck() }); }
+    catch (error) { return json(fail('internal', String((error as Error)?.message ?? error))); }
+  }
+  return json(fail('bad_request', 'GET yalnız health/setup için'));
 }
 
 export function healthCheck(): HealthResponse {
