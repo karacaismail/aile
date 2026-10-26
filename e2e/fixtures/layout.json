@@ -1,0 +1,20 @@
+{
+  "ok": true,
+  "fingerprint": "fx-1",
+  "serverTime": "2026-10-26T10:00:00.000Z",
+  "schemaVersion": 1,
+  "items": [
+    { "id": "01TESTLAYOUT000000000000001", "tip": "yerlesim", "ad": "Üçlü koltuk", "oda": "salon", "duvar": "K", "en_cm": 220, "boy_cm": 90, "yuk_cm": 85, "priz_ihtiyaci": 1, "version": 1, "updated_at": "2026-10-20T10:00:00.000Z" },
+    { "id": "01TESTLAYOUT000000000000002", "tip": "yerlesim", "ad": "Kitaplık", "oda": "salon", "duvar": "K", "en_cm": 120, "boy_cm": 30, "yuk_cm": 200, "isik_ihtiyaci": "raf aydınlatması", "kanal_m": 1.5, "version": 1, "updated_at": "2026-10-20T10:00:00.000Z" },
+    { "id": "01TESTLAYOUT000000000000003", "tip": "yerlesim", "ad": "TV ünitesi", "oda": "salon", "duvar": "G", "en_cm": 180, "boy_cm": 40, "yuk_cm": 50, "priz_ihtiyaci": 3, "isik_ihtiyaci": "TV arkası şerit", "kanal_m": 2.5, "version": 1, "updated_at": "2026-10-20T10:00:00.000Z" },
+    { "id": "01TESTLAYOUT000000000000004", "tip": "yerlesim", "ad": "Orta sehpa", "oda": "salon", "en_cm": 90, "boy_cm": 60, "yuk_cm": 40, "version": 1, "updated_at": "2026-10-20T10:00:00.000Z" },
+    { "id": "01TESTLAYOUT000000000000005", "tip": "yerlesim", "ad": "Yatak 200x200", "oda": "ebeveyn", "duvar": "D", "en_cm": 200, "boy_cm": 200, "yuk_cm": 60, "mevcut": true, "version": 1, "updated_at": "2026-10-20T10:00:00.000Z" },
+    { "id": "01TESTLAYOUT000000000000006", "tip": "yerlesim", "ad": "Gardırop sürgülü", "oda": "ebeveyn", "duvar": "B", "en_cm": 240, "boy_cm": 60, "yuk_cm": 240, "priz_ihtiyaci": 1, "isik_ihtiyaci": "dolap içi sensörlü", "version": 1, "updated_at": "2026-10-20T10:00:00.000Z" },
+    { "id": "01TESTITEM0000000000000104", "tip": "satinalma", "kod": "yerlesim:kanal:salon", "ad": "Kablo kanalı — Salon", "faz": "1", "durum": "fikir", "oda": "salon", "kategori": "elektrik", "adet": 1, "birim": "m", "oncelik": 2, "version": 1, "updated_at": "2026-10-22T11:00:00.000Z" }
+  ],
+  "settings": [
+    { "id": "01TESTSET00000000000000001", "tip": "tarih", "anahtar": "tasinma", "deger": "2099-02-19", "etiket": "Taşınma", "version": 1 },
+    { "id": "01TESTSET00000000000000011", "tip": "oda", "anahtar": "salon", "deger": "{\"en_cm\":320,\"boy_cm\":450,\"yuk_cm\":270,\"kopek_erisim\":\"serbest\"}", "version": 1 },
+    { "id": "01TESTSET00000000000000012", "tip": "oda", "anahtar": "ebeveyn", "deger": "{\"en_cm\":300,\"boy_cm\":400,\"kopek_erisim\":\"gece_kapali\"}", "version": 1 }
+  ]
+}

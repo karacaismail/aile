@@ -66,21 +66,31 @@ function scheduleRetry(attempts: number) {
 export async function flush(opts: { keepalive?: boolean } = {}): Promise<void> {
   if (flushing) return flushing;
   flushing = (async () => {
-    const s = getState();
-    if (!s.outbox.length || !isApiConfigured()) return;
-    setState({ status: 'syncing' });
-    const url = getApiUrl();
-    const outcome = await flushOutbox(s.outbox, {
-      actor: getActor(),
-      key: getAppKey(),
-      send: (req: BatchRequest) => callApi<BatchResponse>(url, req, { fetchImpl: deps.fetchImpl, keepalive: opts.keepalive }),
-      onResult: (op, r) => applyServerResult(op, r),
-      onDrop: (op, err) => { setState({ lastError: `${op.op} ${op.id}: ${err.message}` }); },
-    });
-    setState({ outbox: outcome.remaining, status: outcome.error ? (outcome.error.code === 'network' ? 'offline' : 'error') : 'synced', lastError: outcome.error?.message });
-    await persistOutbox();
-    await persistCache();
-    if (outcome.error?.retryable) scheduleRetry(Math.max(1, ...outcome.remaining.map((q) => q.attempts)));
+    // Gönderim sürerken kuyruğa yeni işlem girebilir (ör. art arda iki upsert). Anlık görüntü dışında kalanlar
+    // korunur ve aynı turda gönderilir; aksi halde `outbox: remaining` onları sessizce düşürürdü.
+    for (;;) {
+      const s = getState();
+      if (!s.outbox.length || !isApiConfigured()) return;
+      setState({ status: 'syncing' });
+      const url = getApiUrl();
+      const outcome = await flushOutbox(s.outbox, {
+        actor: getActor(),
+        key: getAppKey(),
+        send: (req: BatchRequest) => callApi<BatchResponse>(url, req, { fetchImpl: deps.fetchImpl, keepalive: opts.keepalive }),
+        onResult: (op, r) => applyServerResult(op, r),
+        onDrop: (op, err) => { setState({ lastError: `${op.op} ${op.id}: ${err.message}` }); },
+      });
+      const sent = new Set(s.outbox.map((q) => q.op.opId));
+      const added = getState().outbox.filter((q) => !sent.has(q.op.opId));
+      setState({ outbox: [...outcome.remaining, ...added], status: outcome.error ? (outcome.error.code === 'network' ? 'offline' : 'error') : 'synced', lastError: outcome.error?.message });
+      await persistOutbox();
+      await persistCache();
+      if (outcome.error) {
+        if (outcome.error.retryable) scheduleRetry(Math.max(1, ...outcome.remaining.map((q) => q.attempts)));
+        return;
+      }
+      if (!added.length) return;
+    }
   })().finally(() => { flushing = null; });
   return flushing;
 }

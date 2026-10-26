@@ -1,0 +1,31 @@
+{
+  "ok": true,
+  "fingerprint": "fx-1",
+  "serverTime": "2099-01-01T10:00:00.000Z",
+  "schemaVersion": 1,
+  "items": [
+    { "id": "01TESTKM00000000000000001", "tip": "kilometre", "ad": "Ev seçimi son gün", "senaryo": "hepsi", "kilometre_tur": "tarih", "planlanan_tarih": "2099-01-15", "not": "Ev seçimi kontrol listesi tamamlanmış olmalı.", "version": 1, "updated_at": "2099-01-01T10:00:00.000Z" },
+    { "id": "01TESTKM00000000000000002", "tip": "kilometre", "ad": "Anahtar teslim (A)", "senaryo": "A", "kilometre_tur": "tarih", "planlanan_tarih": "2099-01-08", "version": 1, "updated_at": "2099-01-01T10:00:00.000Z" },
+    { "id": "01TESTKM00000000000000003", "tip": "kilometre", "ad": "Anahtar teslim (B)", "senaryo": "B", "kilometre_tur": "tarih", "planlanan_tarih": "2099-02-05", "version": 1, "updated_at": "2099-01-01T10:00:00.000Z" },
+    { "id": "01TESTKM00000000000000004", "tip": "kilometre", "ad": "Anahtar teslim (C)", "senaryo": "C", "kilometre_tur": "tarih", "planlanan_tarih": "2099-02-19", "version": 1, "updated_at": "2099-01-01T10:00:00.000Z" },
+    { "id": "01TESTKM00000000000000005", "tip": "kilometre", "ad": "Mobilya sipariş son gün", "senaryo": "hepsi", "kilometre_tur": "siparis", "planlanan_tarih": "2099-01-20", "bagli_idler": ["01TESTTD00000000000000003"], "version": 1, "updated_at": "2099-01-01T10:00:00.000Z" },
+    { "id": "01TESTKM00000000000000006", "tip": "kilometre", "ad": "Tadilat bitiş hedefi", "senaryo": "hepsi", "kilometre_tur": "hedef", "planlanan_tarih": "2099-02-15", "version": 1, "updated_at": "2099-01-01T10:00:00.000Z" },
+    { "id": "01TESTTD00000000000000001", "tip": "tadilat", "kod": "T1", "ad": "Elektrik altyapı ve priz ekleme", "is_kim": ["elektrikci"], "planlanan_tarih": "2099-01-10", "sure_gun": 3, "durum": "fikir", "izin_gerekli": true, "izin_durumu": "istenecek", "sartname": "Kablo kesiti 2,5 mm, topraklama direnci < 4 ohm.", "not": "Ev sahibi izni alınacak.", "version": 1, "updated_at": "2099-01-01T10:00:00.000Z" },
+    { "id": "01TESTTD00000000000000002", "tip": "tadilat", "kod": "T2", "ad": "Duvar boyası (tüm odalar)", "is_kim": ["boyaci", "ben"], "planlanan_tarih": "2099-01-16", "sure_gun": 4, "bagimlilik": ["T1"], "durum": "arastirma", "version": 1, "updated_at": "2099-01-01T10:00:00.000Z" },
+    { "id": "01TESTTD00000000000000003", "tip": "tadilat", "kod": "T3", "ad": "Mutfak dolabı montajı", "is_kim": ["marangoz"], "planlanan_tarih": "2099-01-22", "bitis_tarihi": "2099-01-23", "bagimlilik": ["T1", "T2"], "durum": "karar", "version": 1, "updated_at": "2099-01-01T10:00:00.000Z" },
+    { "id": "01TESTUS00000000000000001", "tip": "usta", "ad": "Örnek Elektrik Ustası", "meslek": "elektrik", "telefon": "0532 000 00 01", "myk_no": "MYK-TEST-0001", "myk_dogrulandi": true, "teklif_tl": 15000, "teklif_sure_gun": 3, "garanti_ay": 12, "uyum_pct": 85, "not": "Şartname gönderildi.", "version": 1, "updated_at": "2099-01-01T10:00:00.000Z" },
+    { "id": "01TESTUS00000000000000002", "tip": "usta", "ad": "Örnek Boya Ustası", "meslek": "boya", "telefon": "0533 000 00 02", "myk_dogrulandi": false, "uyum_pct": 60, "version": 1, "updated_at": "2099-01-01T10:00:00.000Z" },
+    { "id": "01TESTKT00000000000000001", "tip": "kontrol", "kontrol_tur": "sartname", "meslek": "elektrik", "ad": "Topraklama direnci ölçülecek", "esik": "< 4", "olcum_birim": "ohm", "tamam": true, "version": 1, "updated_at": "2099-01-01T10:00:00.000Z" },
+    { "id": "01TESTKT00000000000000002", "tip": "kontrol", "kontrol_tur": "sartname", "meslek": "elektrik", "ad": "Kaçak akım rölesi 30 mA", "version": 1, "updated_at": "2099-01-01T10:00:00.000Z" },
+    { "id": "01TESTKT00000000000000003", "tip": "kontrol", "kontrol_tur": "sartname", "meslek": "boya", "ad": "Astar + iki kat boya", "version": 1, "updated_at": "2099-01-01T10:00:00.000Z" },
+    { "id": "01TESTKT00000000000000004", "tip": "kontrol", "kontrol_tur": "kabul", "meslek": "elektrik", "ad": "Priz gerilimi", "esik": "220", "olcum_birim": "V", "version": 1, "updated_at": "2099-01-01T10:00:00.000Z" },
+    { "id": "01TESTKT00000000000000005", "tip": "kontrol", "kontrol_tur": "izin", "ad": "Ev sahibi yazılı onayı (elektrik)", "version": 1, "updated_at": "2099-01-01T10:00:00.000Z" },
+    { "id": "01TESTKT00000000000000006", "tip": "kontrol", "kontrol_tur": "ev_secimi", "ad": "Sigorta panosu kapasitesi yeterli", "version": 1, "updated_at": "2099-01-01T10:00:00.000Z" }
+  ],
+  "settings": [
+    { "id": "01TESTSET00000000000000001", "tip": "tarih", "anahtar": "tasinma", "deger": "2099-02-19", "etiket": "Taşınma", "version": 1 },
+    { "id": "01TESTSET00000000000000002", "tip": "tarih", "anahtar": "anahtar", "deger": "2099-02-01", "etiket": "Anahtar", "version": 1 },
+    { "id": "01TESTSET00000000000000003", "tip": "tarih", "anahtar": "ev_secim_son", "deger": "2099-01-15", "etiket": "Ev seçimi son gün", "version": 1 },
+    { "id": "01TESTSET00000000000000004", "tip": "ayar", "anahtar": "senaryo", "deger": "A", "version": 1 }
+  ]
+}

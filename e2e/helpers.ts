@@ -3,9 +3,11 @@ import fixture from './fixtures/synthetic.json' with { type: 'json' };
 
 export const FAKE_API = 'https://script.google.com/macros/s/e2e-fake/exec';
 
+export type MockData = { items: Array<Record<string, unknown>>; settings: Array<Record<string, unknown>> };
+
 /** Sahte API (bellekte kalıcı): read → mevcut durum, batch → upsert/delete uygulanır, health → ok. localStorage'a adres yazılır. */
-export async function mockApi(page: Page, data: typeof fixture = fixture) {
-  const state = { items: structuredClone(data.items) as Array<Record<string, unknown>>, settings: structuredClone(data.settings) as Array<Record<string, unknown>>, rev: 1 };
+export async function mockApi(page: Page, data: MockData = fixture) {
+  const state = { items: structuredClone(data.items), settings: structuredClone(data.settings), rev: 1 };
   await page.addInitScript((url) => {
     localStorage.setItem('aile:apiUrl', url);
     localStorage.setItem('aile:actor', 'e2e');
@@ -62,26 +64,44 @@ export async function horizontalOverflow(page: Page): Promise<string[]> {
   });
 }
 
-/** Görünür etkileşimli öğelerin dokunma hedefleri (≥44×44). */
+/**
+ * Görünür etkileşimli öğelerin dokunma hedefleri (≥44×44). Görünmez native input'lar (Switch, Chip, SegmentedControl, Checkbox)
+ * dokunulan görünür kutuyla ölçülür; metin girişinin `label[for]` etiketi hedef sayılmaz (girişin kendisi ölçülür).
+ */
 export async function smallTargets(page: Page): Promise<string[]> {
   return page.evaluate(() => {
-    const sel = 'button, a[href], input, select, textarea, [role=button], [role=checkbox], [role=switch], [role=tab], [role=link], [role=radio]';
+    const sel = 'button, a[href], input, select, textarea, [role=button], [role=checkbox], [role=switch], [role=tab], [role=link], [role=radio], .mantine-SegmentedControl-label, label[for]';
+    const isNativeToggle = (el: Element | null): el is HTMLInputElement =>
+      !!el && el.tagName === 'INPUT' && ((el as HTMLInputElement).type === 'checkbox' || (el as HTMLInputElement).type === 'radio');
+    const labelFor = (el: Element): HTMLElement | null => (el.id ? document.querySelector<HTMLElement>(`label[for="${CSS.escape(el.id)}"]`) : null);
+    /** Native kutucuk/radyo (çoğu görsel olarak gizli): dokunulan kutu. */
+    const toggleTarget = (input: HTMLInputElement): HTMLElement => {
+      if (input.closest('.mantine-Switch-root')) return input.closest<HTMLElement>('.mantine-Switch-body') ?? labelFor(input) ?? input;
+      if (input.closest('.mantine-SegmentedControl-root') || input.closest('.mantine-Chip-root')) return labelFor(input) ?? input;
+      return input.closest<HTMLElement>('label') ?? input.closest<HTMLElement>('.mantine-Checkbox-root') ?? labelFor(input) ?? input.parentElement ?? input;
+    };
+    const targetOf = (el: HTMLElement): HTMLElement | null => {
+      if (el.tagName === 'LABEL' && el.hasAttribute('for')) {
+        const ctrl = document.getElementById(el.getAttribute('for') ?? '');
+        return isNativeToggle(ctrl) ? toggleTarget(ctrl) : null;
+      }
+      return isNativeToggle(el) ? toggleTarget(el) : el;
+    };
     const out: string[] = [];
+    const seen = new Set<Element>();
     for (const el of Array.from(document.querySelectorAll<HTMLElement>(sel))) {
       if (el.closest('[data-inline-link]') || el.hasAttribute('data-inline-link')) continue;
-      const r = el.getBoundingClientRect();
-      const cs = getComputedStyle(el);
+      const target = targetOf(el);
+      if (!target || seen.has(target)) continue;
+      seen.add(target);
+      const r = target.getBoundingClientRect();
+      const cs = getComputedStyle(target);
       if (r.width === 0 || r.height === 0 || cs.visibility === 'hidden' || cs.display === 'none') continue;
-      if (cs.opacity === '0' || cs.position === 'absolute' && (cs.clip !== 'auto' && cs.clip !== '') ) continue; // görsel olarak gizli native input
+      if (cs.opacity === '0' || (cs.position === 'absolute' && cs.clip !== 'auto' && cs.clip !== '')) continue; // sarmalayıcısız, görsel olarak gizli
       if (r.bottom < 0 || r.top > window.innerHeight) continue;
-      // Görünmez native input'lar (Mantine Checkbox/Switch) sarmalayıcı etiketle ölçülür
-      let target: HTMLElement = el;
-      if ((el.tagName === 'INPUT' && (el as HTMLInputElement).type === 'checkbox') || el.getAttribute('role') === 'switch' || el.getAttribute('role') === 'radio') {
-        target = el.closest('label') ?? el.parentElement ?? el;
-      }
-      const tr = target.getBoundingClientRect();
-      if (tr.width < 44 - 0.5 || tr.height < 44 - 0.5) {
-        out.push(`${el.tagName.toLowerCase()}[${el.getAttribute('aria-label') ?? el.textContent?.trim().slice(0, 20) ?? ''}] ${Math.round(tr.width)}x${Math.round(tr.height)}`);
+      if (r.width < 44 - 0.5 || r.height < 44 - 0.5) {
+        const name = el.getAttribute('aria-label') ?? (target.textContent || el.textContent || '').trim().slice(0, 20);
+        out.push(`${el.tagName.toLowerCase()}[${name}] ${Math.round(r.width)}x${Math.round(r.height)}`);
       }
     }
     return out.slice(0, 12);

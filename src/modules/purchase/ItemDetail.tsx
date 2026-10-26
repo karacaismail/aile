@@ -16,6 +16,8 @@ import { PriceInput } from '@/components/PriceInput';
 import { LinksField } from '@/components/LinksField';
 import { EnumSelect } from '@/components/EnumSelect';
 import { ConflictBanner } from './ConflictBanner';
+import { DetailSkeleton } from '@/components/DetailSkeleton';
+import { selectFirstLoad } from '@/data/selectors';
 
 const schema = z.object({
   ad: z.string().trim().min(1, 'Ad gerekli'),
@@ -60,10 +62,14 @@ export function toPatch(v: FormValues, prev?: Item): Record<string, unknown> {
   return patch;
 }
 
+// Temizle düğmesi de dokunma hedefi (≥44); sağ bölüm ona göre genişler.
+const dateProps = { valueFormat: 'D MMM YYYY', dropdownType: 'modal' as const, clearable: true, clearButtonProps: { size: 'xl' as const, 'aria-label': 'Tarihi temizle' }, rightSectionWidth: 44 };
+
 export function ItemDetail({ id }: { id: string }) {
   const [, navigate] = useLocation();
   const isNew = id === 'yeni';
   const item = useAppStore((s) => (isNew ? undefined : s.items.find((i) => i.id === id)));
+  const firstLoad = useAppStore(selectFirstLoad);
   const isMobile = useMediaQuery('(max-width: 48em)', true);
   const initial = useMemo(() => toForm(item), [item]);
   // Not: bileşen `key={id}` ile yeniden kurulur; sunucudan gelen güncellemeler düzenleme sırasında formu ezmez (çakışma bandı gösterir).
@@ -85,7 +91,7 @@ export function ItemDetail({ id }: { id: string }) {
   if (!isNew && !item) {
     return (
       <Modal opened onClose={close} title="Kalem" fullScreen={isMobile} closeButtonProps={{ size: 'xl', 'aria-label': 'Kapat' }}>
-        <Alert color="yellow">Kalem bulunamadı (silinmiş ya da henüz eşitlenmemiş olabilir).</Alert>
+        {firstLoad ? <DetailSkeleton testId="item-detail-loading" /> : <Alert color="yellow">Kalem bulunamadı (silinmiş ya da henüz eşitlenmemiş olabilir).</Alert>}
       </Modal>
     );
   }
@@ -114,9 +120,9 @@ export function ItemDetail({ id }: { id: string }) {
           </SimpleGrid>
           <Divider label="Sipariş" labelPosition="left" />
           <TextInput label="Nereden" {...form.getInputProps('nereden')} key={form.key('nereden')} />
-          <SimpleGrid cols={2} spacing="xs">
-            <DatePickerInput label="Sipariş son tarih" valueFormat="D MMM YYYY" dropdownType="modal" clearable value={form.getValues().siparis_son_tarih} onChange={(v) => form.setFieldValue('siparis_son_tarih', v)} />
-            <DatePickerInput label="Teslim tarihi" valueFormat="D MMM YYYY" dropdownType="modal" clearable value={form.getValues().teslim_tarihi} onChange={(v) => form.setFieldValue('teslim_tarihi', v)} />
+          <SimpleGrid cols={{ base: 1, xs: 2 }} spacing="xs">
+            <DatePickerInput label="Sipariş son tarih" {...dateProps} value={form.getValues().siparis_son_tarih} onChange={(v) => form.setFieldValue('siparis_son_tarih', v)} />
+            <DatePickerInput label="Teslim tarihi" {...dateProps} value={form.getValues().teslim_tarihi} onChange={(v) => form.setFieldValue('teslim_tarihi', v)} />
           </SimpleGrid>
           <NumberInput label="Teslim süresi (gün)" min={0} inputMode="numeric" hideControls value={form.getValues().teslim_suresi_gun ?? ''} onChange={(v) => form.setFieldValue('teslim_suresi_gun', v === '' ? null : Number(v))} />
           <LinksField value={form.getValues().linkler} onChange={(v) => form.setFieldValue('linkler', v)} />

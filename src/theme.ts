@@ -1,4 +1,4 @@
-import { ActionIcon, Button, Input, createTheme, type CSSVariablesResolver, type MantineColorsTuple } from '@mantine/core';
+import { ActionIcon, Button, Checkbox, Chip, Input, SegmentedControl, Switch, createTheme, type CSSVariablesResolver, type MantineColorsTuple } from '@mantine/core';
 
 // Sıcak nötr zemin (sand) + terracotta vurgu (ember). Emoji yok, ikon Phosphor.
 const sand: MantineColorsTuple = [
@@ -48,5 +48,11 @@ export const theme = createTheme({
     ActionIcon: ActionIcon.extend({ defaultProps: { size: 'xl', variant: 'subtle' } }),
     Button: Button.extend({ styles: { root: { minHeight: 44 } } }),
     Input: Input.extend({ styles: { input: { minHeight: 44, fontSize: 16 } } }),
+    // Dokunma hedefi ≥44 px (320×480 kuralı): görünmez native input'lu bileşenlerde dokunulan kutu gövde/etikettir.
+    Switch: Switch.extend({ styles: { body: { minHeight: 44, alignItems: 'center' } } }),
+    Checkbox: Checkbox.extend({ styles: (_theme, props) => (props.label ? { body: { minHeight: 44, alignItems: 'center' } } : {}) }),
+    // Satır yüksekliğiyle ortalanır; `display: block` kalır (dar segmentte üç nokta çalışır).
+    SegmentedControl: SegmentedControl.extend({ styles: { label: { minHeight: 44, paddingBlock: 0, lineHeight: '44px' } } }),
+    Chip: Chip.extend({ styles: { label: { height: 44 } } }),
   },
 });

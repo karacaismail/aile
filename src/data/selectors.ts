@@ -1,5 +1,9 @@
 import type { Item, Faz } from '@shared/schema';
 import { daysUntil } from '@/lib/dates';
+import type { AppState } from '@/sync/store';
+
+/** İlk veri henüz yok: önbellek okunmadı ya da ilk sunucu okuması sürüyor. Detay formları bu bitmeden "bulunamadı" demez ve form kurulmaz. */
+export const selectFirstLoad = (s: AppState): boolean => !s.hydrated || s.status === 'idle' || s.status === 'loading';
 
 export const DONE_DURUM = new Set(['teslim', 'kuruldu']);
 export const CLOSED_DURUM = new Set(['teslim', 'kuruldu', 'iptal']);

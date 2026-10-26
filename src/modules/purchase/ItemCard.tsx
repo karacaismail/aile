@@ -40,7 +40,7 @@ export function ItemCard({ item, onToggleDone }: { item: Item; onToggleDone: (it
             <FazBadge value={item.faz} />
             <DurumBadge value={item.durum} />
             <OdaBadge value={item.oda} />
-            {item.adet && item.adet > 1 ? <Badge size="xs" variant="default">{item.adet} {item.birim ?? 'adet'}</Badge> : null}
+            {item.adet && (item.adet > 1 || (item.birim && item.birim !== 'adet')) ? <Badge size="xs" variant="default" className="tabular">{item.adet} {item.birim ?? 'adet'}</Badge> : null}
             {item.mevcut && <WarnBadge tone="ok" leftSection={<HouseIcon size={10} aria-hidden />}>elimizde</WarnBadge>}
             {item.karar_bekliyor && <WarnBadge tone="warn" leftSection={<QuestionIcon size={10} aria-hidden />}>karar</WarnBadge>}
             {dueSoon && <WarnBadge tone={due! < 0 ? 'danger' : 'warn'} leftSection={<ClockCountdownIcon size={10} aria-hidden />}>

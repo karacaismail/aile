@@ -1,0 +1,25 @@
+.card { cursor: pointer; min-height: 44px; }
+.strip { height: 4px; border-radius: 2px; }
+.miniStrip { display: inline-block; width: 40px; height: 4px; border-radius: 2px; vertical-align: middle; margin-inline-start: 6px; }
+.sticky {
+  position: sticky;
+  top: var(--app-shell-header-offset, 0px);
+  z-index: 10;
+  border-bottom: 1px solid var(--mantine-color-default-border);
+  background: var(--mantine-color-body);
+}
+.iconBox {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--mantine-radius-md);
+  background: var(--mantine-color-default-hover);
+  color: var(--mantine-color-text);
+}
+.grow { flex: 1; min-width: 0; }
+.tabs { min-height: 44px; }
+.tabs .tabsLabel { min-height: 44px; padding-inline: 6px; }
+.stepLine { display: block; }

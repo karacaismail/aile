@@ -25,3 +25,8 @@ class ResizeObserverMock {
   disconnect() {}
 }
 window.ResizeObserver = ResizeObserverMock as unknown as typeof ResizeObserver;
+
+// jsdom'da document.fonts yok; Mantine Textarea autosize 'loadingdone' olayını dinler.
+if (!('fonts' in document)) {
+  Object.defineProperty(document, 'fonts', { configurable: true, value: { addEventListener() {}, removeEventListener() {}, ready: Promise.resolve(), check: () => true } });
+}

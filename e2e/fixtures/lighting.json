@@ -1,0 +1,22 @@
+{
+  "ok": true,
+  "fingerprint": "fx-1",
+  "serverTime": "2026-10-26T10:00:00.000Z",
+  "schemaVersion": 1,
+  "items": [
+    { "id": "01TESTITEM0000000000000001", "tip": "satinalma", "kod": "201", "ad": "Şerit LED 24V 5 m", "faz": "1", "durum": "karar", "oda": "salon", "kategori": "aydinlatma_led", "tahmini_tl_min": 1200, "tahmini_tl_max": 1500, "adet": 1, "birim": "adet", "oncelik": 1, "siparis_son_tarih": "2099-01-10", "version": 1, "updated_at": "2026-10-20T10:00:00.000Z" },
+    { "id": "01TESTITEM0000000000000002", "tip": "satinalma", "kod": "202", "ad": "LED sürücü 60 W", "faz": "1", "durum": "arastirma", "oda": "genel", "kategori": "elektrik", "tahmini_tl_min": 400, "tahmini_tl_max": 500, "adet": 1, "oncelik": 2, "bagli_idler": ["01TESTLAYER000000000000001"], "version": 1, "updated_at": "2026-10-21T10:00:00.000Z" },
+    { "id": "01TESTLAYER000000000000001", "tip": "aydinlatma", "ad": "Salon tavan çizgisel", "oda": "salon", "katman_tur": "ana", "katman_ad": "Tavan çizgisel", "amac": "Genel aydınlatma", "lux_min": 150, "lux_max": 200, "lux_duzlem": "yatay", "cct_mod": "ayarli", "cct_min": 2700, "cct_max": 4000, "cri_min": 80, "flicker": "ff", "kontrol_cihaz": "hue_dimmer", "urun_sinifi": "COB şerit 24V", "uzunluk_m": 4, "w_per_m": 10, "surucu_w": 60, "adim": "elektrik", "kim": ["E"], "tahmini_tl_min": 1000, "tahmini_tl_max": 1500, "fiyat_guven": "tahmini", "bagli_idler": ["01TESTITEM0000000000000001"], "version": 1, "updated_at": "2026-10-22T10:00:00.000Z" },
+    { "id": "01TESTLAYER000000000000002", "tip": "aydinlatma", "ad": "Salon okuma köşesi", "oda": "salon", "katman_tur": "gorev", "katman_ad": "Okuma köşesi", "amac": "Okuma ve el işi", "lux_min": 500, "lux_max": 500, "lux_duzlem": "yatay", "cct_mod": "sabit", "cct_min": 3000, "cct_max": 3000, "cri_min": 95, "r9_min": 50, "flicker": "ff", "kontrol_cihaz": "hue_button", "adim": "ampul", "kim": ["K"], "tahmini_tl_min": 800, "tahmini_tl_max": 800, "version": 1, "updated_at": "2026-10-22T10:00:00.000Z" },
+    { "id": "01TESTLAYER000000000000003", "tip": "aydinlatma", "ad": "Salon süpürgelik gece", "oda": "salon", "katman_tur": "gece", "katman_ad": "Süpürgelik gece", "lux_min": 5, "lux_max": 10, "lux_duzlem": "yer", "cct_mod": "sabit", "cct_min": 2200, "cct_max": 2200, "kontrol_cihaz": "hue_motion", "acikta": true, "montaj_yukseklik_cm": 15, "adim": "profil", "kim": ["E", "K"], "version": 1, "updated_at": "2026-10-22T10:00:00.000Z" },
+    { "id": "01TESTLAYER000000000000004", "tip": "aydinlatma", "ad": "Çocuk odası tavan", "oda": "cocuk", "katman_tur": "ana", "katman_ad": "Tavan", "lux_min": 200, "lux_max": 300, "lux_duzlem": "yatay", "cct_mod": "ayarli", "cct_min": 2700, "cct_max": 4000, "kontrol_cihaz": "duvar_anahtari", "adim": "elektrik", "tahmini_tl_min": 500, "tahmini_tl_max": 700, "version": 1, "updated_at": "2026-10-23T10:00:00.000Z" },
+    { "id": "01TESTLAYER000000000000005", "tip": "aydinlatma", "ad": "Çocuk odası ders masası", "oda": "cocuk", "katman_tur": "gorev", "katman_ad": "Ders masası", "lux_min": 500, "lux_max": 750, "lux_duzlem": "yatay", "cct_mod": "sabit", "cct_min": 4000, "cct_max": 4000, "cri_min": 90, "kontrol_cihaz": "lamba_dugmesi", "adim": "ampul", "version": 1, "updated_at": "2026-10-23T10:00:00.000Z" },
+    { "id": "01TESTLAYER000000000000006", "tip": "aydinlatma", "ad": "Çocuk odası gece lambası", "oda": "cocuk", "katman_tur": "gece", "katman_ad": "Gece lambası", "cct_mod": "sabit", "cct_min": 2200, "cct_max": 2200, "kontrol_cihaz": "smart_plug", "adim": "akilli", "version": 1, "updated_at": "2026-10-23T10:00:00.000Z" },
+    { "id": "01TESTSCENE000000000000001", "tip": "sahne", "ad": "Akşam filmi", "oda": "salon", "tetik": "dugme", "seviyeler": ["01TESTLAYER000000000000001:20:2700", "01TESTLAYER000000000000003:40:2200"], "not": "Hue düğmesi 1. basış", "version": 1, "updated_at": "2026-10-24T10:00:00.000Z" }
+  ],
+  "settings": [
+    { "id": "01TESTSET00000000000000001", "tip": "tarih", "anahtar": "tasinma", "deger": "2099-02-19", "etiket": "Taşınma", "version": 1 },
+    { "id": "01TESTSET00000000000000002", "tip": "oda", "anahtar": "salon", "deger": "{\"en_cm\":450,\"boy_cm\":600,\"yuk_cm\":270,\"kopek_erisim\":\"serbest\"}", "etiket": "Salon", "version": 1 },
+    { "id": "01TESTSET00000000000000003", "tip": "oda", "anahtar": "cocuk", "deger": "{\"en_cm\":320,\"boy_cm\":400,\"yuk_cm\":270,\"kopek_erisim\":\"kapali\"}", "etiket": "Çocuk odası", "version": 1 }
+  ]
+}
