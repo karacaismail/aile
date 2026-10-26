@@ -376,7 +376,7 @@ var __aile = (() => {
   // gas/src/core.ts
   var META = new Set(META_KEYS);
   function isBlankRow(row) {
-    return row.every((cell) => cell === "" || cell === null || cell === void 0);
+    return row.every((cell) => cell === "" || cell === null || cell === void 0 || cell === false);
   }
   function createTableState(columns, headers, cells, firstSheetRow = 2, now) {
     const st = { columns, headers, rows: [], sheetRows: [], index: /* @__PURE__ */ new Map(), dirty: /* @__PURE__ */ new Set() };

@@ -111,6 +111,21 @@ describe('applyBatch', () => {
   });
 });
 
+describe('createTableState', () => {
+  it('onay kutusu FALSE değerleriyle dolu boş satırlar kayıt sayılmaz', () => {
+    const headers = ['id', 'tip', 'ad', 'mevcut', 'karar_bekliyor', 'version'];
+    const st = createTableState(ITEM_COLUMNS, headers, [
+      ['', '', '', false, false, ''],
+      ['', 'satinalma', 'Elle eklenen', false, false, ''],
+      ['', '', '', '', '', ''],
+    ], 2, NOW);
+    expect(st.rows).toHaveLength(1);
+    expect(st.rows[0]).toMatchObject({ tip: 'satinalma', ad: 'Elle eklenen', version: 0 });
+    expect(st.sheetRows).toEqual([3]);
+    expect(st.dirty.has(0)).toBe(true);
+  });
+});
+
 describe('readState', () => {
   it('parmak izi değişmediyse notModified', () => {
     const st = fresh();

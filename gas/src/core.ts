@@ -19,8 +19,9 @@ export interface State { kalemler: TableState; ayarlar: TableState }
 export const TABLE_COLUMNS: Record<Table, readonly ColumnDef[]> = { kalemler: ITEM_COLUMNS, ayarlar: SETTING_COLUMNS };
 const META = new Set<string>(META_KEYS);
 
+/** Boş satır: yalnız boş hücreler ve onay kutusu doğrulamasının ürettiği FALSE değerleri. */
 function isBlankRow(row: readonly Cell[]): boolean {
-  return row.every((cell) => cell === '' || cell === null || cell === undefined);
+  return row.every((cell) => cell === '' || cell === null || cell === undefined || cell === false);
 }
 
 /** cells: başlık satırı HARİÇ veri satırları; firstSheetRow: ilk veri satırının sheet numarası (genelde 2). */
