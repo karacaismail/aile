@@ -1,40 +1,42 @@
 # Apps Script bağlantısı (Google Sheets ↔ uygulama)
 
-Uygulama veriyi Google Sheets'teki iki sekmede tutar: `app_kalemler` ve `app_ayarlar`.
-Bu klasördeki `Code.js` tabloya bağlı (container-bound) bir Apps Script web uygulamasıdır.
-Yalnız bu iki sekmeyi okur/yazar; tablodaki diğer sekmelere dokunmaz.
+Uygulama veriyi Google Sheets'teki iki sekmede tutar: `app_kalemler` ve `app_ayarlar` (tablo: "Aile bütçesi - 2027 - v0").
+`Code.js` tabloya bağlı (container-bound) bir Apps Script web uygulamasıdır; yalnız bu iki sekmeyi okur/yazar.
 
-## A) clasp ile (önerilen; bir kez oturum açarsınız, sonrası komutla)
+## Kurulum (bir kez, ~10 dakika)
 
-1. Apps Script API'yi açın: https://script.google.com/home/usersettings → "Google Apps Script API" → Açık.
-2. Bu klasörde terminalde oturum açın (tarayıcı açılır, Google hesabınızla onaylarsınız):
+1. **Apps Script API'yi açın:** https://script.google.com/home/usersettings → "Google Apps Script API" → Açık.
+2. **Oturum açın** (tarayıcı açılır, Google hesabınızla onaylarsınız):
 
    ```bash
    pnpm exec clasp login
    ```
 
-3. Tabloya bağlı script oluşturulur, kod gönderilir, kurulum çalıştırılır ve web uygulaması dağıtılır
-   (bu adımlar komutla yapılır; ilk `setup` çalıştırmasında bir kez daha yetki onayı istenir).
+3. **Script oluşturulur ve kod gönderilir** (komut):
 
-## B) Yapıştırarak (clasp olmadan)
+   ```bash
+   scripts/gas-setup.sh create
+   ```
 
-1. Google Sheets'te tabloyu açın → Uzantılar → Apps Script.
-2. `Code.gs` içeriğini silip `apps-script/Code.js` dosyasının içeriğini yapıştırın; `appsscript.json`
-   (Proje Ayarları → "appsscript.json" dosyasını göster) içeriğini `apps-script/appsscript.json` ile değiştirin.
-3. Fonksiyon listesinden `setup` seçip Çalıştır → izin verin. Günlükte "setup tamam" görünmeli.
-4. Dağıt → Yeni dağıtım → Tür: Web uygulaması → Yürüten: Ben → Erişim: Herkes → Dağıt.
-5. `/exec` ile biten URL'yi kopyalayın; uygulamada Ayarlar → "API adresi" alanına yapıştırın
-   (ya da repoya `VITE_API_URL` değişkeni olarak ekleyin).
+4. **Yetki verin:** `pnpm exec clasp open-script` ile editör açılır → fonksiyon listesinden `setup` → Çalıştır → "İzinleri incele" → hesabınızı seçip izin verin.
+   Günlükte `setup tamam` görünür; tabloda `app_kalemler` ve `app_ayarlar` sekmeleri oluşur, `onEditInstallable` tetikleyicisi kurulur.
+5. **Dağıtın:** `scripts/gas-setup.sh deploy` → çıktıdaki `deploymentId` ile adres: `https://script.google.com/macros/s/<deploymentId>/exec`.
+   Dağıtım ayarları manifestten gelir: Yürüten "Ben", Erişim "Herkes".
+6. **Adresi uygulamaya verin:** repo değişkeni `gh variable set VITE_API_URL --body "<exec adresi>"` (Pages yeniden derlenir) ya da uygulamada Ayarlar → "API adresi".
+7. **Tohumlama:** `node scripts/seed.ts --csv "<Eşya CSV dosyası>" --url "<exec adresi>"` (önce `--dry` ile doğrulama).
 
-## Doğrulama
+Doğrulama: `curl -L "<exec adresi>?action=health"` → `{"ok":true,"app":"aile",...}`, `warnings` boş.
 
-```bash
-curl -L "https://script.google.com/macros/s/.../exec?action=health"
-```
+## Alternatif: yapıştırarak (clasp olmadan)
 
-`{"ok":true,"app":"aile",...}` dönmeli. `warnings` boş olmalı.
+Tablo → Uzantılar → Apps Script → `Code.gs` içeriğini `apps-script/Code.js` ile, `appsscript.json`'ı (Proje Ayarları → manifesti göster)
+`apps-script/appsscript.json` ile değiştirin → `setup` → Çalıştır → izin → Dağıt → Yeni dağıtım → Web uygulaması → Ben / Herkes.
+
+## Güncelleme
+
+Kod değişince `scripts/gas-setup.sh push` ve `scripts/gas-setup.sh deploy` (aynı deploymentId → adres değişmez).
 
 ## Güvenlik notu
 
-Opsiyonel: Proje Ayarları → Script Properties → `APP_KEY` eklerseniz uygulama Ayarlar'da aynı anahtarı ister;
-anahtarsız istekler reddedilir. Anahtar yoksa adres bilen herkes okuyup yazabilir (aile içi kullanım için kabul edilebilir).
+Proje Ayarları → Script Properties → `APP_KEY` eklerseniz uygulama Ayarlar'da aynı anahtarı ister; anahtarsız istekler reddedilir.
+Anahtar yoksa adresi bilen herkes okuyup yazabilir (aile içi kullanım için kabul edilebilir). Diğer sekmeler (bütçe, maaş) API'den asla dönmez.

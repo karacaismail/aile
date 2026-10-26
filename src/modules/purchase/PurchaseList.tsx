@@ -69,7 +69,7 @@ export function PurchaseList() {
         )}
       </Stack>
       <FilterDrawer opened={drawer} onClose={() => setDrawer(false)} filters={f} onChange={(nf) => setFilters({ ...nf, q: '' })} sort={sort} onSort={setSort} />
-      <Fab onClick={() => navigate('~/satinalma/yeni')} label="Kalem ekle" />
+      {list.length > 0 && <Fab onClick={() => navigate('~/satinalma/yeni')} label="Kalem ekle" />}
       <Route path="/:id">{(params) => <ItemDetail key={params.id} id={params.id} />}</Route>
     </Box>
   );

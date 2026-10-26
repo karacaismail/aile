@@ -15,4 +15,13 @@ pnpm build
 
 ## Kurulum (Google Sheets bağlantısı)
 
-Bkz. `apps-script/README.md`.
+Tek elle adım: Google hesabınızla `pnpm exec clasp login` (bir kez). Sonrası komutla: `scripts/gas-setup.sh create` → editörde `setup`'a bir kez izin → `scripts/gas-setup.sh deploy` → adresi `VITE_API_URL` olarak ekleyin → `node scripts/seed.ts --csv "<CSV>" --url "<exec>"`.
+Ayrıntı: `apps-script/README.md`. Geliştirme kuralları: `docs/GELISTIRME.md`.
+
+## Yapı
+
+- `shared/` şema, dönüştürme, CSV normalizasyonu (uygulama + Apps Script + tohumlama ortak)
+- `gas/src/` Apps Script kaynağı → `pnpm gas:build` → `apps-script/Code.js`
+- `src/modules/` purchase (Satınalma), lighting (Aydınlatma), renovation (Tadilat), layout (Yerleşim), settings
+- `src/sync/` önbellek, çevrimdışı kuyruk, çakışma, Apps Script istemcisi
+- `seed/private/` aile verisi (gitignore); `seed/templates/` jenerik şablonlar
