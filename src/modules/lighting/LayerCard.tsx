@@ -60,8 +60,8 @@ export function LayerCard({ layer, room, linkedCount = 0 }: { layer: Item; room?
           <Group gap={4} wrap="wrap">
             {layer.flicker && <Badge size="xs" variant="default">{label('flicker', layer.flicker)}</Badge>}
             {layer.kontrol_cihaz && <Badge size="xs" variant="default">{label('kontrol_cihaz', layer.kontrol_cihaz)}</Badge>}
-            {layer.adim && <Badge size="xs" variant="outline" color="gray.8">{label('adim', layer.adim)}</Badge>}
-            {(layer.kim ?? []).map((k) => <Badge key={k} size="xs" variant="outline" color="gray.8">{label('kim', k)}</Badge>)}
+            {layer.adim && <Badge size="xs" variant="outline" color="gray">{label('adim', layer.adim)}</Badge>}
+            {(layer.kim ?? []).map((k) => <Badge key={k} size="xs" variant="outline" color="gray">{label('kim', k)}</Badge>)}
             {linkedCount > 0 && <Badge size="xs" variant="default">{linkedCount} ürün</Badge>}
             {drv && drv.ok === true && drv.marginPct != null && <WarnBadge tone="ok">sürücü payı %{drv.marginPct}</WarnBadge>}
             {warnings.map((w) => <WarnBadge key={w.key} tone={w.tone}>{w.text}</WarnBadge>)}

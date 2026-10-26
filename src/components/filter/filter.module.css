@@ -1,0 +1,33 @@
+/* Çip içi: etiket kalın, sayım normal; nokta DurumBadge ile aynı */
+.chipLabel { padding-inline: 14px; }
+.chipInner { display: inline-flex; align-items: center; gap: 6px; }
+.chipLabel[data-checked] { padding-inline: 10px 14px; }
+.chipIconWrap { width: 16px; max-width: 16px; height: 16px; display: flex; align-items: center; margin-inline-end: 6px; }
+.chipDot { display: inline-flex; align-items: center; }
+.chipText { font-weight: 600; }
+.chipCount { font-weight: 400; }
+
+/* Şerit (320 tabanı): tek satır, yatay kaydırma, kaydırma çubuğu yok, sağda solma = "devamı var" ipucu */
+.rail {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent);
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent);
+  padding-inline-end: 20px;
+}
+.rail::-webkit-scrollbar { display: none; }
+.railInner { width: max-content; min-width: 100%; padding-inline-end: 6px; }
+.railWide { width: 100%; }
+
+/* Sayfa: içerik dikey flex, gövde kayar, alt çubuk sabit */
+.sheetContent { display: flex; flex-direction: column; overflow: hidden; }
+.sheetHeader { flex: 0 0 auto; border-bottom: 1px solid var(--mantine-color-default-border); padding-inline: var(--mantine-spacing-sm); min-height: 52px; }
+.sheetTitle { font-size: 1.125rem; font-weight: 700; }
+.sheetBody { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 0; }
+.sheetFooter { flex: 0 0 auto; border-top: 1px solid var(--mantine-color-default-border); background: var(--mantine-color-body); padding-bottom: calc(6px + var(--aile-safe-bottom)); }
+
+/* Sıralama satırları: tüm kart dokunulabilir, ≥44 px */
+.radioRow { min-height: 44px; padding: 6px 10px; display: flex; align-items: center; cursor: pointer; }

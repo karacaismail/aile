@@ -45,6 +45,16 @@ Modül `<Route path="/aydinlatma" nest>` içinde render edilir. İç rotalar gö
 - Mantine 9: `EmptyState` (+ `EmptyState.Actions`), `Timeline`, `Stepper`, `RingProgress`, `Progress`, `RangeSlider`, `SegmentedControl`, `Chip.Group`, `Drawer position="bottom"`, `CopyButton`, `Accordion`, `Checkbox.Card`, `NativeSelect` (mobilde tercih), `DatePickerInput` (`@mantine/dates`, değer `'YYYY-MM-DD'` string, `dropdownType="modal"`), `NumberInput` → her zaman `hideControls` + `inputMode`.
 - İkonlar: `@phosphor-icons/react`, adlar `*Icon` sonekli (`SunIcon`, `MoonIcon`, `LampIcon`, `HammerIcon`, `CalendarBlankIcon`, `ClipboardTextIcon`, `WhatsappLogoIcon`, `PhoneIcon`, `WallIcon`, `RulerIcon`, `PlugIcon`). Emoji **yasak**.
 
+## Filtre dili (tek ilke: her yerde aynı çip)
+`@/components/filter`: `FilterChip` (etiket + sayım, seçili = dolu birincil + onay ikonu, `icon="x"` = kaldırılabilir aktif filtre, `dot` = durum noktası),
+`FacetChips` (`optionCounts` haritasından çipler; sıfır sayımlılar gizli, seçili ama sayımsız değer "0" ile kalır; `''` = "Belirsiz"),
+`FilterRail` (320'de yatay kayan tek satır, ≥48em sarar), `FilterSheet` (320'de alttan tam yükseklik, ≥48em sağdan panel; gövde kayar, alt çubuk
+"Temizle (n)" / "N kalemi göster" sabittir; filtreler anında uygulanır, "Uygula" yoktur), `FilterSection`, `SortControl` (sıralama filtre değildir:
+320'de alttan radyo kartları, ≥48em etiketli düğme + açılır kutu). Sayımlar her zaman "bu seçenek açılırsa kaç kalem" anlamındadır
+(`countWith`, `optionCounts`, `quickCounts` — `@/data/selectors`). Çip görünümü `src/styles.css` genel kurallarından gelir (açık/koyu AA);
+`variant="light"` çip KULLANMAYIN. Satınalma örneği: `src/modules/purchase/PurchaseFilterSections.tsx` + `PurchaseList.tsx`.
+Görünmez native input'lu çipler Playwright'ta sarmalayıcıya tıklanır: `page.getByTestId('quick-chip-fiyatsiz').click()`.
+
 ## 320×480 kuralları (ölçülür)
 Yatay taşma yok; her etkileşimli öğe ≥44×44 (ActionIcon varsayılanı xl, Button/Input minHeight 44; tıklanabilir kart alanlarına `min-height: 44px`);
 `Tooltip` yok (hover yok); uzun metin `lineClamp` + `data-allow-clamp`; satır içi metin bağlantısına `data-inline-link`; liste altına `pb={96}` (FAB);

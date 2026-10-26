@@ -1,0 +1,9 @@
+/* Araç çubuğu (arama + sırala + huni) ve hızlı şerit: başlığın altına yapışır */
+.toolbar {
+  position: sticky;
+  top: var(--app-shell-header-offset, 0px);
+  z-index: 10;
+  border-bottom: 1px solid var(--mantine-color-default-border);
+  background: var(--mantine-color-body);
+}
+.divider { grid-column: 1 / -1; }

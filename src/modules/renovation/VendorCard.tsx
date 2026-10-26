@@ -24,7 +24,7 @@ export function VendorCard({ vendor }: { vendor: Item }) {
             </Text>
           </Group>
           <Group gap={4} wrap="wrap">
-            {vendor.meslek && <Badge size="xs" variant="outline" color="gray.8">{label('meslek', vendor.meslek)}</Badge>}
+            {vendor.meslek && <Badge size="xs" variant="outline" color="gray">{label('meslek', vendor.meslek)}</Badge>}
             <WarnBadge tone={vendor.myk_dogrulandi ? 'ok' : 'warn'}>{vendor.myk_dogrulandi ? 'MYK doğrulandı' : 'MYK doğrulanmadı'}</WarnBadge>
             {vendor.teklif_sure_gun != null && <Badge size="xs" variant="default">{vendor.teklif_sure_gun} gün</Badge>}
             {vendor.garanti_ay != null && <Badge size="xs" variant="default">{vendor.garanti_ay} ay garanti</Badge>}

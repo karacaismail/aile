@@ -25,13 +25,20 @@ test('arama ve filtre', async ({ page }) => {
   await page.getByRole('searchbox', { name: 'Kalem ara' }).fill('espresso');
   await expect(page.getByTestId('item-card')).toHaveCount(1);
   await page.getByRole('searchbox', { name: 'Kalem ara' }).fill('');
+  await expect(page.getByTestId('item-card')).toHaveCount(7);
+  // Hızlı şerit: tek dokunuş
+  await page.getByTestId('quick-chip-fiyatsiz').click();
+  await expect(page.getByTestId('item-card')).toHaveCount(3);
+  for (const t of await page.getByTestId('item-card').allInnerTexts()) expect(t).not.toContain('₺');
+  await expect(page.getByTestId('filter-button')).toHaveAccessibleName('Filtrele, 1 etkin');
+  // Sayfa aynı durumu gösterir; "N kalemi göster" kapatır
   await page.getByTestId('filter-button').click();
   await expect(page.getByTestId('filter-drawer')).toBeVisible();
-  await page.getByLabel('Yalnız fiyatsızlar').check();
-  await page.getByRole('button', { name: 'Uygula' }).click();
-  const count = await page.getByTestId('item-card').count();
-  expect(count).toBeGreaterThan(0);
-  for (const t of await page.getByTestId('item-card').allInnerTexts()) expect(t).not.toContain('₺');
+  await expect(page.getByTestId('sheet-chip-fiyatsiz').getByRole('checkbox')).toBeChecked();
+  await expect(page.getByTestId('filter-apply')).toHaveText('3 kalemi göster');
+  await page.getByTestId('filter-apply').click();
+  await expect(page.getByTestId('filter-drawer')).toBeHidden();
+  await expect(page.getByTestId('item-card')).toHaveCount(3);
 });
 
 test('API erişilemezken önbellekten açılır, ekleme kuyruğa girer ve bağlantı dönünce gider', async ({ page }) => {

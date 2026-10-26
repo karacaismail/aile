@@ -42,7 +42,7 @@ export function TaskCard({ task, tasks }: { task: Item; tasks: readonly Item[] }
         </Group>
         <Group gap={4} wrap="wrap">
           <TaskDurumBadge value={task.durum} />
-          {task.is_kim?.map((k) => <Badge key={k} size="xs" variant="outline" color="gray.8">{label('is_kim', k)}</Badge>)}
+          {task.is_kim?.map((k) => <Badge key={k} size="xs" variant="outline" color="gray">{label('is_kim', k)}</Badge>)}
           {task.izin_gerekli && <WarnBadge tone={izinTone(task.izin_durumu)}>İzin: {label('izin_durumu', task.izin_durumu) || 'gerekli'}</WarnBadge>}
           {deps.length > 0 && <WarnBadge tone={resolved ? 'ok' : 'info'}>Bağımlı: {deps.join(', ')}</WarnBadge>}
         </Group>

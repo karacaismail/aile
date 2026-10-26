@@ -1,28 +1,39 @@
-import { Group, Paper, SegmentedControl, Text, Badge } from '@mantine/core';
-import { WarnBadge } from '@/components/badges';
+import { Group, Paper, SegmentedControl, Text } from '@mantine/core';
 import type { Faz } from '@shared/schema';
 import type { Totals } from '@/data/selectors';
 import { formatTl } from '@/lib/price';
 import classes from './TotalsBar.module.css';
 
-export function TotalsBar({ faz, onFaz, totals }: { faz: Faz | 'hepsi'; onFaz: (f: Faz | 'hepsi') => void; totals: Totals }) {
-  const range = totals.sumMin === totals.sumMax ? formatTl(totals.sumMin) : `${formatTl(totals.sumMin)}–${formatTl(totals.sumMax).replace('₺', '')}`;
+export interface TotalsBarProps {
+  faz: Faz | 'hepsi';
+  onFaz: (f: Faz | 'hepsi') => void;
+  /** Görünen kümenin toplamı (faz + filtre + arama). */
+  totals: Totals;
+  /** Görünen kart sayısı (mevcut/iptal dahil; toplamla aynı küme). */
+  count?: number;
+  /** Filtre ya da arama kümeyi daralttıysa: fazdaki toplam kalem sayısı → "görünen / kapsam kalem". */
+  total?: number;
+  filtered?: boolean;
+}
+
+/**
+ * Faz seçici + tek satır toplam. Toplam GÖRÜNEN kümeyi toplar; daraltma, para aralığını kırpmamak için
+ * önekle değil sayımla anlatılır ("3 / 7 kalem"). Uyarı sayımları (fiyatsız / karar / son tarih) hızlı çiplerde.
+ */
+export function TotalsBar({ faz, onFaz, totals, count, total, filtered = false }: TotalsBarProps) {
+  const range = totals.priced === 0 ? 'fiyat yok' : totals.sumMin === totals.sumMax ? formatTl(totals.sumMin) : `${formatTl(totals.sumMin)}–${formatTl(totals.sumMax).replace('₺', '')}`;
+  const shown = count ?? totals.count;
+  const countText = filtered && total != null ? `${shown} / ${total} kalem` : `${shown} kalem`;
   return (
     <Paper className={classes.bar} px="sm" py={6} radius={0} data-testid="totals-bar">
       <SegmentedControl
-        fullWidth
-        size="xs"
-        value={faz}
-        onChange={(v) => onFaz(v as Faz | 'hepsi')}
+        fullWidth size="xs" value={faz} onChange={(v) => onFaz(v as Faz | 'hepsi')} aria-label="Faz"
         data={[{ value: 'hepsi', label: 'Hepsi' }, { value: '1', label: 'Önce' }, { value: '2', label: 'Yerleşme' }, { value: '3', label: 'Bebek' }]}
-        aria-label="Faz"
       />
-      <Text fw={700} className="tabular" size="lg" mt={6} lineClamp={1} data-allow-clamp data-testid="totals-sum">{range}</Text>
-      <Group gap={4} wrap="wrap" mt={2}>
-        <Badge variant="default" size="xs">{totals.count} kalem</Badge>
-        {totals.unpriced > 0 && <WarnBadge tone="info" size="xs">{totals.unpriced} fiyatsız</WarnBadge>}
-        {totals.dueSoon > 0 && <WarnBadge tone="warn" size="xs">{totals.dueSoon} sipariş son tarihi</WarnBadge>}
-        {totals.pendingDecision > 0 && <WarnBadge tone="warn" size="xs">{totals.pendingDecision} karar bekliyor</WarnBadge>}
+      <Group gap={6} wrap="wrap" align="baseline" mt={6}>
+        <Text fw={700} className="tabular" size="lg" style={{ whiteSpace: 'nowrap' }} data-testid="totals-sum" data-filtered={filtered || undefined}>{range}</Text>
+        <Text aria-hidden style={{ flexShrink: 0 }}>·</Text>
+        <Text className="tabular" style={{ whiteSpace: 'nowrap' }} data-testid="totals-count" aria-label={filtered && total != null ? `Görünen ${shown} kalem, kapsamda ${total}` : undefined}>{countText}</Text>
       </Group>
     </Paper>
   );

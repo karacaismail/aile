@@ -4,6 +4,7 @@ import { vi } from 'vitest';
 const { getComputedStyle } = window;
 window.getComputedStyle = (elt: Element) => getComputedStyle(elt);
 window.HTMLElement.prototype.scrollIntoView = () => {};
+window.scrollTo = (() => {}) as typeof window.scrollTo;
 
 Object.defineProperty(window, 'matchMedia', {
   writable: true,

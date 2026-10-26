@@ -39,3 +39,47 @@ body {
 @media (min-width: 80em) {   /* masaüstü */
   :root { --aile-content-pad: 32px; --aile-content-max: 1280px; }
 }
+
+/* Çipler (filtre ve çoklu seçim): seçisiz = kenarlıklı zemin; seçili = dolu birincil renk + onay ikonu.
+   Açık: kenarlık sand-6 (3,9:1), seçili ember-7 + beyaz (5,6:1). Koyu: kenarlık dark-2 (4,0:1), seçili ember-4 + siyah (5,9:1).
+   Her iki temada seçili/seçisiz farkı dolgu + ikon + ağırlıkla verilir (yalnız renk değil). */
+.mantine-Chip-root .mantine-Chip-label:not([data-disabled]) {
+  background-color: var(--mantine-color-body);
+  border: 1px solid var(--mantine-color-sand-6);
+  color: var(--mantine-color-text);
+}
+[data-mantine-color-scheme='dark'] .mantine-Chip-root .mantine-Chip-label:not([data-disabled]) {
+  border-color: var(--mantine-color-dark-2);
+}
+.mantine-Chip-root .mantine-Chip-label:not([data-disabled]):active { background-color: var(--mantine-color-default-hover); }
+.mantine-Chip-root .mantine-Chip-label:not([data-disabled])[data-checked] {
+  --chip-bg: var(--mantine-color-ember-7);
+  --chip-hover: var(--mantine-color-ember-8);
+  --chip-color: var(--mantine-color-white);
+  background-color: var(--chip-bg);
+  border-color: var(--chip-bg);
+  color: var(--chip-color);
+}
+[data-mantine-color-scheme='dark'] .mantine-Chip-root .mantine-Chip-label:not([data-disabled])[data-checked] {
+  --chip-bg: var(--mantine-color-ember-4);
+  --chip-hover: var(--mantine-color-ember-3);
+  --chip-color: var(--mantine-color-black);
+}
+.mantine-Chip-root .mantine-Chip-label:not([data-disabled])[data-checked]:active { background-color: var(--chip-hover); }
+/* Devre dışı çip (sayım 0): kesikli kenarlık + soluk ama okunur metin (yalnız renk değil) */
+.mantine-Chip-root .mantine-Chip-label[data-disabled] {
+  background-color: var(--mantine-color-body);
+  border: 1px dashed var(--mantine-color-sand-6);
+  color: var(--mantine-color-dimmed);
+  cursor: not-allowed;
+}
+[data-mantine-color-scheme='dark'] .mantine-Chip-root .mantine-Chip-label[data-disabled] { border-color: var(--mantine-color-dark-2); }
+
+/* Anahtar (Switch): açık temada kapalı ray gray-3 (1,3:1) görünmez → çip kenarlığıyla aynı sand-6 */
+[data-mantine-color-scheme='light'] .mantine-Switch-track { --switch-bg: var(--mantine-color-sand-6); }
+/* Koyu temada açık anahtarın başlığı ember-4 üstünde siyah (beyaz 2,9:1) */
+[data-mantine-color-scheme='dark'] .mantine-Switch-input:checked + .mantine-Switch-track .mantine-Switch-thumb { --switch-thumb-bg: var(--mantine-color-black); }
+
+/* Faz/sekme seçici: etkin dilim yalnız açıklıkla değil kenarlıkla da ayrılır (1.4.11) */
+.mantine-SegmentedControl-indicator { box-shadow: inset 0 0 0 1px var(--mantine-color-sand-6); }
+[data-mantine-color-scheme='dark'] .mantine-SegmentedControl-indicator { box-shadow: inset 0 0 0 1px var(--mantine-color-dark-2); }

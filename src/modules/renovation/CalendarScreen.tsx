@@ -97,7 +97,7 @@ export function CalendarScreen({ now }: { now?: Date } = {}) {
                   {e.kind === 'tadilat'
                     ? <Badge size="xs" variant="default">{taskDurumLabel(e.item?.durum) || 'İş'}</Badge>
                     : <Badge size="xs" variant="default">{label('kilometre_tur', e.tur ?? 'bant')}</Badge>}
-                  {e.senaryo && e.senaryo !== 'hepsi' && <Badge size="xs" variant="outline" color="gray.8">Senaryo {e.senaryo}</Badge>}
+                  {e.senaryo && e.senaryo !== 'hepsi' && <Badge size="xs" variant="outline" color="gray">Senaryo {e.senaryo}</Badge>}
                   {e.current && <WarnBadge tone="ok">şu an</WarnBadge>}
                 </Group>
               </UnstyledButton>
@@ -114,8 +114,8 @@ export function CalendarScreen({ now }: { now?: Date } = {}) {
               {open.kind === 'tadilat'
                 ? <Badge size="sm" variant="default">{taskDurumLabel(open.item?.durum) || 'İş'}</Badge>
                 : <Badge size="sm" variant="default">{label('kilometre_tur', open.tur ?? 'bant')}</Badge>}
-              {open.senaryo && <Badge size="sm" variant="outline" color="gray.8">{label('senaryo', open.senaryo)}</Badge>}
-              {open.item?.is_kim?.map((k) => <Badge key={k} size="sm" variant="outline" color="gray.8">{label('is_kim', k)}</Badge>)}
+              {open.senaryo && <Badge size="sm" variant="outline" color="gray">{label('senaryo', open.senaryo)}</Badge>}
+              {open.item?.is_kim?.map((k) => <Badge key={k} size="sm" variant="outline" color="gray">{label('is_kim', k)}</Badge>)}
             </Group>
             {open.note ? <Text size="sm" style={{ whiteSpace: 'pre-wrap' }}>{open.note}</Text> : <Text size="sm" c="dimmed">Not yok</Text>}
             {open.kind === 'tadilat' && open.item && (
