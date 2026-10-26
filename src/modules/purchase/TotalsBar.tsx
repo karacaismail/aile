@@ -32,8 +32,11 @@ export function TotalsBar({ faz, onFaz, totals, count, total, filtered = false }
       />
       <Group gap={6} wrap="wrap" align="baseline" mt={6}>
         <Text fw={700} className="tabular" size="lg" style={{ whiteSpace: 'nowrap' }} data-testid="totals-sum" data-filtered={filtered || undefined}>{range}</Text>
-        <Text aria-hidden style={{ flexShrink: 0 }}>·</Text>
-        <Text className="tabular" style={{ whiteSpace: 'nowrap' }} data-testid="totals-count" aria-label={filtered && total != null ? `Görünen ${shown} kalem, kapsamda ${total}` : undefined}>{countText}</Text>
+        {/* Ayraç sayımla aynı satırda kalır: uzun aralıkta yalnız "· N kalem" alt satıra iner */}
+        <Text component="span" className="tabular" style={{ whiteSpace: 'nowrap' }}>
+          <span aria-hidden>· </span>
+          <span data-testid="totals-count" aria-label={filtered && total != null ? `Görünen ${shown} kalem, kapsamda ${total}` : undefined}>{countText}</span>
+        </Text>
       </Group>
     </Paper>
   );
