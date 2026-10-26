@@ -17,13 +17,12 @@ export function TotalsBar({ faz, onFaz, totals }: { faz: Faz | 'hepsi'; onFaz: (
         data={[{ value: 'hepsi', label: 'Hepsi' }, { value: '1', label: 'Önce' }, { value: '2', label: 'Yerleşme' }, { value: '3', label: 'Bebek' }]}
         aria-label="Faz"
       />
-      <Group justify="space-between" mt={6} wrap="nowrap" gap="xs">
-        <Text fw={700} className="tabular" size="lg" data-testid="totals-sum">{range}</Text>
-        <Group gap={4} wrap="nowrap">
-          <Badge variant="default" size="sm">{totals.count} kalem</Badge>
-          {totals.unpriced > 0 && <WarnBadge tone="info" size="sm">{totals.unpriced} fiyatsız</WarnBadge>}
-          {totals.dueSoon > 0 && <WarnBadge tone="warn" size="sm">{totals.dueSoon} sipariş</WarnBadge>}
-        </Group>
+      <Text fw={700} className="tabular" size="lg" mt={6} lineClamp={1} data-allow-clamp data-testid="totals-sum">{range}</Text>
+      <Group gap={4} wrap="wrap" mt={2}>
+        <Badge variant="default" size="xs">{totals.count} kalem</Badge>
+        {totals.unpriced > 0 && <WarnBadge tone="info" size="xs">{totals.unpriced} fiyatsız</WarnBadge>}
+        {totals.dueSoon > 0 && <WarnBadge tone="warn" size="xs">{totals.dueSoon} sipariş son tarihi</WarnBadge>}
+        {totals.pendingDecision > 0 && <WarnBadge tone="warn" size="xs">{totals.pendingDecision} karar bekliyor</WarnBadge>}
       </Group>
     </Paper>
   );
