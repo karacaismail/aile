@@ -56,7 +56,7 @@ describe('applyBatch', () => {
   it('çakışma: eski baseVersion ve son yazımla kesişen alan → o alan uygulanmaz, conflict döner', () => {
     const st = fresh();
     applyBatch(st, { action: 'batch', actor: 'a', ops: [{ op: 'upsert', table: 'kalemler', id: 'ID1', opId: 'OP1', patch: { tip: 'satinalma', ad: 'Koli', adet: 2 } }] }, NOW);
-    // Gül Sheets'ten adet'i 3 yaptı (version 2)
+    // Başka bir cihaz Sheets'ten adet'i 3 yaptı (version 2)
     applyBatch(st, { action: 'batch', actor: 'gul', ops: [{ op: 'upsert', table: 'kalemler', id: 'ID1', opId: 'OP2', baseVersion: 1, patch: { adet: 3 } }] }, LATER);
     // Telefon hâlâ version 1 sanıyor, adet=7 ve not='x' gönderiyor
     const res = applyBatch(st, { action: 'batch', actor: 'tel', ops: [{ op: 'upsert', table: 'kalemler', id: 'ID1', opId: 'OP3', baseVersion: 1, patch: { adet: 7, not: 'x' } }] }, LATER);
@@ -106,8 +106,8 @@ describe('applyBatch', () => {
 
   it('ayarlar tablosuna da yazılır', () => {
     const st = fresh();
-    const res = applyBatch(st, { action: 'batch', actor: 'a', ops: [{ op: 'upsert', table: 'ayarlar', id: 'S1', opId: 'OP1', patch: { tip: 'tarih', anahtar: 'tasinma', deger: '2027-02-19' } }] }, NOW);
-    expect(res.results[0].row).toMatchObject({ tip: 'tarih', anahtar: 'tasinma', deger: '2027-02-19', version: 1 });
+    const res = applyBatch(st, { action: 'batch', actor: 'a', ops: [{ op: 'upsert', table: 'ayarlar', id: 'S1', opId: 'OP1', patch: { tip: 'tarih', anahtar: 'tasinma', deger: '2099-02-20' } }] }, NOW);
+    expect(res.results[0].row).toMatchObject({ tip: 'tarih', anahtar: 'tasinma', deger: '2099-02-20', version: 1 });
   });
 });
 

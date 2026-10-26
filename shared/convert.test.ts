@@ -23,10 +23,10 @@ describe('cellToValue / valueToCell', () => {
     expect(cellToValue('liste', '')).toBeUndefined();
   });
   it('tarih: Date nesnesi sheet saat diliminde yyyy-MM-dd olur; metin olduğu gibi kalır', () => {
-    const d = new Date(2027, 1, 19, 0, 0, 0); // 19 Şubat 2027 yerel saat
-    expect(cellToValue('tarih', d)).toBe('2027-02-19');
-    expect(cellToValue('tarih', '2027-02-19')).toBe('2027-02-19');
-    expect(valueToCell('tarih', '2027-02-19')).toBe('2027-02-19');
+    const d = new Date(2099, 1, 20, 0, 0, 0); // 20 Şubat 2099 yerel saat
+    expect(cellToValue('tarih', d)).toBe('2099-02-20');
+    expect(cellToValue('tarih', '2099-02-20')).toBe('2099-02-20');
+    expect(valueToCell('tarih', '2099-02-20')).toBe('2099-02-20');
   });
   it('tarihsaat: ISO metni olduğu gibi; Date → ISO', () => {
     expect(cellToValue('tarihsaat', '2026-10-26T09:41:00.000Z')).toBe('2026-10-26T09:41:00.000Z');
@@ -41,10 +41,10 @@ describe('rowToRecord / recordToRow', () => {
     expect(rec).toEqual({ id: '01H', tip: 'satinalma', ad: 'Koli', adet: 3, linkler: ['https://a', 'https://b'], mevcut: true, version: 2 });
   });
   it('round-trip: kayıt → satır → kayıt aynıdır', () => {
-    const rec = { id: 'x', tip: 'satinalma', ad: 'İnci – ğüşçöÖĞ', adet: 1, linkler: ['u'], mevcut: false, version: 1 };
+    const rec = { id: 'x', tip: 'satinalma', ad: 'Örnek – ğüşçöÖĞİı', adet: 1, linkler: ['u'], mevcut: false, version: 1 };
     const row = recordToRow(ITEM_COLUMNS, headers, rec);
     expect(row).toHaveLength(headers.length);
-    expect(rowToRecord(ITEM_COLUMNS, headers, row)).toEqual({ id: 'x', tip: 'satinalma', ad: 'İnci – ğüşçöÖĞ', adet: 1, linkler: ['u'], mevcut: false, version: 1 });
+    expect(rowToRecord(ITEM_COLUMNS, headers, row)).toEqual({ id: 'x', tip: 'satinalma', ad: 'Örnek – ğüşçöÖĞİı', adet: 1, linkler: ['u'], mevcut: false, version: 1 });
   });
   it('başlık taşınmışsa yine doğru sütuna yazar', () => {
     const shuffled = ['ad', 'version', 'id', 'tip'];
