@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Badge, Box, Card, Group, Skeleton, Stack, Text } from '@mantine/core';
+import { Badge, Box, Card, Group, SimpleGrid, Skeleton, Stack, Text } from '@mantine/core';
 import { CaretRightIcon } from '@phosphor-icons/react';
 import { Link } from 'wouter';
 import type { Item, Oda, Setting } from '@shared/schema';
@@ -57,9 +57,9 @@ export function RoomList() {
   return (
     <Box pb={24}>
       <Text size="sm" c="dimmed" px="sm" pt="sm">Duvar başına yerleşim, priz ve kanal ihtiyacı. Oda kartına dokunun.</Text>
-      <Stack gap="xs" p="sm" data-testid="room-list">
+      <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="xs" p="sm" data-testid="room-list">
         {rooms.map((r) => <RoomCard key={r.oda} oda={r.oda} dims={r.dims} items={r.items} />)}
-      </Stack>
+      </SimpleGrid>
     </Box>
   );
 }

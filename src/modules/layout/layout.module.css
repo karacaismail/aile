@@ -18,3 +18,12 @@
   display: flex;
   align-items: center;
 }
+
+/* Oda sayfası: 320'de ölçü → duvarlar → ihtiyaç; ≥64em duvarlar solda, ölçü + ihtiyaç sağda */
+.roomGrid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--mantine-spacing-md); align-items: start; }
+@media (min-width: 64em) {
+  .roomGrid { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
+  .walls { grid-column: 1; grid-row: 1 / span 2; }
+  .dims { grid-column: 2; grid-row: 1; }
+  .needs { grid-column: 2; grid-row: 2; }
+}

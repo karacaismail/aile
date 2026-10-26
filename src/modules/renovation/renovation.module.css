@@ -47,3 +47,8 @@
 }
 .checkRow { min-height: 44px; width: 100%; }
 .measure { max-width: 160px; }
+
+/* Kontrol listesi: ≥64em okunur sütun; madde satırları çok geniş uzamaz */
+@media (min-width: 64em) { .checklist { max-width: 820px; margin-inline: auto; } }
+/* Takvim: ≥64em zaman çizelgesi okunur sütun */
+@media (min-width: 64em) { .timeline { max-width: 820px; } }

@@ -202,11 +202,13 @@ export function RoomPage({ oda }: { oda: string }) {
           <Badge size="xs" variant="default">{list.length} kalem</Badge>
         </Group>
       </Paper>
-      <Stack gap="md" p="sm">
-        <RoomDimsForm key={`${setting?.id ?? 'yok'}:${setting?.deger ?? ''}`} oda={room} setting={setting} />
-        {WALL_KEYS.map((wall) => <WallGroup key={wall} oda={room} wall={wall} dims={dims} items={list} />)}
-        <NeedsCard map={map} onSuggest={suggest} />
-      </Stack>
+      <Box p="sm" className={classes.roomGrid}>
+        <div className={classes.dims}><RoomDimsForm key={`${setting?.id ?? 'yok'}:${setting?.deger ?? ''}`} oda={room} setting={setting} /></div>
+        <Stack gap="md" className={classes.walls}>
+          {WALL_KEYS.map((wall) => <WallGroup key={wall} oda={room} wall={wall} dims={dims} items={list} />)}
+        </Stack>
+        <div className={classes.needs}><NeedsCard map={map} onSuggest={suggest} /></div>
+      </Box>
       <Fab onClick={() => navigate(`~/yerlesim/${room}/yeni`)} label="Kalem ekle" />
       <Route path="/:id">{(params) => <ItemForm key={params.id} oda={room} id={params.id} />}</Route>
     </Box>

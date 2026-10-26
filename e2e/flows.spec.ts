@@ -8,7 +8,8 @@ test('kalem ekle → listede görünür → toplam artar → yenilemede kalır (
   const before = await page.getByTestId('item-card').count();
   await page.getByTestId('fab').click();
   await expect(page.getByTestId('item-detail')).toBeVisible();
-  await page.getByLabel('Ad', { exact: false }).first().fill('Yeni test kalemi');
+  // Geniş ekranda gizli alt sekme bağlantıları (aria-label "Tadilat") 'Ad' ile eşleşir; form içinde ara.
+  await page.getByTestId('item-detail').getByLabel(/^Ad\b/).fill('Yeni test kalemi');
   await page.getByLabel('Tahmini (min)').fill('1234');
   await page.getByRole('button', { name: 'Kaydet' }).click();
   await expect(page.getByText('Yeni test kalemi')).toBeVisible();
@@ -42,7 +43,7 @@ test('API erişilemezken önbellekten açılır, ekleme kuyruğa girer ve bağla
   await page.reload();
   await expect(page.getByTestId('item-card').first()).toBeVisible();
   await page.getByTestId('fab').click();
-  await page.getByLabel('Ad', { exact: false }).first().fill('Çevrimdışı kalem');
+  await page.getByTestId('item-detail').getByLabel(/^Ad\b/).fill('Çevrimdışı kalem');
   await page.getByRole('button', { name: 'Kaydet' }).click();
   await expect(page.getByText('Çevrimdışı kalem')).toBeVisible();
   await expect(page.getByTestId('sync-status')).toHaveAttribute('aria-label', /Çevrimdışı/);

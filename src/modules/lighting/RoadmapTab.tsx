@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Box, Group, Paper, Stack, Stepper, Text } from '@mantine/core';
+import { Box, Group, Paper, Stepper, Text } from '@mantine/core';
 import type { Item } from '@shared/schema';
 import { label } from '@shared/schema';
 import { useAppStore } from '@/sync/store';
@@ -41,22 +41,22 @@ export function RoadmapTab({ now = new Date() }: { now?: Date }) {
   const active = useMemo(() => roadmapActive(grouped.steps, purchases), [grouped, purchases]);
   const est = useMemo(() => estimateRange(layers), [layers]);
   return (
-    <Stack gap="sm" p="sm" data-testid="roadmap">
-      <Paper withBorder p="sm" radius="md">
+    <Box p="sm" className={classes.roadmap} data-testid="roadmap">
+      <Paper withBorder p="sm" radius="md" className={classes.roadmapSummary}>
         <Group justify="space-between" wrap="nowrap" gap="xs">
           <Text size="sm" c="dimmed">Toplam tahmini</Text>
           <Text fw={700} size="lg" className="tabular" data-testid="roadmap-total">{formatTlRange(est.min, est.max)}</Text>
         </Group>
         <Text size="xs" c="dimmed">{est.priced}/{est.total} katman fiyatlı · {layers.length} katman, {purchases.length} satınalma kalemi</Text>
       </Paper>
-      <Stepper active={active} orientation="vertical" iconSize={44} size="sm" allowNextStepsSelect={false} data-testid="roadmap-steps">
+      <Stepper active={active} orientation="vertical" iconSize={44} size="sm" allowNextStepsSelect={false} data-testid="roadmap-steps" className={classes.roadmapSteps}>
         {grouped.steps.map((s) => (
           <Stepper.Step key={s.adim} label={label('adim', s.adim)} allowStepSelect={false} description={<StepBody step={s} purchases={purchases} now={now} />} />
         ))}
       </Stepper>
       {grouped.unassigned.length > 0 && (
-        <Text size="xs" c="dimmed">Adımı belirlenmemiş {grouped.unassigned.length} katman: {grouped.unassigned.map((l) => `${label('oda', l.oda)} · ${layerTitle(l)}`).join(', ')}</Text>
+        <Text size="xs" c="dimmed" className={classes.roadmapNote}>Adımı belirlenmemiş {grouped.unassigned.length} katman: {grouped.unassigned.map((l) => `${label('oda', l.oda)} · ${layerTitle(l)}`).join(', ')}</Text>
       )}
-    </Stack>
+    </Box>
   );
 }

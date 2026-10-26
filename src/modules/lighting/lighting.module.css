@@ -23,3 +23,12 @@
 .tabs { min-height: 44px; }
 .tabs .tabsLabel { min-height: 44px; padding-inline: 6px; }
 .stepLine { display: block; }
+
+/* Yol haritası: 320'de dikey akış; ≥64em özet sağda yapışkan, adımlar solda */
+.roadmap { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--mantine-spacing-sm); align-items: start; }
+@media (min-width: 64em) {
+  .roadmap { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
+  .roadmapSteps { grid-column: 1; grid-row: 1 / span 2; }
+  .roadmapSummary { grid-column: 2; grid-row: 1; position: sticky; top: calc(var(--app-shell-header-offset, 0px) + 60px); }
+  .roadmapNote { grid-column: 2; grid-row: 2; }
+}

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { mockApi, horizontalOverflow, smallTargets } from './helpers';
+import { mockApi, horizontalOverflow, smallTargets, smallText } from './helpers';
 import fixture from './fixtures/layout.json' with { type: 'json' };
 
 test('oda listesi: genel hariç odalar, ölçü/kalem/duvar özeti; taşma yok, hedefler ≥44', async ({ page }) => {
@@ -20,6 +20,7 @@ test('oda listesi: genel hariç odalar, ölçü/kalem/duvar özeti; taşma yok, 
   expect(box!.y + box!.height).toBeLessThanOrEqual(page.viewportSize()!.height);
   expect(await horizontalOverflow(page)).toEqual([]);
   expect(await smallTargets(page)).toEqual([]);
+  expect(await smallText(page), 'metin < 1rem').toEqual([]);
 });
 
 test('oda sayfası: duvar grupları, kalan/taşma, ihtiyaç haritası; taşma yok, hedefler ≥44', async ({ page }) => {
@@ -37,10 +38,12 @@ test('oda sayfası: duvar grupları, kalan/taşma, ihtiyaç haritası; taşma yo
   await expect(page.getByTestId('needs-total-kanal')).toHaveText('4');
   expect(await horizontalOverflow(page)).toEqual([]);
   expect(await smallTargets(page)).toEqual([]);
+  expect(await smallText(page), 'metin < 1rem').toEqual([]);
   // Sayfanın altı (ihtiyaç haritası) da ölçülür
   await page.getByTestId('needs-map').scrollIntoViewIfNeeded();
   expect(await horizontalOverflow(page)).toEqual([]);
   expect(await smallTargets(page)).toEqual([]);
+  expect(await smallText(page), 'metin < 1rem').toEqual([]);
 });
 
 test('oda ölçü formu: kaydet → kart ölçüyü gösterir', async ({ page }) => {
@@ -68,6 +71,7 @@ test('kalem formu: ekle → duvar grubunda görünür → düzenle → sil; taş
   await expect(form).toBeVisible();
   expect(await horizontalOverflow(page)).toEqual([]);
   expect(await smallTargets(page)).toEqual([]);
+  expect(await smallText(page), 'metin < 1rem').toEqual([]);
   await form.getByLabel('Ad', { exact: false }).first().fill('Yeni dolap');
   // SegmentedControl'ün native radyosu 0×0 (görünmez); dokunulan şey görünür etikettir.
   await form.locator('.mantine-SegmentedControl-label', { hasText: /^B$/ }).click();
@@ -78,6 +82,7 @@ test('kalem formu: ekle → duvar grubunda görünür → düzenle → sil; taş
   await form.getByRole('checkbox', { name: 'Kablo kanalı — Salon' }).scrollIntoViewIfNeeded();
   expect(await horizontalOverflow(page)).toEqual([]);
   expect(await smallTargets(page)).toEqual([]);
+  expect(await smallText(page), 'metin < 1rem').toEqual([]);
   await form.getByRole('checkbox', { name: 'Kablo kanalı — Salon' }).click();
   await form.getByRole('button', { name: 'Kaydet' }).click();
   await expect(form).toBeHidden();

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { ActionIcon, Alert, Box, Button, EmptyState, Group, Paper, Skeleton, Stack, Text, Title } from '@mantine/core';
+import { ActionIcon, Alert, Box, Button, EmptyState, Group, Paper, SimpleGrid, Skeleton, Stack, Text, Title } from '@mantine/core';
 import { ArrowLeftIcon, LightbulbIcon, PlusIcon, StackIcon } from '@phosphor-icons/react';
 import { Link, useLocation } from 'wouter';
 import { label } from '@shared/schema';
@@ -44,11 +44,11 @@ export function RoomPage({ oda, layerId }: { oda: string; layerId?: string }) {
           <Text size="xs" c="dimmed" mt={2}>Köpek erişimi ayarlanmadı · <Link href="~/ayarlar" data-inline-link>Ayarlar</Link></Text>
         )}
       </Paper>
-      <Stack gap="xs" p="sm" data-testid="layer-list">
+      <SimpleGrid cols={{ base: 1, md: 2 }} spacing="xs" p="sm" data-testid="layer-list">
         {!hydrated && status !== 'unconfigured' ? (
           <><Skeleton h={96} radius="md" /><Skeleton h={96} radius="md" /><Skeleton h={96} radius="md" /></>
         ) : roomLayers.length === 0 ? (
-          <EmptyState icon={<LightbulbIcon size={40} aria-hidden />} title="Bu odada katman yok" description="Ana, görev ve gece katmanlarıyla başlayın; spec'leri sonra doldurun." data-testid="empty-state">
+          <EmptyState icon={<LightbulbIcon size={40} aria-hidden />} title="Bu odada katman yok" description="Ana, görev ve gece katmanlarıyla başlayın; spec'leri sonra doldurun." data-testid="empty-state" style={{ gridColumn: '1 / -1' }}>
             <EmptyState.Actions>
               <Button leftSection={<StackIcon size={18} aria-hidden />} onClick={() => createCoreLayers(oda, layers)}>Oda katmanlarını oluştur</Button>
               <Button variant="default" leftSection={<PlusIcon size={18} aria-hidden />} onClick={addLayer}>Katman ekle</Button>
@@ -58,13 +58,13 @@ export function RoomPage({ oda, layerId }: { oda: string; layerId?: string }) {
           <>
             {roomLayers.map((l) => <LayerCard key={l.id} layer={l} room={room} linkedCount={linkedPurchases(l, purchases).length} />)}
             {missing.length > 0 && (
-              <Button variant="default" leftSection={<StackIcon size={18} aria-hidden />} onClick={() => createCoreLayers(oda, layers)}>
+              <Button variant="default" leftSection={<StackIcon size={18} aria-hidden />} onClick={() => createCoreLayers(oda, layers)} style={{ gridColumn: '1 / -1' }}>
                 Eksik temel katmanları oluştur ({missing.map((m) => label('katman_tur', m).toLocaleLowerCase('tr')).join(', ')})
               </Button>
             )}
           </>
         )}
-      </Stack>
+      </SimpleGrid>
       <Fab onClick={addLayer} label="Katman ekle" />
       {layerId && <LayerForm key={layerId} oda={oda} id={layerId} />}
     </Box>

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Button, EmptyState, Skeleton, Stack } from '@mantine/core';
+import { Button, EmptyState, SimpleGrid, Skeleton, Stack } from '@mantine/core';
 import { PlusIcon, SlidersHorizontalIcon } from '@phosphor-icons/react';
 import { useLocation } from 'wouter';
 import { useAppStore } from '@/sync/store';
@@ -20,9 +20,9 @@ export function ScenesTab() {
     return <Stack gap="xs" p="sm"><Skeleton h={76} radius="md" /><Skeleton h={76} radius="md" /></Stack>;
   }
   return (
-    <Stack gap="xs" p="sm" data-testid="scene-list">
+    <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="xs" p="sm" data-testid="scene-list">
       {sorted.length === 0 ? (
-        <EmptyState icon={<SlidersHorizontalIcon size={40} aria-hidden />} title="Henüz sahne yok" description="Bir tetik (düğme, sensör, zaman) ile katman seviyelerini tanımlayın." data-testid="empty-state">
+        <EmptyState icon={<SlidersHorizontalIcon size={40} aria-hidden />} title="Henüz sahne yok" description="Bir tetik (düğme, sensör, zaman) ile katman seviyelerini tanımlayın." data-testid="empty-state" style={{ gridColumn: '1 / -1' }}>
           <EmptyState.Actions>
             <Button leftSection={<PlusIcon size={18} aria-hidden />} onClick={() => navigate('~/aydinlatma/sahne/yeni')}>Sahne ekle</Button>
           </EmptyState.Actions>
@@ -30,6 +30,6 @@ export function ScenesTab() {
       ) : (
         sorted.map((s) => <SceneCard key={s.id} scene={s} layers={layerMap} />)
       )}
-    </Stack>
+    </SimpleGrid>
   );
 }

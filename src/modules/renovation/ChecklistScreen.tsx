@@ -43,7 +43,7 @@ export function ChecklistScreen() {
   const checks = useAppStore(selectChecks);
   const groups = groupChecks(checks);
   return (
-    <Box pb={96} px={6} pt="xs">
+    <Box pb={96} px={6} pt="xs" className={classes.checklist}>
       <Accordion multiple defaultValue={['sartname']} keepMounted={false} chevronPosition="right" variant="separated" radius="md"
         styles={{ content: { paddingInline: 6, paddingBottom: 8 }, label: { paddingBlock: 10 } }}>
         {KONTROL_TUR_ORDER.map((tur) => {

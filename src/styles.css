@@ -4,6 +4,9 @@
   /* İçerik sütunu: 320 taban tam genişlik; ≥768 kenar boşluğu; ≥1280 azami genişlik */
   --aile-content-max: 100%;
   --aile-content-pad: 0px;
+  /* FAB: 320'de alt sekmelerin üstünde; ≥768 alt sekme yok, köşeye oturur */
+  --aile-fab-bottom: calc(60px + var(--aile-safe-bottom) + 16px);
+  --aile-fab-right: 16px;
 }
 html { font-size: 100%; } /* 1 rem = 16 px; metin bunun altına inmez */
 html, body, #root { height: 100%; }
@@ -28,7 +31,7 @@ body {
   min-height: 100%;
 }
 @media (min-width: 48em) {   /* tablet */
-  :root { --aile-content-pad: 16px; }
+  :root { --aile-content-pad: 16px; --aile-fab-bottom: 24px; --aile-fab-right: 24px; }
 }
 @media (min-width: 64em) {   /* laptop */
   :root { --aile-content-pad: 24px; --aile-content-max: 1120px; }

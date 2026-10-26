@@ -75,7 +75,7 @@ export function CalendarScreen({ now }: { now?: Date } = {}) {
         <Text size="xs" c="dimmed" mt={2} lineClamp={1} data-allow-clamp>{scenario ? label('senaryo', scenario) : 'Senaryo seçilmedi (tüm taşlar)'}</Text>
       </Paper>
 
-      <Timeline bulletSize={28} lineWidth={2} color="gray.4" p="sm" pt="md" data-testid="timeline">
+      <Timeline bulletSize={28} lineWidth={2} color="gray.4" p="sm" pt="md" data-testid="timeline" className={classes.timeline}>
         {entries.map((e) => {
           const v = entryVisual(e);
           const bullet = <ThemeIcon size={28} radius="xl" color={v.color} variant="filled">{v.icon}</ThemeIcon>;

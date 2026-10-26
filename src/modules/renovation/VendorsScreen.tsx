@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Box, Button, EmptyState, Paper, SegmentedControl, Skeleton, Stack, Text } from '@mantine/core';
+import { Box, Button, EmptyState, Paper, SegmentedControl, SimpleGrid, Skeleton, Text } from '@mantine/core';
 import { PlusIcon, UsersThreeIcon } from '@phosphor-icons/react';
 import { Route, useLocation } from 'wouter';
 import type { Item } from '@shared/schema';
@@ -35,18 +35,18 @@ export function VendorsScreen() {
           <Text span c="dimmed"> (hedef: {VENDOR_TARGET.aday} aday → {VENDOR_TARGET.teklif} teklif)</Text>
         </Text>
       </Paper>
-      <Stack gap="xs" p="sm" data-testid="vendor-list">
+      <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="xs" p="sm" data-testid="vendor-list">
         {!hydrated && status !== 'unconfigured' ? (
           <><Skeleton h={96} radius="md" /><Skeleton h={96} radius="md" /></>
         ) : list.length === 0 ? (
           <EmptyState icon={<UsersThreeIcon size={40} aria-hidden />} title={vendors.length ? 'Bu meslekte aday yok' : 'Henüz usta yok'}
-            description={`Hedef: her meslek için ${VENDOR_TARGET.aday} aday, ${VENDOR_TARGET.teklif} teklif.`} data-testid="empty-state">
+            description={`Hedef: her meslek için ${VENDOR_TARGET.aday} aday, ${VENDOR_TARGET.teklif} teklif.`} data-testid="empty-state" style={{ gridColumn: '1 / -1' }}>
             <EmptyState.Actions>
               <Button leftSection={<PlusIcon size={18} aria-hidden />} onClick={() => navigate('~/tadilat/ustalar/yeni')}>Usta ekle</Button>
             </EmptyState.Actions>
           </EmptyState>
         ) : list.map((u) => <VendorCard key={u.id} vendor={u} />)}
-      </Stack>
+      </SimpleGrid>
       <Fab onClick={() => navigate('~/tadilat/ustalar/yeni')} label="Usta ekle" />
       <Route path="/:id">{(params) => <VendorDetail key={params.id} id={params.id} />}</Route>
     </Box>
