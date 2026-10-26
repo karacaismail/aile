@@ -1,0 +1,16 @@
+:root {
+  --aile-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --aile-safe-top: env(safe-area-inset-top, 0px);
+}
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  background: var(--mantine-color-body);
+  color: var(--mantine-color-text);
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+[data-mantine-color-scheme='light'] body { background: var(--mantine-color-sand-0); }
+[data-mantine-color-scheme='dark'] body { background: var(--mantine-color-sand-9); }
+.tabular { font-variant-numeric: tabular-nums; }

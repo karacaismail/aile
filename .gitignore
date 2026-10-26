@@ -1,0 +1,16 @@
+node_modules
+dist
+dist-ssr
+coverage
+.DS_Store
+*.local
+.env
+.env.*
+!.env.example
+playwright-report
+test-results
+e2e/__screenshots__/**/*-darwin.png
+# aile verisi repoya girmez
+seed/private/
+apps-script/.clasprc.json
+.clasprc.json
