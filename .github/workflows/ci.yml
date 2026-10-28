@@ -19,7 +19,11 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm test
-      - run: pnpm exec playwright install --with-deps chromium webkit
+      - run: pnpm exec playwright install --with-deps chromium firefox webkit
+      - run: pnpm e2e:dashboard
+        env:
+          CI: 1
+          VITE_BUDGET_SHEET_ID: synthetic-budget-sheet-2098
       - run: pnpm e2e
         env:
           CI: 1

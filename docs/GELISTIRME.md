@@ -1,4 +1,6 @@
-# Geliştirme rehberi (modül yazarları için)
+# Geliştirme rehberi (önceki taşınma modülleri)
+
+Yeni bütçe ve araç ekranları için kökteki `AGENTS.md` ve `docs/BUDGET-VEHICLE.md` geçerlidir. Kullanıcının açık talebiyle ECharts 6 eklendi; yeni uygulama kabuğu ve önceki kabuğa geçiş ayrıldı. Aşağıdaki kısıtlar önceki modüllerin geliştiricilerine yöneliktir.
 
 Bu depo bir aile taşınma planlayıcısıdır: Vite 8 + React 19 + TypeScript + **Mantine 9.7** + Phosphor ikonları.
 Veri Google Sheets'te, Apps Script üzerinden; uygulama statik (GitHub Pages). Kod ve testlerde **aileye özgü hiçbir bilgi**
@@ -49,7 +51,7 @@ Modül `<Route path="/aydinlatma" nest>` içinde render edilir. İç rotalar gö
 - `@/components/badges`: `DurumBadge`, `FazBadge`, `OdaBadge`, `KategoriBadge`, `WarnBadge tone="info|warn|danger|ok"` — **renkli metinli `variant="light"` rozet KULLANMAYIN** (kontrast); nötr `variant="default"` ya da bu bileşenler.
 - `@/components/PriceInput` (TL, `value: number|null`), `@/components/EnumSelect` (`field`, `options`, `value`, `onChange`), `@/components/LinksField`, `@/app/shell/Fab` (`onClick`, `label`).
 - `@/lib/price`: `formatTl`, `formatTlRange`; `@/lib/dates`: `daysUntil`, `formatTr`, `inRange`, `addDays`, `todayIso`; `@/lib/cct`: `cctGradient(min,max)`, `cctToCss`, `cctLabel`.
-- Mantine 9: `EmptyState` (+ `EmptyState.Actions`), `Timeline`, `Stepper`, `RingProgress`, `Progress`, `RangeSlider`, `SegmentedControl`, `Chip.Group`, `Drawer position="bottom"`, `CopyButton`, `Accordion`, `Checkbox.Card`, `NativeSelect` (mobilde tercih), `DatePickerInput` (`@mantine/dates`, değer `'YYYY-MM-DD'` string, `dropdownType="modal"`), `NumberInput` → her zaman `hideControls` + `inputMode`.
+- Mantine 9: `EmptyState` (+ `EmptyState.Actions`), `Timeline`, `Stepper`, `RingProgress`, `Progress`, `RangeSlider`, `SegmentedControl`, `Chip.Group`, `Drawer position="bottom"`, `CopyButton`, `Accordion`, `Checkbox.Card`, `Select` (custom açılır menü; native kullanılmaz), `DatePickerInput` (`@mantine/dates`, değer `'YYYY-MM-DD'` string, `dropdownType="modal"`), `NumberInput` → her zaman `hideControls` + `inputMode`.
 - İkonlar: `@phosphor-icons/react`, adlar `*Icon` sonekli (`SunIcon`, `MoonIcon`, `LampIcon`, `HammerIcon`, `CalendarBlankIcon`, `ClipboardTextIcon`, `WhatsappLogoIcon`, `PhoneIcon`, `WallIcon`, `RulerIcon`, `PlugIcon`). Emoji **yasak**.
 
 ## Filtre dili (tek ilke: her yerde aynı çip)

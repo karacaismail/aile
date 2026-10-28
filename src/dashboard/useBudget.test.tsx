@@ -1,0 +1,30 @@
+import { renderHook, act, waitFor } from '@testing-library/react';
+import { afterEach, expect, it, vi } from 'vitest';
+import { useBudget } from './useBudget';
+import { buildBudget, fetchBudget } from './data';
+import { syntheticSheets } from './fixtures';
+vi.mock('./data', async original => ({ ...await original<typeof import('./data')>(), fetchBudget: vi.fn() }));
+afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); });
+it('refreshes values, preserves the last good snapshot on failure and recovers', async () => {
+  const first = buildBudget(syntheticSheets());
+  vi.mocked(fetchBudget).mockResolvedValueOnce(first).mockRejectedValueOnce(new Error('Bağlantı kesildi')).mockResolvedValueOnce({ ...first, months: [] });
+  const { result, unmount } = renderHook(() => useBudget());
+  await waitFor(() => expect(result.current.data).toBe(first));
+  act(() => result.current.refresh());
+  await waitFor(() => expect(result.current.error).toContain('Bağlantı kesildi'));
+  expect(result.current.data).toBe(first);
+  act(() => result.current.refresh());
+  await waitFor(() => expect(result.current.data?.months).toEqual([]));
+  expect(result.current.error).toBeNull();
+  unmount();
+});
+it('polls without overlapping requests and cancels on unmount', async () => {
+  vi.useFakeTimers();
+  let signal: AbortSignal | undefined;
+  vi.mocked(fetchBudget).mockImplementation(s => { signal = s; return new Promise(() => {}); });
+  const { result, unmount } = renderHook(() => useBudget());
+  act(() => { result.current.refresh(); window.dispatchEvent(new Event('focus')); });
+  expect(fetchBudget).toHaveBeenCalledTimes(1);
+  unmount();
+  expect(signal?.aborted).toBe(true);
+});

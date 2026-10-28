@@ -1,0 +1,1059 @@
+{
+  "toyota-corolla": {
+    "rear": {
+      "src": "vehicles/toyota-corolla-rear.jpg",
+      "author": "TTTNIS",
+      "license": "CC0",
+      "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+      "source": "https://commons.wikimedia.org/wiki/File:2019-2024_Toyota_Corolla_Hybrid_rear.jpg",
+      "title": "2019-2024 Toyota Corolla Hybrid rear.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "interior": {
+      "src": "vehicles/toyota-corolla-interior.jpg",
+      "author": "Dinkun Chen",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:TOYOTA_COROLLA_SEDAN_HYBRID_(E210)_CHINA_SPECIFICATION_INTERIOR.jpg",
+      "title": "TOYOTA COROLLA SEDAN HYBRID (E210) CHINA SPECIFICATION INTERIOR.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "front": {
+      "src": "vehicles/toyota-corolla.jpg",
+      "author": "Kevauto",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2020_Toyota_Corolla_SE,_front_2.29.20.jpg",
+      "title": "2020 Toyota Corolla SE, front 2.29.20.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    }
+  },
+  "toyota-hilux": {
+    "rear": {
+      "src": "vehicles/toyota-hilux-rear.jpg",
+      "author": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2016_Toyota_HiLux_Invincible_D-4D_4WD_2.4_Rear.jpg",
+      "title": "2016 Toyota HiLux Invincible D-4D 4WD 2.4 Rear.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "interior": {
+      "src": "vehicles/toyota-hilux-interior.jpg",
+      "author": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2018_Toyota_HiLux_Invincible_X_facelift_Interior.jpg",
+      "title": "2018 Toyota HiLux Invincible X facelift Interior.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "front": {
+      "src": "vehicles/toyota-hilux.jpg",
+      "author": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2016_Toyota_HiLux_Invincible_D-4D_4WD_2.4_Front.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "title": "2016 Toyota HiLux Invincible D-4D 4WD 2.4 Front.jpg"
+    }
+  },
+  "honda-hr-v": {
+    "rear": {
+      "src": "vehicles/honda-hr-v-rear.jpg",
+      "author": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2019_Honda_HR-V_EX_i-VTEC_1.5_Rear.jpg",
+      "title": "2019 Honda HR-V EX i-VTEC 1.5 Rear.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "interior": {
+      "src": "vehicles/honda-hr-v-interior.jpg",
+      "author": "Zytonits",
+      "license": "CC BY-SA 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2016_Honda_HR-V_EX-L_dashboard_(21045738681).jpg",
+      "title": "2016 Honda HR-V EX-L dashboard (21045738681).jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "front": {
+      "src": "vehicles/honda-hr-v.jpg",
+      "author": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2023_Honda_HR-V_Advance_i-MMD_CVT_1.5.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "title": "2023 Honda HR-V Advance i-MMD CVT 1.5.jpg"
+    }
+  },
+  "toyota-rav4": {
+    "rear": {
+      "src": "vehicles/toyota-rav4-rear.jpg",
+      "author": "MercurySable99",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2016_Toyota_RAV4_XLE_AWD,_rear_left,_11-15-2022.jpg",
+      "title": "2016 Toyota RAV4 XLE AWD, rear left, 11-15-2022.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "interior": {
+      "src": "vehicles/toyota-rav4-interior.jpg",
+      "author": "TTTNIS",
+      "license": "CC0",
+      "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+      "source": "https://commons.wikimedia.org/wiki/File:Toyota_RAV4_XA40_interior.jpg",
+      "title": "Toyota RAV4 XA40 interior.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "front": {
+      "src": "vehicles/toyota-rav4.jpg",
+      "author": "Mr.choppers",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2024_Toyota_RAV4_Prime_XSE_Premium_in_Silver_Sky_with_Midnight_Black_roof,_front_left.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "title": "2024 Toyota RAV4 Prime XSE Premium in Silver Sky with Midnight Black roof, front left.jpg"
+    }
+  },
+  "subaru-forester": {
+    "rear": {
+      "src": "vehicles/subaru-forester-rear.jpg",
+      "author": "TTTNIS",
+      "license": "CC0",
+      "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+      "source": "https://commons.wikimedia.org/wiki/File:2015-2018_Subaru_Forester_XT_rear.jpg",
+      "title": "2015-2018 Subaru Forester XT rear.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "interior": {
+      "src": "vehicles/subaru-forester-interior.jpg",
+      "author": "Tokumeigakarinoaoshima",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Subaru_FORESTER_X-BREAK_(SJ)_interior.JPG",
+      "title": "Subaru FORESTER X-BREAK (SJ) interior.JPG",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "front": {
+      "src": "vehicles/subaru-forester.jpg",
+      "author": "Alexander Migl",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Subaru_Forester_(SL)_e-BOXER_DSC_8811.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "title": "Subaru Forester (SL) e-BOXER DSC 8811.jpg"
+    }
+  },
+  "honda-cr-v": {
+    "rear": {
+      "src": "vehicles/honda-cr-v-rear.jpg",
+      "author": "EurovisionNim",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2016_Honda_CR-V_(RM_Series_II_MY16)_VTi_2.0_2WD_wagon_(2018-10-08)_02.jpg",
+      "title": "2016 Honda CR-V (RM Series II MY16) VTi 2.0 2WD wagon (2018-10-08) 02.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "interior": {
+      "src": "vehicles/honda-cr-v-interior.jpg",
+      "author": "Jakub \"Flyz1\" Maciejewski",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Honda_CR-V_-_wn%C4%99trze_(MSP16).jpg",
+      "title": "Honda CR-V - wnętrze (MSP16).jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "front": {
+      "src": "vehicles/honda-cr-v.jpg",
+      "author": "© M 93",
+      "license": "CC BY-SA 3.0 de",
+      "source": "https://commons.wikimedia.org/wiki/File:Honda_CR-V_e-HEV_Elegance_AWD_(VI)_%E2%80%93_f_14072024.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+      "title": "Honda CR-V e-HEV Elegance AWD (VI) – f 14072024.jpg"
+    }
+  },
+  "mitsubishi-l-200": {
+    "rear": {
+      "src": "vehicles/mitsubishi-l-200-rear.jpg",
+      "author": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2019_Mitsubishi_L200_Warrior_DI-D_2.3_Rear.jpg",
+      "title": "2019 Mitsubishi L200 Warrior DI-D 2.3 Rear.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "interior": {
+      "src": "vehicles/mitsubishi-l-200-interior.jpg",
+      "author": "オーバードライブ83",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2019_Mitsubishi_Triton_Exceed_4x4_2.4_KL1TJ_interior_(20190722).jpg",
+      "title": "2019 Mitsubishi Triton Exceed 4x4 2.4 KL1TJ interior (20190722).jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "front": {
+      "src": "vehicles/mitsubishi-l-200.jpg",
+      "author": "Ethan Llamas",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Mitsubishi_Triton_LC_2.4_GLS_2WD_Blade_Silver_Metallic_(cropped).jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "title": "Mitsubishi Triton LC 2.4 GLS 2WD Blade Silver Metallic (cropped).jpg"
+    }
+  },
+  "volvo-s60": {
+    "rear": {
+      "src": "vehicles/volvo-s60-rear.jpg",
+      "author": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2014_Volvo_S60_R-Design_D2_Automatic_1.6_Rear.jpg",
+      "title": "2014 Volvo S60 R-Design D2 Automatic 1.6 Rear.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "interior": {
+      "src": "vehicles/volvo-s60-interior.jpg",
+      "author": "TTTNIS",
+      "license": "Public domain",
+      "licenseUrl": "https://commons.wikimedia.org/wiki/File:Volvo_S60_T4_SE_interior.jpg",
+      "source": "https://commons.wikimedia.org/wiki/File:Volvo_S60_T4_SE_interior.jpg",
+      "title": "Volvo S60 T4 SE interior.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "front": {
+      "src": "vehicles/volvo-s60.jpg",
+      "author": "Alexander-93",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Volvo_S60_(3rd_generation)_IMG_8468.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "title": "Volvo S60 (3rd generation) IMG 8468.jpg"
+    }
+  },
+  "hyundai-ix35": {
+    "rear": {
+      "src": "vehicles/hyundai-ix35-rear.jpg",
+      "author": "M 93",
+      "license": "CC BY-SA 3.0 de",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+      "source": "https://commons.wikimedia.org/wiki/File:Hyundai_ix35_FIFA_World_Cup_Edition_(Facelift)_%E2%80%93_Heckansicht,_5._April_2014,_D%C3%BCsseldorf.jpg",
+      "title": "Hyundai ix35 FIFA World Cup Edition (Facelift) – Heckansicht, 5. April 2014, Düsseldorf.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "interior": null,
+    "front": {
+      "src": "vehicles/hyundai-ix35.jpg",
+      "author": "M 93",
+      "license": "CC BY-SA 3.0 de",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+      "source": "https://commons.wikimedia.org/wiki/File:Hyundai_ix35_FIFA_World_Cup_Edition_(Facelift)_%E2%80%93_Frontansicht,_5._April_2014,_D%C3%BCsseldorf.jpg",
+      "title": "Hyundai ix35 FIFA World Cup Edition (Facelift) – Frontansicht, 5. April 2014, Düsseldorf.jpg",
+      "note": "Gerçek ix35 (LM) fotoğrafı; yıl ve donanım birebir eşleşmeyebilir."
+    }
+  },
+  "volvo-s80": {
+    "rear": {
+      "src": "vehicles/volvo-s80-rear.jpg",
+      "author": "M 93",
+      "license": "CC BY-SA 3.0 de",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+      "source": "https://commons.wikimedia.org/wiki/File:Volvo_S80_D5_Momentum_(II,_Facelift)_%E2%80%93_Heckansicht,_26._Oktober_2012,_D%C3%BCsseldorf.jpg",
+      "title": "Volvo S80 D5 Momentum (II, Facelift) – Heckansicht, 26. Oktober 2012, Düsseldorf.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "interior": null,
+    "front": {
+      "src": "vehicles/volvo-s80.jpg",
+      "author": "M 93",
+      "license": "CC BY-SA 3.0 de",
+      "source": "https://commons.wikimedia.org/wiki/File:Volvo_S80_D5_Momentum_(II,_Facelift)_%E2%80%93_Frontansicht,_26._Oktober_2012,_D%C3%BCsseldorf.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+      "title": "Volvo S80 D5 Momentum (II, Facelift) – Frontansicht, 26. Oktober 2012, Düsseldorf.jpg"
+    }
+  },
+  "honda-accord": {
+    "rear": {
+      "src": "vehicles/honda-accord-rear.jpg",
+      "author": "Kevauto",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2018_Honda_Accord_rear_2.13.18.jpg",
+      "title": "2018 Honda Accord rear 2.13.18.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "interior": {
+      "src": "vehicles/honda-accord-interior.jpg",
+      "author": "deathpallie325",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2023_Honda_Accord_interior.jpg",
+      "title": "2023 Honda Accord interior.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "front": {
+      "src": "vehicles/honda-accord.jpg",
+      "author": "MercurySable99",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2023_Honda_Accord_LX,_front_left,_07-13-2023.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "title": "2023 Honda Accord LX, front left, 07-13-2023.jpg"
+    }
+  },
+  "skoda-yeti": {
+    "rear": {
+      "src": "vehicles/skoda-yeti-rear.jpg",
+      "author": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2011_Skoda_Yeti_S_TSi_1.2_Rear.jpg",
+      "title": "2011 Skoda Yeti S TSi 1.2 Rear.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "interior": {
+      "src": "vehicles/skoda-yeti-interior.jpg",
+      "author": "Škoda Auto (new.skoda-auto.com)",
+      "license": "CC SA 1.0",
+      "licenseUrl": "http://creativecommons.org/licenses/sa/1.0/",
+      "source": "https://commons.wikimedia.org/wiki/File:Skoda-Yeti-interior-front.jpg",
+      "title": "Skoda-Yeti-interior-front.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "front": {
+      "src": "vehicles/skoda-yeti.jpg",
+      "author": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2011_Skoda_Yeti_S_TSi_1.2_Front.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "title": "2011 Skoda Yeti S TSi 1.2 Front.jpg"
+    }
+  },
+  "ford-mondeo": {
+    "rear": {
+      "src": "vehicles/ford-mondeo-rear.jpg",
+      "author": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2017_Ford_Mondeo_Titanium_ECOnetic_1.5_Rear.jpg",
+      "title": "2017 Ford Mondeo Titanium ECOnetic 1.5 Rear.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "interior": {
+      "src": "vehicles/ford-mondeo-interior.jpg",
+      "author": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2019_Ford_Mondeo_Vignale_TDCi_2.0_Interior.jpg",
+      "title": "2019 Ford Mondeo Vignale TDCi 2.0 Interior.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "front": {
+      "src": "vehicles/ford-mondeo.jpg",
+      "author": "User3204",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2018_Chang%27an-Ford_Mondeo_hybrid_(facelift,_front).jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "title": "2018 Chang'an-Ford Mondeo hybrid (facelift, front).jpg"
+    }
+  },
+  "skoda-superb": {
+    "rear": {
+      "src": "vehicles/skoda-superb-rear.jpg",
+      "author": "EurovisionNim",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Skoda_Superb_162TSI,_2018_rear.jpg",
+      "title": "Skoda Superb 162TSI, 2018 rear.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "interior": {
+      "src": "vehicles/skoda-superb-interior.jpg",
+      "author": "AIMHO'S REBELLION 8490s",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2021_Skoda_Superb_Ambition_2.0_TSi_black_interior_view_in_Brunei.jpg",
+      "title": "2021 Skoda Superb Ambition 2.0 TSi black interior view in Brunei.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "front": {
+      "src": "vehicles/skoda-superb.jpg",
+      "author": "© M 93",
+      "license": "CC BY-SA 3.0 de",
+      "source": "https://commons.wikimedia.org/wiki/File:Skoda_Superb_L%26K_(IV)_%E2%80%93_f_12042026.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+      "title": "Skoda Superb L&K (IV) – f 12042026.jpg"
+    }
+  },
+  "volkswagen-tiguan": {
+    "rear": {
+      "src": "vehicles/volkswagen-tiguan-rear.jpg",
+      "author": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2018_Volkswagen_Tiguan_R-Line_TSi_BlueMotion_4Motion_2.0_Rear.jpg",
+      "title": "2018 Volkswagen Tiguan R-Line TSi BlueMotion 4Motion 2.0 Rear.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "interior": {
+      "src": "vehicles/volkswagen-tiguan-interior.jpg",
+      "author": "DanielPrzygoda",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Tiguan-fl-2020-innenraum.jpg",
+      "title": "Tiguan-fl-2020-innenraum.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "front": {
+      "src": "vehicles/volkswagen-tiguan.jpg",
+      "author": "Alexander-93",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Volkswagen_Tiguan_III_IMG_8823_(cropped).jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "title": "Volkswagen Tiguan III IMG 8823 (cropped).jpg"
+    }
+  },
+  "volkswagen-passat": {
+    "rear": {
+      "src": "vehicles/volkswagen-passat-rear.jpg",
+      "author": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2017_Volkswagen_Passat_GT_TDi_2.0_Rear.jpg",
+      "title": "2017 Volkswagen Passat GT TDi 2.0 Rear.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "interior": {
+      "src": "vehicles/volkswagen-passat-interior.jpg",
+      "author": "JCS1981",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Passat_B8_Comfortline_Innenraum.jpg",
+      "title": "Passat B8 Comfortline Innenraum.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "front": {
+      "src": "vehicles/volkswagen-passat.jpg",
+      "author": "Tokumeigakarinoaoshima",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Volkswagen_Passat_2.0TSI_R-Line_(B8)_front.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "title": "Volkswagen Passat 2.0TSI R-Line (B8) front.jpg"
+    }
+  },
+  "mercedes-benz-c-serisi": {
+    "rear": {
+      "src": "vehicles/mercedes-benz-c-serisi-rear.jpg",
+      "author": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2020_Mercedes-Benz_C300_AMG_Line_Night_Edition_Premium_2.0_Rear.jpg",
+      "title": "2020 Mercedes-Benz C300 AMG Line Night Edition Premium 2.0 Rear.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "interior": {
+      "src": "vehicles/mercedes-benz-c-serisi-interior.jpg",
+      "author": "Jiří Sedláček",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Mercedes_Benz_C_2018_interior_at_Legendy_2018_in_Prague.jpg",
+      "title": "Mercedes Benz C 2018 interior at Legendy 2018 in Prague.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "front": {
+      "src": "vehicles/mercedes-benz-c-serisi.jpg",
+      "author": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2020_Mercedes-Benz_C300_AMG_Line_Night_Edition_Premium_2.0_Front.jpg",
+      "title": "2020 Mercedes-Benz C300 AMG Line Night Edition Premium 2.0 Front.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    }
+  },
+  "mercedes-benz-glk": {
+    "rear": {
+      "src": "vehicles/mercedes-benz-glk-rear.jpg",
+      "author": "M 93",
+      "license": "CC BY-SA 3.0 de",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+      "source": "https://commons.wikimedia.org/wiki/File:Mercedes-Benz_GLK_250_BlueTEC_4MATIC_Sport-Paket_AMG_(X_204,_Facelift)_%E2%80%93_Heckansicht,_22._Februar_2014,_Ratingen.jpg",
+      "title": "Mercedes-Benz GLK 250 BlueTEC 4MATIC Sport-Paket AMG (X 204, Facelift) – Heckansicht, 22. Februar 2014, Ratingen.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "interior": {
+      "src": "vehicles/mercedes-benz-glk-interior.jpg",
+      "author": "Tim Wang from Beijing, China",
+      "license": "CC BY-SA 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Mercedes-Benz_GLK_350_4MATIC_(X_204)_Cockpit_20090820.jpg",
+      "title": "Mercedes-Benz GLK 350 4MATIC (X 204) Cockpit 20090820.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "front": {
+      "src": "vehicles/mercedes-benz-glk.jpg",
+      "author": "M 93",
+      "license": "CC BY-SA 3.0 de",
+      "source": "https://commons.wikimedia.org/wiki/File:Mercedes-Benz_GLK_220_CDI_4MATIC_Sport-Paket_AMG_(X_204,_Facelift)_%E2%80%93_Frontansicht,_24._August_2014,_D%C3%BCsseldorf.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+      "title": "Mercedes-Benz GLK 220 CDI 4MATIC Sport-Paket AMG (X 204, Facelift) – Frontansicht, 24. August 2014, Düsseldorf.jpg"
+    }
+  },
+  "mercedes-benz-e-serisi": {
+    "rear": {
+      "src": "vehicles/mercedes-benz-e-serisi-rear.jpg",
+      "author": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2019_Mercedes-Benz_E220d_SE_Automatic_2.0_Rear.jpg",
+      "title": "2019 Mercedes-Benz E220d SE Automatic 2.0 Rear.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "interior": {
+      "src": "vehicles/mercedes-benz-e-serisi-interior.jpg",
+      "author": "Thomas doerfer",
+      "license": "CC BY-SA 3.0",
+      "licenseUrl": "http://creativecommons.org/licenses/by-sa/3.0/",
+      "source": "https://commons.wikimedia.org/wiki/File:Mercedes-Benz_W212_E_220_CDI_Avantgarde_7-G-Tronic_Obsidianschwarz_Interieur.JPG",
+      "title": "Mercedes-Benz W212 E 220 CDI Avantgarde 7-G-Tronic Obsidianschwarz Interieur.JPG",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "front": {
+      "src": "vehicles/mercedes-benz-e-serisi.jpg",
+      "author": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2019_Mercedes-Benz_E220d_SE_Automatic_2.0_Front.jpg",
+      "title": "2019 Mercedes-Benz E220d SE Automatic 2.0 Front.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    }
+  },
+  "citroen-c5": {
+    "rear": {
+      "src": "vehicles/citroen-c5-rear.jpg",
+      "author": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2017_Citroen_C5_Sedan_Rear.jpg",
+      "title": "2017 Citroen C5 Sedan Rear.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "interior": {
+      "src": "vehicles/citroen-c5-interior.jpg",
+      "author": "DILI89",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:C5_Exclusive.jpg",
+      "title": "C5 Exclusive.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "front": {
+      "src": "vehicles/citroen-c5.jpg",
+      "author": "Maarten",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Citro%C3%ABn_C5_2008_Front_(cropped).jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "title": "Citroën C5 2008 Front (cropped).jpg"
+    }
+  },
+  "volvo-xc60": {
+    "rear": {
+      "src": "vehicles/volvo-xc60-rear.jpg",
+      "author": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2017_Volvo_XC60_R-Design_NAV_D4_Automatic_2.0_Rear.jpg",
+      "title": "2017 Volvo XC60 R-Design NAV D4 Automatic 2.0 Rear.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "interior": {
+      "src": "vehicles/volvo-xc60-interior.jpg",
+      "author": "TTTNIS",
+      "license": "Public domain",
+      "licenseUrl": "https://commons.wikimedia.org/wiki/File:Volvo_XC60_T5_SE_interior.jpg",
+      "source": "https://commons.wikimedia.org/wiki/File:Volvo_XC60_T5_SE_interior.jpg",
+      "title": "Volvo XC60 T5 SE interior.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "front": {
+      "src": "vehicles/volvo-xc60.jpg",
+      "author": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2018_Volvo_XC60_R-Design_D5_P-Pulse_2.0_Front.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "title": "2018 Volvo XC60 R-Design D5 P-Pulse 2.0 Front.jpg"
+    }
+  },
+  "volvo-xc40": {
+    "rear": {
+      "src": "vehicles/volvo-xc40-rear.jpg",
+      "author": "Elise240SX",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2019_Volvo_XC40_T5_Momentum_in_Bright_Silver_Metallic,_rear_left,_2025-09-22.jpg",
+      "title": "2019 Volvo XC40 T5 Momentum in Bright Silver Metallic, rear left, 2025-09-22.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "interior": {
+      "src": "vehicles/volvo-xc40-interior.jpg",
+      "author": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2018_Volvo_XC40_Interior.jpg",
+      "title": "2018 Volvo XC40 Interior.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "front": {
+      "src": "vehicles/volvo-xc40.jpg",
+      "author": "Elise240SX",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2019_Volvo_XC40_T5_Momentum_in_Bright_Silver_Metallic,_front_left,_2025-09-22.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "title": "2019 Volvo XC40 T5 Momentum in Bright Silver Metallic, front left, 2025-09-22.jpg"
+    }
+  },
+  "volvo-s90": {
+    "rear": {
+      "src": "vehicles/volvo-s90-rear.jpg",
+      "author": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2018_Volvo_S90_R-Design_D4_Automatic_2.0_Rear.jpg",
+      "title": "2018 Volvo S90 R-Design D4 Automatic 2.0 Rear.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "interior": {
+      "src": "vehicles/volvo-s90-interior.jpg",
+      "author": "MichalPL",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Volvo_S90_(SPA)_interior.jpg",
+      "title": "Volvo S90 (SPA) interior.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "front": {
+      "src": "vehicles/volvo-s90.jpg",
+      "author": "Kevauto",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2018_Volvo_S90_T5_Momentum_front_4.6.18.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "title": "2018 Volvo S90 T5 Momentum front 4.6.18.jpg"
+    }
+  },
+  "audi-a4": {
+    "rear": {
+      "src": "vehicles/audi-a4-rear.jpg",
+      "author": "EurovisionNim",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2017_Audi_A4_(8W)_sport_quattro_sedan_(2018-10-19)_02.jpg",
+      "title": "2017 Audi A4 (8W) sport quattro sedan (2018-10-19) 02.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "interior": {
+      "src": "vehicles/audi-a4-interior.jpg",
+      "author": "Kickaffe (Mario von Berg)",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2015_Audi_A4_B9_2.0_TFSI_quattro_185_kW_S_line_Interieur_Innenraum_Cockpit.jpg",
+      "title": "2015 Audi A4 B9 2.0 TFSI quattro 185 kW S line Interieur Innenraum Cockpit.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "front": {
+      "src": "vehicles/audi-a4.jpg",
+      "author": "Alexander-93",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Audi_A4_B9_sedans_(FL)_1X7A2441.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "title": "Audi A4 B9 sedans (FL) 1X7A2441.jpg"
+    }
+  },
+  "audi-q3": {
+    "rear": {
+      "src": "vehicles/audi-q3-rear.jpg",
+      "author": "© M 93",
+      "license": "CC BY-SA 3.0 de",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+      "source": "https://commons.wikimedia.org/wiki/File:Audi_Q3_quattro_Sport_(Facelift)_%E2%80%93_Heckansicht,_3._Januar_2016,_D%C3%BCsseldorf.jpg",
+      "title": "Audi Q3 quattro Sport (Facelift) – Heckansicht, 3. Januar 2016, Düsseldorf.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "interior": {
+      "src": "vehicles/audi-q3-interior.jpg",
+      "author": "Kickaffe (Mario von Berg)",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2015_Audi_Q3_2.0_TDI_quattro_Facelift_Typ_8U_Interieur_Cockpit_Innenraum.jpg",
+      "title": "2015 Audi Q3 2.0 TDI quattro Facelift Typ 8U Interieur Cockpit Innenraum.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "front": {
+      "src": "vehicles/audi-q3.jpg",
+      "author": "Alexander Migl",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Audi_Q3_F3_DSC_7494.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "title": "Audi Q3 F3 DSC 7494.jpg"
+    }
+  },
+  "audi-a5": {
+    "rear": {
+      "src": "vehicles/audi-a5-rear.jpg",
+      "author": "Tokumeigakarinoaoshima",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Audi_A5_Sportback_2.0TFSI_sport_(DBA-F5CVKL)_rear.jpg",
+      "title": "Audi A5 Sportback 2.0TFSI sport (DBA-F5CVKL) rear.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "interior": {
+      "src": "vehicles/audi-a5-interior.jpg",
+      "author": "Tokumeigakarinoaoshima",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Audi_A5_Sportback_2.0TFSI_sport_(DBA-F5CVKL)_interior.jpg",
+      "title": "Audi A5 Sportback 2.0TFSI sport (DBA-F5CVKL) interior.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "front": {
+      "src": "vehicles/audi-a5.jpg",
+      "author": "Tokumeigakarinoaoshima",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Audi_A5_Sportback_2.0TFSI_sport_(DBA-F5CVKL)_front.jpg",
+      "title": "Audi A5 Sportback 2.0TFSI sport (DBA-F5CVKL) front.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    }
+  },
+  "audi-q5": {
+    "rear": {
+      "src": "vehicles/audi-q5-rear.jpg",
+      "author": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2018_Audi_Q5_S_Line_TDi_Quattro_S-A_2.0_Rear.jpg",
+      "title": "2018 Audi Q5 S Line TDi Quattro S-A 2.0 Rear.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "interior": {
+      "src": "vehicles/audi-q5-interior.jpg",
+      "author": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2018_Audi_Q5_TDi_2.0_Interior.jpg",
+      "title": "2018 Audi Q5 TDi 2.0 Interior.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "front": {
+      "src": "vehicles/audi-q5.jpg",
+      "author": "© M 93",
+      "license": "CC BY-SA 3.0 de",
+      "source": "https://commons.wikimedia.org/wiki/File:Audi_Q5_2.0_TDI_quattro_S_line_(GU)_%E2%80%93_f_13102025.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+      "title": "Audi Q5 2.0 TDI quattro S line (GU) – f 13102025.jpg"
+    }
+  },
+  "audi-a6": {
+    "rear": {
+      "src": "vehicles/audi-a6-rear.jpg",
+      "author": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2018_Audi_A6_TDi_Quattro_Rear.jpg",
+      "title": "2018 Audi A6 TDi Quattro Rear.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "interior": {
+      "src": "vehicles/audi-a6-interior.jpg",
+      "author": "Thomas doerfer",
+      "license": "CC BY 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Audi_A6_Limousine_3.0_TDI_quattro_S_tronic_Mondscheinblau_Interieur.JPG",
+      "title": "Audi A6 Limousine 3.0 TDI quattro S tronic Mondscheinblau Interieur.JPG",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "front": {
+      "src": "vehicles/audi-a6.jpg",
+      "author": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2018_Audi_A6_TDi_Quattro_Front.jpg",
+      "title": "2018 Audi A6 TDi Quattro Front.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    }
+  },
+  "audi-a7": {
+    "rear": {
+      "src": "vehicles/audi-a7-rear.jpg",
+      "author": "Thomas doerfer",
+      "license": "CC BY-SA 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Audi_A7_3.0_TFSI_quattro_S_line_Facelift_Heck.JPG",
+      "title": "Audi A7 3.0 TFSI quattro S line Facelift Heck.JPG",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "interior": {
+      "src": "vehicles/audi-a7-interior.jpg",
+      "author": "Kickaffe (Mario von Berg)",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2014_Audi_A7_Sportback_Typ_4G_Facelift_3.0_TDI_competition_quattro_Biturbo_clean_diesel_V6_tiptronic_Cockpit_Innenraum_Interieur.jpg",
+      "title": "2014 Audi A7 Sportback Typ 4G Facelift 3.0 TDI competition quattro Biturbo clean diesel V6 tiptronic Cockpit Innenraum Interieur.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "front": {
+      "src": "vehicles/audi-a7.jpg",
+      "author": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2018_Audi_A7_S_Line_40_TDi_S-A_2.0.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "title": "2018 Audi A7 S Line 40 TDi S-A 2.0.jpg"
+    }
+  },
+  "peugeot-2008": {
+    "rear": {
+      "src": "vehicles/peugeot-2008-rear.jpg",
+      "author": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2017_Peugeot_2008_Allure_1.2_Rear.jpg",
+      "title": "2017 Peugeot 2008 Allure 1.2 Rear.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "interior": {
+      "src": "vehicles/peugeot-2008-interior.jpg",
+      "author": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2018_Peugeot_2008_Allure_PureTech_130_1.2_Interior.jpg",
+      "title": "2018 Peugeot 2008 Allure PureTech 130 1.2 Interior.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "front": {
+      "src": "vehicles/peugeot-2008.jpg",
+      "author": "Cutlass",
+      "license": "CC0",
+      "source": "https://commons.wikimedia.org/wiki/File:2023_Peugeot_2008_in_Vertigo_Blue,_front_left,_06-08-2025.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+      "title": "2023 Peugeot 2008 in Vertigo Blue, front left, 06-08-2025.jpg"
+    }
+  },
+  "opel-insignia": {
+    "rear": {
+      "src": "vehicles/opel-insignia-rear.jpg",
+      "author": "Cutlass",
+      "license": "CC0",
+      "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+      "source": "https://commons.wikimedia.org/wiki/File:2016_Opel_Insignia_in_Dark_Sea_Blue_Pearl_Effect,_rear_left,_06-05-2025.jpg",
+      "title": "2016 Opel Insignia in Dark Sea Blue Pearl Effect, rear left, 06-05-2025.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "interior": {
+      "src": "vehicles/opel-insignia-interior.jpg",
+      "author": "Thomas doerfer",
+      "license": "CC BY-SA 3.0",
+      "licenseUrl": "http://creativecommons.org/licenses/by-sa/3.0/",
+      "source": "https://commons.wikimedia.org/wiki/File:Opel_Insignia_Sportstourer_Edition_Pannacotta_Interieur.JPG",
+      "title": "Opel Insignia Sportstourer Edition Pannacotta Interieur.JPG",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "front": {
+      "src": "vehicles/opel-insignia.jpg",
+      "author": "Cutlass",
+      "license": "CC0",
+      "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+      "source": "https://commons.wikimedia.org/wiki/File:2016_Opel_Insignia_in_Dark_Sea_Blue_Pearl_Effect,_front_left,_06-05-2025.jpg",
+      "title": "2016 Opel Insignia in Dark Sea Blue Pearl Effect, front left, 06-05-2025.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    }
+  },
+  "peugeot-3008": {
+    "rear": {
+      "src": "vehicles/peugeot-3008-rear.jpg",
+      "author": "© M 93",
+      "license": "CC BY-SA 3.0 de",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+      "source": "https://commons.wikimedia.org/wiki/File:Peugeot_3008_BlueHDi_180_EAT8_GT_(II)_%E2%80%93_Heckansicht_(1),_25._November_2018,_D%C3%BCsseldorf.jpg",
+      "title": "Peugeot 3008 BlueHDi 180 EAT8 GT (II) – Heckansicht (1), 25. November 2018, Düsseldorf.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "interior": {
+      "src": "vehicles/peugeot-3008-interior.jpg",
+      "author": "© M 93",
+      "license": "CC BY-SA 3.0 de",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+      "source": "https://commons.wikimedia.org/wiki/File:Peugeot_3008_THP_165_EAT6_Allure_GT-Line_(II)_%E2%80%93_Innenraum,_20._September_2017,_D%C3%BCsseldorf.jpg",
+      "title": "Peugeot 3008 THP 165 EAT6 Allure GT-Line (II) – Innenraum, 20. September 2017, Düsseldorf.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "front": {
+      "src": "vehicles/peugeot-3008.jpg",
+      "author": "Alexander-93",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Peugeot_e-3008_Automesse_Ludwigsburg_2024_IMG_1537.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "title": "Peugeot e-3008 Automesse Ludwigsburg 2024 IMG 1537.jpg"
+    }
+  },
+  "volkswagen-touareg": {
+    "rear": {
+      "src": "vehicles/volkswagen-touareg-rear.jpg",
+      "author": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2019_Volkswagen_Touareg_V6_R-Line_Tech_TD_3.0_Rear.jpg",
+      "title": "2019 Volkswagen Touareg V6 R-Line Tech TD 3.0 Rear.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "interior": {
+      "src": "vehicles/volkswagen-touareg-interior.jpg",
+      "author": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2018_Volkswagen_Touareg_Interior.jpg",
+      "title": "2018 Volkswagen Touareg Interior.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "front": {
+      "src": "vehicles/volkswagen-touareg.jpg",
+      "author": "Alexander-93",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Volkswagen_Touareg_(2023)_IMG_2080.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "title": "Volkswagen Touareg (2023) IMG 2080.jpg"
+    }
+  },
+  "land-rover-discovery-sport": {
+    "rear": {
+      "src": "vehicles/land-rover-discovery-sport-rear.jpg",
+      "author": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2016_Land_Rover_Discovery_Sport_SE_Tech_T_2.0_Rear.jpg",
+      "title": "2016 Land Rover Discovery Sport SE Tech T 2.0 Rear.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "interior": {
+      "src": "vehicles/land-rover-discovery-sport-interior.jpg",
+      "author": "Land Rover MENA",
+      "license": "CC BY 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/2.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Land_Rover_Discovery_Sport_-_Interior_(14916361129).jpg",
+      "title": "Land Rover Discovery Sport - Interior (14916361129).jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "front": {
+      "src": "vehicles/land-rover-discovery-sport.jpg",
+      "author": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2016_Land_Rover_Discovery_Sport_SE_Tech_T_2.0_Front.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "title": "2016 Land Rover Discovery Sport SE Tech T 2.0 Front.jpg"
+    }
+  },
+  "land-rover-range-rover-evoque": {
+    "rear": {
+      "src": "vehicles/land-rover-range-rover-evoque-rear.jpg",
+      "author": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2017_Range_Rover_Evoque_HSE_2.0_Rear.jpg",
+      "title": "2017 Range Rover Evoque HSE 2.0 Rear.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "interior": {
+      "src": "vehicles/land-rover-range-rover-evoque-interior.jpg",
+      "author": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2018_Land_Rover_Range_Rover_Evoque_HSE_Interior.jpg",
+      "title": "2018 Land Rover Range Rover Evoque HSE Interior.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "front": {
+      "src": "vehicles/land-rover-range-rover-evoque.jpg",
+      "author": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2019_Land_Rover_Range_Rover_Evoque_R-Dynamic_2.0.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "title": "2019 Land Rover Range Rover Evoque R-Dynamic 2.0.jpg"
+    }
+  },
+  "mercedes-benz-glc": {
+    "rear": {
+      "src": "vehicles/mercedes-benz-glc-rear.jpg",
+      "author": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2018_Mercedes-Benz_GLC_250_Urban_Edition_4MATIC_2.0_Rear.jpg",
+      "title": "2018 Mercedes-Benz GLC 250 Urban Edition 4MATIC 2.0 Rear.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "interior": {
+      "src": "vehicles/mercedes-benz-glc-interior.jpg",
+      "author": "Tokumeigakarinoaoshima",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Mercedes-Benz_GLC250_4MATIC_Sports_(X253)_interior.JPG",
+      "title": "Mercedes-Benz GLC250 4MATIC Sports (X253) interior.JPG",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "front": {
+      "src": "vehicles/mercedes-benz-glc.jpg",
+      "author": "Alexander Migl",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Mercedes-Benz_X254_1X7A6343.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "title": "Mercedes-Benz X254 1X7A6343.jpg"
+    }
+  },
+  "hyundai-tucson": {
+    "rear": {
+      "src": "vehicles/hyundai-tucson-rear.jpg",
+      "author": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2018_Hyundai_Tucson_Premium_SE_CRDi_2WD_facelift_2.0_Rear.jpg",
+      "title": "2018 Hyundai Tucson Premium SE CRDi 2WD facelift 2.0 Rear.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "interior": {
+      "src": "vehicles/hyundai-tucson-interior.jpg",
+      "author": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2018_Hyundai_Tucson_Go!_SE_Interior.jpg",
+      "title": "2018 Hyundai Tucson Go! SE Interior.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    },
+    "front": {
+      "src": "vehicles/hyundai-tucson.jpg",
+      "author": "© M 93",
+      "license": "CC BY-SA 3.0 de",
+      "source": "https://commons.wikimedia.org/wiki/File:Hyundai_Tucson_1.6_T-GDI_PHEV_Prime_(IV)_%E2%80%93_f_05072025.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+      "title": "Hyundai Tucson 1.6 T-GDI PHEV Prime (IV) – f 05072025.jpg"
+    }
+  }
+}

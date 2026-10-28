@@ -1,0 +1,2427 @@
+[
+  {
+    "id": "toyota-corolla",
+    "name": "Toyota Corolla",
+    "package": "2015–18 Premium; 2019+ 1.8 Hybrid Passion X-Pack",
+    "engine": "1.8 Hybrid e-CVT (2019+); 1.6 Valvematic M-DS",
+    "note": "Hibrit ve 1.6 benzin fiyatları karışık; 2019+ Passion X-Pack daha yüksek olabilir.",
+    "body": "Sedan",
+    "url": "https://aracdeger.net/piyasa/toyota/corolla",
+    "checked": "2026-10-29",
+    "years": [
+      {
+        "year": 2026,
+        "price": 1960000,
+        "low": 1745000,
+        "high": 2120000,
+        "sample": 290,
+        "upperClaim": 2218000.0
+      },
+      {
+        "year": 2025,
+        "price": 1785000,
+        "low": 1650000,
+        "high": 1945000,
+        "sample": 493,
+        "upperClaim": 2350000.0
+      },
+      {
+        "year": 2024,
+        "price": 1650000,
+        "low": 1545000,
+        "high": 1760000,
+        "sample": 461,
+        "upperClaim": 2090000.0
+      },
+      {
+        "year": 2023,
+        "price": 1619900,
+        "low": 1510000,
+        "high": 1730000,
+        "sample": 765,
+        "upperClaim": 2002000.0
+      },
+      {
+        "year": 2022,
+        "price": 1460000,
+        "low": 1359900,
+        "high": 1569000,
+        "sample": 900,
+        "upperClaim": 1415000.0
+      },
+      {
+        "year": 2021,
+        "price": 1419900,
+        "low": 1314000,
+        "high": 1499900,
+        "sample": 1090,
+        "upperClaim": 1475000.0
+      },
+      {
+        "year": 2020,
+        "price": 1500000,
+        "low": 1369900,
+        "high": 1625000,
+        "sample": 834,
+        "upperClaim": 1435000.0
+      },
+      {
+        "year": 2019,
+        "price": 1420000,
+        "low": 1300000,
+        "high": 1545000,
+        "sample": 376,
+        "upperClaim": 1595000.0
+      },
+      {
+        "year": 2018,
+        "price": 1230000,
+        "low": 1095000,
+        "high": 1345000,
+        "sample": 448,
+        "upperClaim": 1532000.0
+      },
+      {
+        "year": 2017,
+        "price": 1100000,
+        "low": 980000,
+        "high": 1255000,
+        "sample": 605,
+        "upperClaim": 1222500.0
+      },
+      {
+        "year": 2016,
+        "price": 1070000,
+        "low": 950000,
+        "high": 1217500,
+        "sample": 895,
+        "upperClaim": 1287000.0
+      },
+      {
+        "year": 2015,
+        "price": 1029000,
+        "low": 900000,
+        "high": 1165000,
+        "sample": 842,
+        "upperClaim": 1085000.0
+      }
+    ],
+    "image": {
+      "src": "vehicles/toyota-corolla.jpg",
+      "author": "Kevauto",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2020_Toyota_Corolla_SE,_front_2.29.20.jpg",
+      "title": "2020 Toyota Corolla SE, front 2.29.20.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    }
+  },
+  {
+    "id": "toyota-hilux",
+    "name": "Toyota Hilux",
+    "package": "Invincible 4x4 / GR SPORT (yıla göre)",
+    "engine": "2.4 / 2.8 D-4D 4x4, AT",
+    "note": "4x2 ile 4x4 fiyatları karışıktır. Ticari kullanım, şasi ve diferansiyel önemli.",
+    "body": "Pick-up",
+    "url": "https://aracdeger.net/piyasa/toyota/hilux",
+    "checked": "2026-10-29",
+    "years": [
+      {
+        "year": 2026,
+        "price": 2370000,
+        "low": 2275000,
+        "high": 2545000,
+        "sample": 23,
+        "upperClaim": 2200000.0
+      },
+      {
+        "year": 2025,
+        "price": 2450000,
+        "low": 2175000,
+        "high": 2999000,
+        "sample": 249,
+        "upperClaim": null
+      },
+      {
+        "year": 2024,
+        "price": 2375000,
+        "low": 2015000,
+        "high": 2595000,
+        "sample": 102,
+        "upperClaim": 2499000.0
+      },
+      {
+        "year": 2023,
+        "price": 2153000,
+        "low": 1920000,
+        "high": 2350000,
+        "sample": 278,
+        "upperClaim": 2350000.0
+      },
+      {
+        "year": 2022,
+        "price": 1890000,
+        "low": 1740000,
+        "high": 2100000,
+        "sample": 300,
+        "upperClaim": 2175000.0
+      },
+      {
+        "year": 2021,
+        "price": 1790000,
+        "low": 1590000,
+        "high": 2050000,
+        "sample": 171,
+        "upperClaim": 1934000.0
+      },
+      {
+        "year": 2020,
+        "price": 1720000,
+        "low": 1580000,
+        "high": 1930000,
+        "sample": 76,
+        "upperClaim": 1620000.0
+      },
+      {
+        "year": 2019,
+        "price": 1575000,
+        "low": 1425000,
+        "high": 1720000,
+        "sample": 13,
+        "upperClaim": 1319000.0
+      },
+      {
+        "year": 2018,
+        "price": 1500000,
+        "low": 1309950,
+        "high": 1650000,
+        "sample": 51,
+        "upperClaim": 1385000.0
+      },
+      {
+        "year": 2017,
+        "price": 1390000,
+        "low": 1245000,
+        "high": 1594000,
+        "sample": 104,
+        "upperClaim": 1450000.0
+      },
+      {
+        "year": 2016,
+        "price": 1350000,
+        "low": 1200000,
+        "high": 1500000,
+        "sample": 187,
+        "upperClaim": 1500000.0
+      },
+      {
+        "year": 2015,
+        "price": 1155000,
+        "low": 1050000,
+        "high": 1275000,
+        "sample": 62,
+        "upperClaim": null
+      }
+    ],
+    "image": {
+      "src": "vehicles/toyota-hilux.jpg",
+      "author": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2016_Toyota_HiLux_Invincible_D-4D_4WD_2.4_Front.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "title": "2016 Toyota HiLux Invincible D-4D 4WD 2.4 Front.jpg"
+    }
+  },
+  {
+    "id": "honda-hr-v",
+    "name": "Honda HR-V",
+    "package": "Executive / Advance (nesle göre)",
+    "engine": "2015–21 1.5 i-VTEC CVT; 2022+ e:HEV",
+    "note": "Türkiye'de her nesil/paket aynı değil; CVT yağı geçmişini kontrol et.",
+    "body": "SUV",
+    "url": "https://aracdeger.net/piyasa/honda/hr-v",
+    "checked": "2026-10-29",
+    "years": [
+      {
+        "year": 2026,
+        "price": 2429000,
+        "low": 2320000,
+        "high": 2485000,
+        "sample": 16,
+        "upperClaim": 2735000.0
+      },
+      {
+        "year": 2025,
+        "price": 2380000,
+        "low": 2295000,
+        "high": 2450000,
+        "sample": 93,
+        "upperClaim": 2400000.0
+      },
+      {
+        "year": 2024,
+        "price": 2225000,
+        "low": 2150000,
+        "high": 2350000,
+        "sample": 78,
+        "upperClaim": 2580000.0
+      },
+      {
+        "year": 2023,
+        "price": 2149500,
+        "low": 2070000,
+        "high": 2225000,
+        "sample": 38,
+        "upperClaim": 2225000.0
+      },
+      {
+        "year": 2022,
+        "price": 1988000,
+        "low": 1825000,
+        "high": 2080000,
+        "sample": 47,
+        "upperClaim": 2169000.0
+      },
+      {
+        "year": 2021,
+        "price": 1950000,
+        "low": 1885000,
+        "high": 2040000,
+        "sample": 11,
+        "upperClaim": 2040000.0
+      },
+      {
+        "year": 2020,
+        "price": 1775000,
+        "low": 1725000,
+        "high": 1860000,
+        "sample": 16,
+        "upperClaim": 1782500.0
+      },
+      {
+        "year": 2017,
+        "price": 1450000,
+        "low": 1300000,
+        "high": 1550000,
+        "sample": 35,
+        "upperClaim": 1477500.0
+      },
+      {
+        "year": 2016,
+        "price": 1400000,
+        "low": 1225000,
+        "high": 1439000,
+        "sample": 26,
+        "upperClaim": 1402500.0
+      }
+    ],
+    "image": {
+      "src": "vehicles/honda-hr-v.jpg",
+      "author": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2023_Honda_HR-V_Advance_i-MMD_CVT_1.5.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "title": "2023 Honda HR-V Advance i-MMD CVT 1.5.jpg"
+    }
+  },
+  {
+    "id": "toyota-rav4",
+    "name": "Toyota RAV4",
+    "package": "Hybrid Passion X-Pack / GR SPORT",
+    "engine": "2.5 Hybrid e-CVT; AWD-i uygun versiyon",
+    "note": "İlan sayısı az; yüksek voltajlı arka AWD kablosu ve 12V akü kontrolü.",
+    "body": "SUV",
+    "url": "https://aracdeger.net/piyasa/toyota/rav4",
+    "checked": "2026-10-29",
+    "years": [
+      {
+        "year": 2020,
+        "price": 2500000,
+        "low": 2390000,
+        "high": 2835000,
+        "sample": 13,
+        "upperClaim": 2662500.0
+      },
+      {
+        "year": 2017,
+        "price": 1820000,
+        "low": 1690000,
+        "high": 1875000,
+        "sample": 14,
+        "upperClaim": 2105000.0
+      }
+    ],
+    "image": {
+      "src": "vehicles/toyota-rav4.jpg",
+      "author": "Mr.choppers",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2024_Toyota_RAV4_Prime_XSE_Premium_in_Silver_Sky_with_Midnight_Black_roof,_front_left.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "title": "2024 Toyota RAV4 Prime XSE Premium in Silver Sky with Midnight Black roof, front left.jpg"
+    }
+  },
+  {
+    "id": "subaru-forester",
+    "name": "Subaru Forester",
+    "package": "Premium / Sport / e-Boxer üst donanım",
+    "engine": "2.0i atmosferik / e-Boxer Lineartronic; dizel değil",
+    "note": "Boxer dizeli özellikle ayıkla; CVT ve dört lastiğin durumu önemli.",
+    "body": "SUV",
+    "url": "https://aracdeger.net/piyasa/subaru/forester",
+    "checked": "2026-10-29",
+    "years": [
+      {
+        "year": 2020,
+        "price": 2325000,
+        "low": 1975000,
+        "high": 2575000,
+        "sample": 15,
+        "upperClaim": 1900000.0
+      },
+      {
+        "year": 2018,
+        "price": 1799000,
+        "low": 1550000,
+        "high": 1875000,
+        "sample": 22,
+        "upperClaim": 1950000.0
+      },
+      {
+        "year": 2017,
+        "price": 1689000,
+        "low": 1525000,
+        "high": 1750000,
+        "sample": 21,
+        "upperClaim": 1600000.0
+      },
+      {
+        "year": 2016,
+        "price": 1450000,
+        "low": 1250000,
+        "high": 1625000,
+        "sample": 15,
+        "upperClaim": 1740000.0
+      },
+      {
+        "year": 2015,
+        "price": 1260000,
+        "low": 1115000,
+        "high": 1400000,
+        "sample": 30,
+        "upperClaim": 1447500.0
+      }
+    ],
+    "image": {
+      "src": "vehicles/subaru-forester.jpg",
+      "author": "Alexander Migl",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Subaru_Forester_(SL)_e-BOXER_DSC_8811.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "title": "Subaru Forester (SL) e-BOXER DSC 8811.jpg"
+    }
+  },
+  {
+    "id": "honda-cr-v",
+    "name": "Honda CR-V",
+    "package": "Executive / Prestige (nesle göre)",
+    "engine": "2019+ 2.0 i-MMD Hybrid e-CVT; eski 1.6 i-DTEC 9AT",
+    "note": "Dizel 9AT ile hibrit farklı aktarmadır; 2019+ hibrit daha öncelikli.",
+    "body": "SUV",
+    "url": "https://aracdeger.net/piyasa/honda/cr-v",
+    "checked": "2026-10-29",
+    "years": [
+      {
+        "year": 2022,
+        "price": 2550000,
+        "low": 2450000,
+        "high": 2735000,
+        "sample": 37,
+        "upperClaim": 2642450.0
+      },
+      {
+        "year": 2021,
+        "price": 2360000,
+        "low": 2250000,
+        "high": 2625000,
+        "sample": 53,
+        "upperClaim": 2520000.0
+      },
+      {
+        "year": 2020,
+        "price": 2150000,
+        "low": 1990000,
+        "high": 2325000,
+        "sample": 43,
+        "upperClaim": 2297475.0
+      },
+      {
+        "year": 2019,
+        "price": 2125000,
+        "low": 1920000,
+        "high": 2189750,
+        "sample": 20,
+        "upperClaim": 2189750.0
+      },
+      {
+        "year": 2018,
+        "price": 1810000,
+        "low": 1590000,
+        "high": 2050000,
+        "sample": 66,
+        "upperClaim": 2159725.0
+      },
+      {
+        "year": 2017,
+        "price": 1700000,
+        "low": 1550000,
+        "high": 1920000,
+        "sample": 161,
+        "upperClaim": 1800000.0
+      },
+      {
+        "year": 2016,
+        "price": 1610000,
+        "low": 1460000,
+        "high": 1750000,
+        "sample": 275,
+        "upperClaim": 1550000.0
+      },
+      {
+        "year": 2015,
+        "price": 1470000,
+        "low": 1300000,
+        "high": 1625000,
+        "sample": 225,
+        "upperClaim": 1720000.0
+      }
+    ],
+    "image": {
+      "src": "vehicles/honda-cr-v.jpg",
+      "author": "© M 93",
+      "license": "CC BY-SA 3.0 de",
+      "source": "https://commons.wikimedia.org/wiki/File:Honda_CR-V_e-HEV_Elegance_AWD_(VI)_%E2%80%93_f_14072024.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+      "title": "Honda CR-V e-HEV Elegance AWD (VI) – f 14072024.jpg"
+    }
+  },
+  {
+    "id": "mitsubishi-l-200",
+    "name": "Mitsubishi L200",
+    "package": "4x4 Instyle / Blizzard / Storm / Diamond (yıla göre)",
+    "engine": "2.4 DI-D 4x4 (4N15), AT",
+    "note": "İlan medyanında 4x2 dahil; iş kullanım yükü ve 4x4 transfer kutusu önemlidir.",
+    "body": "Pick-up",
+    "url": "https://aracdeger.net/piyasa/mitsubishi/l-200",
+    "checked": "2026-10-29",
+    "years": [
+      {
+        "year": 2021,
+        "price": 1442000,
+        "low": 1280000,
+        "high": 1750000,
+        "sample": 217,
+        "upperClaim": 2040000.0
+      },
+      {
+        "year": 2020,
+        "price": 1400000,
+        "low": 1225000,
+        "high": 1589000,
+        "sample": 198,
+        "upperClaim": 1807500.0
+      },
+      {
+        "year": 2019,
+        "price": 1280000,
+        "low": 1100000,
+        "high": 1499999,
+        "sample": 93,
+        "upperClaim": 1580000.0
+      },
+      {
+        "year": 2018,
+        "price": 1099999,
+        "low": 927500,
+        "high": 1280000,
+        "sample": 85,
+        "upperClaim": 1337500.0
+      },
+      {
+        "year": 2017,
+        "price": 1080000,
+        "low": 899750,
+        "high": 1213000,
+        "sample": 157,
+        "upperClaim": 1095000.0
+      },
+      {
+        "year": 2016,
+        "price": 1050000,
+        "low": 919000,
+        "high": 1165000,
+        "sample": 103,
+        "upperClaim": 1165000.0
+      },
+      {
+        "year": 2015,
+        "price": 970000,
+        "low": 825000,
+        "high": 1150000,
+        "sample": 131,
+        "upperClaim": 875000.0
+      }
+    ],
+    "image": {
+      "src": "vehicles/mitsubishi-l-200.jpg",
+      "author": "Ethan Llamas",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Mitsubishi_Triton_LC_2.4_GLS_2WD_Blade_Silver_Metallic_(cropped).jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "title": "Mitsubishi Triton LC 2.4 GLS 2WD Blade Silver Metallic (cropped).jpg"
+    }
+  },
+  {
+    "id": "volvo-s60",
+    "name": "Volvo S60",
+    "package": "Summum / Advance / Inscription (yıla göre)",
+    "engine": "2015–18 2.4 D5 Geartronic; yeni nesil B5",
+    "note": "Çoğu eski ilan 1.6 D2: D5 fiyatı ve güvenilirliği ayrı incelenmeli.",
+    "body": "Sedan",
+    "url": "https://aracdeger.net/piyasa/volvo/s60",
+    "checked": "2026-10-29",
+    "years": [
+      {
+        "year": 2021,
+        "price": 2899999,
+        "low": 2769000,
+        "high": 3050000,
+        "sample": 41,
+        "upperClaim": 2650000.0
+      },
+      {
+        "year": 2020,
+        "price": 2820000,
+        "low": 2550000,
+        "high": 2975000,
+        "sample": 46,
+        "upperClaim": 2929000.0
+      },
+      {
+        "year": 2018,
+        "price": 1539999,
+        "low": 1400000,
+        "high": 1645000,
+        "sample": 81,
+        "upperClaim": 1430000.0
+      },
+      {
+        "year": 2017,
+        "price": 1465000,
+        "low": 1355000,
+        "high": 1575900,
+        "sample": 49,
+        "upperClaim": 1280000.0
+      },
+      {
+        "year": 2016,
+        "price": 1350000,
+        "low": 1200000,
+        "high": 1450000,
+        "sample": 72,
+        "upperClaim": 1475000.0
+      },
+      {
+        "year": 2015,
+        "price": 1125000,
+        "low": 995000,
+        "high": 1270000,
+        "sample": 165,
+        "upperClaim": 1580000.0
+      }
+    ],
+    "image": {
+      "src": "vehicles/volvo-s60.jpg",
+      "author": "Alexander-93",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Volvo_S60_(3rd_generation)_IMG_8468.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "title": "Volvo S60 (3rd generation) IMG 8468.jpg"
+    }
+  },
+  {
+    "id": "hyundai-ix35",
+    "name": "Hyundai ix35",
+    "package": "2.0 CRDi Style Plus 4WD (paket teyidi gerekir)",
+    "engine": "2.0 CRDi 184 bg 6AT 4WD",
+    "note": "2015 çoğu ilan 1.6 GDI 4x2: 2.0 CRDi fiyatını temsil etmez.",
+    "body": "SUV",
+    "url": "https://aracdeger.net/piyasa/hyundai/ix35",
+    "checked": "2026-10-29",
+    "years": [
+      {
+        "year": 2015,
+        "price": 1195000,
+        "low": 1119000,
+        "high": 1260000,
+        "sample": 79,
+        "upperClaim": 1255000.0
+      }
+    ],
+    "image": {
+      "src": "vehicles/hyundai-ix35.jpg",
+      "author": "M 93",
+      "license": "CC BY-SA 3.0 de",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+      "source": "https://commons.wikimedia.org/wiki/File:Hyundai_ix35_FIFA_World_Cup_Edition_(Facelift)_%E2%80%93_Frontansicht,_5._April_2014,_D%C3%BCsseldorf.jpg",
+      "title": "Hyundai ix35 FIFA World Cup Edition (Facelift) – Frontansicht, 5. April 2014, Düsseldorf.jpg",
+      "note": "Gerçek ix35 (LM) fotoğrafı; yıl ve donanım birebir eşleşmeyebilir."
+    }
+  },
+  {
+    "id": "volvo-s80",
+    "name": "Volvo S80",
+    "package": "Summum / Executive",
+    "engine": "2.4 D5 Geartronic",
+    "note": "2016 sonrasına model geçişi; Türkiye nadir D5, D2 PowerShift'i ayıkla.",
+    "body": "Sedan",
+    "url": "https://aracdeger.net/piyasa/volvo/s80",
+    "checked": "2026-10-29",
+    "years": [
+      {
+        "year": 2015,
+        "price": 1275000,
+        "low": 975000,
+        "high": 1358000,
+        "sample": 24,
+        "upperClaim": 1750000.0
+      }
+    ],
+    "image": {
+      "src": "vehicles/volvo-s80.jpg",
+      "author": "M 93",
+      "license": "CC BY-SA 3.0 de",
+      "source": "https://commons.wikimedia.org/wiki/File:Volvo_S80_D5_Momentum_(II,_Facelift)_%E2%80%93_Frontansicht,_26._Oktober_2012,_D%C3%BCsseldorf.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+      "title": "Volvo S80 D5 Momentum (II, Facelift) – Frontansicht, 26. Oktober 2012, Düsseldorf.jpg"
+    }
+  },
+  {
+    "id": "honda-accord",
+    "name": "Honda Accord",
+    "package": "Executive / Type-S (2015+ nadir)",
+    "engine": "2.2 i-DTEC (eski nesil)",
+    "note": "Kaynaklar 2.2 i-DTEC ile 1.5 VTEC motorlarını aynı model adı altında birleştiriyor. Motor, paket ve yıl eşleşmesi teyit edilmedi.",
+    "body": "Sedan",
+    "url": "https://aracdeger.net/piyasa/honda/accord",
+    "checked": "2026-10-29",
+    "years": [
+      {
+        "year": 2023,
+        "price": 2125000,
+        "low": 1949000,
+        "high": 2350000,
+        "sample": 42,
+        "upperClaim": 2400000.0
+      },
+      {
+        "year": 2022,
+        "price": 2019000,
+        "low": 1885000,
+        "high": 2250000,
+        "sample": 64,
+        "upperClaim": 2025000.0
+      },
+      {
+        "year": 2021,
+        "price": 1970000,
+        "low": 1799900,
+        "high": 2200000,
+        "sample": 25,
+        "upperClaim": 1867500.0
+      }
+    ],
+    "image": {
+      "src": "vehicles/honda-accord.jpg",
+      "author": "MercurySable99",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2023_Honda_Accord_LX,_front_left,_07-13-2023.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "title": "2023 Honda Accord LX, front left, 07-13-2023.jpg"
+    }
+  },
+  {
+    "id": "skoda-yeti",
+    "name": "Skoda Yeti",
+    "package": "Outdoor Elegance / 4x4 (2015–17)",
+    "engine": "2.0 TDI 4x4 manuel/DSG (nadir)",
+    "note": "2017 üretim sonu; çoğu TR ilanı 1.6 TDI önden çekiş.",
+    "body": "SUV",
+    "url": "https://aracdeger.net/piyasa/skoda/yeti",
+    "checked": "2026-10-29",
+    "years": [
+      {
+        "year": 2015,
+        "price": 1035000,
+        "low": 915000,
+        "high": 1150000,
+        "sample": 63,
+        "upperClaim": 1162500.0
+      }
+    ],
+    "image": {
+      "src": "vehicles/skoda-yeti.jpg",
+      "author": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2011_Skoda_Yeti_S_TSi_1.2_Front.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "title": "2011 Skoda Yeti S TSi 1.2 Front.jpg"
+    }
+  },
+  {
+    "id": "ford-mondeo",
+    "name": "Ford Mondeo",
+    "package": "Titanium / Vignale",
+    "engine": "2.0 TDCi; PowerShift ıslak kavrama bakımı doğrulanmalı",
+    "note": "PowerShift'in şanzıman kodunu ve bakım tarihçesini doğrula; eski nesil 2.0 TDCi ayrı.",
+    "body": "Sedan",
+    "url": "https://aracdeger.net/piyasa/ford/mondeo",
+    "checked": "2026-10-29",
+    "years": [
+      {
+        "year": 2020,
+        "price": 1520000,
+        "low": 1359000,
+        "high": 1775000,
+        "sample": 19,
+        "upperClaim": 1599000.0
+      },
+      {
+        "year": 2018,
+        "price": 1250000,
+        "low": 1095000,
+        "high": 1365000,
+        "sample": 27,
+        "upperClaim": 1299000.0
+      },
+      {
+        "year": 2017,
+        "price": 1200000,
+        "low": 1099999,
+        "high": 1365000,
+        "sample": 31,
+        "upperClaim": 1379900.0
+      },
+      {
+        "year": 2016,
+        "price": 1175000,
+        "low": 1050000,
+        "high": 1275000,
+        "sample": 121,
+        "upperClaim": 1127500.0
+      },
+      {
+        "year": 2015,
+        "price": 1070000,
+        "low": 939500,
+        "high": 1200000,
+        "sample": 187,
+        "upperClaim": 1150000.0
+      }
+    ],
+    "image": {
+      "src": "vehicles/ford-mondeo.jpg",
+      "author": "User3204",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2018_Chang%27an-Ford_Mondeo_hybrid_(facelift,_front).jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "title": "2018 Chang'an-Ford Mondeo hybrid (facelift, front).jpg"
+    }
+  },
+  {
+    "id": "skoda-superb",
+    "name": "Skoda Superb",
+    "package": "L&K (Laurin & Klement) / Prestige",
+    "engine": "2.0 TDI 190/200 ıslak DSG (bakımı belgeli)",
+    "note": "1.6 TDI kuru DSG / 1.5 TSI ilanları ağırlıkta, 2.0 TDI L&K fiyatı değil.",
+    "body": "Sedan",
+    "url": "https://aracdeger.net/piyasa/skoda/superb",
+    "checked": "2026-10-29",
+    "years": [
+      {
+        "year": 2024,
+        "price": 2870000,
+        "low": 2625000,
+        "high": 3100000,
+        "sample": 347,
+        "upperClaim": 2975000.0
+      },
+      {
+        "year": 2023,
+        "price": 2359000,
+        "low": 2125000,
+        "high": 2615000,
+        "sample": 437,
+        "upperClaim": 2509000.0
+      },
+      {
+        "year": 2022,
+        "price": 2185000,
+        "low": 1900000,
+        "high": 2379000,
+        "sample": 308,
+        "upperClaim": 2192500.0
+      },
+      {
+        "year": 2021,
+        "price": 1975000,
+        "low": 1777900,
+        "high": 2170000,
+        "sample": 359,
+        "upperClaim": 2267000.0
+      },
+      {
+        "year": 2020,
+        "price": 1900000,
+        "low": 1729950,
+        "high": 2120000,
+        "sample": 551,
+        "upperClaim": 2169500.0
+      },
+      {
+        "year": 2019,
+        "price": 1830000,
+        "low": 1635000,
+        "high": 2039000,
+        "sample": 281,
+        "upperClaim": 1900000.0
+      },
+      {
+        "year": 2018,
+        "price": 1585000,
+        "low": 1420000,
+        "high": 1760000,
+        "sample": 489,
+        "upperClaim": 2050000.0
+      },
+      {
+        "year": 2017,
+        "price": 1465000,
+        "low": 1300000,
+        "high": 1670000,
+        "sample": 526,
+        "upperClaim": 2199900.0
+      },
+      {
+        "year": 2016,
+        "price": 1475000,
+        "low": 1300000,
+        "high": 1650000,
+        "sample": 534,
+        "upperClaim": 1435000.0
+      },
+      {
+        "year": 2015,
+        "price": 1345000,
+        "low": 1190000,
+        "high": 1500000,
+        "sample": 305,
+        "upperClaim": 1325000.0
+      }
+    ],
+    "image": {
+      "src": "vehicles/skoda-superb.jpg",
+      "author": "© M 93",
+      "license": "CC BY-SA 3.0 de",
+      "source": "https://commons.wikimedia.org/wiki/File:Skoda_Superb_L%26K_(IV)_%E2%80%93_f_12042026.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+      "title": "Skoda Superb L&K (IV) – f 12042026.jpg"
+    }
+  },
+  {
+    "id": "volkswagen-tiguan",
+    "name": "Volkswagen Tiguan",
+    "package": "Highline / R-Line / Elegance",
+    "engine": "2.0 TDI 4Motion ıslak DSG",
+    "note": "Türkiye ilanlarının çoğu 1.4/1.5 TSI 4x2, 2.0 TDI 4Motion çok daha nadir.",
+    "body": "SUV",
+    "url": "https://aracdeger.net/piyasa/volkswagen/tiguan",
+    "checked": "2026-10-29",
+    "years": [
+      {
+        "year": 2023,
+        "price": 2350000,
+        "low": 2135000,
+        "high": 2676767,
+        "sample": 338,
+        "upperClaim": 2469000.0
+      },
+      {
+        "year": 2022,
+        "price": 2250000,
+        "low": 2025000,
+        "high": 2565000,
+        "sample": 202,
+        "upperClaim": 2650000.0
+      },
+      {
+        "year": 2021,
+        "price": 2049000,
+        "low": 1875000,
+        "high": 2217000,
+        "sample": 238,
+        "upperClaim": 2667500.0
+      },
+      {
+        "year": 2020,
+        "price": 2075000,
+        "low": 1895000,
+        "high": 2250000,
+        "sample": 598,
+        "upperClaim": 2452500.0
+      },
+      {
+        "year": 2019,
+        "price": 1862500,
+        "low": 1725000,
+        "high": 2000000,
+        "sample": 183,
+        "upperClaim": 2171000.0
+      },
+      {
+        "year": 2018,
+        "price": 1760000,
+        "low": 1599500,
+        "high": 1930000,
+        "sample": 241,
+        "upperClaim": 1890000.0
+      },
+      {
+        "year": 2017,
+        "price": 1650000,
+        "low": 1495000,
+        "high": 1810000,
+        "sample": 286,
+        "upperClaim": 2100000.0
+      },
+      {
+        "year": 2016,
+        "price": 1579900,
+        "low": 1425000,
+        "high": 1730000,
+        "sample": 490,
+        "upperClaim": 1489950.0
+      },
+      {
+        "year": 2015,
+        "price": 1349000,
+        "low": 1229000,
+        "high": 1439000,
+        "sample": 224,
+        "upperClaim": 1399000.0
+      }
+    ],
+    "image": {
+      "src": "vehicles/volkswagen-tiguan.jpg",
+      "author": "Alexander-93",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Volkswagen_Tiguan_III_IMG_8823_(cropped).jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "title": "Volkswagen Tiguan III IMG 8823 (cropped).jpg"
+    }
+  },
+  {
+    "id": "volkswagen-passat",
+    "name": "Volkswagen Passat",
+    "package": "Highline / Elegance / R-Line; Variant ayrı",
+    "engine": "2.0 TDI ıslak DSG (bakım belgeli)",
+    "note": "Türkiye Passat Sedan 2022 sonrası yok; Variant aynı satıra karıştırılmadı.",
+    "body": "Sedan",
+    "url": "https://aracdeger.net/piyasa/volkswagen/passat",
+    "checked": "2026-10-29",
+    "years": [
+      {
+        "year": 2022,
+        "price": 2085000,
+        "low": 1870000,
+        "high": 2370000,
+        "sample": 711,
+        "upperClaim": 2310000.0
+      },
+      {
+        "year": 2021,
+        "price": 1895000,
+        "low": 1760000,
+        "high": 2110000,
+        "sample": 844,
+        "upperClaim": 2500000.0
+      },
+      {
+        "year": 2020,
+        "price": 1900000,
+        "low": 1725000,
+        "high": 2215000,
+        "sample": 1972,
+        "upperClaim": 2387000.0
+      },
+      {
+        "year": 2019,
+        "price": 1799000,
+        "low": 1630000,
+        "high": 2030000,
+        "sample": 1175,
+        "upperClaim": 2427500.0
+      },
+      {
+        "year": 2018,
+        "price": 1650000,
+        "low": 1475000,
+        "high": 1845000,
+        "sample": 1512,
+        "upperClaim": 1700000.0
+      },
+      {
+        "year": 2017,
+        "price": 1530000,
+        "low": 1350000,
+        "high": 1740000,
+        "sample": 1904,
+        "upperClaim": 1625000.0
+      },
+      {
+        "year": 2016,
+        "price": 1504000,
+        "low": 1348000,
+        "high": 1700000,
+        "sample": 2038,
+        "upperClaim": 1725000.0
+      },
+      {
+        "year": 2015,
+        "price": 1400000,
+        "low": 1250000,
+        "high": 1570000,
+        "sample": 1988,
+        "upperClaim": 1599000.0
+      }
+    ],
+    "image": {
+      "src": "vehicles/volkswagen-passat.jpg",
+      "author": "Tokumeigakarinoaoshima",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Volkswagen_Passat_2.0TSI_R-Line_(B8)_front.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "title": "Volkswagen Passat 2.0TSI R-Line (B8) front.jpg"
+    }
+  },
+  {
+    "id": "mercedes-benz-c-serisi",
+    "name": "Mercedes C-Serisi",
+    "package": "W205 AMG / Exclusive; 2021+ W206 AMG",
+    "engine": "2015+ W205; dizel C220d/OM651/OM654",
+    "note": "W204 2015+ ana kasa değildir; 2019 örneklemi 11 ve fiyat sıçraması var.",
+    "body": "Sedan",
+    "url": "https://aracdeger.net/piyasa/mercedes-benz/c-serisi",
+    "checked": "2026-10-29",
+    "years": [
+      {
+        "year": 2020,
+        "price": 2790000,
+        "low": 2500000,
+        "high": 3050000,
+        "sample": 437,
+        "upperClaim": null
+      },
+      {
+        "year": 2018,
+        "price": 2325750,
+        "low": 2020000,
+        "high": 2635000,
+        "sample": 740,
+        "upperClaim": 2400000.0
+      },
+      {
+        "year": 2017,
+        "price": 2035000,
+        "low": 1769000,
+        "high": 2300000,
+        "sample": 1072,
+        "upperClaim": 1902500.0
+      },
+      {
+        "year": 2016,
+        "price": 1900000,
+        "low": 1699000,
+        "high": 2190000,
+        "sample": 1491,
+        "upperClaim": 1847500.0
+      },
+      {
+        "year": 2015,
+        "price": 1790000,
+        "low": 1625000,
+        "high": 2000000,
+        "sample": 1047,
+        "upperClaim": 1650000.0
+      }
+    ],
+    "image": {
+      "src": "vehicles/mercedes-benz-c-serisi.jpg",
+      "author": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2020_Mercedes-Benz_C300_AMG_Line_Night_Edition_Premium_2.0_Front.jpg",
+      "title": "2020 Mercedes-Benz C300 AMG Line Night Edition Premium 2.0 Front.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    }
+  },
+  {
+    "id": "mercedes-benz-glk",
+    "name": "Mercedes GLK",
+    "package": "220 CDI 4MATIC Premium / AMG",
+    "engine": "2.1 OM651 7G-Tronic, 4MATIC",
+    "note": "2015 son üretim; sonra GLC çıktı. Tam paket için opsiyon kodlarını kontrol et.",
+    "body": "SUV",
+    "url": "https://aracdeger.net/piyasa/mercedes-benz/glk",
+    "checked": "2026-10-29",
+    "years": [
+      {
+        "year": 2015,
+        "price": 2270000,
+        "low": 1920000,
+        "high": 2500000,
+        "sample": 10,
+        "upperClaim": 2162000.0
+      }
+    ],
+    "image": {
+      "src": "vehicles/mercedes-benz-glk.jpg",
+      "author": "M 93",
+      "license": "CC BY-SA 3.0 de",
+      "source": "https://commons.wikimedia.org/wiki/File:Mercedes-Benz_GLK_220_CDI_4MATIC_Sport-Paket_AMG_(X_204,_Facelift)_%E2%80%93_Frontansicht,_24._August_2014,_D%C3%BCsseldorf.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+      "title": "Mercedes-Benz GLK 220 CDI 4MATIC Sport-Paket AMG (X 204, Facelift) – Frontansicht, 24. August 2014, Düsseldorf.jpg"
+    }
+  },
+  {
+    "id": "mercedes-benz-e-serisi",
+    "name": "Mercedes E-Serisi",
+    "package": "2015–16 E220/E250 CDI AMG/Avantgarde; 2017+ E220d AMG/Exclusive",
+    "engine": "W212 OM651 7G-Tronic; W213 OM654 9G-Tronic",
+    "note": "E180, E200, E220d ve E250CDI tümü karışık! Motor bazlı ilan filtrelemesi şart.",
+    "body": "Sedan",
+    "url": "https://aracdeger.net/piyasa/mercedes-benz/e-serisi",
+    "checked": "2026-10-29",
+    "years": [
+      {
+        "year": 2016,
+        "price": 2732000,
+        "low": 2425000,
+        "high": 3150000,
+        "sample": 482,
+        "upperClaim": null
+      },
+      {
+        "year": 2015,
+        "price": 2315000,
+        "low": 2075000,
+        "high": 2590000,
+        "sample": 529,
+        "upperClaim": 2024500.0
+      }
+    ],
+    "image": {
+      "src": "vehicles/mercedes-benz-e-serisi.jpg",
+      "author": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2019_Mercedes-Benz_E220d_SE_Automatic_2.0_Front.jpg",
+      "title": "2019 Mercedes-Benz E220d SE Automatic 2.0 Front.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    }
+  },
+  {
+    "id": "citroen-c5",
+    "name": "Citroën C5",
+    "package": "Exclusive 2.0 HDi",
+    "engine": "DW10 2.0 HDi Aisin 6AT",
+    "note": "2015+ sedan ilanı yetersiz; C5 Aircross farklı model. Hydractive süspansiyon masraflı olabilir.",
+    "body": "Sedan",
+    "url": "https://aracdeger.net/piyasa/citroen/c5",
+    "checked": "2026-10-29",
+    "years": [
+      {
+        "year": 2015,
+        "price": 785000,
+        "low": 720000,
+        "high": 820000,
+        "sample": 10,
+        "upperClaim": 785000.0
+      }
+    ],
+    "image": {
+      "src": "vehicles/citroen-c5.jpg",
+      "author": "Maarten",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Citro%C3%ABn_C5_2008_Front_(cropped).jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "title": "Citroën C5 2008 Front (cropped).jpg"
+    }
+  },
+  {
+    "id": "volvo-xc60",
+    "name": "Volvo XC60",
+    "package": "2015–17 Advance; 2018+ Inscription / Ultimate",
+    "engine": "D4/D5 8AT; B5 MHEV; T8 PHEV",
+    "note": "2017 kasa geçişi; eski 2.4 D5 ve yeni 2.0 D4 fiyat/riski farklı.",
+    "body": "SUV",
+    "url": "https://aracdeger.net/piyasa/volvo/xc60",
+    "checked": "2026-10-29",
+    "years": [
+      {
+        "year": 2018,
+        "price": 2775000,
+        "low": 2500000,
+        "high": 2997500,
+        "sample": 33,
+        "upperClaim": null
+      },
+      {
+        "year": 2017,
+        "price": 2480000,
+        "low": 2025000,
+        "high": 2749000,
+        "sample": 62,
+        "upperClaim": 2700000.0
+      },
+      {
+        "year": 2016,
+        "price": 1750000,
+        "low": 1585000,
+        "high": 1975000,
+        "sample": 38,
+        "upperClaim": 1850000.0
+      },
+      {
+        "year": 2015,
+        "price": 1635000,
+        "low": 1500000,
+        "high": 1825000,
+        "sample": 31,
+        "upperClaim": 1525000.0
+      }
+    ],
+    "image": {
+      "src": "vehicles/volvo-xc60.jpg",
+      "author": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2018_Volvo_XC60_R-Design_D5_P-Pulse_2.0_Front.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "title": "2018 Volvo XC60 R-Design D5 P-Pulse 2.0 Front.jpg"
+    }
+  },
+  {
+    "id": "volvo-xc40",
+    "name": "Volvo XC40",
+    "package": "Inscription / R-Design / Ultimate",
+    "engine": "1.5 T3/T5 PHEV/B3-B4; elektrikli ayrı model",
+    "note": "T3/D4/PHEV farklı risk ve fiyat; panoramik tavan ve elektronik kontrol.",
+    "body": "SUV",
+    "url": "https://aracdeger.net/piyasa/volvo/xc40",
+    "checked": "2026-10-29",
+    "years": [
+      {
+        "year": 2023,
+        "price": 2790000,
+        "low": 2450000,
+        "high": 3030000,
+        "sample": 99,
+        "upperClaim": 2927500.0
+      },
+      {
+        "year": 2022,
+        "price": 2570000,
+        "low": 2390000,
+        "high": 2750000,
+        "sample": 102,
+        "upperClaim": 2747500.0
+      },
+      {
+        "year": 2021,
+        "price": 2465000,
+        "low": 2320000,
+        "high": 2645000,
+        "sample": 108,
+        "upperClaim": 2444500.0
+      },
+      {
+        "year": 2020,
+        "price": 2300000,
+        "low": 2150000,
+        "high": 2415000,
+        "sample": 101,
+        "upperClaim": 2212500.0
+      },
+      {
+        "year": 2019,
+        "price": 2200000,
+        "low": 2099999,
+        "high": 2295000,
+        "sample": 42,
+        "upperClaim": 2242000.0
+      },
+      {
+        "year": 2018,
+        "price": 2155000,
+        "low": 1999999,
+        "high": 2240000,
+        "sample": 24,
+        "upperClaim": null
+      }
+    ],
+    "image": {
+      "src": "vehicles/volvo-xc40.jpg",
+      "author": "Elise240SX",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2019_Volvo_XC40_T5_Momentum_in_Bright_Silver_Metallic,_front_left,_2025-09-22.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "title": "2019 Volvo XC40 T5 Momentum in Bright Silver Metallic, front left, 2025-09-22.jpg"
+    }
+  },
+  {
+    "id": "volvo-s90",
+    "name": "Volvo S90",
+    "package": "Inscription / Ultimate / Plus (yıla göre)",
+    "engine": "D4/D5/B5 8 ileri otomatik",
+    "note": "2019 kaynak örneklem yok; premium elektronik/air süspansiyon opsiyonları pahalı.",
+    "body": "Sedan",
+    "url": "https://aracdeger.net/piyasa/volvo/s90",
+    "checked": "2026-10-29",
+    "years": [
+      {
+        "year": 2018,
+        "price": 2875000,
+        "low": 2625000,
+        "high": 3000000,
+        "sample": 66,
+        "upperClaim": null
+      },
+      {
+        "year": 2017,
+        "price": 2585000,
+        "low": 2345000,
+        "high": 2775000,
+        "sample": 104,
+        "upperClaim": null
+      },
+      {
+        "year": 2016,
+        "price": 2435000,
+        "low": 2299999,
+        "high": 2675000,
+        "sample": 34,
+        "upperClaim": 2795000.0
+      }
+    ],
+    "image": {
+      "src": "vehicles/volvo-s90.jpg",
+      "author": "Kevauto",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2018_Volvo_S90_T5_Momentum_front_4.6.18.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "title": "2018 Volvo S90 T5 Momentum front 4.6.18.jpg"
+    }
+  },
+  {
+    "id": "audi-a4",
+    "name": "Audi A4",
+    "package": "S line / Design + seçenek paketi",
+    "engine": "2.0 TDI quattro uygun DSG; 1.4/2.0 TFSI ayrı",
+    "note": "S line yalnız dış görünüm olabilir; quattro/şanzıman kodu ve opsiyonları ayır.",
+    "body": "Sedan",
+    "url": "https://aracdeger.net/piyasa/audi/a4",
+    "checked": "2026-10-29",
+    "years": [
+      {
+        "year": 2021,
+        "price": 2900000,
+        "low": 2700000,
+        "high": 3100000,
+        "sample": 105,
+        "upperClaim": null
+      },
+      {
+        "year": 2020,
+        "price": 2725000,
+        "low": 2500000,
+        "high": 2920000,
+        "sample": 302,
+        "upperClaim": 2850000.0
+      },
+      {
+        "year": 2019,
+        "price": 2650000,
+        "low": 2390000,
+        "high": 2820000,
+        "sample": 90,
+        "upperClaim": 2850000.0
+      },
+      {
+        "year": 2018,
+        "price": 2070000,
+        "low": 1865000,
+        "high": 2240000,
+        "sample": 270,
+        "upperClaim": 2500000.0
+      },
+      {
+        "year": 2017,
+        "price": 1889000,
+        "low": 1699000,
+        "high": 2119000,
+        "sample": 277,
+        "upperClaim": 2160000.0
+      },
+      {
+        "year": 2016,
+        "price": 1750000,
+        "low": 1600000,
+        "high": 1950000,
+        "sample": 558,
+        "upperClaim": 1812500.0
+      },
+      {
+        "year": 2015,
+        "price": 1500000,
+        "low": 1300000,
+        "high": 1750000,
+        "sample": 298,
+        "upperClaim": 1725000.0
+      }
+    ],
+    "image": {
+      "src": "vehicles/audi-a4.jpg",
+      "author": "Alexander-93",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Audi_A4_B9_sedans_(FL)_1X7A2441.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "title": "Audi A4 B9 sedans (FL) 1X7A2441.jpg"
+    }
+  },
+  {
+    "id": "audi-q3",
+    "name": "Audi Q3",
+    "package": "S line / Design / quattro + seçenekler",
+    "engine": "35 TFSI / 2.0 TDI quattro",
+    "note": "Birçok Q3 önden çekiş; quattro mutlak değil; 2019-20 yılları verisiz.",
+    "body": "SUV",
+    "url": "https://aracdeger.net/piyasa/audi/q3",
+    "checked": "2026-10-29",
+    "years": [
+      {
+        "year": 2023,
+        "price": 3000000,
+        "low": 2820000,
+        "high": 3125000,
+        "sample": 96,
+        "upperClaim": null
+      },
+      {
+        "year": 2022,
+        "price": 2795000,
+        "low": 2590000,
+        "high": 2925000,
+        "sample": 100,
+        "upperClaim": null
+      },
+      {
+        "year": 2021,
+        "price": 2635000,
+        "low": 2429900,
+        "high": 2760000,
+        "sample": 129,
+        "upperClaim": 2605000.0
+      },
+      {
+        "year": 2018,
+        "price": 1980000,
+        "low": 1765000,
+        "high": 2150000,
+        "sample": 23,
+        "upperClaim": 1995000.0
+      },
+      {
+        "year": 2017,
+        "price": 1825000,
+        "low": 1729000,
+        "high": 1950000,
+        "sample": 11,
+        "upperClaim": 1900000.0
+      },
+      {
+        "year": 2016,
+        "price": 1725000,
+        "low": 1600000,
+        "high": 1799000,
+        "sample": 37,
+        "upperClaim": 1817500.0
+      },
+      {
+        "year": 2015,
+        "price": 1649000,
+        "low": 1495000,
+        "high": 1750000,
+        "sample": 48,
+        "upperClaim": 1695000.0
+      }
+    ],
+    "image": {
+      "src": "vehicles/audi-q3.jpg",
+      "author": "Alexander Migl",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Audi_Q3_F3_DSC_7494.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "title": "Audi Q3 F3 DSC 7494.jpg"
+    }
+  },
+  {
+    "id": "audi-a5",
+    "name": "Audi A5",
+    "package": "S line / Black Edition (opsiyonlu)",
+    "engine": "2.0 TDI S tronic / 2.0 TFSI",
+    "note": "Coupe/Sportback/2025 yeni kasa karışır; kasa tipini filtrele.",
+    "body": "Sedan",
+    "url": "https://aracdeger.net/piyasa/audi/a5",
+    "checked": "2026-10-29",
+    "years": [
+      {
+        "year": 2019,
+        "price": 2900000,
+        "low": 2700000,
+        "high": 3000000,
+        "sample": 30,
+        "upperClaim": 2935000.0
+      },
+      {
+        "year": 2018,
+        "price": 2515000,
+        "low": 2299000,
+        "high": 2750000,
+        "sample": 113,
+        "upperClaim": null
+      },
+      {
+        "year": 2017,
+        "price": 2375000,
+        "low": 2145000,
+        "high": 2599000,
+        "sample": 276,
+        "upperClaim": 2850000.0
+      },
+      {
+        "year": 2016,
+        "price": 1779850,
+        "low": 1625000,
+        "high": 1990000,
+        "sample": 45,
+        "upperClaim": 1827500.0
+      },
+      {
+        "year": 2015,
+        "price": 1650000,
+        "low": 1490000,
+        "high": 1825000,
+        "sample": 130,
+        "upperClaim": 1550000.0
+      }
+    ],
+    "image": {
+      "src": "vehicles/audi-a5.jpg",
+      "author": "Tokumeigakarinoaoshima",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Audi_A5_Sportback_2.0TFSI_sport_(DBA-F5CVKL)_front.jpg",
+      "title": "Audi A5 Sportback 2.0TFSI sport (DBA-F5CVKL) front.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    }
+  },
+  {
+    "id": "audi-q5",
+    "name": "Audi Q5",
+    "package": "S line / Design / Sport (opsiyonlu)",
+    "engine": "2.0 TDI quattro / 40 TDI",
+    "note": "quattro/şanzıman, elektronik, süspansiyon ve DPF bakımını doğrula.",
+    "body": "SUV",
+    "url": "https://aracdeger.net/piyasa/audi/q5",
+    "checked": "2026-10-29",
+    "years": [
+      {
+        "year": 2017,
+        "price": 2775000,
+        "low": 2435000,
+        "high": 2975000,
+        "sample": 46,
+        "upperClaim": null
+      },
+      {
+        "year": 2016,
+        "price": 2075000,
+        "low": 1850000,
+        "high": 2265000,
+        "sample": 52,
+        "upperClaim": 2275000.0
+      },
+      {
+        "year": 2015,
+        "price": 1870000,
+        "low": 1630000,
+        "high": 2200000,
+        "sample": 35,
+        "upperClaim": 1850000.0
+      }
+    ],
+    "image": {
+      "src": "vehicles/audi-q5.jpg",
+      "author": "© M 93",
+      "license": "CC BY-SA 3.0 de",
+      "source": "https://commons.wikimedia.org/wiki/File:Audi_Q5_2.0_TDI_quattro_S_line_(GU)_%E2%80%93_f_13102025.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+      "title": "Audi Q5 2.0 TDI quattro S line (GU) – f 13102025.jpg"
+    }
+  },
+  {
+    "id": "audi-a6",
+    "name": "Audi A6",
+    "package": "S line / Design / Technology (opsiyonlu)",
+    "engine": "2.0 TDI; 3.0 TDI quattro tiptronic",
+    "note": "3.0 V6 ile 2.0 motor bütçesi farklı; adaptif hava süspansiyonu kontrol.",
+    "body": "Sedan",
+    "url": "https://aracdeger.net/piyasa/audi/a6",
+    "checked": "2026-10-29",
+    "years": [
+      {
+        "year": 2018,
+        "price": 2750000,
+        "low": 2475000,
+        "high": 3175000,
+        "sample": 172,
+        "upperClaim": 2847500.0
+      },
+      {
+        "year": 2017,
+        "price": 2529000,
+        "low": 2250000,
+        "high": 2890000,
+        "sample": 258,
+        "upperClaim": 2950000.0
+      },
+      {
+        "year": 2016,
+        "price": 2300000,
+        "low": 2025000,
+        "high": 2600000,
+        "sample": 288,
+        "upperClaim": 2445000.0
+      },
+      {
+        "year": 2015,
+        "price": 2100000,
+        "low": 1850000,
+        "high": 2350019,
+        "sample": 254,
+        "upperClaim": 2365000.0
+      }
+    ],
+    "image": {
+      "src": "vehicles/audi-a6.jpg",
+      "author": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2018_Audi_A6_TDi_Quattro_Front.jpg",
+      "title": "2018 Audi A6 TDi Quattro Front.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    }
+  },
+  {
+    "id": "audi-a7",
+    "name": "Audi A7",
+    "package": "S line / quattro + opsiyonlu",
+    "engine": "3.0 TDI quattro tiptronic veya 40/50 TDI",
+    "note": "Çok gösterişli ama servis maliyeti yüksek; tavan/kapı sistemleri opsiyonlu.",
+    "body": "Sedan",
+    "url": "https://aracdeger.net/piyasa/audi/a7",
+    "checked": "2026-10-29",
+    "years": [
+      {
+        "year": 2015,
+        "price": 2990000,
+        "low": 2550000,
+        "high": 3500000,
+        "sample": 27,
+        "upperClaim": 2550000.0
+      }
+    ],
+    "image": {
+      "src": "vehicles/audi-a7.jpg",
+      "author": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2018_Audi_A7_S_Line_40_TDi_S-A_2.0.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "title": "2018 Audi A7 S Line 40 TDi S-A 2.0.jpg"
+    }
+  },
+  {
+    "id": "peugeot-2008",
+    "name": "Peugeot 2008",
+    "package": "Allure / GT / GT Pack (yıla göre)",
+    "engine": "1.6 BlueHDi / 1.5 BlueHDi EAT8; 1.2 PureTech ayrı",
+    "note": "2017–23 1.5 BlueHDi kam mili zinciri ve 1.2 PureTech ıslak triger riski.",
+    "body": "SUV",
+    "url": "https://aracdeger.net/piyasa/peugeot/2008",
+    "checked": "2026-10-29",
+    "years": [
+      {
+        "year": 2026,
+        "price": 1900000,
+        "low": 1858750,
+        "high": 1980000,
+        "sample": 209,
+        "upperClaim": 1899950.0
+      },
+      {
+        "year": 2025,
+        "price": 1775000,
+        "low": 1730000,
+        "high": 1840000,
+        "sample": 797,
+        "upperClaim": 1757500.0
+      },
+      {
+        "year": 2024,
+        "price": 1725000,
+        "low": 1665000,
+        "high": 1795000,
+        "sample": 347,
+        "upperClaim": 1690000.0
+      },
+      {
+        "year": 2023,
+        "price": 1655000,
+        "low": 1590000,
+        "high": 1750000,
+        "sample": 488,
+        "upperClaim": 1654875.0
+      },
+      {
+        "year": 2022,
+        "price": 1583000,
+        "low": 1505000,
+        "high": 1650000,
+        "sample": 244,
+        "upperClaim": 1650000.0
+      },
+      {
+        "year": 2021,
+        "price": 1497500,
+        "low": 1400000,
+        "high": 1600000,
+        "sample": 354,
+        "upperClaim": 1650000.0
+      },
+      {
+        "year": 2020,
+        "price": 1459000,
+        "low": 1325000,
+        "high": 1570000,
+        "sample": 566,
+        "upperClaim": 1700000.0
+      },
+      {
+        "year": 2019,
+        "price": 1250000,
+        "low": 1150000,
+        "high": 1320000,
+        "sample": 90,
+        "upperClaim": 1180000.0
+      },
+      {
+        "year": 2018,
+        "price": 1114950,
+        "low": 1035000,
+        "high": 1220000,
+        "sample": 35,
+        "upperClaim": 1102000.0
+      },
+      {
+        "year": 2017,
+        "price": 1110000,
+        "low": 1018000,
+        "high": 1199000,
+        "sample": 96,
+        "upperClaim": 1150000.0
+      },
+      {
+        "year": 2016,
+        "price": 990000,
+        "low": 929000,
+        "high": 1080000,
+        "sample": 116,
+        "upperClaim": 990000.0
+      },
+      {
+        "year": 2015,
+        "price": 920000,
+        "low": 850000,
+        "high": 1009950,
+        "sample": 117,
+        "upperClaim": 849000.0
+      }
+    ],
+    "image": {
+      "src": "vehicles/peugeot-2008.jpg",
+      "author": "Cutlass",
+      "license": "CC0",
+      "source": "https://commons.wikimedia.org/wiki/File:2023_Peugeot_2008_in_Vertigo_Blue,_front_left,_06-08-2025.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+      "title": "2023 Peugeot 2008 in Vertigo Blue, front left, 06-08-2025.jpg"
+    }
+  },
+  {
+    "id": "opel-insignia",
+    "name": "Opel Insignia",
+    "package": "Cosmo / Excellence / Ultimate / GSi",
+    "engine": "2.0 CDTI / 1.6 CDTI (kod ve yıl ayrı)",
+    "note": "Düşük satın alma fiyatı yüksek arıza riskiyle birlikte gelebilir; zincir/yağlama.",
+    "body": "Sedan",
+    "url": "https://aracdeger.net/piyasa/opel/insignia",
+    "checked": "2026-10-29",
+    "years": [
+      {
+        "year": 2022,
+        "price": 1825000,
+        "low": 1775000,
+        "high": 1920750,
+        "sample": 17,
+        "upperClaim": 1650000.0
+      },
+      {
+        "year": 2021,
+        "price": 1390000,
+        "low": 1315000,
+        "high": 1475000,
+        "sample": 33,
+        "upperClaim": 1550000.0
+      },
+      {
+        "year": 2020,
+        "price": 1375000,
+        "low": 1275000,
+        "high": 1499000,
+        "sample": 178,
+        "upperClaim": 1445000.0
+      },
+      {
+        "year": 2019,
+        "price": 1320000,
+        "low": 1229000,
+        "high": 1415000,
+        "sample": 91,
+        "upperClaim": 1424500.0
+      },
+      {
+        "year": 2018,
+        "price": 1299999,
+        "low": 1165000,
+        "high": 1429000,
+        "sample": 116,
+        "upperClaim": 1639875.0
+      },
+      {
+        "year": 2017,
+        "price": 1215000,
+        "low": 1099950,
+        "high": 1350000,
+        "sample": 479,
+        "upperClaim": 1328750.0
+      },
+      {
+        "year": 2016,
+        "price": 1095000,
+        "low": 935000,
+        "high": 1230000,
+        "sample": 425,
+        "upperClaim": 1150000.0
+      },
+      {
+        "year": 2015,
+        "price": 1005000,
+        "low": 895000,
+        "high": 1145000,
+        "sample": 257,
+        "upperClaim": 1100000.0
+      }
+    ],
+    "image": {
+      "src": "vehicles/opel-insignia.jpg",
+      "author": "Cutlass",
+      "license": "CC0",
+      "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+      "source": "https://commons.wikimedia.org/wiki/File:2016_Opel_Insignia_in_Dark_Sea_Blue_Pearl_Effect,_front_left,_06-05-2025.jpg",
+      "title": "2016 Opel Insignia in Dark Sea Blue Pearl Effect, front left, 06-05-2025.jpg",
+      "note": "Gerçek model fotoğrafı; seçili yıl, donanım ve pazar birebir eşleşmeyebilir."
+    }
+  },
+  {
+    "id": "peugeot-3008",
+    "name": "Peugeot 3008",
+    "package": "GT Line / GT / GT Pack",
+    "engine": "1.6 BlueHDi EAT6; 1.5 BlueHDi EAT8",
+    "note": "1.5 BlueHDi kam mili zinciri kampanyası VIN ile kontrol edilmeli; GT doluluk yıllara bağlı.",
+    "body": "SUV",
+    "url": "https://aracdeger.net/piyasa/peugeot/3008",
+    "checked": "2026-10-29",
+    "years": [
+      {
+        "year": 2026,
+        "price": 2390000,
+        "low": 2250000,
+        "high": 2595000,
+        "sample": 249,
+        "upperClaim": 2350000.0
+      },
+      {
+        "year": 2025,
+        "price": 2199900,
+        "low": 2095000,
+        "high": 2350000,
+        "sample": 684,
+        "upperClaim": 2240000.0
+      },
+      {
+        "year": 2024,
+        "price": 2125000,
+        "low": 2044000,
+        "high": 2220000,
+        "sample": 552,
+        "upperClaim": 2135000.0
+      },
+      {
+        "year": 2023,
+        "price": 1995000,
+        "low": 1859500,
+        "high": 2140000,
+        "sample": 773,
+        "upperClaim": 2065000.0
+      },
+      {
+        "year": 2022,
+        "price": 1919000,
+        "low": 1820000,
+        "high": 2026000,
+        "sample": 491,
+        "upperClaim": 1895000.0
+      },
+      {
+        "year": 2021,
+        "price": 1839000,
+        "low": 1760000,
+        "high": 1940000,
+        "sample": 387,
+        "upperClaim": 1880000.0
+      },
+      {
+        "year": 2020,
+        "price": 1650000,
+        "low": 1548900,
+        "high": 1750000,
+        "sample": 622,
+        "upperClaim": 1680000.0
+      },
+      {
+        "year": 2019,
+        "price": 1640000,
+        "low": 1550000,
+        "high": 1725000,
+        "sample": 517,
+        "upperClaim": 1650000.0
+      },
+      {
+        "year": 2018,
+        "price": 1520000,
+        "low": 1393000,
+        "high": 1600000,
+        "sample": 334,
+        "upperClaim": 1800000.0
+      },
+      {
+        "year": 2017,
+        "price": 1525000,
+        "low": 1385000,
+        "high": 1610000,
+        "sample": 326,
+        "upperClaim": 1647500.0
+      },
+      {
+        "year": 2016,
+        "price": 1430000,
+        "low": 1290000,
+        "high": 1550000,
+        "sample": 141,
+        "upperClaim": 1475000.0
+      },
+      {
+        "year": 2015,
+        "price": 1085000,
+        "low": 1000000,
+        "high": 1150000,
+        "sample": 49,
+        "upperClaim": 1030000.0
+      }
+    ],
+    "image": {
+      "src": "vehicles/peugeot-3008.jpg",
+      "author": "Alexander-93",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Peugeot_e-3008_Automesse_Ludwigsburg_2024_IMG_1537.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "title": "Peugeot e-3008 Automesse Ludwigsburg 2024 IMG 1537.jpg"
+    }
+  },
+  {
+    "id": "volkswagen-touareg",
+    "name": "Volkswagen Touareg",
+    "package": "R-Line / Elegance / Exclusive",
+    "engine": "3.0 V6 TDI 4Motion 8AT",
+    "note": "3.0 V6 TDI, karmaşık emisyon ve hava süspansiyonu; gelir güvencesi önemli.",
+    "body": "SUV",
+    "url": "https://aracdeger.net/piyasa/volkswagen/touareg",
+    "checked": "2026-10-29",
+    "years": [
+      {
+        "year": 2016,
+        "price": 2307000,
+        "low": 2000000,
+        "high": 2940000,
+        "sample": 22,
+        "upperClaim": 3000000.0
+      },
+      {
+        "year": 2015,
+        "price": 2200000,
+        "low": 1895000,
+        "high": 2500000,
+        "sample": 24,
+        "upperClaim": 2040000.0
+      }
+    ],
+    "image": {
+      "src": "vehicles/volkswagen-touareg.jpg",
+      "author": "Alexander-93",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Volkswagen_Touareg_(2023)_IMG_2080.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "title": "Volkswagen Touareg (2023) IMG 2080.jpg"
+    }
+  },
+  {
+    "id": "land-rover-discovery-sport",
+    "name": "Land Rover Discovery Sport",
+    "package": "HSE Luxury / R-Dynamic HSE",
+    "engine": "2.0 TD4 Ingenium dizel",
+    "note": "2.0 Ingenium dizel zincir ve emisyon riski; az veri 2021+. ",
+    "body": "SUV",
+    "url": "https://aracdeger.net/piyasa/land-rover/discovery-sport",
+    "checked": "2026-10-29",
+    "years": [
+      {
+        "year": 2020,
+        "price": 3000000,
+        "low": 2749000,
+        "high": 3215000,
+        "sample": 25,
+        "upperClaim": 2979500.0
+      },
+      {
+        "year": 2019,
+        "price": 2490000,
+        "low": 2400000,
+        "high": 2685000,
+        "sample": 19,
+        "upperClaim": 2590000.0
+      },
+      {
+        "year": 2018,
+        "price": 2100000,
+        "low": 2040000,
+        "high": 2375000,
+        "sample": 14,
+        "upperClaim": 1855000.0
+      },
+      {
+        "year": 2017,
+        "price": 1900000,
+        "low": 1750000,
+        "high": 2020000,
+        "sample": 69,
+        "upperClaim": 2000000.0
+      },
+      {
+        "year": 2016,
+        "price": 1750000,
+        "low": 1600000,
+        "high": 1895750,
+        "sample": 81,
+        "upperClaim": 1772500.0
+      },
+      {
+        "year": 2015,
+        "price": 1830000,
+        "low": 1690000,
+        "high": 1995000,
+        "sample": 37,
+        "upperClaim": 1725000.0
+      }
+    ],
+    "image": {
+      "src": "vehicles/land-rover-discovery-sport.jpg",
+      "author": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2016_Land_Rover_Discovery_Sport_SE_Tech_T_2.0_Front.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "title": "2016 Land Rover Discovery Sport SE Tech T 2.0 Front.jpg"
+    }
+  },
+  {
+    "id": "land-rover-range-rover-evoque",
+    "name": "Range Rover Evoque",
+    "package": "HSE Dynamic / Autobiography / R-Dynamic HSE",
+    "engine": "2.0 TD4/Ingenium dizel (özellikle riskli)",
+    "note": "2015+ 2.0 Ingenium dizel zincir/DPF/yağ seyreltme yüksek risk; 2.2 SD4 ayrı.",
+    "body": "SUV",
+    "url": "https://aracdeger.net/piyasa/land-rover/range-rover-evoque",
+    "checked": "2026-10-29",
+    "years": [
+      {
+        "year": 2017,
+        "price": 2350000,
+        "low": 2190000,
+        "high": 2575000,
+        "sample": 42,
+        "upperClaim": 2230000.0
+      },
+      {
+        "year": 2016,
+        "price": 2095000,
+        "low": 1875000,
+        "high": 2300000,
+        "sample": 86,
+        "upperClaim": 2049000.0
+      },
+      {
+        "year": 2015,
+        "price": 1975000,
+        "low": 1875000,
+        "high": 2190000,
+        "sample": 41,
+        "upperClaim": 2132500.0
+      }
+    ],
+    "image": {
+      "src": "vehicles/land-rover-range-rover-evoque.jpg",
+      "author": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2019_Land_Rover_Range_Rover_Evoque_R-Dynamic_2.0.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "title": "2019 Land Rover Range Rover Evoque R-Dynamic 2.0.jpg"
+    }
+  },
+  {
+    "id": "mercedes-benz-glc",
+    "name": "Mercedes GLC",
+    "package": "GLC 250 / 300 d / 220 d AMG",
+    "engine": "Motor ve şanzıman ilandan teyit edilmeli",
+    "note": "Sağlam motor; Airmatic ve AdBlue masrafları.",
+    "body": "SUV",
+    "url": "https://aracdeger.net/piyasa/mercedes-benz/glc",
+    "checked": "2026-10-29",
+    "years": [
+      {
+        "year": 2017,
+        "price": 2925000,
+        "low": 2740000,
+        "high": 3200000,
+        "sample": 32,
+        "upperClaim": 2800000.0
+      },
+      {
+        "year": 2016,
+        "price": 2825000,
+        "low": 2550000,
+        "high": 3050000,
+        "sample": 29,
+        "upperClaim": null
+      },
+      {
+        "year": 2015,
+        "price": 2725000,
+        "low": 2495000,
+        "high": 2950000,
+        "sample": 26,
+        "upperClaim": 2750000.0
+      }
+    ],
+    "image": {
+      "src": "vehicles/mercedes-benz-glc.jpg",
+      "author": "Alexander Migl",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Mercedes-Benz_X254_1X7A6343.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "title": "Mercedes-Benz X254 1X7A6343.jpg"
+    }
+  },
+  {
+    "id": "hyundai-tucson",
+    "name": "Hyundai Tucson",
+    "package": "Elite Plus",
+    "engine": "Motor ve şanzıman ilandan teyit edilmeli",
+    "note": "Ucuz parça, makul sağlamlık; 7DCT trafikte ısınır.",
+    "body": "SUV",
+    "url": "https://aracdeger.net/piyasa/hyundai/tucson",
+    "checked": "2026-10-29",
+    "years": [
+      {
+        "year": 2026,
+        "price": 2485000,
+        "low": 2345750,
+        "high": 2649000,
+        "sample": 100,
+        "upperClaim": 3000000.0
+      },
+      {
+        "year": 2025,
+        "price": 2475000,
+        "low": 2300000,
+        "high": 2820000,
+        "sample": 452,
+        "upperClaim": 2864250.0
+      },
+      {
+        "year": 2024,
+        "price": 2450000,
+        "low": 2259000,
+        "high": 2670000,
+        "sample": 421,
+        "upperClaim": 2629500.0
+      },
+      {
+        "year": 2023,
+        "price": 2175000,
+        "low": 1995000,
+        "high": 2349850,
+        "sample": 362,
+        "upperClaim": 2037500.0
+      },
+      {
+        "year": 2022,
+        "price": 2099999,
+        "low": 1950000,
+        "high": 2215000,
+        "sample": 476,
+        "upperClaim": 2135000.0
+      },
+      {
+        "year": 2021,
+        "price": 1975000,
+        "low": 1849900,
+        "high": 2100000,
+        "sample": 486,
+        "upperClaim": 1950000.0
+      },
+      {
+        "year": 2020,
+        "price": 1819000,
+        "low": 1700000,
+        "high": 1910000,
+        "sample": 684,
+        "upperClaim": 1759000.0
+      },
+      {
+        "year": 2019,
+        "price": 1750000,
+        "low": 1650000,
+        "high": 1850000,
+        "sample": 358,
+        "upperClaim": 1805000.0
+      },
+      {
+        "year": 2018,
+        "price": 1675000,
+        "low": 1530000,
+        "high": 1795000,
+        "sample": 259,
+        "upperClaim": 1700000.0
+      },
+      {
+        "year": 2017,
+        "price": 1575000,
+        "low": 1435000,
+        "high": 1678850,
+        "sample": 299,
+        "upperClaim": 1479000.0
+      },
+      {
+        "year": 2016,
+        "price": 1525000,
+        "low": 1395000,
+        "high": 1650000,
+        "sample": 305,
+        "upperClaim": 1507000.0
+      },
+      {
+        "year": 2015,
+        "price": 1485000,
+        "low": 1375000,
+        "high": 1600000,
+        "sample": 221,
+        "upperClaim": 1625000.0
+      }
+    ],
+    "image": {
+      "src": "vehicles/hyundai-tucson.jpg",
+      "author": "© M 93",
+      "license": "CC BY-SA 3.0 de",
+      "source": "https://commons.wikimedia.org/wiki/File:Hyundai_Tucson_1.6_T-GDI_PHEV_Prime_(IV)_%E2%80%93_f_05072025.jpg",
+      "note": "Modeli temsil eder; seçili yıl ve donanım birebir olmayabilir.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+      "title": "Hyundai Tucson 1.6 T-GDI PHEV Prime (IV) – f 05072025.jpg"
+    }
+  }
+]

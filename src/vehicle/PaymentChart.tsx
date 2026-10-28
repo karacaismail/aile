@@ -1,0 +1,6 @@
+import { Chart } from '../dashboard/Charts';
+import { tokens } from '../dashboard/tokens';
+import { money } from '../dashboard/data';
+export default function PaymentChart({schedule}:{schedule:{month:number;auto:number;personal:number;balance:number}[]}) {
+  return <div className="chart-section"><p className="muted">Koyu: taşıt taksiti · açık: ihtiyaç taksiti. Kesin rakamlar aşağıdaki tabloda.</p><Chart label="Birleşik kredi ödeme grafiği" option={{textStyle:{fontFamily:tokens.font,fontSize:16},grid:{left:8,right:12,top:24,bottom:32,containLabel:true},tooltip:{trigger:'axis',renderMode:'richText',confine:true,textStyle:{fontSize:16},valueFormatter:v=>money(typeof v==='number'?v:null)},xAxis:{type:'category',data:schedule.map(r=>`${r.month}. ay`),axisLabel:{fontSize:14,color:tokens.muted,hideOverlap:true}},yAxis:{type:'value',axisLabel:{fontSize:14,color:tokens.muted,formatter:(v:number)=>`${Math.round(v/1000)} bin`},splitLine:{lineStyle:{color:tokens.line,type:'dashed'}}},aria:{enabled:true},series:[{name:'Taşıt',type:'bar',stack:'payment',data:schedule.map(r=>r.auto),itemStyle:{color:tokens.blue}},{name:'İhtiyaç',type:'bar',stack:'payment',data:schedule.map(r=>r.personal),itemStyle:{color:tokens.lightBlue}}]}}/></div>;
+}

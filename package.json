@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Aile taşınma planlayıcısı: satınalma, aydınlatma, tadilat ve yerleşim (GitHub Pages + Google Sheets)",
+  "description": "Canlı aile bütçesi ve kurallı araç finansmanı simülasyonu",
   "packageManager": "pnpm@11.21.0",
   "engines": {
     "node": ">=22.12"
@@ -19,7 +19,8 @@
     "e2e:ui": "playwright test --ui",
     "gas:build": "node scripts/build-gas.mjs",
     "gas:push": "pnpm gas:build && clasp push -f",
-    "seed": "node scripts/seed.mjs"
+    "seed": "node scripts/seed.mjs",
+    "e2e:dashboard": "playwright test --config playwright.dashboard.config.ts"
   },
   "dependencies": {
     "@mantine/core": "9.7.4",
@@ -30,6 +31,7 @@
     "@mantine/notifications": "9.7.4",
     "@phosphor-icons/react": "2.1.10",
     "dayjs": "1.11.23",
+    "echarts": "6.0.0",
     "idb-keyval": "6.3.0",
     "react": "19.3.1",
     "react-dom": "19.3.1",

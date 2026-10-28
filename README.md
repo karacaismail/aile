@@ -1,5 +1,9 @@
 # aile
 
+[Canlı bütçe](https://karacaismail.github.io/aile/#/pano) · [Araç ve finansman simülasyonu](https://karacaismail.github.io/aile/#/arac)
+
+Google Sheets’ten okunan bütçe, ECharts grafikleri, tablolar ve iki kredinin toplam yükünü hesaplayan araç simülasyonu. Yeni ekranlar için [veri, finansman ve doğrulama sözleşmesi](docs/BUDGET-VEHICLE.md). Eski taşınma planlayıcısı mevcut rotalarında korunur.
+
 Taşınma planlayıcısı: satınalma listesi, aydınlatma planı, badana/boya/tadilat planı ve oda bazlı eşya yerleşimi.
 Statik uygulama (GitHub Pages); veri Google Sheets'te, Apps Script web uygulaması üzerinden çift yönlü senkron.
 
@@ -10,10 +14,15 @@ pnpm install
 pnpm dev        # http://127.0.0.1:5174/aile/
 pnpm test       # Vitest
 pnpm e2e        # Playwright (320×480, 320×568, iPhone 12 WebKit)
+pnpm e2e:dashboard # Chromium, Firefox, WebKit; yeni bütçe/araç ekranları
 pnpm build
 ```
 
-## Kurulum (Google Sheets bağlantısı)
+## Yeni bütçe bağlantısı
+
+`.env.local` içinde `VITE_BUDGET_SHEET_ID` tanımlayın. Yayın için aynı isimli GitHub repository variable kullanılır. Gerçek gelirler, kişisel senaryolar ve dosya yedekleri repoya eklenmez.
+
+## Eski planlayıcı kurulumu (Apps Script)
 
 Tek elle adım: Google hesabınızla `pnpm exec clasp login` (bir kez). Sonrası komutla: `scripts/gas-setup.sh create` → editörde `setup`'a bir kez izin → `scripts/gas-setup.sh deploy` → adresi `VITE_API_URL` olarak ekleyin → `node scripts/seed.ts --csv "<CSV>" --url "<exec>"`.
 Ayrıntı: `apps-script/README.md`. Geliştirme kuralları: `docs/GELISTIRME.md`.

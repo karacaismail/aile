@@ -1,17 +1,11 @@
-import { useEffect } from 'react';
-import { Router } from 'wouter';
+import { lazy, Suspense } from 'react';
 import { useHashLocation } from 'wouter/use-hash-location';
-import { AppShellLayout } from './app/shell/AppShellLayout';
-import { AppRoutes } from './routes';
-import { startSync } from './sync/controller';
+import Dashboard from './dashboard/Dashboard';
+const LegacyApp = lazy(() => import('./LegacyApp').then(m => ({ default: m.App })));
 
 export function App() {
-  useEffect(() => startSync(), []);
-  return (
-    <Router hook={useHashLocation}>
-      <AppShellLayout>
-        <AppRoutes />
-      </AppShellLayout>
-    </Router>
-  );
+  const [location] = useHashLocation();
+  return /^\/(satinalma|aydinlatma|tadilat|yerlesim|butce|ayarlar)(\/|$)/.test(location)
+    ? <Suspense fallback={<p>Planlayıcı yükleniyor…</p>}><LegacyApp /></Suspense>
+    : <Dashboard />;
 }
