@@ -143,8 +143,9 @@ test('compact details preserve motion, focus, readable text and on-demand resour
   await expect(panel).toHaveAttribute('data-test-motion',/0.24s/);
   await expect(panel).not.toBeVisible();
   // macOS WebKit uses Option+Tab to traverse buttons when full keyboard access is off.
-  await detail.press(browserName==='webkit'?'Alt+Shift+Tab':'Shift+Tab');
-  await page.keyboard.press(browserName==='webkit'?'Alt+Tab':'Tab');
+  const macWebKit=browserName==='webkit'&&process.platform==='darwin';
+  await detail.press(macWebKit?'Alt+Shift+Tab':'Shift+Tab');
+  await page.keyboard.press(macWebKit?'Alt+Tab':'Tab');
   await expect(detail).toBeFocused();
   const focus=await detail.evaluate(e=>({outline:getComputedStyle(e).outlineStyle,line:getComputedStyle(e).textDecorationLine}));
   expect(focus).toEqual({outline:'none',line:'underline'});
