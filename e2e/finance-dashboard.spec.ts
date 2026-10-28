@@ -144,11 +144,16 @@ test('compact details preserve motion, focus, readable text and on-demand resour
   await expect(panel).not.toBeVisible();
   // macOS WebKit uses Option+Tab to traverse buttons when full keyboard access is off.
   const macWebKit=browserName==='webkit'&&process.platform==='darwin';
-  await detail.press(macWebKit?'Alt+Shift+Tab':'Shift+Tab');
+  const precedingInput=page.getByLabel('TSB kasko değeri',{exact:true});
+  await precedingInput.focus();
+  await expect(precedingInput).toBeFocused();
   await page.keyboard.press(macWebKit?'Alt+Tab':'Tab');
-  await expect(detail).toBeFocused();
+  const activeAfterTab=await page.evaluate(()=>({tag:document.activeElement?.tagName,text:document.activeElement?.textContent,id:document.activeElement?.id}));
+  await expect(detail,JSON.stringify(activeAfterTab)).toBeFocused();
   const focus=await detail.evaluate(e=>({outline:getComputedStyle(e).outlineStyle,line:getComputedStyle(e).textDecorationLine}));
   expect(focus).toEqual({outline:'none',line:'underline'});
+  await page.keyboard.press(macWebKit?'Alt+Shift+Tab':'Shift+Tab');
+  await expect(precedingInput).toBeFocused();
   for(const width of [320,360,375,390,575,576,577,768,1023,1024,1025,1440]){
     await page.setViewportSize({width,height:740});
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
