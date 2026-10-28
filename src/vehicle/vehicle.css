@@ -37,7 +37,7 @@ html[data-keyboard='true'] .budget-app .mantine-Checkbox-body:has(input:focus-vi
 .vehicle-page .button-row { align-items: center; }
 @media(min-width:576px) { .form-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } .rule { grid-template-columns: 150px minmax(0,1fr); gap: 24px; } }
 @media(min-width:960px) { .vehicle-choice { grid-template-columns: minmax(0,1.15fr) minmax(0,1fr); gap: 40px; align-items: start; } .form-grid { grid-template-columns: repeat(3,minmax(0,1fr)); } .vehicle-choice .form-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
-.step-nav { display: flex; flex-wrap: wrap; gap: 6px; position: sticky; top: 0; z-index: 20; background: var(--budget-paper); padding-block: 8px; }
+.step-nav { display: flex; flex-wrap: wrap; gap: 6px; position: sticky; top: 0; z-index: var(--budget-layerSticky); background: var(--budget-paper); padding-block: 8px; }
 .step-nav .quiet-button { flex: 1 1 50px; padding-inline: 8px; }
 .vehicle-page > section { scroll-margin-top: 72px; }
 

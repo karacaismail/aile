@@ -28,6 +28,13 @@ jobs:
         env:
           CI: 1
           VITE_BUDGET_SHEET_ID: synthetic-budget-sheet-2098
+      - uses: actions/upload-artifact@v5
+        if: failure()
+        with:
+          name: dashboard-test-report
+          path: |
+            playwright-report/dashboard
+            test-results
       - run: pnpm build
         env:
           VITE_BUDGET_SHEET_ID: ${{ vars.VITE_BUDGET_SHEET_ID }}

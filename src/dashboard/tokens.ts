@@ -6,6 +6,7 @@ export const tokens = {
   font: 'Outfit, Arial, sans-serif', fontSmall: '1rem', radius: '8px', spacing: '16px',
   switchWidth:'44px', switchHeight:'26px', switchThumb:'18px', switchInset:'3px', switchTravel:'18px', targetMin:'44px',
   duration: 240, ease: 'cubic-bezier(.65, 0, .35, 1)',
+  layerSticky: 20, layerDropdown: 300,
 } as const;
 // ECharts' typed function adapter evaluates exactly the shared CSS curve.
 export function budgetEasing(progress: number) {

@@ -12,7 +12,7 @@ Bu Git deposu `site/` klasörüdür. Üst klasördeki e-tablo yedekleri, kullan�
 ## UI sözleşmesi
 - Outfit, en az 14 CSS px; kullanıcı kök boyutu korunur. Renk, tipografi, boşluk, yüzey ve hareket için `src/dashboard/tokens.ts` ve ortak CSS kullanılır.
 - 320 px önce gelir. Tablonun okunabilir sütun minimumu korunur, yalnız kendi kapsayıcısı kayar. Kelime ortası bölünmez.
-- Mantine custom Select; açık/kapalı/hover/seçili durumlar markalı ve kontrastlıdır. Native select kullanılmaz.
+- Mantine custom Select; açık/kapalı/hover/seçili durumlar markalı ve kontrastlıdır. Native select kullanılmaz. Panel viewporta göre fixed konumlanır; dropdown ve sticky katmanları ortak tokenlardan gelir. Alt bölümlerden modele dönüp seçim yapma akışı CI regresyonudur.
 - Klavye modu yalnız Tab/Shift+Tab açar, pointer/touch kapatır. Normal temada çevreleyen focus halkası yok; tek alt çizgi veya giriş altında çizgi vardır. Forced-colors + keyboard + focus-visible dar istisnadır.
 - Hareket tokenı 240 ms, `cubic-bezier(.65,0,.35,1)`. Normal giriş/çıkış aynı token; reduced-motion anlık sunum istisnası. ARIA/input/state anında güncellenir. Geçiş sırasında da renk kontrastı korunur.
 - Grafik, araç ve önceki uygulama paketleri talep üzerine yüklenir. PWA önbelleği bu paketleri önceden indirmez; ziyaret edilen modüller sonradan saklanabilir. Finansal yanıtlar service worker önbelleğine alınmaz.
