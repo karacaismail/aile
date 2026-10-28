@@ -30,8 +30,9 @@ var __aile = (() => {
   });
 
   // shared/schema.ts
-  var SHEETS = { items: "app_kalemler", settings: "app_ayarlar" };
-  var SCHEMA_VERSION = 1;
+  var SHEETS = { items: "app_kalemler", settings: "app_ayarlar", cash: "app_nakit" };
+  var BUDGET_SHEETS = { plan: "Giderler Planlanan", actual: "Giderler Ger\xE7ekle\u015Fen", pano: "Pano" };
+  var SCHEMA_VERSION = 2;
   var TIP = ["satinalma", "aydinlatma", "tadilat", "yerlesim", "usta", "kontrol", "sahne", "kilometre"];
   var ODA = ["salon", "cocuk", "ebeveyn", "calisma", "mutfak", "banyo", "wc", "hol", "balkon1", "balkon2", "genel"];
   var KATEGORI = [
@@ -187,16 +188,34 @@ var __aile = (() => {
     c("son_op_id", "Son i\u015Flem", "metin", "meta"),
     c("son_degisen_alanlar", "Son de\u011Fi\u015Fen alanlar", "liste", "meta")
   ];
+  var CASH_COLUMNS = [
+    c("id", "Kimlik", "metin", "kimlik"),
+    c("tarih", "Tarih", "tarih", "ortak"),
+    c("tutar", "Tutar (TL)", "sayi", "ortak"),
+    c("kalem", "B\xFCt\xE7e kalemi", "metin", "ortak"),
+    c("not", "Not", "metin", "ortak"),
+    c("kalem_id", "Ba\u011Fl\u0131 sat\u0131nalma", "metin", "ortak"),
+    c("created_at", "Olu\u015Fturma", "tarihsaat", "meta"),
+    c("updated_at", "G\xFCncelleme", "tarihsaat", "meta"),
+    c("deleted_at", "Silinme", "tarihsaat", "meta"),
+    c("updated_by", "G\xFCncelleyen", "metin", "meta"),
+    c("version", "S\xFCr\xFCm", "sayi", "meta"),
+    c("son_op_id", "Son i\u015Flem", "metin", "meta"),
+    c("son_degisen_alanlar", "Son de\u011Fi\u015Fen alanlar", "liste", "meta")
+  ];
   var ITEM_HEADERS = ITEM_COLUMNS.map((x) => x.key);
+  var CASH_HEADERS = CASH_COLUMNS.map((x) => x.key);
   var SETTING_HEADERS = SETTING_COLUMNS.map((x) => x.key);
   var META_KEYS = ["created_at", "updated_at", "deleted_at", "updated_by", "version", "son_op_id", "son_degisen_alanlar"];
   var REQUIRED_ITEM_HEADERS = ["id", "tip", "ad", "updated_at", "version"];
   var REQUIRED_SETTING_HEADERS = ["id", "tip", "anahtar", "deger", "updated_at", "version"];
+  var REQUIRED_CASH_HEADERS = ["id", "tarih", "tutar", "kalem", "updated_at", "version"];
   function columnByKey(columns) {
     return new Map(columns.map((col) => [col.key, col]));
   }
   var ITEM_COLUMN_MAP = columnByKey(ITEM_COLUMNS);
   var SETTING_COLUMN_MAP = columnByKey(SETTING_COLUMNS);
+  var CASH_COLUMN_MAP = columnByKey(CASH_COLUMNS);
 
   // shared/convert.ts
   var pad2 = (n) => n < 10 ? `0${n}` : String(n);
@@ -316,11 +335,11 @@ var __aile = (() => {
     }
     return h.toString(16).padStart(8, "0");
   }
-  function fingerprintOf(items, settings) {
+  function fingerprintOf(items, settings, cash, extra = "") {
     const parts = [];
     let maxUpdated = "";
     let sumVersion = 0;
-    for (const list of [items, settings]) {
+    for (const list of [items, settings, cash ?? []]) {
       for (const r of list) {
         const u = String(r.updated_at ?? "");
         if (u > maxUpdated) maxUpdated = u;
@@ -329,7 +348,9 @@ var __aile = (() => {
       }
     }
     parts.sort();
-    return `${items.length}:${settings.length}:${sumVersion}:${maxUpdated}:${fnv1a(parts.join("\n"))}`;
+    if (extra) parts.push(extra);
+    const counts = cash ? `${items.length}:${settings.length}:${cash.length}` : `${items.length}:${settings.length}`;
+    return `${counts}:${sumVersion}:${maxUpdated}:${fnv1a(parts.join("\n"))}`;
   }
 
   // shared/ids.ts
@@ -374,6 +395,7 @@ var __aile = (() => {
   }
 
   // gas/src/core.ts
+  var REQUIRED_ON_INSERT = { kalemler: ["tip", "ad"], ayarlar: ["tip", "anahtar"], nakit: ["tarih", "tutar", "kalem"] };
   var META = new Set(META_KEYS);
   function isBlankRow(row) {
     return row.every((cell) => cell === "" || cell === null || cell === void 0 || cell === false);
@@ -437,7 +459,7 @@ var __aile = (() => {
     const keys = Object.keys(patch);
     const idx = table.index.get(op.id);
     if (idx === void 0) {
-      const need = tableName === "kalemler" ? ["tip", "ad"] : ["tip", "anahtar"];
+      const need = REQUIRED_ON_INSERT[tableName];
       const missing = need.filter((k) => patch[k] === void 0 || patch[k] === "");
       if (missing.length) return err(op.id, "bad_request", `Yeni kay\u0131t i\xE7in zorunlu: ${missing.join(", ")}`);
       const rec = { id: op.id };
@@ -532,12 +554,15 @@ var __aile = (() => {
       }
       doneCount++;
     }
-    const fp = fingerprintOf(state.kalemler.rows, state.ayarlar.rows);
+    const fp = stateFingerprint(state);
     const last = results[results.length - 1];
     return { ok, results, doneCount, fingerprint: fp, serverTime: now, error: ok ? void 0 : last?.error, message: ok ? void 0 : last?.message };
   }
+  function stateFingerprint(state) {
+    return fingerprintOf(state.kalemler.rows, state.ayarlar.rows, state.nakit?.rows, state.plan ? JSON.stringify(state.plan) : "");
+  }
   function readState(state, fingerprint, now) {
-    const fp = fingerprintOf(state.kalemler.rows, state.ayarlar.rows);
+    const fp = stateFingerprint(state);
     if (fingerprint && fingerprint === fp) return { ok: true, notModified: true, fingerprint: fp, serverTime: now, schemaVersion: SCHEMA_VERSION };
     return {
       ok: true,
@@ -545,7 +570,9 @@ var __aile = (() => {
       serverTime: now,
       schemaVersion: SCHEMA_VERSION,
       items: state.kalemler.rows,
-      settings: state.ayarlar.rows
+      settings: state.ayarlar.rows,
+      ...state.nakit ? { cash: state.nakit.rows } : {},
+      ...state.plan ? { plan: state.plan } : {}
     };
   }
   function dirtyRows(table) {
@@ -555,11 +582,77 @@ var __aile = (() => {
     }
     return out;
   }
+  var LABEL_COL = 1;
+  var FIRST_MONTH_COL = 2;
+  var MONTH_HEADER = /^OCA/i;
+  function num(cell) {
+    if (typeof cell === "number") return Number.isFinite(cell) ? cell : 0;
+    if (typeof cell === "string") {
+      const n = parseFloat(cell.replace(/[^\d,.-]/g, "").replace(/\./g, "").replace(",", "."));
+      return Number.isFinite(n) ? n : 0;
+    }
+    return 0;
+  }
+  function parsePlan(values, year) {
+    const plan = { year, groups: [] };
+    const layout = [];
+    let group = null;
+    for (let r = 0; r < values.length; r++) {
+      const row = values[r] ?? [];
+      const label = String(row[LABEL_COL] ?? "").trim();
+      const head = String(row[FIRST_MONTH_COL] ?? "").trim();
+      if (MONTH_HEADER.test(head)) {
+        if (!label) {
+          if (plan.groups.length) break;
+          continue;
+        }
+        group = { name: label, rows: [] };
+        plan.groups.push(group);
+        continue;
+      }
+      if (!group || !label) continue;
+      if (/^TOPLAM/i.test(label)) {
+        group = null;
+        continue;
+      }
+      const months = [];
+      for (let m = 0; m < 12; m++) months.push(num(row[FIRST_MONTH_COL + m]));
+      group.rows.push({ label, plan: months });
+      layout.push({ label, group: group.name, sheetRow: r + 1 });
+    }
+    return { plan, layout };
+  }
+  var colLetter = (i) => {
+    let n = i + 1;
+    let out = "";
+    while (n > 0) {
+      const m = (n - 1) % 26;
+      out = String.fromCharCode(65 + m) + out;
+      n = Math.floor((n - 1) / 26);
+    }
+    return out;
+  };
+  function actualFormula(opts) {
+    const { cashSheet, cashHeaders, planSheet, panoYearCell, sheetRow, month } = opts;
+    const col = (key) => {
+      const i = cashHeaders.indexOf(key);
+      if (i < 0) throw new Error(`app_nakit s\xFCtunu yok: ${key}`);
+      const L = colLetter(i);
+      return `'${cashSheet}'!$${L}$2:$${L}`;
+    };
+    const cell = colLetter(FIRST_MONTH_COL + month - 1);
+    const crit = `${col("kalem")},TRIM($B${sheetRow}),${col("tarih")},${panoYearCell}&"-${String(month).padStart(2, "0")}*",${col("deleted_at")},""`;
+    return `=LET(n,COUNTIFS(${crit}),a,SUMIFS(${col("tutar")},${crit}),p,'${planSheet}'!${cell}${sheetRow},IF(n=0,p,IF(DATE(${panoYearCell},${month}+1,1)<=TODAY(),a,MAX(a,p))))`;
+  }
+  function planCopyFormula(planSheet, sheetRow, month) {
+    return `='${planSheet}'!${colLetter(FIRST_MONTH_COL + month - 1)}${sheetRow}`;
+  }
 
   // gas/src/main.ts
   var TABLES = [
     { key: "kalemler", name: SHEETS.items, columns: ITEM_COLUMNS, required: REQUIRED_ITEM_HEADERS },
-    { key: "ayarlar", name: SHEETS.settings, columns: SETTING_COLUMNS, required: REQUIRED_SETTING_HEADERS }
+    { key: "ayarlar", name: SHEETS.settings, columns: SETTING_COLUMNS, required: REQUIRED_SETTING_HEADERS },
+    { key: "nakit", name: SHEETS.cash, columns: CASH_COLUMNS, required: REQUIRED_CASH_HEADERS, optional: true }
   ];
   var MAX_BODY = 512 * 1024;
   function json(obj) {
@@ -575,6 +668,7 @@ var __aile = (() => {
     const out = {};
     for (const t of TABLES) {
       const sheet = ss.getSheetByName(t.name);
+      if (!sheet && t.optional) continue;
       if (!sheet) return fail("schema", `Sekme yok: ${t.name} (setup \xE7al\u0131\u015Ft\u0131r\u0131n)`, { missing: [t.name] });
       const values = sheet.getLastRow() > 0 ? sheet.getDataRange().getValues() : [[]];
       const headers = (values[0] ?? []).map((h) => String(h).trim());
@@ -582,12 +676,55 @@ var __aile = (() => {
       if (missing.length) return fail("schema", `Eksik s\xFCtun: ${missing.join(", ")}`, { missing });
       out[t.key] = createTableState(t.columns, headers, values.slice(1), 2, nowIso());
     }
+    const plan = loadPlan(ss);
+    if (plan) out.plan = plan.plan;
     return out;
+  }
+  function planYear(ss) {
+    const pano = ss.getSheetByName(BUDGET_SHEETS.pano);
+    const y = pano ? Number(pano.getRange("C2").getValue()) : NaN;
+    return Number.isFinite(y) && y > 2e3 ? y : void 0;
+  }
+  function loadPlan(ss) {
+    try {
+      const sheet = ss.getSheetByName(BUDGET_SHEETS.plan);
+      if (!sheet || sheet.getLastRow() < 2) return void 0;
+      const values = sheet.getRange(1, 1, Math.min(sheet.getLastRow(), 200), 14).getValues();
+      return parsePlan(values, planYear(ss));
+    } catch (_e) {
+      return void 0;
+    }
+  }
+  function wireActual(mode) {
+    const ss = SpreadsheetApp.getActive();
+    const actual = ss.getSheetByName(BUDGET_SHEETS.actual);
+    const cash = ss.getSheetByName(SHEETS.cash);
+    const parsed = loadPlan(ss);
+    if (!actual || !parsed) throw new Error(`${BUDGET_SHEETS.actual} ya da ${BUDGET_SHEETS.plan} okunamad\u0131`);
+    if (mode === "wire" && !cash) throw new Error(`${SHEETS.cash} yok (\xF6nce setup)`);
+    const cashHeaders = cash ? cash.getRange(1, 1, 1, cash.getLastColumn()).getValues()[0].map((h) => String(h).trim()) : [];
+    const labels = actual.getRange(1, 2, actual.getLastRow(), 1).getValues().map((r) => String(r[0]).trim());
+    let written = 0;
+    const skipped = [];
+    for (const row of parsed.layout) {
+      if (labels[row.sheetRow - 1] !== row.label) {
+        skipped.push(`${row.sheetRow}:${row.label}`);
+        continue;
+      }
+      const formulas = [];
+      for (let m = 1; m <= 12; m++) {
+        formulas.push(mode === "wire" ? actualFormula({ cashSheet: SHEETS.cash, cashHeaders, planSheet: BUDGET_SHEETS.plan, panoYearCell: `'${BUDGET_SHEETS.pano}'!$C$2`, sheetRow: row.sheetRow, month: m }) : planCopyFormula(BUDGET_SHEETS.plan, row.sheetRow, m));
+      }
+      actual.getRange(row.sheetRow, 3, 1, 12).setFormulas([formulas]);
+      written++;
+    }
+    SpreadsheetApp.flush();
+    return `${mode}: ${written} sat\u0131r${skipped.length ? `; e\u015Fle\u015Fmeyen: ${skipped.join(", ")}` : ""}`;
   }
   function flushState(ss, state) {
     for (const t of TABLES) {
       const table = state[t.key];
-      if (!table.dirty.size) continue;
+      if (!table?.dirty.size) continue;
       const sheet = ss.getSheetByName(t.name);
       const width = table.headers.length;
       const appended = [];
@@ -656,14 +793,26 @@ var __aile = (() => {
         return json(fail("internal", String(error?.message ?? error)));
       }
     }
-    return json(fail("bad_request", "GET yaln\u0131z health/setup i\xE7in"));
+    if (action === "wire" || action === "unwire") {
+      if (!checkKey(e?.parameter?.key)) return json(fail("unauthorized"));
+      const lock = LockService.getScriptLock();
+      if (!lock.tryLock(2e4)) return json(fail("busy", "Tablo me\u015Fgul, yeniden deneyin", { retryAfterMs: 3e3 }));
+      try {
+        return json({ ok: true, app: "aile", message: wireActual(action) });
+      } catch (error) {
+        return json(fail("internal", String(error?.message ?? error)));
+      } finally {
+        lock.releaseLock();
+      }
+    }
+    return json(fail("bad_request", "GET yaln\u0131z health/setup/wire/unwire i\xE7in"));
   }
   function healthCheck() {
     const ss = SpreadsheetApp.getActive();
     const warnings = [];
     const triggers = ScriptApp.getProjectTriggers().map((t) => t.getHandlerFunction());
     if (!triggers.includes("onEditInstallable")) warnings.push("onEditInstallable tetikleyicisi yok (setup \xE7al\u0131\u015Ft\u0131r\u0131n)");
-    for (const t of TABLES) if (!ss.getSheetByName(t.name)) warnings.push(`Sekme yok: ${t.name}`);
+    for (const t of TABLES) if (!ss.getSheetByName(t.name)) warnings.push(`${t.optional ? "\u0130ste\u011Fe ba\u011Fl\u0131 sekme yok" : "Sekme yok"}: ${t.name}`);
     const tz = ss.getSpreadsheetTimeZone();
     if (tz !== "Europe/Istanbul") warnings.push(`Tablo saat dilimi ${tz}; Europe/Istanbul bekleniyor`);
     let fingerprint;

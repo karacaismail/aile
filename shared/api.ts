@@ -1,8 +1,8 @@
 // Uygulama ↔ Apps Script sözleşmesi. Tüm istekler POST, gövde JSON (Content-Type: text/plain).
-import type { Item, Setting } from './schema.ts';
+import type { BudgetPlan, CashEntry, Item, Setting } from './schema.ts';
 import type { Rec } from './convert.ts';
 
-export type Table = 'kalemler' | 'ayarlar';
+export type Table = 'kalemler' | 'ayarlar' | 'nakit';
 
 export interface ReadRequest { action: 'read'; key?: string; fingerprint?: string }
 export interface HealthRequest { action: 'health' }
@@ -29,6 +29,10 @@ export interface ReadFull {
   schemaVersion: number;
   items: Item[];
   settings: Setting[];
+  /** Sunucu harcama günlüğünü destekliyorsa vardır (eski dağıtımda yok). */
+  cash?: CashEntry[];
+  /** "Giderler Planlanan" okunabildiyse vardır. */
+  plan?: BudgetPlan;
 }
 export interface ReadNotModified { ok: true; notModified: true; fingerprint: string; serverTime: string; schemaVersion: number }
 export type ReadResponse = ReadFull | ReadNotModified;

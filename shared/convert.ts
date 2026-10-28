@@ -127,11 +127,11 @@ function fnv1a(s: string): string {
   return h.toString(16).padStart(8, '0');
 }
 
-export function fingerprintOf(items: readonly Rec[], settings: readonly Rec[]): string {
+export function fingerprintOf(items: readonly Rec[], settings: readonly Rec[], cash?: readonly Rec[], extra = ''): string {
   const parts: string[] = [];
   let maxUpdated = '';
   let sumVersion = 0;
-  for (const list of [items, settings]) {
+  for (const list of [items, settings, cash ?? []]) {
     for (const r of list) {
       const u = String(r.updated_at ?? '');
       if (u > maxUpdated) maxUpdated = u;
@@ -140,5 +140,7 @@ export function fingerprintOf(items: readonly Rec[], settings: readonly Rec[]): 
     }
   }
   parts.sort();
-  return `${items.length}:${settings.length}:${sumVersion}:${maxUpdated}:${fnv1a(parts.join('\n'))}`;
+  if (extra) parts.push(extra);
+  const counts = cash ? `${items.length}:${settings.length}:${cash.length}` : `${items.length}:${settings.length}`;
+  return `${counts}:${sumVersion}:${maxUpdated}:${fnv1a(parts.join('\n'))}`;
 }

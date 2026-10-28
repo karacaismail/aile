@@ -1,7 +1,7 @@
 // Uygulama durumu: tek kaynak, useSyncExternalStore ile okunur. Optimistic yazım + sunucu satırıyla değiştirme.
 import { useSyncExternalStore, useCallback, useRef } from 'react';
-import type { Item, Setting } from '@shared/schema';
-import type { Conflict, Op, OpResult, ReadFull } from '@shared/api';
+import type { BudgetPlan, CashEntry, Item, Setting } from '@shared/schema';
+import type { Conflict, Op, OpResult, ReadFull, Table } from '@shared/api';
 import type { Rec } from '@shared/convert';
 import type { QueuedOp } from './queue';
 
@@ -9,7 +9,7 @@ export type SyncStatus = 'idle' | 'loading' | 'syncing' | 'synced' | 'offline' |
 
 export interface PendingConflict {
   id: string;
-  table: 'kalemler' | 'ayarlar';
+  table: Table;
   keys: string[];
   serverValues: Rec;
   myValues: Rec;
@@ -20,6 +20,10 @@ export interface PendingConflict {
 export interface AppState {
   items: Item[];
   settings: Setting[];
+  cash: CashEntry[];
+  /** Sunucu harcama günlüğünü destekliyor mu (app_nakit sekmesi var mı). Bilinmiyorsa undefined. */
+  cashSupported?: boolean;
+  plan?: BudgetPlan;
   fingerprint?: string;
   status: SyncStatus;
   lastSync?: string;
@@ -29,7 +33,7 @@ export interface AppState {
   hydrated: boolean;
 }
 
-const initial: AppState = { items: [], settings: [], status: 'idle', outbox: [], conflicts: [], hydrated: false };
+const initial: AppState = { items: [], settings: [], cash: [], status: 'idle', outbox: [], conflicts: [], hydrated: false };
 let state: AppState = initial;
 const listeners = new Set<() => void>();
 
@@ -67,10 +71,11 @@ export function useAppStore<T>(selector: (s: AppState) => T): T {
   return useSyncExternalStore(subscribe, get, get);
 }
 
-type TableName = 'kalemler' | 'ayarlar';
-function listOf(s: AppState, table: TableName): Rec[] { return (table === 'kalemler' ? s.items : s.settings) as unknown as Rec[]; }
+type TableName = Table;
+const LIST_KEY = { kalemler: 'items', ayarlar: 'settings', nakit: 'cash' } as const;
+function listOf(s: AppState, table: TableName): Rec[] { return s[LIST_KEY[table]] as unknown as Rec[]; }
 function withList(table: TableName, list: Rec[]): Partial<AppState> {
-  return table === 'kalemler' ? { items: list as unknown as Item[] } : { settings: list as unknown as Setting[] };
+  return { [LIST_KEY[table]]: list } as Partial<AppState>;
 }
 
 /** Bekleyen (gönderilmemiş) patch'leri sunucu verisinin üstüne yeniden uygular. */
@@ -98,6 +103,9 @@ export function applyRead(full: ReadFull): void {
   setState((s) => ({
     items: rebase(full.items as unknown as Rec[], 'kalemler', s.outbox) as unknown as Item[],
     settings: rebase(full.settings as unknown as Rec[], 'ayarlar', s.outbox) as unknown as Setting[],
+    cash: rebase((full.cash ?? []) as unknown as Rec[], 'nakit', s.outbox) as unknown as CashEntry[],
+    cashSupported: full.cash !== undefined,
+    plan: full.plan,
     fingerprint: full.fingerprint,
     lastSync: full.serverTime,
     hydrated: true,
@@ -150,6 +158,7 @@ export function dismissConflict(id: string): void {
 // ---- seçiciler ----
 export const selectActiveItems = (s: AppState): Item[] => s.items.filter((i) => !i.deleted_at);
 export const selectByTip = (tip: Item['tip']) => (s: AppState): Item[] => s.items.filter((i) => !i.deleted_at && i.tip === tip);
+export const selectActiveCash = (s: AppState): CashEntry[] => s.cash.filter((c) => !c.deleted_at);
 export const selectPendingCount = (s: AppState): number => s.outbox.length;
 export const selectSetting = (tip: Setting['tip'], anahtar: string) => (s: AppState): Setting | undefined =>
   s.settings.find((x) => !x.deleted_at && x.tip === tip && x.anahtar === anahtar);

@@ -1,6 +1,6 @@
 // Saf mantık: bellek içi tablo durumu üzerinde okuma/yazma. SpreadsheetApp'e bağımlı değil → Vitest ile test edilir.
 import type { ColumnDef } from '../../shared/schema.ts';
-import { ITEM_COLUMNS, SETTING_COLUMNS, SCHEMA_VERSION, META_KEYS } from '../../shared/schema.ts';
+import { ITEM_COLUMNS, SETTING_COLUMNS, CASH_COLUMNS, SCHEMA_VERSION, META_KEYS, type BudgetPlan } from '../../shared/schema.ts';
 import { rowToRecord, recordToRow, fingerprintOf, type Rec, type Cell } from '../../shared/convert.ts';
 import { ulid } from '../../shared/ids.ts';
 import type { BatchRequest, BatchResponse, OpResult, ReadResponse, Table, UpsertOp, ApiErrorCode } from '../../shared/api.ts';
@@ -14,9 +14,11 @@ export interface TableState {
   dirty: Set<number>;
 }
 
-export interface State { kalemler: TableState; ayarlar: TableState }
+/** nakit: app_nakit sekmesi henüz yoksa (setup çalışmadıysa) yoktur; plan: "Giderler Planlanan" okunabildiyse. */
+export interface State { kalemler: TableState; ayarlar: TableState; nakit?: TableState; plan?: BudgetPlan }
 
-export const TABLE_COLUMNS: Record<Table, readonly ColumnDef[]> = { kalemler: ITEM_COLUMNS, ayarlar: SETTING_COLUMNS };
+export const TABLE_COLUMNS: Record<Table, readonly ColumnDef[]> = { kalemler: ITEM_COLUMNS, ayarlar: SETTING_COLUMNS, nakit: CASH_COLUMNS };
+const REQUIRED_ON_INSERT: Record<Table, string[]> = { kalemler: ['tip', 'ad'], ayarlar: ['tip', 'anahtar'], nakit: ['tarih', 'tutar', 'kalem'] };
 const META = new Set<string>(META_KEYS);
 
 /** Boş satır: yalnız boş hücreler ve onay kutusu doğrulamasının ürettiği FALSE değerleri. */
@@ -88,7 +90,7 @@ function applyUpsert(table: TableState, tableName: Table, op: UpsertOp, actor: s
   const idx = table.index.get(op.id);
 
   if (idx === undefined) {
-    const need = tableName === 'kalemler' ? ['tip', 'ad'] : ['tip', 'anahtar'];
+    const need = REQUIRED_ON_INSERT[tableName];
     const missing = need.filter((k) => patch[k] === undefined || patch[k] === '');
     if (missing.length) return err(op.id, 'bad_request', `Yeni kayıt için zorunlu: ${missing.join(', ')}`);
     const rec: Rec = { id: op.id };
@@ -165,13 +167,17 @@ export function applyBatch(state: State, req: BatchRequest, now: string): BatchR
     if (!r.ok) { ok = false; break; }
     doneCount++;
   }
-  const fp = fingerprintOf(state.kalemler.rows, state.ayarlar.rows);
+  const fp = stateFingerprint(state);
   const last = results[results.length - 1];
   return { ok, results, doneCount, fingerprint: fp, serverTime: now, error: ok ? undefined : last?.error, message: ok ? undefined : last?.message };
 }
 
+export function stateFingerprint(state: State): string {
+  return fingerprintOf(state.kalemler.rows, state.ayarlar.rows, state.nakit?.rows, state.plan ? JSON.stringify(state.plan) : '');
+}
+
 export function readState(state: State, fingerprint: string | undefined, now: string): ReadResponse {
-  const fp = fingerprintOf(state.kalemler.rows, state.ayarlar.rows);
+  const fp = stateFingerprint(state);
   if (fingerprint && fingerprint === fp) return { ok: true, notModified: true, fingerprint: fp, serverTime: now, schemaVersion: SCHEMA_VERSION };
   return {
     ok: true,
@@ -180,6 +186,8 @@ export function readState(state: State, fingerprint: string | undefined, now: st
     schemaVersion: SCHEMA_VERSION,
     items: state.kalemler.rows as unknown as ReadResponse extends { items: infer I } ? I : never,
     settings: state.ayarlar.rows as never,
+    ...(state.nakit ? { cash: state.nakit.rows as never } : {}),
+    ...(state.plan ? { plan: state.plan } : {}),
   } as ReadResponse;
 }
 
@@ -190,4 +198,79 @@ export function dirtyRows(table: TableState): Array<{ sheetRow: number; cells: (
     out.push({ sheetRow: table.sheetRows[idx], cells: recordToRow(table.columns, table.headers, table.rows[idx]) });
   }
   return out;
+}
+
+// ---------------- Bütçe sekmeleri ----------------
+
+/** Ay sütunları C..N (0 tabanlı 2..13); etiket sütunu B (1). */
+const LABEL_COL = 1;
+const FIRST_MONTH_COL = 2;
+const MONTH_HEADER = /^OCA/i;
+
+function num(cell: Cell): number {
+  if (typeof cell === 'number') return Number.isFinite(cell) ? cell : 0;
+  if (typeof cell === 'string') {
+    const n = parseFloat(cell.replace(/[^\d,.-]/g, '').replace(/\./g, '').replace(',', '.'));
+    return Number.isFinite(n) ? n : 0;
+  }
+  return 0;
+}
+
+export interface PlanLayoutRow { label: string; group: string; sheetRow: number }
+
+/**
+ * "Giderler Planlanan" değer ızgarasını (1. satırdan, A sütunundan) okur. Grup başlığı: C sütununda "OCA" olan satır;
+ * grup, B'si "TOPLAMLAR" olan satırla biter. Adı boş başlık (ikinci tablo) okumayı durdurur.
+ */
+export function parsePlan(values: readonly (readonly Cell[])[], year?: number): { plan: BudgetPlan; layout: PlanLayoutRow[] } {
+  const plan: BudgetPlan = { year, groups: [] };
+  const layout: PlanLayoutRow[] = [];
+  let group: BudgetPlan['groups'][number] | null = null;
+  for (let r = 0; r < values.length; r++) {
+    const row = values[r] ?? [];
+    const label = String(row[LABEL_COL] ?? '').trim();
+    const head = String(row[FIRST_MONTH_COL] ?? '').trim();
+    if (MONTH_HEADER.test(head)) {
+      if (!label) { if (plan.groups.length) break; continue; }
+      group = { name: label, rows: [] };
+      plan.groups.push(group);
+      continue;
+    }
+    if (!group || !label) continue;
+    if (/^TOPLAM/i.test(label)) { group = null; continue; }
+    const months: number[] = [];
+    for (let m = 0; m < 12; m++) months.push(num(row[FIRST_MONTH_COL + m] as Cell));
+    group.rows.push({ label, plan: months });
+    layout.push({ label, group: group.name, sheetRow: r + 1 });
+  }
+  return { plan, layout };
+}
+
+const colLetter = (i: number): string => {
+  let n = i + 1; let out = '';
+  while (n > 0) { const m = (n - 1) % 26; out = String.fromCharCode(65 + m) + out; n = Math.floor((n - 1) / 26); }
+  return out;
+};
+
+/**
+ * Gerçekleşen hücresi formülü. Kural: o kalem için o ay günlükte kayıt yoksa plan gösterilir (otomatik ödenen krediler
+ * kaydedilmese de toplam bozulmaz); kayıt varsa kapanmış ayda gerçek toplam, açık ya da gelecek ayda max(gerçek, plan).
+ */
+export function actualFormula(opts: { cashSheet: string; cashHeaders: readonly string[]; planSheet: string; panoYearCell: string; sheetRow: number; month: number }): string {
+  const { cashSheet, cashHeaders, planSheet, panoYearCell, sheetRow, month } = opts;
+  const col = (key: string) => {
+    const i = cashHeaders.indexOf(key);
+    if (i < 0) throw new Error(`app_nakit sütunu yok: ${key}`);
+    const L = colLetter(i);
+    return `'${cashSheet}'!$${L}$2:$${L}`;
+  };
+  const cell = colLetter(FIRST_MONTH_COL + month - 1);
+  const crit = `${col('kalem')},TRIM($B${sheetRow}),${col('tarih')},${panoYearCell}&"-${String(month).padStart(2, '0')}*",${col('deleted_at')},""`;
+  return `=LET(n,COUNTIFS(${crit}),a,SUMIFS(${col('tutar')},${crit}),p,'${planSheet}'!${cell}${sheetRow},`
+    + `IF(n=0,p,IF(DATE(${panoYearCell},${month}+1,1)<=TODAY(),a,MAX(a,p))))`;
+}
+
+/** Eski hâl (geri alma): plan kopyası. */
+export function planCopyFormula(planSheet: string, sheetRow: number, month: number): string {
+  return `='${planSheet}'!${colLetter(FIRST_MONTH_COL + month - 1)}${sheetRow}`;
 }

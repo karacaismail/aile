@@ -1,17 +1,19 @@
 // Apps Script giriş noktası. esbuild ile apps-script/Code.js'e paketlenir (bkz. scripts/build-gas.mjs).
 /* global SpreadsheetApp, LockService, PropertiesService, ContentService, ScriptApp, Session */
-import { SHEETS, ITEM_COLUMNS, SETTING_COLUMNS, SCHEMA_VERSION, REQUIRED_ITEM_HEADERS, REQUIRED_SETTING_HEADERS, META_KEYS, type ColumnDef } from '../../shared/schema.ts';
+import { SHEETS, BUDGET_SHEETS, ITEM_COLUMNS, SETTING_COLUMNS, CASH_COLUMNS, SCHEMA_VERSION, REQUIRED_ITEM_HEADERS, REQUIRED_SETTING_HEADERS, REQUIRED_CASH_HEADERS, META_KEYS, type ColumnDef } from '../../shared/schema.ts';
 import { missingHeaders, headerIndex, rowToRecord, recordToRow, type Cell } from '../../shared/convert.ts';
 import { ulid } from '../../shared/ids.ts';
 import type { ApiRequest, ApiResponse, ErrorResponse, HealthResponse } from '../../shared/api.ts';
-import { createTableState, applyBatch, readState, dirtyRows, type State, type TableState } from './core.ts';
+import { createTableState, applyBatch, readState, dirtyRows, parsePlan, actualFormula, planCopyFormula, type State, type TableState } from './core.ts';
 
 type Sheet = GoogleAppsScript.Spreadsheet.Sheet;
 type Spreadsheet = GoogleAppsScript.Spreadsheet.Spreadsheet;
 
-const TABLES: Array<{ key: 'kalemler' | 'ayarlar'; name: string; columns: readonly ColumnDef[]; required: readonly string[] }> = [
+// optional: sekme yoksa okuma yine çalışır (setup öncesi eski tablo); o tabloya yazım "Bilinmeyen tablo" ile reddedilir.
+const TABLES: Array<{ key: 'kalemler' | 'ayarlar' | 'nakit'; name: string; columns: readonly ColumnDef[]; required: readonly string[]; optional?: boolean }> = [
   { key: 'kalemler', name: SHEETS.items, columns: ITEM_COLUMNS, required: REQUIRED_ITEM_HEADERS },
   { key: 'ayarlar', name: SHEETS.settings, columns: SETTING_COLUMNS, required: REQUIRED_SETTING_HEADERS },
+  { key: 'nakit', name: SHEETS.cash, columns: CASH_COLUMNS, required: REQUIRED_CASH_HEADERS, optional: true },
 ];
 const MAX_BODY = 512 * 1024;
 
@@ -27,6 +29,7 @@ function loadState(ss: Spreadsheet): State | ErrorResponse {
   const out: Partial<State> = {};
   for (const t of TABLES) {
     const sheet = ss.getSheetByName(t.name);
+    if (!sheet && t.optional) continue;
     if (!sheet) return fail('schema', `Sekme yok: ${t.name} (setup çalıştırın)`, { missing: [t.name] });
     const values = sheet.getLastRow() > 0 ? sheet.getDataRange().getValues() : [[]];
     const headers = (values[0] ?? []).map((h) => String(h).trim());
@@ -34,13 +37,63 @@ function loadState(ss: Spreadsheet): State | ErrorResponse {
     if (missing.length) return fail('schema', `Eksik sütun: ${missing.join(', ')}`, { missing });
     out[t.key] = createTableState(t.columns, headers, values.slice(1) as Cell[][], 2, nowIso());
   }
+  const plan = loadPlan(ss);
+  if (plan) out.plan = plan.plan;
   return out as State;
+}
+
+function planYear(ss: Spreadsheet): number | undefined {
+  const pano = ss.getSheetByName(BUDGET_SHEETS.pano);
+  const y = pano ? Number(pano.getRange('C2').getValue()) : NaN;
+  return Number.isFinite(y) && y > 2000 ? y : undefined;
+}
+
+/** "Giderler Planlanan" salt okunur; okunamazsa bütçe ekranı planı "yok" gösterir, diğer modüller etkilenmez. */
+function loadPlan(ss: Spreadsheet): ReturnType<typeof parsePlan> | undefined {
+  try {
+    const sheet = ss.getSheetByName(BUDGET_SHEETS.plan);
+    if (!sheet || sheet.getLastRow() < 2) return undefined;
+    const values = sheet.getRange(1, 1, Math.min(sheet.getLastRow(), 200), 14).getValues() as Cell[][];
+    return parsePlan(values, planYear(ss));
+  } catch (_e) {
+    return undefined;
+  }
+}
+
+/**
+ * "Giderler Gerçekleşen" C:N hücrelerini günlüğe bağlar (mode='wire') ya da eski plan kopyası formülüne döndürür
+ * (mode='unwire'). Yalnız etiketi plan sekmesindekiyle aynı satıra yazar; TOPLAMLAR ve başlık satırlarına dokunmaz.
+ */
+function wireActual(mode: 'wire' | 'unwire'): string {
+  const ss = SpreadsheetApp.getActive();
+  const actual = ss.getSheetByName(BUDGET_SHEETS.actual);
+  const cash = ss.getSheetByName(SHEETS.cash);
+  const parsed = loadPlan(ss);
+  if (!actual || !parsed) throw new Error(`${BUDGET_SHEETS.actual} ya da ${BUDGET_SHEETS.plan} okunamadı`);
+  if (mode === 'wire' && !cash) throw new Error(`${SHEETS.cash} yok (önce setup)`);
+  const cashHeaders = cash ? cash.getRange(1, 1, 1, cash.getLastColumn()).getValues()[0].map((h) => String(h).trim()) : [];
+  const labels = actual.getRange(1, 2, actual.getLastRow(), 1).getValues().map((r) => String(r[0]).trim());
+  let written = 0;
+  const skipped: string[] = [];
+  for (const row of parsed.layout) {
+    if (labels[row.sheetRow - 1] !== row.label) { skipped.push(`${row.sheetRow}:${row.label}`); continue; }
+    const formulas: string[] = [];
+    for (let m = 1; m <= 12; m++) {
+      formulas.push(mode === 'wire'
+        ? actualFormula({ cashSheet: SHEETS.cash, cashHeaders, planSheet: BUDGET_SHEETS.plan, panoYearCell: `'${BUDGET_SHEETS.pano}'!$C$2`, sheetRow: row.sheetRow, month: m })
+        : planCopyFormula(BUDGET_SHEETS.plan, row.sheetRow, m));
+    }
+    actual.getRange(row.sheetRow, 3, 1, 12).setFormulas([formulas]);
+    written++;
+  }
+  SpreadsheetApp.flush();
+  return `${mode}: ${written} satır${skipped.length ? `; eşleşmeyen: ${skipped.join(', ')}` : ''}`;
 }
 
 function flushState(ss: Spreadsheet, state: State): void {
   for (const t of TABLES) {
-    const table: TableState = state[t.key];
-    if (!table.dirty.size) continue;
+    const table: TableState | undefined = state[t.key];
+    if (!table?.dirty.size) continue;
     const sheet = ss.getSheetByName(t.name)!;
     const width = table.headers.length;
     const appended: (string | number | boolean)[][] = [];
@@ -107,7 +160,15 @@ export function doGet(e: GoogleAppsScript.Events.DoGet) {
     try { return json({ ok: true, app: 'aile', message: setup(), health: healthCheck() }); }
     catch (error) { return json(fail('internal', String((error as Error)?.message ?? error))); }
   }
-  return json(fail('bad_request', 'GET yalnız health/setup için'));
+  if (action === 'wire' || action === 'unwire') {
+    if (!checkKey(e?.parameter?.key)) return json(fail('unauthorized'));
+    const lock = LockService.getScriptLock();
+    if (!lock.tryLock(20000)) return json(fail('busy', 'Tablo meşgul, yeniden deneyin', { retryAfterMs: 3000 }));
+    try { return json({ ok: true, app: 'aile', message: wireActual(action) }); }
+    catch (error) { return json(fail('internal', String((error as Error)?.message ?? error))); }
+    finally { lock.releaseLock(); }
+  }
+  return json(fail('bad_request', 'GET yalnız health/setup/wire/unwire için'));
 }
 
 export function healthCheck(): HealthResponse {
@@ -115,7 +176,7 @@ export function healthCheck(): HealthResponse {
   const warnings: string[] = [];
   const triggers = ScriptApp.getProjectTriggers().map((t) => t.getHandlerFunction());
   if (!triggers.includes('onEditInstallable')) warnings.push('onEditInstallable tetikleyicisi yok (setup çalıştırın)');
-  for (const t of TABLES) if (!ss.getSheetByName(t.name)) warnings.push(`Sekme yok: ${t.name}`);
+  for (const t of TABLES) if (!ss.getSheetByName(t.name)) warnings.push(`${t.optional ? 'İsteğe bağlı sekme yok' : 'Sekme yok'}: ${t.name}`);
   const tz = ss.getSpreadsheetTimeZone();
   if (tz !== 'Europe/Istanbul') warnings.push(`Tablo saat dilimi ${tz}; Europe/Istanbul bekleniyor`);
   let fingerprint: string | undefined;

@@ -13,7 +13,7 @@ export default defineConfig({
       manifest: {
         name: 'aile — taşınma planlayıcısı',
         short_name: 'aile',
-        description: 'Satınalma, aydınlatma, tadilat ve yerleşim planı',
+        description: 'Satınalma, aydınlatma, tadilat, yerleşim ve bütçe planı',
         lang: 'tr',
         start_url: '/aile/',
         scope: '/aile/',
@@ -21,6 +21,8 @@ export default defineConfig({
         background_color: '#faf7f2',
         theme_color: '#c65d3b',
         icons: [{ src: 'icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' }],
+        // Ana ekran simgesine uzun basınca: tek dokunuşla harcama formu.
+        shortcuts: [{ name: 'Harcama ekle', short_name: 'Harcama', url: '/aile/#/butce/yeni', icons: [{ src: 'icon.svg', sizes: 'any', type: 'image/svg+xml' }] }],
       },
       workbox: {
         // Yalnız uygulama kabuğu önbelleğe alınır; veri (Apps Script) asla önbelleklenmez.

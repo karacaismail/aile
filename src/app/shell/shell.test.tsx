@@ -10,7 +10,7 @@ describe('BottomTabs', () => {
     const { hook } = memoryLocation({ path: '/aydinlatma/salon' });
     render(<Router hook={hook}><BottomTabs /></Router>);
     const tabs = screen.getAllByRole('link');
-    expect(tabs).toHaveLength(4);
+    expect(tabs).toHaveLength(5);
     expect(screen.getByTestId('tab-aydinlatma')).toHaveAttribute('aria-current', 'page');
     expect(screen.getByTestId('tab-satinalma')).not.toHaveAttribute('aria-current');
   });

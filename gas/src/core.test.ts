@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { createTableState, applyBatch, readState, validateEnums, type TableState } from './core.ts';
-import { ITEM_COLUMNS, ITEM_HEADERS, SETTING_COLUMNS, SETTING_HEADERS } from '../../shared/schema.ts';
+import { createTableState, applyBatch, readState, validateEnums, parsePlan, actualFormula, planCopyFormula, type TableState } from './core.ts';
+import { ITEM_COLUMNS, ITEM_HEADERS, SETTING_COLUMNS, SETTING_HEADERS, CASH_COLUMNS, CASH_HEADERS } from '../../shared/schema.ts';
 
 const NOW = '2026-10-26T12:00:00.000Z';
 const LATER = '2026-10-26T12:05:00.000Z';
@@ -135,5 +135,76 @@ describe('readState', () => {
     if (!full.notModified) expect(full.items).toHaveLength(1);
     const nm = readState(st, full.fingerprint, NOW);
     expect(nm.notModified).toBe(true);
+  });
+});
+
+describe('nakit (harcama günlüğü)', () => {
+  it('yeni kayıt tarih+tutar+kalem ister; sekme yoksa tablo reddedilir', () => {
+    const st = { ...fresh(), nakit: createTableState(CASH_COLUMNS, [...CASH_HEADERS], []) };
+    const bad = applyBatch(st, { action: 'batch', actor: 'a', ops: [{ op: 'upsert', table: 'nakit', id: 'N1', opId: 'O1', patch: { tutar: 100 } }] }, NOW);
+    expect(bad.ok).toBe(false);
+    expect(bad.message).toMatch(/tarih, kalem/);
+    const ok = applyBatch(st, { action: 'batch', actor: 'a', ops: [{ op: 'upsert', table: 'nakit', id: 'N1', opId: 'O2', patch: { tarih: '2099-01-05', tutar: 120.5, kalem: 'Mutfak' } }] }, NOW);
+    expect(ok.ok).toBe(true);
+    expect(readState(st, undefined, NOW)).toMatchObject({ cash: [expect.objectContaining({ id: 'N1', tutar: 120.5, kalem: 'Mutfak' })] });
+    const none = applyBatch(fresh(), { action: 'batch', actor: 'a', ops: [{ op: 'upsert', table: 'nakit', id: 'N1', opId: 'O3', patch: { tarih: '2099-01-05', tutar: 1, kalem: 'x' } }] }, NOW);
+    expect(none.ok).toBe(false);
+    expect(readState(fresh(), undefined, NOW)).not.toHaveProperty('cash');
+  });
+
+  it('parmak izi günlük ve plan değişince değişir', () => {
+    const st = { ...fresh(), nakit: createTableState(CASH_COLUMNS, [...CASH_HEADERS], []) };
+    const fp1 = readState(st, undefined, NOW).fingerprint;
+    applyBatch(st, { action: 'batch', actor: 'a', ops: [{ op: 'upsert', table: 'nakit', id: 'N1', opId: 'O1', patch: { tarih: '2099-01-05', tutar: 1, kalem: 'x' } }] }, NOW);
+    const fp2 = readState(st, undefined, NOW).fingerprint;
+    expect(fp2).not.toBe(fp1);
+    const withPlan = { ...st, plan: { groups: [{ name: 'G', rows: [{ label: 'x', plan: Array(12).fill(1) }] }] } };
+    expect(readState(withPlan, undefined, NOW).fingerprint).not.toBe(fp2);
+  });
+});
+
+describe('parsePlan', () => {
+  const months = ['OCA', 'ŞUB', 'MAR', 'NİS', 'MAY', 'HAZ', 'TEM', 'AĞU', 'EYL', 'EKİ', 'KAS', 'ARA'];
+  const vals = (n: number) => Array(12).fill(n);
+  const grid = [
+    ['', '', ...months],
+    [],
+    ['', 'BORÇLAR', ...months],
+    ['', 'Kredi A', ...vals(1000)],
+    ['', 'Vergi', '₺500', ...vals(500).slice(1)],
+    ['', 'TOPLAMLAR', ...vals(1500)],
+    [],
+    ['', 'DİĞERLERİ', ...months],
+    ['', 'Mutfak ', ...vals(200)],
+    ['', 'TOPLAMLAR', ...vals(200)],
+    [],
+    ['', 'TOPLAMLAR', ...vals(1700)],
+    ['', '', ...months],
+    ['', 'Başka tablo', ...vals(9)],
+  ];
+  it('grupları, satırları ve sheet satır numaralarını çıkarır; toplamları ve ikinci tabloyu atlar', () => {
+    const { plan, layout } = parsePlan(grid, 2099);
+    expect(plan.year).toBe(2099);
+    expect(plan.groups.map((g) => g.name)).toEqual(['BORÇLAR', 'DİĞERLERİ']);
+    expect(plan.groups[0].rows).toEqual([{ label: 'Kredi A', plan: vals(1000) }, { label: 'Vergi', plan: vals(500) }]);
+    expect(plan.groups[1].rows[0].label).toBe('Mutfak');
+    expect(layout).toEqual([
+      { label: 'Kredi A', group: 'BORÇLAR', sheetRow: 4 },
+      { label: 'Vergi', group: 'BORÇLAR', sheetRow: 5 },
+      { label: 'Mutfak', group: 'DİĞERLERİ', sheetRow: 9 },
+    ]);
+  });
+});
+
+describe('actualFormula', () => {
+  it('başlık konumundan sütun harfi üretir; kayıtsız ay plana düşer', () => {
+    const f = actualFormula({ cashSheet: 'app_nakit', cashHeaders: [...CASH_HEADERS], planSheet: 'Giderler Planlanan', panoYearCell: "'Pano'!$C$2", sheetRow: 24, month: 3 });
+    expect(f).toContain("'app_nakit'!$D$2:$D,TRIM($B24)");
+    expect(f).toContain("'app_nakit'!$B$2:$B,'Pano'!$C$2&\"-03*\"");
+    expect(f).toContain("SUMIFS('app_nakit'!$C$2:$C,");
+    expect(f).toContain("'app_nakit'!$I$2:$I,\"\"");
+    expect(f).toContain("p,'Giderler Planlanan'!E24");
+    expect(f).toMatch(/IF\(n=0,p,IF\(DATE\('Pano'!\$C\$2,3\+1,1\)<=TODAY\(\),a,MAX\(a,p\)\)\)\)$/);
+    expect(planCopyFormula('Giderler Planlanan', 24, 12)).toBe("='Giderler Planlanan'!N24");
   });
 });

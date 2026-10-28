@@ -24,14 +24,14 @@ const now = () => (deps.now ? deps.now() : new Date().toISOString());
 async function persistOutbox() { await saveOutbox(getState().outbox); }
 async function persistCache() {
   const s = getState();
-  await saveCache({ items: s.items, settings: s.settings, fingerprint: s.fingerprint, savedAt: now(), schemaVersion: SCHEMA_VERSION });
+  await saveCache({ items: s.items, settings: s.settings, cash: s.cashSupported ? s.cash : undefined, plan: s.plan, fingerprint: s.fingerprint, savedAt: now(), schemaVersion: SCHEMA_VERSION });
 }
 
 export async function hydrate(): Promise<void> {
   const [cache, outbox] = await Promise.all([loadCache(), loadOutbox()]);
   setState({ outbox });
   if (cache && cache.schemaVersion === SCHEMA_VERSION) {
-    applyRead({ ok: true, fingerprint: cache.fingerprint ?? '', serverTime: cache.savedAt, schemaVersion: cache.schemaVersion, items: cache.items, settings: cache.settings });
+    applyRead({ ok: true, fingerprint: cache.fingerprint ?? '', serverTime: cache.savedAt, schemaVersion: cache.schemaVersion, items: cache.items, settings: cache.settings, cash: cache.cash, plan: cache.plan });
     setState({ lastSync: cache.savedAt });
   } else {
     setState({ hydrated: true });
@@ -110,7 +110,9 @@ export function enqueue(op: Op): void {
 
 export function upsert(table: Op['table'], id: string | undefined, patch: Rec): string {
   const rid = id ?? ulid();
-  const base = table === 'kalemler' ? getState().items.find((i) => i.id === rid) : getState().settings.find((i) => i.id === rid);
+  const s = getState();
+  const list: Array<{ id: string; version?: number }> = table === 'kalemler' ? s.items : table === 'ayarlar' ? s.settings : s.cash;
+  const base = list.find((i) => i.id === rid);
   enqueue({ op: 'upsert', table, id: rid, opId: ulid(), baseVersion: base?.version, patch });
   return rid;
 }

@@ -20,6 +20,13 @@ Alanlar ve enumlar `ITEM_COLUMNS` içinde; etiket için `label('durum', 'karar')
   Kamusal takvim sabitleri `@/lib/dates`: `RAMAZAN_2027`, `BAYRAM_2027`, `KADIR_GECESI_2027`.
 - Ayarlar: `tip='ayar', anahtar='senaryo' (A|B|C) | 'omurga' | 'duvar_rengi'`.
 
+## Bütçe (harcama günlüğü)
+- Üçüncü uygulama sekmesi `app_nakit` (`CASH_COLUMNS`): bir satır = bir ödeme (`tarih`, `tutar`, `kalem`, `not`). `kalem` bütçe sekmesindeki satır adıdır.
+- Plan salt okunur: Apps Script okuma yanıtına `plan` ekler (`Giderler Planlanan` grupları + 12 aylık tutar, `parsePlan`). Kalem adları koda yazılmaz, tablodan gelir.
+- Yazma: `upsert('nakit', id, { tarih, tutar, kalem, not })`; okuma `useAppStore((s) => s.cash)`, `s.plan`, `s.cashSupported` (sunucuda sekme yoksa `false`).
+- Hızlı form her ekrandan: `openExpense({ kalem?, id? })` (`@/modules/budget`); üst çubukta "Harcama ekle", PWA kısayolu `#/butce/yeni`.
+- `doGet?action=wire` `Giderler Gerçekleşen` C:N hücrelerini günlüğe bağlar (`actualFormula`: kayıt yoksa plan; kayıt varsa kapanan ayda gerçek, açık ayda max(gerçek, plan)); `action=unwire` eski plan kopyasına döndürür.
+
 ## Durum ve yazma (src/sync)
 ```ts
 import { useAppStore, selectByTip, selectSetting } from '@/sync/store';

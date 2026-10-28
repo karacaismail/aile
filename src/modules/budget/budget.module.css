@@ -1,0 +1,29 @@
+.monthBar { position: sticky; top: 0; z-index: 5; border-bottom: 1px solid var(--mantine-color-default-border); }
+.row, .entry {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 44px;
+  padding: 8px var(--mantine-spacing-sm);
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-md);
+  background: var(--mantine-color-body);
+}
+.entry { flex-direction: row; align-items: center; gap: var(--mantine-spacing-xs); }
+.row:active, .entry:active { background: var(--mantine-color-default-hover); }
+.amount { white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* Taban tek sütun (kalemler üstte, kayıtlar altta); geniş ekranda yan yana. */
+.layout { display: grid; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 64em) {
+  .layout { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); align-items: start; }
+}
+/* Form: kaydet şeridi modal gövdesinin altına yapışır. */
+.saveBar {
+  position: sticky;
+  bottom: 0;
+  margin-inline: calc(var(--mantine-spacing-sm) * -1);
+  padding: var(--mantine-spacing-xs) var(--mantine-spacing-sm) calc(var(--mantine-spacing-xs) + var(--aile-safe-bottom, 0px));
+  background: var(--mantine-color-body);
+  border-top: 1px solid var(--mantine-color-default-border);
+}
+.chipLabel { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }

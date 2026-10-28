@@ -1,5 +1,6 @@
 import { Group, Title, ActionIcon, Box } from '@mantine/core';
-import { GearSixIcon } from '@phosphor-icons/react';
+import { GearSixIcon, ReceiptIcon } from '@phosphor-icons/react';
+import { openExpense } from '../../modules/budget/quick';
 import { Link, useLocation } from 'wouter';
 import { MODULES } from '../../routes';
 import type { ReactNode } from 'react';
@@ -15,6 +16,9 @@ export function TopBar({ right }: { right?: ReactNode }) {
       </Title>
       <Group gap={4} wrap="nowrap">
         {right}
+        <ActionIcon aria-label="Harcama ekle" variant="subtle" color="gray" onClick={() => openExpense()} data-testid="topbar-expense">
+          <ReceiptIcon size={22} aria-hidden />
+        </ActionIcon>
         <Box hiddenFrom="sm">
           <ActionIcon component={Link} href="/ayarlar" aria-label="Ayarlar" variant="subtle" color="gray">
             <GearSixIcon size={22} aria-hidden />

@@ -1,8 +1,10 @@
 // Tek kaynak: sekme adları, sütunlar, enum'lar ve Türkçe etiketler.
 // Hem uygulama (src), hem Apps Script (gas), hem tohumlama (scripts) buradan okur.
 
-export const SHEETS = { items: 'app_kalemler', settings: 'app_ayarlar' } as const;
-export const SCHEMA_VERSION = 1;
+export const SHEETS = { items: 'app_kalemler', settings: 'app_ayarlar', cash: 'app_nakit' } as const;
+/** Elle tutulan bütçe sekmeleri: uygulama planı okur (salt okunur), gerçekleşen sekmesi günlüğe bağlanır. */
+export const BUDGET_SHEETS = { plan: 'Giderler Planlanan', actual: 'Giderler Gerçekleşen', pano: 'Pano' } as const;
+export const SCHEMA_VERSION = 2;
 
 export const TIP = ['satinalma', 'aydinlatma', 'tadilat', 'yerlesim', 'usta', 'kontrol', 'sahne', 'kilometre'] as const;
 export const ODA = ['salon', 'cocuk', 'ebeveyn', 'calisma', 'mutfak', 'banyo', 'wc', 'hol', 'balkon1', 'balkon2', 'genel'] as const;
@@ -160,11 +162,30 @@ export const SETTING_COLUMNS: readonly ColumnDef[] = [
   c('son_degisen_alanlar', 'Son değişen alanlar', 'liste', 'meta'),
 ];
 
+/** Harcama günlüğü (app_nakit): bir satır = bir ödeme. `kalem` bütçe sekmesindeki satır adıdır (ör. "Mutfak"). */
+export const CASH_COLUMNS: readonly ColumnDef[] = [
+  c('id', 'Kimlik', 'metin', 'kimlik'),
+  c('tarih', 'Tarih', 'tarih', 'ortak'),
+  c('tutar', 'Tutar (TL)', 'sayi', 'ortak'),
+  c('kalem', 'Bütçe kalemi', 'metin', 'ortak'),
+  c('not', 'Not', 'metin', 'ortak'),
+  c('kalem_id', 'Bağlı satınalma', 'metin', 'ortak'),
+  c('created_at', 'Oluşturma', 'tarihsaat', 'meta'),
+  c('updated_at', 'Güncelleme', 'tarihsaat', 'meta'),
+  c('deleted_at', 'Silinme', 'tarihsaat', 'meta'),
+  c('updated_by', 'Güncelleyen', 'metin', 'meta'),
+  c('version', 'Sürüm', 'sayi', 'meta'),
+  c('son_op_id', 'Son işlem', 'metin', 'meta'),
+  c('son_degisen_alanlar', 'Son değişen alanlar', 'liste', 'meta'),
+];
+
 export const ITEM_HEADERS = ITEM_COLUMNS.map((x) => x.key);
+export const CASH_HEADERS = CASH_COLUMNS.map((x) => x.key);
 export const SETTING_HEADERS = SETTING_COLUMNS.map((x) => x.key);
 export const META_KEYS = ['created_at', 'updated_at', 'deleted_at', 'updated_by', 'version', 'son_op_id', 'son_degisen_alanlar'] as const;
 export const REQUIRED_ITEM_HEADERS = ['id', 'tip', 'ad', 'updated_at', 'version'] as const;
 export const REQUIRED_SETTING_HEADERS = ['id', 'tip', 'anahtar', 'deger', 'updated_at', 'version'] as const;
+export const REQUIRED_CASH_HEADERS = ['id', 'tarih', 'tutar', 'kalem', 'updated_at', 'version'] as const;
 
 export type Tip = (typeof TIP)[number];
 export type Oda = (typeof ODA)[number];
@@ -282,6 +303,27 @@ export interface Setting {
   son_degisen_alanlar?: string[];
 }
 
+export interface CashEntry {
+  id: string;
+  tarih: string;
+  tutar: number;
+  kalem: string;
+  not?: string;
+  kalem_id?: string;
+  created_at?: string;
+  updated_at?: string;
+  deleted_at?: string;
+  updated_by?: string;
+  version?: number;
+  son_op_id?: string;
+  son_degisen_alanlar?: string[];
+}
+
+/** "Giderler Planlanan" sekmesinden okunan plan: gruplar (BORÇLAR, FATURALAR…) ve 12 aylık tutarlar. */
+export interface BudgetRow { label: string; plan: number[] }
+export interface BudgetGroup { name: string; rows: BudgetRow[] }
+export interface BudgetPlan { year?: number; groups: BudgetGroup[] }
+
 export const LABELS: Record<string, Record<string, string>> = {
   tip: { satinalma: 'Satınalma', aydinlatma: 'Aydınlatma', tadilat: 'Tadilat', yerlesim: 'Yerleşim', usta: 'Usta', kontrol: 'Kontrol', sahne: 'Sahne', kilometre: 'Kilometre taşı' },
   oda: { salon: 'Salon', cocuk: 'Çocuk odası', ebeveyn: 'Ebeveyn odası', calisma: 'Çalışma odası', mutfak: 'Mutfak', banyo: 'Banyo', wc: 'WC', hol: 'Hol / antre', balkon1: 'Balkon 1', balkon2: 'Balkon 2', genel: 'Genel' },
@@ -320,3 +362,4 @@ export function columnByKey(columns: readonly ColumnDef[]): Map<string, ColumnDe
 
 export const ITEM_COLUMN_MAP = columnByKey(ITEM_COLUMNS);
 export const SETTING_COLUMN_MAP = columnByKey(SETTING_COLUMNS);
+export const CASH_COLUMN_MAP = columnByKey(CASH_COLUMNS);

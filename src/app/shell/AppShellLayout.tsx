@@ -5,6 +5,7 @@ import { BottomTabs } from './BottomTabs';
 import { TopBar } from './TopBar';
 import { SideNav } from './SideNav';
 import { SyncStatus } from './SyncStatus';
+import { ExpenseHost } from '../../modules/budget/ExpenseForm';
 
 /**
  * Kabuk, 320 px tabandan yukarı doğru zenginleşir:
@@ -33,6 +34,7 @@ export function AppShellLayout({ children }: { children: ReactNode }) {
       <AppShell.Footer withBorder={false} hiddenFrom="sm">
         <BottomTabs />
       </AppShell.Footer>
+      <ExpenseHost />
     </AppShell>
   );
 }

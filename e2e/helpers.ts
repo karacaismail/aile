@@ -3,11 +3,11 @@ import fixture from './fixtures/synthetic.json' with { type: 'json' };
 
 export const FAKE_API = 'https://script.google.com/macros/s/e2e-fake/exec';
 
-export type MockData = { items: Array<Record<string, unknown>>; settings: Array<Record<string, unknown>> };
+export type MockData = { items: Array<Record<string, unknown>>; settings: Array<Record<string, unknown>>; cash?: Array<Record<string, unknown>>; plan?: unknown };
 
 /** Sahte API (bellekte kalıcı): read → mevcut durum, batch → upsert/delete uygulanır, health → ok. localStorage'a adres yazılır. */
 export async function mockApi(page: Page, data: MockData = fixture) {
-  const state = { items: structuredClone(data.items), settings: structuredClone(data.settings), rev: 1 };
+  const state = { items: structuredClone(data.items), settings: structuredClone(data.settings), cash: structuredClone(data.cash ?? []), plan: data.plan, rev: 1 };
   await page.addInitScript((url) => {
     localStorage.setItem('aile:apiUrl', url);
     localStorage.setItem('aile:actor', 'e2e');
@@ -21,7 +21,7 @@ export async function mockApi(page: Page, data: MockData = fixture) {
     if (req.action === 'health') return route.fulfill({ json: { ok: true, app: 'aile', schemaVersion: 1, serverTime: now, warnings: [] } });
     if (req.action === 'batch') {
       const results = (req.ops ?? []).map((o) => {
-        const list = o.table === 'ayarlar' ? state.settings : state.items;
+        const list = o.table === 'ayarlar' ? state.settings : o.table === 'nakit' ? state.cash : state.items;
         let row = list.find((r) => r.id === o.id);
         if (o.op === 'upsert') {
           if (!row) { row = { id: o.id, created_at: now, version: 0 }; list.push(row); }
@@ -39,11 +39,11 @@ export async function mockApi(page: Page, data: MockData = fixture) {
       return route.fulfill({ json: { ok: failIdx < 0, doneCount: failIdx < 0 ? results.length : failIdx, fingerprint: fp(), serverTime: now, results, error: failIdx < 0 ? undefined : 'not_found' } });
     }
     if (req.fingerprint && req.fingerprint === fp()) return route.fulfill({ json: { ok: true, notModified: true, fingerprint: fp(), serverTime: now, schemaVersion: 1 } });
-    return route.fulfill({ json: { ok: true, fingerprint: fp(), serverTime: now, schemaVersion: 1, items: state.items, settings: state.settings } });
+    return route.fulfill({ json: { ok: true, fingerprint: fp(), serverTime: now, schemaVersion: 2, items: state.items, settings: state.settings, cash: state.cash, ...(state.plan ? { plan: state.plan } : {}) } });
   });
 }
 
-export const ROUTES = ['#/satinalma', '#/aydinlatma', '#/tadilat', '#/yerlesim', '#/ayarlar'];
+export const ROUTES = ['#/satinalma', '#/aydinlatma', '#/tadilat', '#/yerlesim', '#/butce', '#/ayarlar'];
 
 /** Yatay taşma: sayfa ve tüm kaydırma kapsayıcıları. */
 export async function horizontalOverflow(page: Page): Promise<string[]> {

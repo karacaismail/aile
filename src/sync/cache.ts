@@ -1,8 +1,8 @@
 import { get, set, del } from 'idb-keyval';
-import type { Item, Setting } from '@shared/schema';
+import type { BudgetPlan, CashEntry, Item, Setting } from '@shared/schema';
 import type { QueuedOp } from './queue';
 
-export interface CachedData { items: Item[]; settings: Setting[]; fingerprint?: string; savedAt: string; schemaVersion: number }
+export interface CachedData { items: Item[]; settings: Setting[]; cash?: CashEntry[]; plan?: BudgetPlan; fingerprint?: string; savedAt: string; schemaVersion: number }
 
 const DATA_KEY = 'aile:data:v1';
 const OUTBOX_KEY = 'aile:outbox:v1';
