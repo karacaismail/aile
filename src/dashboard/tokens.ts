@@ -5,6 +5,9 @@ export const tokens = {
   greenSurface: '#EFF7F3', redSurface: '#FCF0EE', blueSurface: '#EAF1F6', amberSurface: '#FCF8EE',
   font: 'Outfit, Arial, sans-serif', fontSmall: '1rem', radius: '8px', spacing: '16px',
   switchWidth:'44px', switchHeight:'26px', switchThumb:'18px', switchInset:'3px', switchTravel:'18px', targetMin:'44px',
+  spaceTight: '8px', spaceSmall: '12px', spaceSection: '24px', spaceWide: '32px',
+  ruleWidth: '1px', selectedWidth: '3px', fontMetric: '1.5rem', fontPayment: '2rem',
+  photoHeight: '220px', editorColumns: 'minmax(0,1.15fr) minmax(0,.85fr)',
   duration: 240, ease: 'cubic-bezier(.65, 0, .35, 1)',
   layerSticky: 20, layerDropdown: 300,
 } as const;
