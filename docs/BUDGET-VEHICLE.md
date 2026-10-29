@@ -65,3 +65,10 @@ Yerel üretim çıktısı ayrıca üç Playwright motorunda kontrol edildi: aç�
 
 Görsel düzen: gezinme ve sekmeler açık yüzeyde tutulur; araç fotoğrafı altındaki açı seçimi ana ayar sekmelerinden ayrı görünür. Finansman özeti önce aylık yükü ve toplam maliyeti, ardından ürün koşulunu, borç dağılımını ve yedek nakdi gösterir. Durum etiketi renkli; geniş uyarı zemini yoktur. Sayı alanlarının açıklamaları tutarın altında hizalanır. Yenileme/bağlantı durumu araç akışının sonundadır; hata mesajı üstte kalır. Yeni ilk-görünüm regresyonu 320 px hızlı sonuç erişimini ve 1440×900 içinde araç/taksit görünürlüğünü korur.
 Seçili araç, yıl, fiyat ve alım ayı başlık altında sekmelerden bağımsız görünür; Bütçe ve Kredi düzenlerken alım bağlamı korunur.
+
+### Araç çalışma alanında yan panel
+
+- Masaüstü: %25 ayar paneli + kalan sonuç alanı. Araç/Bütçe/Kredi sekmeleri panelde; alternatif faizler Kredi, katalog araması Araç sekmesindedir.
+- Mobil/tablet: başlangıçta kapalı “Ayarları düzenle” paneli; “Sonuçları göster” girilenleri korur ve sonuç başlığına döner. Panel modalsizdir; odak kapanırken görünür sonuca taşınır. 64em sınırında aynı DOM ve state korunur.
+- Form alanları 44px etkileşim alanını, Outfit ve mevcut metin boyutlarını korur. Yoğunluk; boşluk, yatay özet ve kontrollü panel kaydırmasıyla sağlanır.
+- Regresyon: `pnpm e2e:dashboard` içindeki quarter-width senaryosu %25 ölçümü, mobil kapalı/açık semantik durum, giriş/odak koruma, iki yönlü hareket/reduced-motion ve ilk ekranda ödeme tablosunu denetler. Görseller test çıktısıdır; yeni piksel baseline onayı değildir.

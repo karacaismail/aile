@@ -1,10 +1,30 @@
 import AxeBuilder from '@axe-core/playwright';
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { syntheticSheets, gviz } from '../src/dashboard/fixtures';
+
+async function openSettings(page: Page) {
+  await expect(page.getByRole('heading',{name:'Araç ve finansman',exact:true})).toBeVisible();
+  const toggle=page.getByRole('button',{name:'Ayarları düzenle',exact:true});
+  if(await toggle.isVisible() && await toggle.getAttribute('aria-expanded')==='false') await toggle.click();
+}
+
+
+async function mockLayoutSheets(page:Page,unavailable=()=>false) {
+  const sheets=syntheticSheets();
+  const map={Pano:'summary',Plan:'plan','Gerçekleşen':'actual','Düzensiz giderler':'irregular'} as const;
+  await page.route('**/gviz/tq?*',async route=>{
+    if(unavailable())return route.fulfill({status:503,body:'Unavailable'});
+    const sheet=new URL(route.request().url()).searchParams.get('sheet') as keyof typeof map;
+    const key=map[sheet];
+    const grid=key==='plan'||key==='actual';
+    return route.fulfill({contentType:'application/json',body:gviz(grid?sheets[key].map(r=>r.slice(0,4)):sheets[key],grid?['Kalem',...sheets.summary.map(r=>String(r[0]))]:undefined)});
+  });
+}
 
 test('vehicle selection and borrowed-down-payment rules stay usable at 320px', async ({ page }) => {
   await page.setViewportSize({width:320,height:740});
   await page.goto('/aile/#/arac');
+  await openSettings(page);
   await expect(page.getByRole('heading',{name:'Araç ve finansman',exact:true})).toBeVisible();
   await page.getByRole('tab',{name:'Bütçe',exact:true}).click();
   await expect(page.getByLabel('Başvuru sahibi aylık net gelir')).toHaveValue('');
@@ -31,6 +51,7 @@ test('open vehicle menu stays readable with a persisted dark preference',async({
   await page.emulateMedia({colorScheme:'dark'});
   await page.addInitScript(()=>localStorage.setItem('mantine-color-scheme','dark'));
   await page.goto('/aile/#/arac');
+  await openSettings(page);
   await page.getByRole('combobox',{name:'Model',exact:true}).click();
   const option=page.getByRole('option',{name:'Toyota Hilux',exact:true});
   await expect(option).toBeVisible();
@@ -42,7 +63,9 @@ test('open vehicle menu stays readable with a persisted dark preference',async({
 
 test('invalid alternative rates stay editable without crashing the simulation',async({page})=>{
  await page.goto('/aile/#/arac');
+  await openSettings(page);
  await page.getByRole('tab',{name:'Teklifleri karşılaştır',exact:true}).click();
+ await page.getByRole('tab',{name:'Kredi',exact:true}).click();
  const rate=page.getByLabel('Diğer taşıt finansörünün aylık faizi (%)');
  await rate.fill('21');
  await expect(page.getByRole('heading',{name:'Araç ve finansman',exact:true})).toBeVisible();
@@ -53,6 +76,7 @@ test('invalid alternative rates stay editable without crashing the simulation',a
 
 test('eligibility switch filters models, years and catalog without treating approval as known',async({page})=>{
  await page.goto('/aile/#/arac');
+  await openSettings(page);
  const control=page.getByRole('switch',{name:'Yalnız uygunları göster'});
  await control.click();await expect(control).toBeChecked();
  await page.getByRole('combobox',{name:'Model',exact:true}).click();
@@ -67,6 +91,7 @@ test('eligibility switch filters models, years and catalog without treating appr
 
 test('vehicle gallery switches front, rear and cabin and resets with the model',async({page})=>{
  await page.goto('/aile/#/arac');
+  await openSettings(page);
  await expect(page.getByRole('button',{name:'Arka görünüm',exact:true})).toBeVisible();
  await page.getByRole('button',{name:'Arka görünüm',exact:true}).click();
  const rear=page.getByRole('img',{name:'Toyota Corolla · Arka görünüm',exact:true});await expect(rear).toBeVisible();
@@ -79,6 +104,7 @@ test('vehicle gallery switches front, rear and cabin and resets with the model',
 
 test('emergency cash closes a fee gap, stays separate, and is remembered only on request',async({page})=>{
  await page.goto('/aile/#/arac');
+  await openSettings(page);
  await page.getByRole('tab',{name:'Bütçe',exact:true}).click();
  await page.getByLabel('Yedek nakit',{exact:true}).fill('40000');
  const reserve=page.getByTestId('contingency-result');
@@ -88,13 +114,14 @@ test('emergency cash closes a fee gap, stays separate, and is remembered only on
  await expect(page.getByText('Alım günü ek nakit açığı').locator('strong')).toHaveText('0 ₺');
  expect(await page.evaluate(()=>localStorage.getItem('aile:finance-input:v1'))).toBeNull();
  await page.getByRole('button',{name:'Bütçe girişlerimi bu cihazda hatırla'}).click();
- await page.reload();await page.getByRole('tab',{name:'Bütçe',exact:true}).click();await expect(page.getByLabel('Yedek nakit',{exact:true})).toHaveValue('40000');
+ await page.reload();await openSettings(page);await page.getByRole('tab',{name:'Bütçe',exact:true}).click();await expect(page.getByLabel('Yedek nakit',{exact:true})).toHaveValue('40000');
 });
 
 
 test('compact workspace keeps one editor open and the decision beside it', async ({page}) => {
   await page.setViewportSize({width:320,height:740});
   await page.goto('/aile/#/arac');
+  await openSettings(page);
   const editors=page.getByRole('tablist',{name:'Senaryo ayarları'});
   await expect(editors.getByRole('tab',{name:'Araç',exact:true})).toHaveAttribute('aria-selected','true');
   await expect(page.getByLabel('Başvuru sahibi aylık net gelir')).not.toBeVisible();
@@ -117,6 +144,8 @@ test('compact workspace keeps one editor open and the decision beside it', async
   await editors.getByRole('tab',{name:'Bütçe',exact:true}).click();
   await expect(page.getByLabel('Yedek nakit',{exact:true})).toHaveValue('40000');
   await expect(page.getByLabel('Başvuru sahibi aylık net gelir')).toHaveValue('90000');
+  await page.evaluate(()=>scrollTo(0,0));
+  await page.locator('.sidebar-scroll').evaluate(e=>e.scrollTo(0,0));
   const editor=await page.getByTestId('scenario-editor').boundingBox();
   const decision=await page.getByTestId('finance-result').boundingBox();
   expect(decision!.x).toBeGreaterThan(editor!.x+editor!.width-1);
@@ -134,6 +163,7 @@ test('compact details preserve motion, focus, readable text and on-demand resour
   await page.setViewportSize({width:320,height:740});
   const requests:string[]=[];page.on('request',r=>requests.push(r.url()));
   await page.goto('/aile/#/arac');
+  await openSettings(page);
   const detail=page.getByRole('button',{name:'Fiyat kaynağı ve araç değerlendirmesi',exact:true});
   const id=await detail.getAttribute('aria-controls');
   const panel=page.locator(`[id="${id}"]`);
@@ -153,7 +183,7 @@ test('compact details preserve motion, focus, readable text and on-demand resour
   await expect(panel).not.toBeVisible();
   // macOS WebKit uses Option+Tab to traverse buttons when full keyboard access is off.
   const macWebKit=browserName==='webkit'&&process.platform==='darwin';
-  const precedingInput=page.getByLabel('TSB kasko değeri',{exact:true});
+  const precedingInput=page.getByRole('button',{name:'Fotoğraf bilgisi ve lisans',exact:true});
   await precedingInput.focus();
   await expect(precedingInput).toBeFocused();
   await page.keyboard.press(macWebKit?'Alt+Tab':'Tab');
@@ -163,7 +193,7 @@ test('compact details preserve motion, focus, readable text and on-demand resour
   expect(focus).toEqual({outline:'none',line:'underline'});
   await page.keyboard.press(macWebKit?'Alt+Shift+Tab':'Shift+Tab');
   await expect(precedingInput).toBeFocused();
-  for(const width of [320,360,375,390,575,576,577,768,1023,1024,1025,1440]){
+  for(const width of [320,360,375,390,575,576,577,768,1023,1024,1025,1279,1280,1281,1440]){
     await page.setViewportSize({width,height:740});
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
     const tiny=await page.locator('.vehicle-page :is(p,span,strong,h1,h2,h3,label,button,input,a,th,td)').evaluateAll(es=>es.filter(e=>e.getClientRects().length && parseFloat(getComputedStyle(e).fontSize)<14).map(e=>e.textContent));
@@ -193,17 +223,10 @@ test('compact details preserve motion, focus, readable text and on-demand resour
 test('vehicle overview puts the car and payment in the first desktop view', async ({page}) => {
   // Keep layout evidence independent of the live Sheet and its network availability.
   let unavailable=false;
-  const sheets=syntheticSheets();
-  const map={Pano:'summary',Plan:'plan','Gerçekleşen':'actual','Düzensiz giderler':'irregular'} as const;
-  await page.route('**/gviz/tq?*',async route=>{
-    if(unavailable)return route.fulfill({status:503,body:'Unavailable'});
-    const sheet=new URL(route.request().url()).searchParams.get('sheet') as keyof typeof map;
-    const key=map[sheet];
-    const grid=key==='plan'||key==='actual';
-    return route.fulfill({contentType:'application/json',body:gviz(grid?sheets[key].map(r=>r.slice(0,4)):sheets[key],grid?['Kalem',...sheets.summary.map(r=>String(r[0]))]:undefined)});
-  });
+  await mockLayoutSheets(page,()=>unavailable);
   await page.setViewportSize({width:320,height:740});
   await page.goto('/aile/#/arac');
+  await openSettings(page);
   await expect(page.locator('.sync-strip [role="status"]')).toContainText('Son okuma');
   await expect(page.getByRole('alert')).toHaveCount(0);
   const jump=page.getByRole('button',{name:/Sonuca git/});
@@ -226,4 +249,81 @@ test('vehicle overview puts the car and payment in the first desktop view', asyn
   await expect(page.getByTestId('finance-result')).toContainText('En yüksek aylık taksit');
   await expect(page.getByRole('combobox',{name:'Model',exact:true})).toBeEnabled();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+});
+
+test('quarter-width sidebar keeps forms together and mobile settings preserve edits', async ({page}) => {
+  await page.setViewportSize({width:320,height:740});
+  await mockLayoutSheets(page);
+  await page.goto('/aile/#/arac');
+  await expect(page.locator('.sync-strip [role="status"]')).toContainText('Son okuma');
+  const settings=page.getByRole('button',{name:'Ayarları düzenle',exact:true});
+  await expect(settings).toHaveAttribute('aria-expanded','false');
+  await expect(page.getByRole('combobox',{name:'Model',exact:true})).not.toBeVisible();
+  const collapse=page.locator('#scenario-settings');
+  await collapse.evaluate(e=>e.addEventListener('transitionrun',()=>{const css=getComputedStyle(e);e.setAttribute('data-test-motion',`${css.transitionDuration}|${css.transitionTimingFunction}`);}));
+  await settings.focus();
+  await page.keyboard.press('Enter');
+  await expect(collapse).toHaveAttribute('aria-hidden','false');
+  await expect(collapse).not.toHaveAttribute('inert');
+  await expect(collapse).toHaveAttribute('data-test-motion',/0.24s.*cubic-bezier\(0.65, 0, 0.35, 1\)/);
+  await expect(settings).toHaveAttribute('aria-expanded','true');
+  await page.getByRole('tab',{name:'Bütçe',exact:true}).click();
+  const reserve=page.getByLabel('Yedek nakit',{exact:true});
+  await reserve.fill('40000');
+  await page.setViewportSize({width:740,height:320});
+  await expect(reserve).toHaveValue('40000');
+  await expect(reserve).toBeFocused();
+  await page.setViewportSize({width:320,height:740});
+  await collapse.evaluate(e=>e.removeAttribute('data-test-motion'));
+  await page.getByRole('button',{name:'Sonuçları göster',exact:true}).click();
+  await expect(collapse).toHaveAttribute('aria-hidden','true');
+  await expect(collapse).toHaveAttribute('inert');
+  await expect(collapse).toHaveAttribute('data-test-motion',/0.24s/);
+  await expect(settings).toHaveAttribute('aria-expanded','false');
+  await expect(page.locator('#finance-conclusion')).toBeFocused();
+  await expect(reserve).not.toBeVisible();
+  await page.emulateMedia({reducedMotion:'reduce'});
+  await settings.click();
+  expect(await collapse.evaluate(e=>getComputedStyle(e).transitionDuration)).toBe('0s');
+  await page.getByRole('button',{name:'Sonuçları göster',exact:true}).click();
+  await page.evaluate(()=>scrollTo(0,0));
+  await page.screenshot({path:`test-results/sidebar-320-${test.info().project.name}.png`,fullPage:true});
+  await page.emulateMedia({reducedMotion:'no-preference'});
+  await page.setViewportSize({width:1440,height:900});
+  const sidebar=page.getByRole('complementary',{name:'Senaryo ayarları',exact:true});
+  await expect(reserve).toHaveValue('40000');
+  const side=await sidebar.boundingBox();
+  const workspace=await page.locator('.scenario-workspace').boundingBox();
+  expect(side!.width/workspace!.width).toBeCloseTo(.25,2);
+  const main=page.getByTestId('scenario-content');
+  const content=await main.boundingBox();
+  expect(content!.x).toBeGreaterThanOrEqual(side!.x+side!.width);
+  await expect(main.locator('input')).toHaveCount(0);
+  for(const tab of ['Araç','Bütçe','Kredi']) {
+    await sidebar.getByRole('tab',{name:tab,exact:true}).click();
+    expect(await sidebar.locator('input:visible').count()).toBeGreaterThan(0);
+  }
+  await page.getByRole('tab',{name:'Ödeme planı',exact:true}).click();
+  await page.evaluate(()=>scrollTo(0,0));
+  const payment=await page.getByRole('table',{name:'İki kredinin birleşik ödeme planı',exact:true}).boundingBox();
+  await page.screenshot({path:`test-results/sidebar-layout-${test.info().project.name}.png`,fullPage:true});
+  expect(payment!.y,'payment table should start within the first desktop screen').toBeLessThan(900);
+  await page.screenshot({path:`test-results/sidebar-desktop-${test.info().project.name}.png`,fullPage:true});
+  // A fixed menu inside the scrolling/sticky rail must remain actionable, not just visible.
+  const history=sidebar.getByRole('combobox',{name:'Kredi geçmişi',exact:true});
+  await history.click();
+  expect(await page.locator('.sidebar-scroll').evaluate(e=>e.scrollTop)).toBeGreaterThan(0);
+  await page.getByRole('option',{name:'Gecikme / takip yok',exact:true}).click();
+  await expect(history).toHaveValue('Gecikme / takip yok');
+  const rate=page.getByLabel('Taşıt aylık faiz (%)',{exact:true});
+  await rate.fill('3.75');
+  for(const width of [1023,320]) {
+    await page.setViewportSize({width,height:740});
+    await expect(rate).toHaveValue('3.75');
+    await expect(rate).toBeFocused();
+    await expect(settings).toHaveAttribute('aria-expanded','true');
+    await expect(collapse).toHaveAttribute('aria-hidden','false');
+    await expect(collapse).not.toHaveAttribute('inert');
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+  }
 });
