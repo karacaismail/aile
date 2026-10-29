@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { fetchBudget, type Budget } from './data';
 
-export function useBudget() {
+export function useBudget(enabled = true) {
   const [state, setState] = useState<{ data: Budget | null; error: string | null; loading: boolean; updatedAt: Date | null }>({ data: null, error: null, loading: true, updatedAt: null });
   const refreshRef = useRef<() => void>(() => {});
   useEffect(() => {
+    if (!enabled) return;
     let active = true, busy = false;
     let controller: AbortController | undefined;
     const refresh = async () => {
@@ -28,6 +29,6 @@ export function useBudget() {
     window.addEventListener('focus', visibleRefresh);
     window.addEventListener('online', visibleRefresh);
     return () => { active = false; controller?.abort(); window.clearInterval(interval); document.removeEventListener('visibilitychange', visibleRefresh); window.removeEventListener('focus', visibleRefresh); window.removeEventListener('online', visibleRefresh); };
-  }, []);
+  }, [enabled]);
   return { ...state, refresh: () => refreshRef.current() };
 }

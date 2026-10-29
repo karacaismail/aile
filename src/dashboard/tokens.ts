@@ -17,6 +17,7 @@ export const tokens = {
   metricTracking: '-.035em', focusOffset: '6px', focusThickness: '3px',
   duration: 240, ease: 'cubic-bezier(.65, 0, .35, 1)',
   layerSticky: 20, layerDropdown: 300,
+  timelineReadingWidth: '75ch', timelineFilterWidth: '20rem', timelineBalanceWidth: '22rem', timelineMetricWidth: '8rem',
 } as const;
 // ECharts' typed function adapter evaluates exactly the shared CSS curve.
 export function budgetEasing(progress: number) {

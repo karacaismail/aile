@@ -5,6 +5,13 @@ import { buildBudget, fetchBudget } from './data';
 import { syntheticSheets } from './fixtures';
 vi.mock('./data', async original => ({ ...await original<typeof import('./data')>(), fetchBudget: vi.fn() }));
 afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); });
+it('does not fetch unrelated budget feeds while the timeline route is active', () => {
+  const { unmount } = renderHook(() => useBudget(false));
+  expect(fetchBudget).not.toHaveBeenCalled();
+  window.dispatchEvent(new Event('focus'));
+  expect(fetchBudget).not.toHaveBeenCalled();
+  unmount();
+});
 it('refreshes values, preserves the last good snapshot on failure and recovers', async () => {
   const first = buildBudget(syntheticSheets());
   vi.mocked(fetchBudget).mockResolvedValueOnce(first).mockRejectedValueOnce(new Error('Bağlantı kesildi')).mockResolvedValueOnce({ ...first, months: [] });

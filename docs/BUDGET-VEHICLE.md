@@ -1,7 +1,7 @@
 # Bütçe ve araç simülasyonu
 
 ## Kullanım
-`#/pano`: aylık gelir, ödemeler, birikim ve serbest nakit; ECharts dönem grafikleri; filtrelenebilir/sıralanabilir tablolar.
+`#/pano`: aylık gelir, ödemeler, birikim alımları ve aylık net nakit; ECharts dönem grafikleri; filtrelenebilir/sıralanabilir tablolar.
 `#/arac`: araç → bütçe → kredi → sonuç. Sonuç taşıt kredi imkânı, bütçe baskısı ve bilinmeyen finansör onayını ayrı gösterir. Peşinat için ihtiyaç kredisiyle kalan borç birleştirilir. Ödeme tablosu, teklif karşılaştırması ve e-tablo bütçesi üzerine etki yalnız tarayıcıda hesaplanır.
 
 ## Canlı Sheet sözleşmesi
@@ -9,12 +9,19 @@
 
 | Sekme | Aralık | Amaç |
 |---|---|---|
-| Pano | B49:M63 | 14 aylık plan/güncel özet |
-| Plan | B7:P74 | Kategori planı |
-| Gerçekleşen | B7:P74 | Planı izleyen veya elle değiştirilen tutarlar |
-| Düzensiz giderler | B9:Q | Tüm tek seferlik kalemler; satır sonu açık |
+| Pano | B49:M63 | Plan/güncel aylık nakit özeti |
+| Plan | B2:P79 | Tarih başlıkları ve kategori planı |
+| Gerçekleşen | B2:P79 | Planı izleyen veya elle değiştirilen tutarlar |
+| Kasa | B7:P36 | Gelir, brüt nakit çıkışı, birikim alımı, net hareket ve ay sonu mutabakatı |
+| Arızi Giderler | B4:P344 | Güncel kolon düzeni ve sabit Kasa kayıt kimliği |
 
-Başlıklar ve toplam etiketleri doğrulanır. gviz boş satırları atabildiği için fiziksel satır sayısına göre kategori ayrılmaz. Gelir/ödeme/birikim toplamları sekmeler arasında; düzensiz giderlerin plan/ödeme ayına göre toplamı da Plan/Gerçekleşen kategori toplamıyla eşleşmeden yeni görüntü kabul edilmez. Sheet formülleri hâlen 300. satıra kadar toplar; sonrası site tarafından okunur ama toplamda yoksa tutarsızlık uyarısı verir. Dört paralel okuma Google tarafında atomik işlem değildir; kontrol karışık toplamları reddeder fakat eşit toplamlı ara düzenlemeleri tespit edemez. Kaynak dönemi/şeması değişirse adapter güncellenmelidir.
+`Kasadan çıkan · brüt` etiketi güncel nakit akışı şemasını seçer. Native tarih seri sayıları, GViz Date metinleri ve kısa Türkçe ay başlıkları güvenli biçimde normalize edilir. Arızi Giderler başlıkları `headers=1` metadata alanından okunur: GViz, `headers=0` ile karışık tipli sütunlardaki metin başlıklarını boşaltabilir. Eski şema için B7:P74 / Düzensiz giderler B9:Q adaptörü ve regresyonları korunur.
+
+Başlıklar ve toplam etiketleri doğrulanır; GViz boş satırları atabildiği için fiziksel satır sayısına göre kategori ayrılmaz. Plan/Gerçekleşen etiketle eşleşir; eklenen boş satır veri kaydırmaz. Pano gelir/ödeme/birikim/net/ay sonu tutarları Kasa ile, ilgili tutarlar Plan/Gerçekleşen ile eşleşir. Arızi giderlerin plan/ödeme ayına göre toplamı da kategori toplamıyla eşleşmeden yeni görüntü kabul edilmez. Eksik fiyat `Tutar yok`, gerçek sıfır `0 ₺` kalır. Formül hatası sayısal sıfıra dönüştürülmez. Arızi satırın elle değişim bayrağı tutar farkından tahmin edilmez.
+
+Birikim özeti, Kasa’daki TL cinsinden varlık alımlarıdır; döviz adediyle TL toplanmaz. Kümülatif grafikte bu alımlara ayrılan TL gösterilir; piyasa değeri veya kasadaki nakit değildir. Harcama kaleminin ayı ile kart ödemesinin nakitten çıktığı ay ayrı anlamlardır. Aylık özet nakit çıkışını, kategoriler harcama dağılımını gösterir.
+
+Şema kontrolünden sonra dört paralel okuma yapılır. Google tarafında atomik işlem değildir; mutabakat karışık toplamları reddeder fakat eşit toplamlı ara düzenlemeleri tespit edemez. Kaynak dönemi/şeması değişirse adaptör güncellenmelidir.
 
 Açılış, görünürken 60 saniye, odağa/çevrimiçine dönüş ve Yenile düğmesi okuma tetikler. 20 saniye zaman aşımı, çakışmayan istekler, unmount iptali ve son başarılı görüntüyü koruma vardır. Google önbelleği/geçici gecikmesi nedeniyle anlık push garantisi yoktur. Son okuma zamanı kaynakta son değişiklik zamanı değildir. Tarayıcı yeniden açılınca gerçek aile snapshot'ı yerel depodan yüklenmez.
 

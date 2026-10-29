@@ -1,6 +1,8 @@
 # aile
 
-[Canlı bütçe](https://karacaismail.github.io/aile/#/pano) · [Araç ve finansman simülasyonu](https://karacaismail.github.io/aile/#/arac)
+[Canlı bütçe](https://karacaismail.github.io/aile/#/pano) · [Timeline](https://karacaismail.github.io/aile/#/timeline) · [Araç ve finansman simülasyonu](https://karacaismail.github.io/aile/#/arac)
+
+Timeline, e-tablodan gelen kronolojik adımların her birinden sonra kalan nakdi ve kart borcunu gösterir. [Veri ve doğrulama sözleşmesi](docs/TIMELINE.md).
 
 Google Sheets’ten okunan bütçe, ECharts grafikleri, tablolar ve iki kredinin toplam yükünü hesaplayan araç simülasyonu. Yeni ekranlar için [veri, finansman ve doğrulama sözleşmesi](docs/BUDGET-VEHICLE.md). Eski taşınma planlayıcısı mevcut rotalarında korunur.
 

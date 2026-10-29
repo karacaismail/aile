@@ -62,3 +62,44 @@ test('custom selects, visible keyboard focus, motion and responsive table stay a
   await page.emulateMedia({reducedMotion:'reduce'});
   expect(await button.evaluate(e=>getComputedStyle(e).transitionDuration)).toBe('0s');
 });
+
+test('current cashflow sheet reads real dates, renamed irregular columns and Kasa totals', async ({ page }) => {
+  const { syntheticCurrentSheets } = await import('../src/dashboard/currentFixtures');
+  const raw = syntheticCurrentSheets();
+  raw.actual.splice(3, 0, [null]);
+  const requests: { sheet: string | null; range: string | null; headers: string | null }[] = [];
+  const map = { Pano: 'summary', Plan: 'plan', 'Gerçekleşen': 'actual', Kasa: 'cash', 'Arızi Giderler': 'irregular' } as const;
+  await page.route('**/gviz/tq?*', async route => {
+    const params = new URL(route.request().url()).searchParams;
+    requests.push({ sheet: params.get('sheet'), range: params.get('range'), headers: params.get('headers') });
+    const key = map[params.get('sheet') as keyof typeof map];
+    if (!key) return route.fulfill({ status: 404, body: 'Unknown schema' });
+    if (key === 'irregular') {
+      // GViz erases textual header cells in numeric/date columns with headers=0.
+      const labels = raw.irregular[0].map(String);
+      return route.fulfill({ contentType: 'application/json', body: gviz(params.get('headers') === '1' ? raw.irregular.slice(1) : [[...labels.slice(0, 3), ...labels.slice(3).map(() => null)], ...raw.irregular.slice(1)], params.get('headers') === '1' ? labels : undefined) });
+    }
+    return route.fulfill({ contentType: 'application/json', body: gviz(raw[key]) });
+  });
+  await page.goto('/aile/#/pano');
+  const metrics = page.getByRole('region', { name: 'Seçili ay özeti' });
+  await expect(metrics).toContainText('10.000 ₺');
+  await expect(metrics).toContainText('Aylık net nakit');
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  expect(requests).toEqual(expect.arrayContaining([
+    { sheet: 'Plan', range: 'B2:P79', headers: '0' },
+    { sheet: 'Kasa', range: 'B7:P36', headers: '0' },
+    { sheet: 'Arızi Giderler', range: 'B4:P344', headers: '1' },
+  ]));
+  await page.getByRole('button', { name: 'Düzensiz giderler', exact: true }).click();
+  const table = page.getByRole('table');
+  await expect(table).toContainText('Örnek mobilya');
+  await expect(table).toContainText('Elle güncellendi');
+  await expect(table).toContainText('Aralık 2098');
+  await expect(table).toContainText('Tutar yok');
+  await expect(table).toContainText('0 ₺');
+  raw.summary[0][2] = 20000;
+  await page.getByRole('button', { name: 'Yenile', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('Son başarılı veriler');
+  await expect(metrics).toContainText('10.000 ₺');
+});

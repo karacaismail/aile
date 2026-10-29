@@ -1,0 +1,41 @@
+.timeline-page { padding-top: var(--budget-spaceSection); }
+.timeline-heading { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--budget-spacing); }
+.timeline-heading .muted { margin-top: var(--budget-spaceTight); max-width: var(--budget-timelineReadingWidth); }
+.timeline-sheet-link { display: inline-flex; align-items: center; min-height: var(--budget-targetMin); text-underline-offset: var(--budget-focusOffset); }
+.timeline-plan-label { margin-top: var(--budget-spaceSmall) !important; font-weight: var(--budget-labelWeight); }
+.timeline-page .sync-strip { margin-block: var(--budget-spaceSmall) var(--budget-spaceSection); }
+.timeline-toolbar { display: flex; flex-wrap: wrap; gap: var(--budget-spaceSmall); align-items: flex-end; }
+.timeline-month { flex: 1 1 var(--budget-timelineFilterWidth); min-width: 0; max-width: var(--budget-timelineFilterWidth); }
+.timeline-period-buttons { align-self: flex-end; }
+.timeline-toolbar > p { align-self: center; }
+.timeline-pagination { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--budget-spaceSmall); margin-block: var(--budget-spacing); }
+.timeline-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--budget-timelineMetricWidth)), 1fr)); gap: var(--budget-spacing); padding-block: var(--budget-spaceSection); }
+.timeline-summary > div { min-width: 0; }
+.timeline-summary span { display: block; color: var(--budget-muted); }
+.timeline-summary strong { display: block; font-size: var(--budget-fontMetric); font-variant-numeric: tabular-nums; line-height: var(--budget-lineCompact); margin-top: var(--budget-spaceDense); }
+.timeline-caveat { color: var(--budget-muted); max-width: var(--budget-timelineReadingWidth); padding-bottom: var(--budget-spaceSection); }
+.timeline-caveat strong { color: var(--budget-ink); }
+.timeline-cash-warning { color: var(--budget-red); background: var(--budget-redSurface); padding: var(--budget-spaceSmall); margin-bottom: var(--budget-spaceSection) !important; }
+.timeline-day { margin-top: var(--budget-spaceSection); min-width: 0; }
+.timeline-day > h2 { font-size: var(--budget-fontSection); padding-block: var(--budget-spaceTight); border-bottom: var(--budget-ruleWidth) solid var(--budget-line); }
+.timeline-day ol { list-style: none; margin: 0; padding: 0; }
+.timeline-step { padding-block: var(--budget-spacing); border-bottom: var(--budget-ruleWidth) solid var(--budget-line); }
+.timeline-step article { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--budget-spaceSmall); }
+.timeline-step-context { min-width: 0; }
+.timeline-step h3 { margin: var(--budget-spaceDense) 0; font-size: var(--budget-fontSection); line-height: var(--budget-lineBody); }
+.timeline-meta { display: flex; flex-wrap: wrap; gap: var(--budget-spaceDense) var(--budget-spaceSmall); color: var(--budget-muted); }
+.timeline-assumption { color: var(--budget-amber); font-weight: var(--budget-headingWeight); }
+.timeline-effect { font-weight: var(--budget-labelWeight); }
+.timeline-note, .timeline-source { margin-top: var(--budget-spaceDense) !important; }
+.timeline-note { max-width: var(--budget-timelineReadingWidth); }
+.timeline-balances { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--budget-timelineMetricWidth)), 1fr)); gap: var(--budget-spaceTight) var(--budget-spaceSmall); margin: 0; align-content: start; }
+.timeline-balances div { min-width: 0; }
+.timeline-balances dt { color: var(--budget-muted); }
+.timeline-balances dd { margin: var(--budget-spaceDense) 0 0; font-variant-numeric: tabular-nums; font-weight: var(--budget-headingWeight); font-size: var(--budget-fontSection); }
+.timeline-bank-debt dd { font-size: var(--budget-fontSmall); font-weight: var(--budget-labelWeight); }
+.timeline-control { background: var(--budget-canvas); padding-inline: var(--budget-spaceSmall); }
+@media (min-width: 36em) { .timeline-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 64em) {
+  .timeline-summary { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .timeline-step article { grid-template-columns: minmax(0, 1fr) minmax(var(--budget-timelineBalanceWidth), .8fr); gap: var(--budget-spaceSection); }
+}

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { buildCurrentBudget, isCurrentBudget } from './current';
 
 const cell = z.object({ v: z.union([z.string(), z.number(), z.boolean()]).nullable().optional(), f: z.string().optional() }).nullable();
 const responseSchema = z.object({ status: z.literal('ok'), table: z.object({ cols: z.array(z.object({ label: z.string().optional() })), rows: z.array(z.object({ c: z.array(cell) })) }) });
@@ -16,7 +17,7 @@ export type Pair = { plan: number; current: number };
 export type Month = { label: string; key: string; source: string; income: Pair; expense: Pair; saving: Pair; free: Pair; balance: Pair };
 export type Category = { id: string; label: string; group: string; kind: 'income' | 'expense' | 'saving'; plan: (number | null)[]; current: (number | null)[] };
 export type Irregular = { id: string; label: string; type: string; planMonth: string; month: string; plan: number | null; current: number | null; status: string; room: string; note: string; manual: boolean };
-export type Budget = { months: Month[]; categories: Category[]; groups: Category[]; irregular: Irregular[] };
+export type Budget = { months: Month[]; categories: Category[]; groups: Category[]; irregular: Irregular[]; schema?: 'cashflow' };
 export type RawBudget = { summary: Grid; plan: Grid; actual: Grid; irregular: Grid; planMonths?: string[]; actualMonths?: string[] };
 const trMonths = ['ocak', 'şubat', 'mart', 'nisan', 'mayıs', 'haziran', 'temmuz', 'ağustos', 'eylül', 'ekim', 'kasım', 'aralık'];
 const str = (v: Cell | undefined) => v == null ? '' : String(v).trim();
@@ -109,12 +110,22 @@ export const FEEDS = {
 } as const;
 export async function fetchBudget(signal: AbortSignal): Promise<Budget> {
   if (!/^[\w-]{20,}$/.test(sheetId)) throw new Error('Google Sheets bağlantısı henüz tanımlanmamış.');
-  const entries = await Promise.all(Object.entries(FEEDS).map(async ([key, feed]) => {
+  const read = async (sheet: string, range: string, headers: '0' | '1') => {
     const url = new URL(`https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq`);
-    url.search = new URLSearchParams({ sheet: feed.sheet, range: feed.range, headers: '1', tqx: 'out:json', _: String(Date.now()) }).toString();
+    url.search = new URLSearchParams({ sheet, range, headers, tqx: 'out:json', _: String(Date.now()) }).toString();
     const response = await fetch(url, { signal, cache: 'no-store', credentials: 'omit' });
     if (!response.ok) throw new Error(`Google Sheets bağlantısı başarısız (${response.status}).`);
-    return [key, parseTable(await response.text())] as const;
+    return parseTable(await response.text());
+  };
+  const plan = await read('Plan', 'B2:P79', '0');
+  if (isCurrentBudget(plan.rows)) {
+    const [summary, actual, cash, irregular] = await Promise.all([
+      read('Pano', 'B49:M63', '1'), read('Gerçekleşen', 'B2:P79', '0'), read('Kasa', 'B7:P36', '0'), read('Arızi Giderler', 'B4:P344', '1'),
+    ]);
+    return buildCurrentBudget({ summary: summary.rows, plan: plan.rows, actual: actual.rows, cash: cash.rows, irregular: [irregular.labels, ...irregular.rows] });
+  }
+  const entries = await Promise.all(Object.entries(FEEDS).map(async ([key, feed]) => {
+    return [key, await read(feed.sheet, feed.range, '1')] as const;
   }));
   const tables = Object.fromEntries(entries);
   return buildBudget({ summary: tables.summary.rows, plan: tables.plan.rows, actual: tables.actual.rows, irregular: tables.irregular.rows,
