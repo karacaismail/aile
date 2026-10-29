@@ -31,3 +31,6 @@ Yeni dashboard/finansman E2E: Chromium, Firefox, WebKit, 320–1440, açık men�
 Önemli değişikliklerde önce başarısız davranış testi, sonra aynı test GREEN. Anlamlı UI/finansal kurallar için bağımsız salt okunur standards-reviewer incelemesi. Ana ajan komutları çalıştırır. CI, ekran okuyucu veya gerçek cihaz koşulmadıysa `not_run` yazın; otomatik axe testi tüm WCAG 2.2 AA uygunluğunu kanıtlamaz.
 
 Kompakt araç düzeninin regresyonu: sekme klavyesi/durum koruma, karar–ayar hizası, açıklama açma/kapama hareketi ve anlık semantik durum, 320–1440 taşma/metin alt sınırı, yatay görünümde giriş/odak koruma, yalnız seçili fotoğraf isteği ve isteğe bağlı grafik. Ekran görüntüleri test çıktısıdır; kendiliğinden onaylanmış piksel baseline değildir.
+
+Araç yüzeyinin görsel hiyerarşisi: açık ana gezinme, çizgiyle ayrılan metin sekmeleri, seçili araç kimliği/fotoğrafı ve tek nötr finansman özeti. Büyük renkli bağlam/uyarı şeritlerini geri getirmeyin. Uygunluk rengi yalnız durum etiketine aittir; kredi onayı ile bütçe yorumu ayrı kalır. Tutar açıklamaları alanın altında yer alır. Sheet yenileme durumu araç sayfasının sonunda; bağlantı hatası üstte görünür. 1440×900 kabulünde araç fotoğrafı ve ana taksit ilk görünümde kalır.
+Seçili araç/yıl, alım fiyatı ve alım ayı başlıkta bütün ayar sekmelerinde görünür kalır; görsel sadeleştirme bu bağlamı kaldırmamalıdır.

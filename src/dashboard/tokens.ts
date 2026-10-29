@@ -7,7 +7,11 @@ export const tokens = {
   switchWidth:'44px', switchHeight:'26px', switchThumb:'18px', switchInset:'3px', switchTravel:'18px', targetMin:'44px',
   spaceTight: '8px', spaceSmall: '12px', spaceSection: '24px', spaceWide: '32px',
   ruleWidth: '1px', selectedWidth: '3px', fontMetric: '1.5rem', fontPayment: '2rem',
-  photoHeight: '220px', editorColumns: 'minmax(0,1.15fr) minmax(0,.85fr)',
+  photoHeight: '240px', editorColumns: 'minmax(0,1.3fr) minmax(0,.9fr)',
+  vehicleSurface: '#F3F6F8', vehicleRadius: '12px', vehicleMaxWidth: '1360px',
+  fontHeroMetric: 'clamp(2rem, 3.4vw, 2.75rem)', fontSection: '1.125rem',
+  labelWeight: 500, headingWeight: 700, lineCompact: 1.25, lineBody: 1.5,
+  metricTracking: '-.035em', focusOffset: '6px', focusThickness: '3px',
   duration: 240, ease: 'cubic-bezier(.65, 0, .35, 1)',
   layerSticky: 20, layerDropdown: 300,
 } as const;

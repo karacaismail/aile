@@ -51,14 +51,17 @@ Yedek nakit peşinat ve aylık birikimden ayrı mevcut bir fondur. Masraf veya k
 
 Uygunluk anahtarı seçili ürünlerin kurallarını her model/yıl için yeniden çalıştırır. Kişisel bütçe eşiği veya onay bilinmezliği adayları otomatik elemez. Filtre dışına düşen mevcut hesap korunur; model yılları açıklamasında ürün sonucu, yedek kullanımı ve kalan limit açığı görülür.
 
-Galeri model değişiminde ön görünüme döner. Ön/arka 37 model, iç mekân 35 model için lisanslı gerçek fotoğraf vardır. S80 ve ix35 iç mekânında yanlış nesil göstermek yerine eksik teyit açıklanır. Kaynak fotoğraf adı ve atıf her açıda görünür; seçili yıl/paket birebirliği iddia edilmez.
+Galeri model değişiminde ön görünüme döner. Ön/arka 37 model, iç mekân 35 model için lisanslı gerçek fotoğraf vardır. S80 ve ix35 iç mekânında yanlış nesil göstermek yerine eksik teyit açıklanır. Kaynak fotoğraf adı ve atıf her açının fotoğraf bilgisi bölümünde erişilebilir; seçili yıl/paket birebirliği iddia edilmez.
 
 ## Araç çalışma alanı
 
-Araç, Bütçe ve Kredi ayarları kontrollü sekmelerde tutulur; sekme değiştirmek senaryoyu veya yerel bütçe kaydını sıfırlamaz. Masaüstünde karar özeti ayarların yanındadır. Dar ekranda tek akış ve üst şeritteki taksit/sonuca git kontrolü kullanılır. Ödeme planı, kural gerekçeleri, teklif karşılaştırması, e-tablo etkisi ve araç kataloğu ayrı inceleme sekmeleridir. Uzun fiyat, lisans ve hesap varsayımları açılabilir açıklamalardır.
+Araç, Bütçe ve Kredi ayarları kontrollü sekmelerde tutulur; sekme değiştirmek senaryoyu veya yerel bütçe kaydını sıfırlamaz. Masaüstünde karar özeti ayarların yanındadır. Dar ekranda tek akış ve başlık yanındaki taksit/sonuca git kontrolü kullanılır. Ödeme planı, kural gerekçeleri, teklif karşılaştırması, e-tablo etkisi ve araç kataloğu ayrı inceleme sekmeleridir. Uzun fiyat, lisans ve hesap varsayımları açılabilir açıklamalardır.
 
 Yasal/ürün sonucu, finansörün bilinmeyen kişisel onayı ve bütçe yorumu ayrı kalır. Kullanılan/kalan yedek nakit, finansman tutarları ve alım günü açık tutarı ana özette görünür. Hesap motorunun kuralları bu yerleşim değişikliğiyle değiştirilmedi.
 
 Doğrulama: `pnpm typecheck`, `pnpm test`, `pnpm build`, `pnpm e2e:dashboard`. Yeni regresyonlar sekmeler arası değer/odak korumayı, tek açık analiz alanını, açıklamaların çift yönlü hareketini ve anlık ARIA durumunu, 320–1440 px taşma/metin boyutlarını, yatay telefon geçişini ve talebe bağlı kaynakları denetler. WebKit/macOS tam klavye erişimi kapalıyken düğmeleri dolaşmak için Option+Tab profili kullanılır; görünür odak denetimi aynıdır.
 
 Yerel üretim çıktısı ayrıca üç Playwright motorunda kontrol edildi: açık olmayan grafik/eski uygulama paketleri ilk yüklemede istenmedi; yalnız görünür seçili fotoğraf yüklendi; grafik düğmesi PaymentChart/ECharts paketlerini getirdi. %200 kök yazı boyutunda sayfa taşması ve iki hızlı gezinme kontrolünde odak kaybı görülmedi. Bu kontroller gerçek Safari/iOS/Android cihazı veya manuel ekran okuyucu testi yerine geçmez. Ekran görüntüleri inceleme kanıtıdır, otomatik onaylı piksel referansı değildir.
+
+Görsel düzen: gezinme ve sekmeler açık yüzeyde tutulur; araç fotoğrafı altındaki açı seçimi ana ayar sekmelerinden ayrı görünür. Finansman özeti önce aylık yükü ve toplam maliyeti, ardından ürün koşulunu, borç dağılımını ve yedek nakdi gösterir. Durum etiketi renkli; geniş uyarı zemini yoktur. Sayı alanlarının açıklamaları tutarın altında hizalanır. Yenileme/bağlantı durumu araç akışının sonundadır; hata mesajı üstte kalır. Yeni ilk-görünüm regresyonu 320 px hızlı sonuç erişimini ve 1440×900 içinde araç/taksit görünürlüğünü korur.
+Seçili araç, yıl, fiyat ve alım ayı başlık altında sekmelerden bağımsız görünür; Bütçe ve Kredi düzenlerken alım bağlamı korunur.

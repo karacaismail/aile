@@ -52,7 +52,7 @@ test('invalid alternative rates stay editable without crashing the simulation',a
 
 test('eligibility switch filters models, years and catalog without treating approval as known',async({page})=>{
  await page.goto('/aile/#/arac');
- const control=page.getByRole('switch',{name:'Yalnız koşulları karşılayanları göster'});
+ const control=page.getByRole('switch',{name:'Yalnız uygunları göster'});
  await control.click();await expect(control).toBeChecked();
  await page.getByRole('combobox',{name:'Model',exact:true}).click();
  await expect(page.getByRole('option',{name:'Toyota Hilux',exact:true})).toHaveCount(0);
@@ -99,10 +99,18 @@ test('compact workspace keeps one editor open and the decision beside it', async
   await expect(page.getByLabel('Başvuru sahibi aylık net gelir')).not.toBeVisible();
   await expect(page.getByRole('table',{name:'3 milyon ₺ altındaki model/yıl göstergeleri'})).not.toBeVisible();
   await editors.getByRole('tab',{name:'Bütçe',exact:true}).click();
+  const context=page.getByTestId('selected-scenario');
+  await expect(context).toBeVisible();
+  await expect(context).toContainText('Toyota Corolla · 2017');
+  await expect(context).toContainText('1.100.000 ₺');
+  const month=await page.getByRole('combobox',{name:'Alım ayı',includeHidden:true}).inputValue();
+  await expect(context).toContainText(month);
   await page.getByLabel('Yedek nakit',{exact:true}).fill('40000');
   await page.getByLabel('Başvuru sahibi aylık net gelir').fill('90000');
   await editors.getByRole('tab',{name:'Bütçe',exact:true}).press('ArrowRight');
   await expect(editors.getByRole('tab',{name:'Kredi',exact:true})).toBeFocused();
+  await expect(context).toBeVisible();
+  await expect(context).toContainText(month);
   await expect(page.getByRole('combobox',{name:'Taşıt finansörü'})).toBeVisible();
   await page.setViewportSize({width:1440,height:900});
   await editors.getByRole('tab',{name:'Bütçe',exact:true}).click();
@@ -179,4 +187,23 @@ test('compact details preserve motion, focus, readable text and on-demand resour
   await page.screenshot({path:`test-results/compact-320-${test.info().project.name}.png`,fullPage:true});
   await page.setViewportSize({width:1440,height:900});
   await page.screenshot({path:`test-results/compact-desktop-${test.info().project.name}.png`,fullPage:true});
+});
+
+test('vehicle overview puts the car and payment in the first desktop view', async ({page}) => {
+  await page.setViewportSize({width:320,height:740});
+  await page.goto('/aile/#/arac');
+  const jump=page.getByRole('button',{name:/Sonuca git/});
+  await expect(jump).toBeVisible();
+  expect((await jump.boundingBox())!.y+(await jump.boundingBox())!.height).toBeLessThanOrEqual(740);
+  await jump.click();
+  await expect(page.locator('#finance-conclusion')).toBeFocused();
+  await page.setViewportSize({width:1440,height:900});
+  await page.evaluate(()=>window.scrollTo(0,0));
+  const car=page.getByRole('img',{name:'Toyota Corolla · Ön görünüm',exact:true});
+  await expect(car).toBeVisible();
+  const photo=await car.boundingBox();
+  expect(photo!.y+photo!.height,'vehicle photo should fit the first desktop view').toBeLessThanOrEqual(900);
+  const payment=await page.locator('.payment-metric').boundingBox();
+  expect(payment!.y+payment!.height).toBeLessThanOrEqual(900);
+  await page.screenshot({path:`test-results/vehicle-refined-${test.info().project.name}.png`,fullPage:true});
 });

@@ -101,3 +101,10 @@ html[data-keyboard='true'] .planner-links a:focus-visible { text-decoration-thic
 
 /* A pinned label must leave room for a complete numeric column. */
 @container (max-width: 36em) { .budget-app th:first-child, .budget-app td:first-child { position: static; } }
+
+/* The vehicle route keeps navigation quiet and places data-refresh status after the workspace. */
+.vehicle-shell .budget-header { background: var(--budget-paper); color: var(--budget-ink); border-bottom: var(--budget-ruleWidth) solid var(--budget-line); padding-block: var(--budget-spaceTight); }
+.vehicle-shell .budget-header nav a { color: var(--budget-muted); }
+.vehicle-shell .budget-header nav a[aria-current] { color: var(--budget-ink); font-weight: var(--budget-headingWeight); }
+.vehicle-shell main { max-width: var(--budget-vehicleMaxWidth); }
+.vehicle-shell .sync-strip { padding-top: var(--budget-spacing); margin-block: var(--budget-spaceWide) 0; border-top: var(--budget-ruleWidth) solid var(--budget-line); }

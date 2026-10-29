@@ -70,13 +70,14 @@ export default function Dashboard() {
   const state = useBudget();
   const [location] = useHashLocation();
   const vehicle = location.startsWith('/arac');
-  return <MantineProvider theme={dashboardTheme} forceColorScheme="light"><div className="budget-app" style={cssTokens}>
+  return <MantineProvider theme={dashboardTheme} forceColorScheme="light"><div className={`budget-app${vehicle ? ' vehicle-shell' : ''}`} style={cssTokens}>
     <a className="skip-link" href="#budget-content" onClick={e=>{e.preventDefault();document.getElementById('budget-content')?.focus();}}>İçeriğe geç</a>
     <header className="budget-header"><a href="#/pano" className="wordmark">aile<span>birlikte planla</span></a><nav aria-label="Ana gezinme"><a href="#/pano" aria-current={!vehicle ? "page" : undefined}>Bütçe</a><a href="#/arac" aria-current={vehicle ? "page" : undefined}>Araç ve finansman</a><a href={sheetUrl} target="_blank" rel="noreferrer">E-tabloyu aç</a></nav></header>
     <main id="budget-content" tabIndex={-1}>
-      <div className="sync-strip"><span role="status" aria-live="polite">{state.loading ? 'Google Sheets kontrol ediliyor…' : state.updatedAt ? `Son okuma ${state.updatedAt.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })} · Açıkken her dakika yenilenir` : 'Google Sheets bağlantısı'}</span><button className="quiet-button" disabled={state.loading} onClick={state.refresh}>Yenile</button></div>
+      {!vehicle && <div className="sync-strip"><span role="status" aria-live="polite">{state.loading ? 'Google Sheets kontrol ediliyor…' : state.updatedAt ? `Son okuma ${state.updatedAt.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })} · Açıkken her dakika yenilenir` : 'Google Sheets bağlantısı'}</span><button className="quiet-button" disabled={state.loading} onClick={state.refresh}>Yenile</button></div>}
       {state.error && <div role="alert" className="error-message">{state.error} {state.data ? 'Son başarılı veriler gösteriliyor.' : 'E-tablo erişimini kontrol edip yeniden deneyin.'}</div>}
       {vehicle ? <Suspense fallback={<p>Araç kataloğu yükleniyor…</p>}><VehiclePage budget={state.data} /></Suspense> : state.data ? <BudgetContent data={state.data} /> : <div className="loading-message"><h1>Aile bütçesi</h1><p>{state.loading ? 'Aylık plan ve güncel tutarlar yükleniyor…' : 'Veriler şu anda alınamıyor.'}</p></div>}
+      {vehicle && <div className="sync-strip"><span role="status" aria-live="polite">{state.loading ? 'Google Sheets kontrol ediliyor…' : state.updatedAt ? `Son okuma ${state.updatedAt.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })} · Açıkken her dakika yenilenir` : 'Google Sheets bağlantısı'}</span><button className="quiet-button" disabled={state.loading} onClick={state.refresh}>Yenile</button></div>}
     </main><footer className="budget-footer"><span>Veri kaynağı Google Sheets · Tutarlar Türk lirası</span><a href="#/satinalma">Önceki taşınma planlayıcısı</a></footer>
   </div></MantineProvider>;
 }
