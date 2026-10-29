@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { test, expect } from '@playwright/test';
+import { syntheticSheets, gviz } from '../src/dashboard/fixtures';
 
 test('vehicle selection and borrowed-down-payment rules stay usable at 320px', async ({ page }) => {
   await page.setViewportSize({width:320,height:740});
@@ -190,6 +191,17 @@ test('compact details preserve motion, focus, readable text and on-demand resour
 });
 
 test('vehicle overview puts the car and payment in the first desktop view', async ({page}) => {
+  // Keep layout evidence independent of the live Sheet and its network availability.
+  let unavailable=false;
+  const sheets=syntheticSheets();
+  const map={Pano:'summary',Plan:'plan','Gerçekleşen':'actual','Düzensiz giderler':'irregular'} as const;
+  await page.route('**/gviz/tq?*',async route=>{
+    if(unavailable)return route.fulfill({status:503,body:'Unavailable'});
+    const sheet=new URL(route.request().url()).searchParams.get('sheet') as keyof typeof map;
+    const key=map[sheet];
+    const grid=key==='plan'||key==='actual';
+    return route.fulfill({contentType:'application/json',body:gviz(grid?sheets[key].map(r=>r.slice(0,4)):sheets[key],grid?['Kalem',...sheets.summary.map(r=>String(r[0]))]:undefined)});
+  });
   await page.setViewportSize({width:320,height:740});
   await page.goto('/aile/#/arac');
   const jump=page.getByRole('button',{name:/Sonuca git/});
@@ -206,4 +218,10 @@ test('vehicle overview puts the car and payment in the first desktop view', asyn
   const payment=await page.locator('.payment-metric').boundingBox();
   expect(payment!.y+payment!.height).toBeLessThanOrEqual(900);
   await page.screenshot({path:`test-results/vehicle-refined-${test.info().project.name}.png`,fullPage:true});
+  unavailable=true;
+  await page.getByRole('button',{name:'Yenile',exact:true}).click();
+  await expect(page.getByRole('alert')).toContainText('Son başarılı veriler');
+  await expect(page.getByTestId('finance-result')).toContainText('En yüksek aylık taksit');
+  await expect(page.getByRole('combobox',{name:'Model',exact:true})).toBeEnabled();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
 });
