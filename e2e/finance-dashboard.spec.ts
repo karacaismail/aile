@@ -204,6 +204,8 @@ test('vehicle overview puts the car and payment in the first desktop view', asyn
   });
   await page.setViewportSize({width:320,height:740});
   await page.goto('/aile/#/arac');
+  await expect(page.locator('.sync-strip [role="status"]')).toContainText('Son okuma');
+  await expect(page.getByRole('alert')).toHaveCount(0);
   const jump=page.getByRole('button',{name:/Sonuca git/});
   await expect(jump).toBeVisible();
   expect((await jump.boundingBox())!.y+(await jump.boundingBox())!.height).toBeLessThanOrEqual(740);
