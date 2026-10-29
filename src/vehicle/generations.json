@@ -1,0 +1,3038 @@
+{
+  "toyota-corolla": [
+    {
+      "id": "e180",
+      "fromYear": 2013,
+      "toYear": 2016,
+      "label": "E180 · Sedan",
+      "sources": [
+        {
+          "label": "Toyota Türkiye · 2013 ve 2019 üretim başlangıçları",
+          "url": "https://www.toyotatr.com/genel-bilgiler"
+        },
+        {
+          "label": "Toyota Türkiye · 2023 Corolla güncellemesi",
+          "url": "https://www.toyota.com.tr/haberler-ve-etkinlikler/toyota-5-nesil-hibrit-teknolojisine-sahip-yeni-corolla-yi-satisa-sundu"
+        },
+        {
+          "label": "Toyota açıklaması · 2016 makyajı",
+          "url": "https://www.aa.com.tr/tr/isdunyasi/otomotiv/toyota-corolla-yenilendi/634792"
+        },
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Toyota_Corolla"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/2fbd306abd59b673.jpg",
+          "title": "2013-2016 Toyota Corolla (ZRE172R) SX sedan (2018-09-17) 01.jpg",
+          "author": "EurovisionNim",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2013-2016_Toyota_Corolla_(ZRE172R)_SX_sedan_(2018-09-17)_01.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/e156de4503ffcedf.jpg",
+          "title": "2013-2016 Toyota Corolla (ZRE172R) SX sedan (2018-09-17) 02.jpg",
+          "author": "EurovisionNim",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2013-2016_Toyota_Corolla_(ZRE172R)_SX_sedan_(2018-09-17)_02.jpg"
+        },
+        "interior": null
+      }
+    },
+    {
+      "id": "e180-fl",
+      "fromYear": 2016,
+      "toYear": 2018,
+      "label": "E180 · Makyajlı sedan",
+      "sources": [
+        {
+          "label": "Toyota Türkiye · 2013 ve 2019 üretim başlangıçları",
+          "url": "https://www.toyotatr.com/genel-bilgiler"
+        },
+        {
+          "label": "Toyota Türkiye · 2023 Corolla güncellemesi",
+          "url": "https://www.toyota.com.tr/haberler-ve-etkinlikler/toyota-5-nesil-hibrit-teknolojisine-sahip-yeni-corolla-yi-satisa-sundu"
+        },
+        {
+          "label": "Toyota açıklaması · 2016 makyajı",
+          "url": "https://www.aa.com.tr/tr/isdunyasi/otomotiv/toyota-corolla-yenilendi/634792"
+        },
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Toyota_Corolla"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/7a4e8055a643831a.jpg",
+          "title": "Toyota Corolla (E180) sedan facelift 1X7A0306.jpg",
+          "author": "Alexander Migl",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Toyota_Corolla_(E180)_sedan_facelift_1X7A0306.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/924158b510b3da37.jpg",
+          "title": "Toyota Corolla (E180) sedan facelift 1X7A0305.jpg",
+          "author": "Alexander Migl",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Toyota_Corolla_(E180)_sedan_facelift_1X7A0305.jpg"
+        },
+        "interior": null
+      }
+    },
+    {
+      "id": "e210",
+      "fromYear": 2019,
+      "toYear": 2022,
+      "label": "E210 · Sedan",
+      "sources": [
+        {
+          "label": "Toyota Türkiye · 2013 ve 2019 üretim başlangıçları",
+          "url": "https://www.toyotatr.com/genel-bilgiler"
+        },
+        {
+          "label": "Toyota Türkiye · 2023 Corolla güncellemesi",
+          "url": "https://www.toyota.com.tr/haberler-ve-etkinlikler/toyota-5-nesil-hibrit-teknolojisine-sahip-yeni-corolla-yi-satisa-sundu"
+        },
+        {
+          "label": "Toyota açıklaması · 2016 makyajı",
+          "url": "https://www.aa.com.tr/tr/isdunyasi/otomotiv/toyota-corolla-yenilendi/634792"
+        },
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Toyota_Corolla"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/4e31c22bd880d5a5.jpg",
+          "title": "Toyota Corolla Limousine Monrepos 2019 IMG 1908.jpg",
+          "author": "Alexander Migl",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Toyota_Corolla_Limousine_Monrepos_2019_IMG_1908.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/b424d67f2bddc38e.jpg",
+          "title": "Toyota Corolla Limousine Monrepos 2019 IMG 1904.jpg",
+          "author": "Alexander Migl",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Toyota_Corolla_Limousine_Monrepos_2019_IMG_1904.jpg"
+        },
+        "interior": {
+          "src": "vehicles/generations/97e898aa0c62bd92.jpg",
+          "title": "Toyota Corolla Monrepos 2019 IMG 1901.jpg",
+          "author": "Alexander Migl",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Toyota_Corolla_Monrepos_2019_IMG_1901.jpg"
+        }
+      }
+    },
+    {
+      "id": "e210-fl",
+      "fromYear": 2023,
+      "toYear": 2026,
+      "label": "E210 · Makyajlı sedan",
+      "sources": [
+        {
+          "label": "Toyota Türkiye · 2013 ve 2019 üretim başlangıçları",
+          "url": "https://www.toyotatr.com/genel-bilgiler"
+        },
+        {
+          "label": "Toyota Türkiye · 2023 Corolla güncellemesi",
+          "url": "https://www.toyota.com.tr/haberler-ve-etkinlikler/toyota-5-nesil-hibrit-teknolojisine-sahip-yeni-corolla-yi-satisa-sundu"
+        },
+        {
+          "label": "Toyota açıklaması · 2016 makyajı",
+          "url": "https://www.aa.com.tr/tr/isdunyasi/otomotiv/toyota-corolla-yenilendi/634792"
+        },
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Toyota_Corolla"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/8f8eb3120f99ff63.jpg",
+          "title": "Toyota Corolla HEV SE-G 2025.jpg",
+          "author": "Just a Man",
+          "license": "CC BY 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Toyota_Corolla_HEV_SE-G_2025.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/a0865ebd487bb91f.jpg",
+          "title": "Toyota Corolla Prestige Hybrid IMG 1230.jpg",
+          "author": "Alexander-93",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Toyota_Corolla_Prestige_Hybrid_IMG_1230.jpg"
+        },
+        "interior": null
+      }
+    }
+  ],
+  "toyota-hilux": [
+    {
+      "id": "an30-fl",
+      "fromYear": 2015,
+      "toYear": 2015,
+      "label": "7. nesil · Makyajlı çift kabin",
+      "sources": [
+        {
+          "label": "Toyota Türkiye · Hilux nesilleri",
+          "url": "https://www.toyota.com.tr/araba-modelleri/hilux-hikayesi"
+        },
+        {
+          "label": "Toyota Türkiye · 2026 yeni Hilux",
+          "url": "https://www.toyota.com.tr/haberler-ve-etkinlikler/toyotanin-iki-ikonu-yenilendi-yeni-hilux-satisa-sunuldu-yeni-rav-4-hybrid-tanitildi"
+        },
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Toyota_Hilux"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/e009baad4508c86b.jpg",
+          "title": "2014 Toyota HiLux (KUN26R MY14) SR 4-door utility (2015-11-11) 01.jpg",
+          "author": "OSX",
+          "license": "Public domain",
+          "licenseUrl": "https://commons.wikimedia.org/wiki/File:2014_Toyota_HiLux_(KUN26R_MY14)_SR_4-door_utility_(2015-11-11)_01.jpg",
+          "source": "https://commons.wikimedia.org/wiki/File:2014_Toyota_HiLux_(KUN26R_MY14)_SR_4-door_utility_(2015-11-11)_01.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/eb2f73020d118aa8.jpg",
+          "title": "2014 Toyota HiLux (KUN26R MY14) SR 4-door utility (2015-11-11) 02.jpg",
+          "author": "OSX",
+          "license": "Public domain",
+          "licenseUrl": "https://commons.wikimedia.org/wiki/File:2014_Toyota_HiLux_(KUN26R_MY14)_SR_4-door_utility_(2015-11-11)_02.jpg",
+          "source": "https://commons.wikimedia.org/wiki/File:2014_Toyota_HiLux_(KUN26R_MY14)_SR_4-door_utility_(2015-11-11)_02.jpg"
+        },
+        "interior": null
+      }
+    },
+    {
+      "id": "an120",
+      "fromYear": 2016,
+      "toYear": 2018,
+      "label": "8. nesil · Çift kabin",
+      "sources": [
+        {
+          "label": "Toyota Türkiye · Hilux nesilleri",
+          "url": "https://www.toyota.com.tr/araba-modelleri/hilux-hikayesi"
+        },
+        {
+          "label": "Toyota Türkiye · 2026 yeni Hilux",
+          "url": "https://www.toyota.com.tr/haberler-ve-etkinlikler/toyotanin-iki-ikonu-yenilendi-yeni-hilux-satisa-sunuldu-yeni-rav-4-hybrid-tanitildi"
+        },
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Toyota_Hilux"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/3c102ac713dc77c8.jpg",
+          "title": "2016 Toyota HiLux Invincible D-4D 4WD 2.4 Front.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2016_Toyota_HiLux_Invincible_D-4D_4WD_2.4_Front.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/ff852c0e26d7e8f7.jpg",
+          "title": "2016 Toyota HiLux Invincible D-4D 4WD 2.4 Rear.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2016_Toyota_HiLux_Invincible_D-4D_4WD_2.4_Rear.jpg"
+        },
+        "interior": null
+      }
+    },
+    {
+      "id": "an120-fl",
+      "fromYear": 2018,
+      "toYear": 2020,
+      "label": "8. nesil · 2018 makyajı",
+      "sources": [
+        {
+          "label": "Toyota Türkiye · Hilux nesilleri",
+          "url": "https://www.toyota.com.tr/araba-modelleri/hilux-hikayesi"
+        },
+        {
+          "label": "Toyota Türkiye · 2026 yeni Hilux",
+          "url": "https://www.toyota.com.tr/haberler-ve-etkinlikler/toyotanin-iki-ikonu-yenilendi-yeni-hilux-satisa-sunuldu-yeni-rav-4-hybrid-tanitildi"
+        },
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Toyota_Hilux"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/6c4d909212cf3f91.jpg",
+          "title": "2018 Toyota Hilux Invincible X D-4d 4WD facelift 2.4.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2018_Toyota_Hilux_Invincible_X_D-4d_4WD_facelift_2.4.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/4b9a47a5ad48a8d4.jpg",
+          "title": "2018 Toyota Hilux Invincible X D-4d 4WD 2.4 facelift Rear.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2018_Toyota_Hilux_Invincible_X_D-4d_4WD_2.4_facelift_Rear.jpg"
+        },
+        "interior": null
+      }
+    },
+    {
+      "id": "an120-fl2",
+      "fromYear": 2020,
+      "toYear": 2025,
+      "label": "8. nesil · 2020 makyajı",
+      "sources": [
+        {
+          "label": "Toyota Türkiye · Hilux nesilleri",
+          "url": "https://www.toyota.com.tr/araba-modelleri/hilux-hikayesi"
+        },
+        {
+          "label": "Toyota Türkiye · 2026 yeni Hilux",
+          "url": "https://www.toyota.com.tr/haberler-ve-etkinlikler/toyotanin-iki-ikonu-yenilendi-yeni-hilux-satisa-sunuldu-yeni-rav-4-hybrid-tanitildi"
+        },
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Toyota_Hilux"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/9fa9bcb1514848d5.jpg",
+          "title": "2021 Toyota HiLux DSC 6040.jpg",
+          "author": "Alexander-93",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2021_Toyota_HiLux_DSC_6040.jpg"
+        },
+        "rear": null,
+        "interior": null
+      }
+    }
+  ],
+  "honda-hr-v": [
+    {
+      "id": "ru",
+      "fromYear": 2015,
+      "toYear": 2018,
+      "label": "RU · 2. nesil",
+      "sources": [
+        {
+          "label": "Honda Türkiye · 2022 HR-V e:HEV tanıtımı",
+          "url": "https://www.youtube.com/watch?v=NRn7SMvy7UQ"
+        },
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Honda_HR-V"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/deedaa0bfadc90ff.jpg",
+          "title": "2018 Honda HR-V VTi-S wagon (2018-08-27) 01.jpg",
+          "author": "EurovisionNim",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2018_Honda_HR-V_VTi-S_wagon_(2018-08-27)_01.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/f049c2770424bb36.jpg",
+          "title": "2018 Honda HR-V VTi-S wagon (2018-08-27) 02.jpg",
+          "author": "EurovisionNim",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2018_Honda_HR-V_VTi-S_wagon_(2018-08-27)_02.jpg"
+        },
+        "interior": {
+          "src": "vehicles/generations/a7b49aa9ca049a69.jpg",
+          "title": "Honda HR-V - wnętrze (MSP17).jpg",
+          "author": "Jakub \"flyz1\" Maciejewski",
+          "license": "CC BY-SA 3.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Honda_HR-V_-_wn%C4%99trze_(MSP17).jpg"
+        }
+      }
+    },
+    {
+      "id": "ru-fl",
+      "fromYear": 2019,
+      "toYear": 2021,
+      "label": "RU · Makyajlı",
+      "sources": [
+        {
+          "label": "Honda Türkiye · 2022 HR-V e:HEV tanıtımı",
+          "url": "https://www.youtube.com/watch?v=NRn7SMvy7UQ"
+        },
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Honda_HR-V"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/b94b09a1730772d2.jpg",
+          "title": "2019 Honda HR-V EX i-VTEC 1.5 Front.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2019_Honda_HR-V_EX_i-VTEC_1.5_Front.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/17015958c8166935.jpg",
+          "title": "2019 Honda HR-V EX i-VTEC 1.5 Rear.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2019_Honda_HR-V_EX_i-VTEC_1.5_Rear.jpg"
+        },
+        "interior": {
+          "src": "vehicles/generations/a7b49aa9ca049a69.jpg",
+          "title": "Honda HR-V - wnętrze (MSP17).jpg",
+          "author": "Jakub \"flyz1\" Maciejewski",
+          "license": "CC BY-SA 3.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Honda_HR-V_-_wn%C4%99trze_(MSP17).jpg"
+        }
+      }
+    },
+    {
+      "id": "rv",
+      "fromYear": 2022,
+      "toYear": 2024,
+      "label": "RV · e:HEV",
+      "sources": [
+        {
+          "label": "Honda Türkiye · 2022 HR-V e:HEV tanıtımı",
+          "url": "https://www.youtube.com/watch?v=NRn7SMvy7UQ"
+        },
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Honda_HR-V"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/1079f081a79717cc.jpg",
+          "title": "Honda HR-V eHEV Advance (III) – f 31122023.jpg",
+          "author": "© M 93",
+          "license": "CC BY-SA 3.0 de",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+          "source": "https://commons.wikimedia.org/wiki/File:Honda_HR-V_eHEV_Advance_(III)_%E2%80%93_f_31122023.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/7a00a0d5dcf33ad6.jpg",
+          "title": "Honda HR-V eHEV Advance (III) – h 31122023.jpg",
+          "author": "© M 93",
+          "license": "CC BY-SA 3.0 de",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+          "source": "https://commons.wikimedia.org/wiki/File:Honda_HR-V_eHEV_Advance_(III)_%E2%80%93_h_31122023.jpg"
+        },
+        "interior": null
+      }
+    },
+    {
+      "id": "rv-fl",
+      "fromYear": 2025,
+      "toYear": 2026,
+      "label": "RV · Makyajlı e:HEV",
+      "sources": [
+        {
+          "label": "Honda Türkiye · 2022 HR-V e:HEV tanıtımı",
+          "url": "https://www.youtube.com/watch?v=NRn7SMvy7UQ"
+        },
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Honda_HR-V"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/69681ed39155738b.jpg",
+          "title": "Honda HR-V e-HEV Advance Plus (III, Facelift) – f 30032025.jpg",
+          "author": "© M 93",
+          "license": "CC BY-SA 3.0 de",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+          "source": "https://commons.wikimedia.org/wiki/File:Honda_HR-V_e-HEV_Advance_Plus_(III,_Facelift)_%E2%80%93_f_30032025.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/32445706cd70ac95.jpg",
+          "title": "Honda HR-V e-HEV Advance Plus (III, Facelift) – h 30032025.jpg",
+          "author": "© M 93",
+          "license": "CC BY-SA 3.0 de",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+          "source": "https://commons.wikimedia.org/wiki/File:Honda_HR-V_e-HEV_Advance_Plus_(III,_Facelift)_%E2%80%93_h_30032025.jpg"
+        },
+        "interior": null
+      }
+    }
+  ],
+  "toyota-rav4": [
+    {
+      "id": "xa40-fl",
+      "fromYear": 2016,
+      "toYear": 2018,
+      "label": "XA40 · Makyajlı",
+      "sources": [
+        {
+          "label": "Toyota Europe · Makyaj satış başlangıcı Aralık 2015; hibrit 2016",
+          "url": "https://newsroom.toyota.eu/2019-toyota-reveals-new-rav4-hybrid-all-wheel-drive-at-the-2015-new-york-international-auto-show/"
+        },
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Toyota_RAV4"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/2a5729e0d2543d0a.jpg",
+          "title": "2018 Toyota RAV4 Hybrid Icon Tech TSS HEV 4X4 2.5.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2018_Toyota_RAV4_Hybrid_Icon_Tech_TSS_HEV_4X4_2.5.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/a3a15ac0e0e9385b.jpg",
+          "title": "2018 Toyota RAV4 25th Anniversary white rear.jpg",
+          "author": "Throwawayacc222",
+          "license": "CC0",
+          "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+          "source": "https://commons.wikimedia.org/wiki/File:2018_Toyota_RAV4_25th_Anniversary_white_rear.jpg"
+        },
+        "interior": {
+          "src": "vehicles/generations/5bf3aa6b6875ab8e.jpg",
+          "title": "Toyota RAV4 XA40 interior.jpg",
+          "author": "TTTNIS",
+          "license": "CC0",
+          "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+          "source": "https://commons.wikimedia.org/wiki/File:Toyota_RAV4_XA40_interior.jpg"
+        }
+      }
+    },
+    {
+      "id": "xa50",
+      "fromYear": 2019,
+      "toYear": 2021,
+      "label": "XA50 · 5. nesil",
+      "sources": [
+        {
+          "label": "Toyota Europe · Makyaj satış başlangıcı Aralık 2015; hibrit 2016",
+          "url": "https://newsroom.toyota.eu/2019-toyota-reveals-new-rav4-hybrid-all-wheel-drive-at-the-2015-new-york-international-auto-show/"
+        },
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Toyota_RAV4"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/f9a9747d1a8eb719.jpg",
+          "title": "2019 Toyota RAV4 Hybrid 01.jpg",
+          "author": "Alexander Migl",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2019_Toyota_RAV4_Hybrid_01.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/4d5e2a320ae07ac3.jpg",
+          "title": "2019 Toyota RAV4 Hybrid 02.jpg",
+          "author": "Alexander Migl",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2019_Toyota_RAV4_Hybrid_02.jpg"
+        },
+        "interior": null
+      }
+    }
+  ],
+  "subaru-forester": [
+    {
+      "id": "sj",
+      "fromYear": 2015,
+      "toYear": 2016,
+      "label": "SJ · 4. nesil",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Subaru_Forester"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/b805447a89dea0ff.jpg",
+          "title": "2014 Subaru Forester (MY14) 2.5i Luxury wagon (2015-06-25) 01.jpg",
+          "author": "OSX",
+          "license": "Public domain",
+          "licenseUrl": "https://commons.wikimedia.org/wiki/File:2014_Subaru_Forester_(MY14)_2.5i_Luxury_wagon_(2015-06-25)_01.jpg",
+          "source": "https://commons.wikimedia.org/wiki/File:2014_Subaru_Forester_(MY14)_2.5i_Luxury_wagon_(2015-06-25)_01.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/0342d760729c090e.jpg",
+          "title": "2013 Subaru Forester I XT Symmetrical AWD 2.0 Rear.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2013_Subaru_Forester_I_XT_Symmetrical_AWD_2.0_Rear.jpg"
+        },
+        "interior": null
+      }
+    },
+    {
+      "id": "sj-fl",
+      "fromYear": 2016,
+      "toYear": 2018,
+      "label": "SJ · Makyajlı",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Subaru_Forester"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/07f1e417fbcd5c70.jpg",
+          "title": "2017 Subaru Forester FBAA3 DE.jpg",
+          "author": "Epohwena",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2017_Subaru_Forester_FBAA3_DE.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/5c028ef99f542872.jpg",
+          "title": "2015-2018 Subaru Forester XT rear.jpg",
+          "author": "TTTNIS",
+          "license": "CC0",
+          "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+          "source": "https://commons.wikimedia.org/wiki/File:2015-2018_Subaru_Forester_XT_rear.jpg"
+        },
+        "interior": null
+      }
+    },
+    {
+      "id": "sk",
+      "fromYear": 2019,
+      "toYear": 2021,
+      "label": "SK · e-Boxer",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Subaru_Forester"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/ecbebaa0413d163f.jpg",
+          "title": "Subaru Forester (SK) e-BOXER Sindelfingen 2020 IMG 2323.jpg",
+          "author": "Alexander Migl",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Subaru_Forester_(SK)_e-BOXER_Sindelfingen_2020_IMG_2323.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/f9f3d545bb764404.jpg",
+          "title": "Subaru Forester 2.0 e-BOXER (2021) (52172144592).jpg",
+          "author": "Charles from Port Chester, New York",
+          "license": "CC BY 2.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by/2.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Subaru_Forester_2.0_e-BOXER_(2021)_(52172144592).jpg"
+        },
+        "interior": {
+          "src": "vehicles/generations/ba6b7bebbd3528a6.jpg",
+          "title": "Subaru Forester 2018 (SK) CUV Interior.jpg",
+          "author": "MTSRider18",
+          "license": "CC BY-SA 3.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Subaru_Forester_2018_(SK)_CUV_Interior.jpg"
+        }
+      }
+    }
+  ],
+  "honda-cr-v": [
+    {
+      "id": "rm-fl",
+      "fromYear": 2015,
+      "toYear": 2018,
+      "label": "RM · Makyajlı 4. nesil",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Honda_CR-V"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/fc3e14958488f8ec.jpg",
+          "title": "2016 Honda CR-V (RM Series II MY16) VTi 2.0 2WD wagon (2018-10-08) 01.jpg",
+          "author": "EurovisionNim",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2016_Honda_CR-V_(RM_Series_II_MY16)_VTi_2.0_2WD_wagon_(2018-10-08)_01.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/b23ef4c7d3ddd2d9.jpg",
+          "title": "2016 Honda CR-V (RM Series II MY16) VTi 2.0 2WD wagon (2018-10-08) 02.jpg",
+          "author": "EurovisionNim",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2016_Honda_CR-V_(RM_Series_II_MY16)_VTi_2.0_2WD_wagon_(2018-10-08)_02.jpg"
+        },
+        "interior": {
+          "src": "vehicles/generations/35071cad7b198351.jpg",
+          "title": "Honda CR-V - wnętrze (MSP16).jpg",
+          "author": "Jakub \"Flyz1\" Maciejewski",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Honda_CR-V_-_wn%C4%99trze_(MSP16).jpg"
+        }
+      }
+    },
+    {
+      "id": "rw",
+      "fromYear": 2018,
+      "toYear": 2020,
+      "label": "RW · 5. nesil",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Honda_CR-V"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/80b49c247e558cf7.jpg",
+          "title": "2019 Honda CR-V EX i-VTEC 1.5.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2019_Honda_CR-V_EX_i-VTEC_1.5.jpg"
+        },
+        "rear": null,
+        "interior": null
+      }
+    },
+    {
+      "id": "rw-fl",
+      "fromYear": 2021,
+      "toYear": 2022,
+      "label": "RW · Makyajlı 5. nesil",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Honda_CR-V"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/4ce3950039cc9063.jpg",
+          "title": "2021 Honda CR-V 1.5T Prestige (front).jpg",
+          "author": "Alex Neman",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2021_Honda_CR-V_1.5T_Prestige_(front).jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/e93fbb1162bf2391.jpg",
+          "title": "2021 Honda CR-V 1.5T Prestige (rear).jpg",
+          "author": "Alex Neman",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2021_Honda_CR-V_1.5T_Prestige_(rear).jpg"
+        },
+        "interior": null
+      }
+    }
+  ],
+  "mitsubishi-l-200": [
+    {
+      "id": "ka-fl",
+      "fromYear": 2015,
+      "toYear": 2015,
+      "label": "KA/KB · 4. nesil",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Mitsubishi_Triton"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/1c95e159b0abc96d.jpg",
+          "title": "Mitsubishi L200 2500 DI-D+ Intense Doppelkabine (IV, Facelift) – Frontansicht, 16. April 2011, Hilden.jpg",
+          "author": "M 93",
+          "license": "CC BY-SA 3.0 de",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+          "source": "https://commons.wikimedia.org/wiki/File:Mitsubishi_L200_2500_DI-D%2B_Intense_Doppelkabine_(IV,_Facelift)_%E2%80%93_Frontansicht,_16._April_2011,_Hilden.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/15131a9450ed03f0.jpg",
+          "title": "Mitsubishi L200 2500 DI-D+ Intense Doppelkabine (IV, Facelift) – Heckansicht, 16. April 2011, Hilden.jpg",
+          "author": "M 93",
+          "license": "CC BY-SA 3.0 de",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+          "source": "https://commons.wikimedia.org/wiki/File:Mitsubishi_L200_2500_DI-D%2B_Intense_Doppelkabine_(IV,_Facelift)_%E2%80%93_Heckansicht,_16._April_2011,_Hilden.jpg"
+        },
+        "interior": null
+      }
+    },
+    {
+      "id": "kl",
+      "fromYear": 2015,
+      "toYear": 2019,
+      "label": "KL · 5. nesil",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Mitsubishi_Triton"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/0e1e46be83f45e44.jpg",
+          "title": "2017 Mitsubishi Triton (MQ MY18) GLS Double Cab 4x4 utility (2018-08-27) 01.jpg",
+          "author": "EurovisionNim",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2017_Mitsubishi_Triton_(MQ_MY18)_GLS_Double_Cab_4x4_utility_(2018-08-27)_01.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/8ccc5cfa08ab8d0c.jpg",
+          "title": "2017 Mitsubishi Triton (MQ MY18) GLS Double Cab 4x4 utility (2018-08-27) 02.jpg",
+          "author": "EurovisionNim",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2017_Mitsubishi_Triton_(MQ_MY18)_GLS_Double_Cab_4x4_utility_(2018-08-27)_02.jpg"
+        },
+        "interior": null
+      }
+    },
+    {
+      "id": "kl-fl",
+      "fromYear": 2019,
+      "toYear": 2021,
+      "label": "KL · Makyajlı",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Mitsubishi_Triton"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/505c7a65255592fc.jpg",
+          "title": "2019 Mitsubishi L200 Barbarian X DI-D Automatic 2.3.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2019_Mitsubishi_L200_Barbarian_X_DI-D_Automatic_2.3.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/49717b20201342e7.jpg",
+          "title": "2019 Mitsubishi L200 Warrior DI-D 2.3 Rear.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2019_Mitsubishi_L200_Warrior_DI-D_2.3_Rear.jpg"
+        },
+        "interior": null
+      }
+    }
+  ],
+  "volvo-s60": [
+    {
+      "id": "ii-fl",
+      "fromYear": 2014,
+      "toYear": 2018,
+      "label": "2. nesil · Makyajlı",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Volvo_S60"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/ac1c093481d4d4df.jpg",
+          "title": "2014 Volvo S60 R-Design D2 Automatic 1.6 Front.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2014_Volvo_S60_R-Design_D2_Automatic_1.6_Front.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/c49f140efa7250db.jpg",
+          "title": "2014 Volvo S60 R-Design D2 Automatic 1.6 Rear.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2014_Volvo_S60_R-Design_D2_Automatic_1.6_Rear.jpg"
+        },
+        "interior": {
+          "src": "vehicles/generations/227e0c99060737e1.jpg",
+          "title": "Volvo S60 Polestar - wnętrze (MSP16).jpg",
+          "author": "Jakub \"Flyz1\" Maciejewski",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Volvo_S60_Polestar_-_wn%C4%99trze_(MSP16).jpg"
+        }
+      }
+    },
+    {
+      "id": "iii",
+      "fromYear": 2019,
+      "toYear": 2021,
+      "label": "3. nesil",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Volvo_S60"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/9c0b4a73a52e7a6d.jpg",
+          "title": "Volvo S60 (3rd generation) IMG 8468.jpg",
+          "author": "Alexander-93",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Volvo_S60_(3rd_generation)_IMG_8468.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/86c134681cf2988f.jpg",
+          "title": "2019 Volvo S60 T6 Momentum in Fusion Red Metallic, Rear Left, 04-29-2023.jpg",
+          "author": "Elise240SX",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2019_Volvo_S60_T6_Momentum_in_Fusion_Red_Metallic,_Rear_Left,_04-29-2023.jpg"
+        },
+        "interior": null
+      }
+    }
+  ],
+  "hyundai-ix35": [
+    {
+      "id": "lm-fl",
+      "fromYear": 2014,
+      "toYear": 2015,
+      "label": "LM · Makyajlı",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Hyundai_ix35"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/8921ce38572fc93b.jpg",
+          "title": "Hyundai ix35 FIFA World Cup Edition (Facelift) – Frontansicht, 5. April 2014, Düsseldorf.jpg",
+          "author": "M 93",
+          "license": "CC BY-SA 3.0 de",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+          "source": "https://commons.wikimedia.org/wiki/File:Hyundai_ix35_FIFA_World_Cup_Edition_(Facelift)_%E2%80%93_Frontansicht,_5._April_2014,_D%C3%BCsseldorf.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/d014d4a74320dba2.jpg",
+          "title": "Hyundai ix35 FIFA World Cup Edition (Facelift) – Heckansicht, 5. April 2014, Düsseldorf.jpg",
+          "author": "M 93",
+          "license": "CC BY-SA 3.0 de",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+          "source": "https://commons.wikimedia.org/wiki/File:Hyundai_ix35_FIFA_World_Cup_Edition_(Facelift)_%E2%80%93_Heckansicht,_5._April_2014,_D%C3%BCsseldorf.jpg"
+        },
+        "interior": null
+      }
+    }
+  ],
+  "volvo-s80": [
+    {
+      "id": "ii-fl2",
+      "fromYear": 2014,
+      "toYear": 2016,
+      "label": "2. nesil · 2013 makyajı",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Volvo_S80"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/4e5779e885d591ee.jpg",
+          "title": "'14 Volvo S80 (MIAS '14).jpg",
+          "author": "Bull-Doser",
+          "license": "Public domain",
+          "licenseUrl": "https://commons.wikimedia.org/wiki/File:%2714_Volvo_S80_(MIAS_%2714).jpg",
+          "source": "https://commons.wikimedia.org/wiki/File:%2714_Volvo_S80_(MIAS_%2714).jpg"
+        },
+        "rear": null,
+        "interior": null
+      }
+    }
+  ],
+  "honda-accord": [
+    {
+      "id": "cv-fl",
+      "fromYear": 2021,
+      "toYear": 2023,
+      "label": "CV · 10. nesil, makyajlı",
+      "sources": [
+        {
+          "label": "Honda Türkiye · 2023 Accord 1.5 Turbo",
+          "url": "https://www.honda.com.tr/assets/files/PlXGrLr16e1709218853401.pdf"
+        },
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Honda_Accord"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/bcdc32c09bb3f889.jpg",
+          "title": "2021 Honda Accord Sport (facelift), front 11.30.21.jpg",
+          "author": "Kevauto",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2021_Honda_Accord_Sport_(facelift),_front_11.30.21.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/d882e5bf2340e8d4.jpg",
+          "title": "2021 Honda Accord Sport (facelift), rear 11.30.21.jpg",
+          "author": "Kevauto",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2021_Honda_Accord_Sport_(facelift),_rear_11.30.21.jpg"
+        },
+        "interior": null
+      }
+    }
+  ],
+  "skoda-yeti": [
+    {
+      "id": "5l-fl",
+      "fromYear": 2014,
+      "toYear": 2017,
+      "label": "5L · Makyajlı",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/%C5%A0koda_Yeti"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/0dd68ffeaf942e00.jpg",
+          "title": "Škoda Yeti diesel Greenline registered July 2014 (ie post 2013 facelift) 1598cc.JPG",
+          "author": "Charles01",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:%C5%A0koda_Yeti_diesel_Greenline_registered_July_2014_(ie_post_2013_facelift)_1598cc.JPG"
+        },
+        "rear": null,
+        "interior": {
+          "src": "vehicles/generations/d8c0616928f499c0.jpg",
+          "title": "Skoda-Yeti-interior-front.jpg",
+          "author": "Škoda Auto (new.skoda-auto.com)",
+          "license": "CC SA 1.0",
+          "licenseUrl": "http://creativecommons.org/licenses/sa/1.0/",
+          "source": "https://commons.wikimedia.org/wiki/File:Skoda-Yeti-interior-front.jpg"
+        }
+      }
+    }
+  ],
+  "ford-mondeo": [
+    {
+      "id": "cd391",
+      "fromYear": 2015,
+      "toYear": 2018,
+      "label": "Mk5 · Liftback",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Ford_Mondeo"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/f6c59dfecff4f0df.jpg",
+          "title": "Ford Mondeo registered March 2015 1999cc (cropped, 2).jpg",
+          "author": "Charles01",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Ford_Mondeo_registered_March_2015_1999cc_(cropped,_2).jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/5d83f4e9d01d3a96.jpg",
+          "title": "2017 Ford Mondeo Titanium ECOnetic 1.5 Rear.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2017_Ford_Mondeo_Titanium_ECOnetic_1.5_Rear.jpg"
+        },
+        "interior": null
+      }
+    },
+    {
+      "id": "cd391-fl",
+      "fromYear": 2019,
+      "toYear": 2020,
+      "label": "Mk5 · Makyajlı liftback",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Ford_Mondeo"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/602f3413a11f0c59.jpg",
+          "title": "2019 Ford Mondeo Titanium Edition TDCi facelift 2.0 Front.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2019_Ford_Mondeo_Titanium_Edition_TDCi_facelift_2.0_Front.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/d081b9ff59f96d44.jpg",
+          "title": "2019 Ford Mondeo Titanium Edition TDCi facelift 2.0 Rear.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2019_Ford_Mondeo_Titanium_Edition_TDCi_facelift_2.0_Rear.jpg"
+        },
+        "interior": null
+      }
+    }
+  ],
+  "skoda-superb": [
+    {
+      "id": "3t-fl",
+      "fromYear": 2015,
+      "toYear": 2015,
+      "label": "2. nesil · Makyajlı",
+      "sources": [
+        {
+          "label": "Škoda Türkiye · 2024 yeni kasa",
+          "url": "https://www.youtube.com/watch?v=_cJPFBf_kYU"
+        },
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/%C5%A0koda_Superb"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/27e3b04e1d50fff1.jpg",
+          "title": "Škoda Superb II 2013 (front).JPG",
+          "author": "Miloslav Rejha",
+          "license": "CC BY-SA 3.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+          "source": "https://commons.wikimedia.org/wiki/File:%C5%A0koda_Superb_II_2013_(front).JPG"
+        },
+        "rear": {
+          "src": "vehicles/generations/e536fbff228ed16c.jpg",
+          "title": "Škoda Superb II 2013 (back).JPG",
+          "author": "Miloslav Rejha",
+          "license": "CC BY-SA 3.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+          "source": "https://commons.wikimedia.org/wiki/File:%C5%A0koda_Superb_II_2013_(back).JPG"
+        },
+        "interior": {
+          "src": "vehicles/generations/9c4b528ceec798c7.jpg",
+          "title": "Skoda Superb II Ambition TSI Brilliantsilber Interieur.JPG",
+          "author": "Thomas doerfer",
+          "license": "CC BY-SA 3.0",
+          "licenseUrl": "http://creativecommons.org/licenses/by-sa/3.0/",
+          "source": "https://commons.wikimedia.org/wiki/File:Skoda_Superb_II_Ambition_TSI_Brilliantsilber_Interieur.JPG"
+        }
+      }
+    },
+    {
+      "id": "3v",
+      "fromYear": 2015,
+      "toYear": 2019,
+      "label": "3. nesil",
+      "sources": [
+        {
+          "label": "Škoda Türkiye · 2024 yeni kasa",
+          "url": "https://www.youtube.com/watch?v=_cJPFBf_kYU"
+        },
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/%C5%A0koda_Superb"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/8962249de76bfcef.jpg",
+          "title": "Skoda Superb 162TSI, 2018 front.jpg",
+          "author": "EurovisionNim",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Skoda_Superb_162TSI,_2018_front.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/748b8fb0ffbbe022.jpg",
+          "title": "Skoda Superb 162TSI, 2018 rear.jpg",
+          "author": "EurovisionNim",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Skoda_Superb_162TSI,_2018_rear.jpg"
+        },
+        "interior": {
+          "src": "vehicles/generations/bb5a9947c4a11d09.jpg",
+          "title": "Škoda Superb - wnętrze (MSP16).jpg",
+          "author": "Jakub \"Flyz1\" Maciejewski",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:%C5%A0koda_Superb_-_wn%C4%99trze_(MSP16).jpg"
+        }
+      }
+    },
+    {
+      "id": "3v-fl",
+      "fromYear": 2019,
+      "toYear": 2024,
+      "label": "3. nesil · Makyajlı",
+      "sources": [
+        {
+          "label": "Škoda Türkiye · 2024 yeni kasa",
+          "url": "https://www.youtube.com/watch?v=_cJPFBf_kYU"
+        },
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/%C5%A0koda_Superb"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/4c1170d0ec32b4f6.jpg",
+          "title": "Skoda Superb III iV at IAA 2019 IMG 0273.jpg",
+          "author": "Alexander Migl",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Skoda_Superb_III_iV_at_IAA_2019_IMG_0273.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/eb811ff5a6d940c0.jpg",
+          "title": "Skoda Superb III iV at IAA 2019 IMG 0274.jpg",
+          "author": "Alexander Migl",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Skoda_Superb_III_iV_at_IAA_2019_IMG_0274.jpg"
+        },
+        "interior": null
+      }
+    },
+    {
+      "id": "b9",
+      "fromYear": 2024,
+      "toYear": 2024,
+      "label": "4. nesil",
+      "sources": [
+        {
+          "label": "Škoda Türkiye · 2024 yeni kasa",
+          "url": "https://www.youtube.com/watch?v=_cJPFBf_kYU"
+        },
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/%C5%A0koda_Superb"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/f3a9aa2a9d3ff2a6.jpg",
+          "title": "Skoda Superb L&K (IV) – f 12042026.jpg",
+          "author": "© M 93",
+          "license": "CC BY-SA 3.0 de",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+          "source": "https://commons.wikimedia.org/wiki/File:Skoda_Superb_L%26K_(IV)_%E2%80%93_f_12042026.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/f31a7f08b44f5a60.jpg",
+          "title": "Skoda Superb L&K (IV) – h 12042026.jpg",
+          "author": "© M 93",
+          "license": "CC BY-SA 3.0 de",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+          "source": "https://commons.wikimedia.org/wiki/File:Skoda_Superb_L%26K_(IV)_%E2%80%93_h_12042026.jpg"
+        },
+        "interior": null
+      }
+    }
+  ],
+  "volkswagen-tiguan": [
+    {
+      "id": "5n-fl",
+      "fromYear": 2015,
+      "toYear": 2016,
+      "label": "5N · Makyajlı 1. nesil",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Volkswagen_Tiguan"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/4d8c65d076b800c5.jpg",
+          "title": "2014 Volkswagen Tiguan Match TDi BMT 4motion 2.0 Front.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2014_Volkswagen_Tiguan_Match_TDi_BMT_4motion_2.0_Front.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/e460f173762cca2a.jpg",
+          "title": "2014 Volkswagen Tiguan Match TDi BMT 4motion 2.0 Rear.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2014_Volkswagen_Tiguan_Match_TDi_BMT_4motion_2.0_Rear.jpg"
+        },
+        "interior": null
+      }
+    },
+    {
+      "id": "ad1",
+      "fromYear": 2016,
+      "toYear": 2020,
+      "label": "AD1 · 2. nesil",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Volkswagen_Tiguan"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/b58a0c62df04bfcf.jpg",
+          "title": "VW Tiguan 2.0 TSI BlueMotion Technology 4MOTION Sound (II) – Frontansicht, 24. Dezember 2017, Düsseldorf.jpg",
+          "author": "© M 93",
+          "license": "CC BY-SA 3.0 de",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+          "source": "https://commons.wikimedia.org/wiki/File:VW_Tiguan_2.0_TSI_BlueMotion_Technology_4MOTION_Sound_(II)_%E2%80%93_Frontansicht,_24._Dezember_2017,_D%C3%BCsseldorf.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/f6f5c4f5b8bf3b2f.jpg",
+          "title": "VW Tiguan 2.0 TSI BlueMotion Technology 4MOTION Sound (II) – Heckansicht, 24. Dezember 2017, Düsseldorf.jpg",
+          "author": "© M 93",
+          "license": "CC BY-SA 3.0 de",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+          "source": "https://commons.wikimedia.org/wiki/File:VW_Tiguan_2.0_TSI_BlueMotion_Technology_4MOTION_Sound_(II)_%E2%80%93_Heckansicht,_24._Dezember_2017,_D%C3%BCsseldorf.jpg"
+        },
+        "interior": null
+      }
+    },
+    {
+      "id": "ad1-fl",
+      "fromYear": 2020,
+      "toYear": 2023,
+      "label": "AD1 · Makyajlı",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Volkswagen_Tiguan"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/c931e050ae470c7f.jpg",
+          "title": "Tiguan-fl-2020-frontansicht-1.jpg",
+          "author": "DanielPrzygoda",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Tiguan-fl-2020-frontansicht-1.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/4a816c7ac21771d2.jpg",
+          "title": "Tiguan-fl-2020-heckansicht-1.jpg",
+          "author": "DanielPrzygoda",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Tiguan-fl-2020-heckansicht-1.jpg"
+        },
+        "interior": {
+          "src": "vehicles/generations/11805ec0798e2a3e.jpg",
+          "title": "Tiguan-fl-2020-innenraum.jpg",
+          "author": "DanielPrzygoda",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Tiguan-fl-2020-innenraum.jpg"
+        }
+      }
+    }
+  ],
+  "volkswagen-passat": [
+    {
+      "id": "b8",
+      "fromYear": 2015,
+      "toYear": 2019,
+      "label": "B8 · Sedan",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Volkswagen_Passat"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/cba8d3f0d418d148.jpg",
+          "title": "2017 Volkswagen Passat SE Business TDi BM 2.0.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2017_Volkswagen_Passat_SE_Business_TDi_BM_2.0.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/1aa3845f0503e64e.jpg",
+          "title": "2017 Volkswagen Passat GT TDi 2.0 Rear.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2017_Volkswagen_Passat_GT_TDi_2.0_Rear.jpg"
+        },
+        "interior": {
+          "src": "vehicles/generations/05c00b7a02830cd5.jpg",
+          "title": "Passat B8 Comfortline Innenraum.jpg",
+          "author": "JCS1981",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Passat_B8_Comfortline_Innenraum.jpg"
+        }
+      }
+    },
+    {
+      "id": "b8-fl",
+      "fromYear": 2019,
+      "toYear": 2022,
+      "label": "B8 · Makyajlı sedan",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Volkswagen_Passat"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/ce60819c6d18a13d.jpg",
+          "title": "2020 Volkswagen Passat Business 140TSI front.jpg",
+          "author": "LuvsMG481",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2020_Volkswagen_Passat_Business_140TSI_front.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/bf2a52659ea52bf8.jpg",
+          "title": "2020 Volkswagen Passat Business 140TSI rear.jpg",
+          "author": "LuvsMG481",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2020_Volkswagen_Passat_Business_140TSI_rear.jpg"
+        },
+        "interior": null
+      }
+    }
+  ],
+  "mercedes-benz-c-serisi": [
+    {
+      "id": "w205",
+      "fromYear": 2015,
+      "toYear": 2018,
+      "label": "W205 · Sedan",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Mercedes-Benz_C-Class"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/a5a3813abf2623e0.jpg",
+          "title": "Mercedes-Benz C 200 Avantgarde (W 205) – Frontansicht, 26. April 2014, Düsseldorf.jpg",
+          "author": "M 93",
+          "license": "CC BY-SA 3.0 de",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+          "source": "https://commons.wikimedia.org/wiki/File:Mercedes-Benz_C_200_Avantgarde_(W_205)_%E2%80%93_Frontansicht,_26._April_2014,_D%C3%BCsseldorf.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/33d46188d38c8cbe.jpg",
+          "title": "Mercedes-Benz C 200 d (W 205) – Heckansicht, 18. Oktober 2015, Ratingen.jpg",
+          "author": "M 93",
+          "license": "CC BY-SA 3.0 de",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+          "source": "https://commons.wikimedia.org/wiki/File:Mercedes-Benz_C_200_d_(W_205)_%E2%80%93_Heckansicht,_18._Oktober_2015,_Ratingen.jpg"
+        },
+        "interior": null
+      }
+    },
+    {
+      "id": "w205-fl",
+      "fromYear": 2018,
+      "toYear": 2020,
+      "label": "W205 · Makyajlı sedan",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Mercedes-Benz_C-Class"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/351a01c0acf9c7d2.jpg",
+          "title": "2020 Mercedes-Benz C300 AMG Line Night Edition Premium 2.0 Front.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2020_Mercedes-Benz_C300_AMG_Line_Night_Edition_Premium_2.0_Front.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/06d14e26acb60f44.jpg",
+          "title": "2020 Mercedes-Benz C300 AMG Line Night Edition Premium 2.0 Rear.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2020_Mercedes-Benz_C300_AMG_Line_Night_Edition_Premium_2.0_Rear.jpg"
+        },
+        "interior": {
+          "src": "vehicles/generations/e92a67a690771ce6.jpg",
+          "title": "Mercedes Benz C 2018 interior at Legendy 2018 in Prague.jpg",
+          "author": "Jiří Sedláček",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Mercedes_Benz_C_2018_interior_at_Legendy_2018_in_Prague.jpg"
+        }
+      }
+    }
+  ],
+  "mercedes-benz-glk": [
+    {
+      "id": "x204-fl",
+      "fromYear": 2013,
+      "toYear": 2015,
+      "label": "X204 · Makyajlı",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Mercedes-Benz_GLK-Class"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/ba98d2c3beb5dc80.jpg",
+          "title": "Mercedes-Benz GLK 250 BlueTEC 4MATIC Sport-Paket AMG (X 204, Facelift) – Frontansicht, 22. Februar 2014, Ratingen.jpg",
+          "author": "M 93",
+          "license": "CC BY-SA 3.0 de",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+          "source": "https://commons.wikimedia.org/wiki/File:Mercedes-Benz_GLK_250_BlueTEC_4MATIC_Sport-Paket_AMG_(X_204,_Facelift)_%E2%80%93_Frontansicht,_22._Februar_2014,_Ratingen.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/670d5b89d1c24a91.jpg",
+          "title": "Mercedes-Benz GLK 250 BlueTEC 4MATIC Sport-Paket AMG (X 204, Facelift) – Heckansicht, 22. Februar 2014, Ratingen.jpg",
+          "author": "M 93",
+          "license": "CC BY-SA 3.0 de",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+          "source": "https://commons.wikimedia.org/wiki/File:Mercedes-Benz_GLK_250_BlueTEC_4MATIC_Sport-Paket_AMG_(X_204,_Facelift)_%E2%80%93_Heckansicht,_22._Februar_2014,_Ratingen.jpg"
+        },
+        "interior": null
+      }
+    }
+  ],
+  "mercedes-benz-e-serisi": [
+    {
+      "id": "w212-fl",
+      "fromYear": 2015,
+      "toYear": 2016,
+      "label": "W212 · Makyajlı sedan",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Mercedes-Benz_E-Class"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/e66c76693d9f07d0.jpg",
+          "title": "Mercedes-Benz E 220 CDI Elegance (W 212, Facelift) – Frontansicht (1), 30. August 2014, Düsseldorf.jpg",
+          "author": "M 93",
+          "license": "CC BY-SA 3.0 de",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+          "source": "https://commons.wikimedia.org/wiki/File:Mercedes-Benz_E_220_CDI_Elegance_(W_212,_Facelift)_%E2%80%93_Frontansicht_(1),_30._August_2014,_D%C3%BCsseldorf.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/a9ad06bf21900d03.jpg",
+          "title": "Mercedes-Benz E 220 CDI Elegance (W 212, Facelift) – Heckansicht, 30. August 2014, Düsseldorf.jpg",
+          "author": "M 93",
+          "license": "CC BY-SA 3.0 de",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+          "source": "https://commons.wikimedia.org/wiki/File:Mercedes-Benz_E_220_CDI_Elegance_(W_212,_Facelift)_%E2%80%93_Heckansicht,_30._August_2014,_D%C3%BCsseldorf.jpg"
+        },
+        "interior": {
+          "src": "vehicles/generations/1f893842c2502241.jpg",
+          "title": "Mercedes-Benz E 350 BlueTEC T-Modell Avantgarde (S 212, Facelift) – Innenraum, 13. April 2013, Düsseldorf.jpg",
+          "author": "M 93",
+          "license": "CC BY-SA 3.0 de",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+          "source": "https://commons.wikimedia.org/wiki/File:Mercedes-Benz_E_350_BlueTEC_T-Modell_Avantgarde_(S_212,_Facelift)_%E2%80%93_Innenraum,_13._April_2013,_D%C3%BCsseldorf.jpg"
+        }
+      }
+    },
+    {
+      "id": "w213",
+      "fromYear": 2016,
+      "toYear": 2016,
+      "label": "W213 · Sedan",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Mercedes-Benz_E-Class"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/357cd79150fd2adb.jpg",
+          "title": "2019 Mercedes-Benz E220d SE Automatic 2.0 Front.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2019_Mercedes-Benz_E220d_SE_Automatic_2.0_Front.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/340178b56516d55b.jpg",
+          "title": "2019 Mercedes-Benz E220d SE Automatic 2.0 Rear.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2019_Mercedes-Benz_E220d_SE_Automatic_2.0_Rear.jpg"
+        },
+        "interior": null
+      }
+    }
+  ],
+  "citroen-c5": [
+    {
+      "id": "x7-fl",
+      "fromYear": 2013,
+      "toYear": 2017,
+      "label": "X7 · Makyajlı sedan",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Citro%C3%ABn_C5"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/132278456292686d.jpg",
+          "title": "Citroën C5 2.0 BlueHDi (2015) (53514204635).jpg",
+          "author": "Charles from Port Chester, New York",
+          "license": "CC BY 2.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by/2.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Citro%C3%ABn_C5_2.0_BlueHDi_(2015)_(53514204635).jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/8aa0fd51c058c153.jpg",
+          "title": "2017 Citroen C5 Sedan Rear.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2017_Citroen_C5_Sedan_Rear.jpg"
+        },
+        "interior": {
+          "src": "vehicles/generations/baf67bb3f778c2ba.jpg",
+          "title": "C5 Exclusive.jpg",
+          "author": "DILI89",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:C5_Exclusive.jpg"
+        }
+      }
+    }
+  ],
+  "volvo-xc60": [
+    {
+      "id": "i-fl",
+      "fromYear": 2015,
+      "toYear": 2017,
+      "label": "1. nesil · Makyajlı",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Volvo_XC60"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/6dacc6254a3fef5b.jpg",
+          "title": "2017 Volvo XC60 R-Design NAV D4 Automatic 2.0 Front.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2017_Volvo_XC60_R-Design_NAV_D4_Automatic_2.0_Front.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/7c74caba8faea17a.jpg",
+          "title": "2017 Volvo XC60 R-Design NAV D4 Automatic 2.0 Rear.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2017_Volvo_XC60_R-Design_NAV_D4_Automatic_2.0_Rear.jpg"
+        },
+        "interior": null
+      }
+    },
+    {
+      "id": "ii",
+      "fromYear": 2017,
+      "toYear": 2018,
+      "label": "2. nesil",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Volvo_XC60"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/3644fa0af55ae944.jpg",
+          "title": "2018 Volvo XC60 R-Design D5 P-Pulse 2.0 Front.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2018_Volvo_XC60_R-Design_D5_P-Pulse_2.0_Front.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/f8911336b53f6929.jpg",
+          "title": "JAIA18 Volvo XC60 T5 AWD Inscription 2.jpg",
+          "author": "Shirley 501JFW",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:JAIA18_Volvo_XC60_T5_AWD_Inscription_2.jpg"
+        },
+        "interior": {
+          "src": "vehicles/generations/0d12b93470293dbb.jpg",
+          "title": "Volvo XC60 - wnętrze (MSP17).jpg",
+          "author": "Jakub \"flyz1\" Maciejewski",
+          "license": "CC BY-SA 3.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Volvo_XC60_-_wn%C4%99trze_(MSP17).jpg"
+        }
+      }
+    }
+  ],
+  "volvo-xc40": [
+    {
+      "id": "pre-fl",
+      "fromYear": 2018,
+      "toYear": 2022,
+      "label": "XC40 · İlk tasarım",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Volvo_XC40"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/28dd2bc88b318b01.jpg",
+          "title": "2019 Volvo XC40 T5 Momentum in Bright Silver Metallic, front left, 2025-09-22.jpg",
+          "author": "Elise240SX",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2019_Volvo_XC40_T5_Momentum_in_Bright_Silver_Metallic,_front_left,_2025-09-22.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/9b92a20c66c19e7a.jpg",
+          "title": "2019 Volvo XC40 T5 Momentum in Bright Silver Metallic, rear left, 2025-09-22.jpg",
+          "author": "Elise240SX",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2019_Volvo_XC40_T5_Momentum_in_Bright_Silver_Metallic,_rear_left,_2025-09-22.jpg"
+        },
+        "interior": {
+          "src": "vehicles/generations/d7e069e72e478cce.jpg",
+          "title": "Volvo XC40 Monrepos 2018 IMG 0088.jpg",
+          "author": "Alexander Migl",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Volvo_XC40_Monrepos_2018_IMG_0088.jpg"
+        }
+      }
+    },
+    {
+      "id": "fl",
+      "fromYear": 2023,
+      "toYear": 2023,
+      "label": "XC40 · Makyajlı",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Volvo_XC40"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/e7390780c58e376e.jpg",
+          "title": "Volvo XC40 Facelift 1X7A0883.jpg",
+          "author": "Alexander Migl",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Volvo_XC40_Facelift_1X7A0883.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/5d2735251609cffc.jpg",
+          "title": "Volvo XC40 Facelift 1X7A6403.jpg",
+          "author": "Alexander Migl",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Volvo_XC40_Facelift_1X7A6403.jpg"
+        },
+        "interior": {
+          "src": "vehicles/generations/d7e069e72e478cce.jpg",
+          "title": "Volvo XC40 Monrepos 2018 IMG 0088.jpg",
+          "author": "Alexander Migl",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Volvo_XC40_Monrepos_2018_IMG_0088.jpg"
+        }
+      }
+    }
+  ],
+  "volvo-s90": [
+    {
+      "id": "spa",
+      "fromYear": 2016,
+      "toYear": 2018,
+      "label": "SPA · Sedan",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Volvo_S90"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/4f560a257b36d623.jpg",
+          "title": "2018 Volvo S90 R-Design D4 Automatic 2.0 Front.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2018_Volvo_S90_R-Design_D4_Automatic_2.0_Front.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/77d9a69090d9ddc7.jpg",
+          "title": "2018 Volvo S90 R-Design D4 Automatic 2.0 Rear.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2018_Volvo_S90_R-Design_D4_Automatic_2.0_Rear.jpg"
+        },
+        "interior": {
+          "src": "vehicles/generations/3b16dfa797b1f20e.jpg",
+          "title": "Volvo S90 (SPA) interior.jpg",
+          "author": "MichalPL",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Volvo_S90_(SPA)_interior.jpg"
+        }
+      }
+    }
+  ],
+  "audi-a4": [
+    {
+      "id": "b8-fl",
+      "fromYear": 2015,
+      "toYear": 2015,
+      "label": "B8 · Makyajlı sedan",
+      "sources": [
+        {
+          "label": "Audi Türkiye · B9 ve B9-PA model yılları",
+          "url": "https://shop.audi.com.tr/h%C4%B1z-ayar-sistemi-ilave-donan%C4%B1m%C4%B1"
+        },
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Audi_A4"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/4cae27ed43ea4e7c.jpg",
+          "title": "Audi A4 2.0 TDI Ambition (B8, Facelift) – Frontansicht, 30. Juli 2012, Ratingen.jpg",
+          "author": "M 93",
+          "license": "CC BY-SA 3.0 de",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+          "source": "https://commons.wikimedia.org/wiki/File:Audi_A4_2.0_TDI_Ambition_(B8,_Facelift)_%E2%80%93_Frontansicht,_30._Juli_2012,_Ratingen.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/bf63fa542924a38d.jpg",
+          "title": "Audi A4 2.0 TDI Ambition (B8, Facelift) – Heckansicht, 30. Juli 2012, Ratingen.jpg",
+          "author": "M 93",
+          "license": "CC BY-SA 3.0 de",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+          "source": "https://commons.wikimedia.org/wiki/File:Audi_A4_2.0_TDI_Ambition_(B8,_Facelift)_%E2%80%93_Heckansicht,_30._Juli_2012,_Ratingen.jpg"
+        },
+        "interior": null
+      }
+    },
+    {
+      "id": "b9",
+      "fromYear": 2016,
+      "toYear": 2019,
+      "label": "B9 · Sedan",
+      "sources": [
+        {
+          "label": "Audi Türkiye · B9 ve B9-PA model yılları",
+          "url": "https://shop.audi.com.tr/h%C4%B1z-ayar-sistemi-ilave-donan%C4%B1m%C4%B1"
+        },
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Audi_A4"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/97a079ea018b26c9.jpg",
+          "title": "2017 Audi A4 (8W) sport quattro sedan (2018-10-19) 01.jpg",
+          "author": "EurovisionNim",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2017_Audi_A4_(8W)_sport_quattro_sedan_(2018-10-19)_01.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/16879a1548725bce.jpg",
+          "title": "2017 Audi A4 (8W) sport quattro sedan (2018-10-19) 02.jpg",
+          "author": "EurovisionNim",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2017_Audi_A4_(8W)_sport_quattro_sedan_(2018-10-19)_02.jpg"
+        },
+        "interior": {
+          "src": "vehicles/generations/7fc1a7d3ff9e8f23.jpg",
+          "title": "2015 Audi A4 B9 2.0 TFSI quattro 185 kW S line Interieur Innenraum Cockpit.jpg",
+          "author": "Kickaffe (Mario von Berg)",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2015_Audi_A4_B9_2.0_TFSI_quattro_185_kW_S_line_Interieur_Innenraum_Cockpit.jpg"
+        }
+      }
+    },
+    {
+      "id": "b9-fl",
+      "fromYear": 2020,
+      "toYear": 2021,
+      "label": "B9 · Makyajlı sedan",
+      "sources": [
+        {
+          "label": "Audi Türkiye · B9 ve B9-PA model yılları",
+          "url": "https://shop.audi.com.tr/h%C4%B1z-ayar-sistemi-ilave-donan%C4%B1m%C4%B1"
+        },
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Audi_A4"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/45257bb93d4e5f7c.jpg",
+          "title": "Audi A4 B9 sedans (FL) 1X7A2441.jpg",
+          "author": "Alexander-93",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Audi_A4_B9_sedans_(FL)_1X7A2441.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/ee580c0279f45bc8.jpg",
+          "title": "2020 Audi A4 S Line 35 TDi S-A 2.0 facelift Rear.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2020_Audi_A4_S_Line_35_TDi_S-A_2.0_facelift_Rear.jpg"
+        },
+        "interior": null
+      }
+    }
+  ],
+  "audi-q3": [
+    {
+      "id": "8u-fl",
+      "fromYear": 2015,
+      "toYear": 2018,
+      "label": "8U · Makyajlı SUV",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Audi_Q3"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/8425202e8ff0068a.jpg",
+          "title": "Audi Q3 quattro Sport (Facelift) – Frontansicht, 3. Januar 2016, Düsseldorf.jpg",
+          "author": "© M 93",
+          "license": "CC BY-SA 3.0 de",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+          "source": "https://commons.wikimedia.org/wiki/File:Audi_Q3_quattro_Sport_(Facelift)_%E2%80%93_Frontansicht,_3._Januar_2016,_D%C3%BCsseldorf.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/0f0fda56ee2c47fb.jpg",
+          "title": "Audi Q3 quattro Sport (Facelift) – Heckansicht, 3. Januar 2016, Düsseldorf.jpg",
+          "author": "© M 93",
+          "license": "CC BY-SA 3.0 de",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+          "source": "https://commons.wikimedia.org/wiki/File:Audi_Q3_quattro_Sport_(Facelift)_%E2%80%93_Heckansicht,_3._Januar_2016,_D%C3%BCsseldorf.jpg"
+        },
+        "interior": {
+          "src": "vehicles/generations/60568546b961dec9.jpg",
+          "title": "2015 Audi Q3 2.0 TDI quattro Facelift Typ 8U Interieur Cockpit Innenraum.jpg",
+          "author": "Kickaffe (Mario von Berg)",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2015_Audi_Q3_2.0_TDI_quattro_Facelift_Typ_8U_Interieur_Cockpit_Innenraum.jpg"
+        }
+      }
+    },
+    {
+      "id": "f3",
+      "fromYear": 2019,
+      "toYear": 2023,
+      "label": "F3 · SUV",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Audi_Q3"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/e3cafdd124764987.jpg",
+          "title": "Audi Q3 F3 DSC 7494.jpg",
+          "author": "Alexander Migl",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Audi_Q3_F3_DSC_7494.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/1b32790d0c9ef039.jpg",
+          "title": "2020 Audi Q3 S Line 35 TFSi MHEV S-A 1.5 Rear (1).jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2020_Audi_Q3_S_Line_35_TFSi_MHEV_S-A_1.5_Rear_(1).jpg"
+        },
+        "interior": null
+      }
+    }
+  ],
+  "audi-a5": [
+    {
+      "id": "8t-fl",
+      "fromYear": 2015,
+      "toYear": 2017,
+      "label": "8T · Makyajlı Sportback",
+      "sources": [
+        {
+          "label": "Audi Türkiye · Sportback model yılları",
+          "url": "https://shop.audi.com.tr/h%C4%B1z-ayar-sistemi-ilave-donan%C4%B1m%C4%B1"
+        },
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Audi_A5"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/1b9bedd770a047eb.jpg",
+          "title": "Audi A5 Sportback 2.0 TDI Teakbraun Facelift.JPG",
+          "author": "Thomas doerfer",
+          "license": "CC BY 3.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Audi_A5_Sportback_2.0_TDI_Teakbraun_Facelift.JPG"
+        },
+        "rear": {
+          "src": "vehicles/generations/0899da55b8bbcae4.jpg",
+          "title": "Audi A5 Sportback 2.0 TDI Teakbraun Facelift Heck.JPG",
+          "author": "Thomas doerfer",
+          "license": "CC BY 3.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Audi_A5_Sportback_2.0_TDI_Teakbraun_Facelift_Heck.JPG"
+        },
+        "interior": {
+          "src": "vehicles/generations/2f375a909dfe0d43.jpg",
+          "title": "Audi A5 Sportback 2.0 TDI Teakbraun Facelift Interieur.JPG",
+          "author": "Thomas doerfer",
+          "license": "CC BY 3.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Audi_A5_Sportback_2.0_TDI_Teakbraun_Facelift_Interieur.JPG"
+        }
+      }
+    },
+    {
+      "id": "f5",
+      "fromYear": 2017,
+      "toYear": 2019,
+      "label": "F5 · Sportback",
+      "sources": [
+        {
+          "label": "Audi Türkiye · Sportback model yılları",
+          "url": "https://shop.audi.com.tr/h%C4%B1z-ayar-sistemi-ilave-donan%C4%B1m%C4%B1"
+        },
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Audi_A5"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/8eb9bafb369d93f5.jpg",
+          "title": "Audi A5 Sportback 2.0TFSI sport (DBA-F5CVKL) front.jpg",
+          "author": "Tokumeigakarinoaoshima",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Audi_A5_Sportback_2.0TFSI_sport_(DBA-F5CVKL)_front.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/a3e0b48a0f9c9c80.jpg",
+          "title": "Audi A5 Sportback 2.0TFSI sport (DBA-F5CVKL) rear.jpg",
+          "author": "Tokumeigakarinoaoshima",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Audi_A5_Sportback_2.0TFSI_sport_(DBA-F5CVKL)_rear.jpg"
+        },
+        "interior": null
+      }
+    }
+  ],
+  "audi-q5": [
+    {
+      "id": "8r-fl",
+      "fromYear": 2015,
+      "toYear": 2017,
+      "label": "8R · Makyajlı",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Audi_Q5"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/1e6d5bcf4d99d712.jpg",
+          "title": "Audi Q5 2.0 TDI quattro S-line (Facelift) – Frontansicht, 23. September 2012, Hilden.jpg",
+          "author": "M 93",
+          "license": "CC BY-SA 3.0 de",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+          "source": "https://commons.wikimedia.org/wiki/File:Audi_Q5_2.0_TDI_quattro_S-line_(Facelift)_%E2%80%93_Frontansicht,_23._September_2012,_Hilden.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/0a4a341fd8523c97.jpg",
+          "title": "Audi Q5 Facelift S line 2.0 TFSI quattro tiptronic Daytonagrau Heck.JPG",
+          "author": "Thomas doerfer",
+          "license": "CC BY 3.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Audi_Q5_Facelift_S_line_2.0_TFSI_quattro_tiptronic_Daytonagrau_Heck.JPG"
+        },
+        "interior": null
+      }
+    },
+    {
+      "id": "fy",
+      "fromYear": 2017,
+      "toYear": 2017,
+      "label": "FY · 2. nesil",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Audi_Q5"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/ea9216b03253ab3e.jpg",
+          "title": "2018 Audi Q5 S Line TDi Quattro S-A 2.0 Front.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2018_Audi_Q5_S_Line_TDi_Quattro_S-A_2.0_Front.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/b7c39dea6649a006.jpg",
+          "title": "2018 Audi Q5 S Line TDi Quattro S-A 2.0 Rear.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2018_Audi_Q5_S_Line_TDi_Quattro_S-A_2.0_Rear.jpg"
+        },
+        "interior": null
+      }
+    }
+  ],
+  "audi-a6": [
+    {
+      "id": "c7-fl",
+      "fromYear": 2015,
+      "toYear": 2018,
+      "label": "C7 · Makyajlı sedan",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Audi_A6"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/c2cf3e5bb19c7e3b.jpg",
+          "title": "2016 Audi A6 (4G MY17) 3.0 TDI Biturbo sedan (2018-10-29) 01.jpg",
+          "author": "EurovisionNim",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2016_Audi_A6_(4G_MY17)_3.0_TDI_Biturbo_sedan_(2018-10-29)_01.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/78babffc9de5920d.jpg",
+          "title": "2016 Audi A6 (4G MY17) 3.0 TDI Biturbo sedan (2018-10-29) 02.jpg",
+          "author": "EurovisionNim",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2016_Audi_A6_(4G_MY17)_3.0_TDI_Biturbo_sedan_(2018-10-29)_02.jpg"
+        },
+        "interior": {
+          "src": "vehicles/generations/1277288a1cb873ec.jpg",
+          "title": "Audi A6 Limousine 3.0 TDI quattro S tronic Mondscheinblau Interieur.JPG",
+          "author": "Thomas doerfer",
+          "license": "CC BY 3.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Audi_A6_Limousine_3.0_TDI_quattro_S_tronic_Mondscheinblau_Interieur.JPG"
+        }
+      }
+    },
+    {
+      "id": "c8",
+      "fromYear": 2018,
+      "toYear": 2018,
+      "label": "C8 · Sedan",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Audi_A6"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/5784aa4fbef04638.jpg",
+          "title": "2018 Audi A6 TDi Quattro Front.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2018_Audi_A6_TDi_Quattro_Front.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/4c717fedfde1152e.jpg",
+          "title": "2018 Audi A6 TDi Quattro Rear.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2018_Audi_A6_TDi_Quattro_Rear.jpg"
+        },
+        "interior": {
+          "src": "vehicles/generations/2c3fde83e08e25e4.jpg",
+          "title": "Audi A6, GIMS 2018, Le Grand-Saconnex (1X7A1762).jpg",
+          "author": "Matti Blume",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Audi_A6,_GIMS_2018,_Le_Grand-Saconnex_(1X7A1762).jpg"
+        }
+      }
+    }
+  ],
+  "audi-a7": [
+    {
+      "id": "4g-fl",
+      "fromYear": 2015,
+      "toYear": 2015,
+      "label": "4G · Makyajlı Sportback",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Audi_A7"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/82feb4edad0d86c9.jpg",
+          "title": "Audi A7 3.0 TFSI quattro S line Facelift.JPG",
+          "author": "Thomas doerfer",
+          "license": "CC BY-SA 3.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Audi_A7_3.0_TFSI_quattro_S_line_Facelift.JPG"
+        },
+        "rear": {
+          "src": "vehicles/generations/002b7be8c68ce2c8.jpg",
+          "title": "Audi A7 3.0 TFSI quattro S line Facelift Heck.JPG",
+          "author": "Thomas doerfer",
+          "license": "CC BY-SA 3.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Audi_A7_3.0_TFSI_quattro_S_line_Facelift_Heck.JPG"
+        },
+        "interior": {
+          "src": "vehicles/generations/136e1b96bc5f1bbd.jpg",
+          "title": "2014 Audi A7 Sportback Typ 4G Facelift 3.0 TDI competition quattro Biturbo clean diesel V6 tiptronic Cockpit Innenraum Interieur.jpg",
+          "author": "Kickaffe (Mario von Berg)",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2014_Audi_A7_Sportback_Typ_4G_Facelift_3.0_TDI_competition_quattro_Biturbo_clean_diesel_V6_tiptronic_Cockpit_Innenraum_Interieur.jpg"
+        }
+      }
+    }
+  ],
+  "peugeot-2008": [
+    {
+      "id": "i",
+      "fromYear": 2015,
+      "toYear": 2016,
+      "label": "1. nesil",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Peugeot_2008"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/13dce93f50341ebb.jpg",
+          "title": "2015 Peugeot 2008 in Bianca White, front right, 06-08-2025.jpg",
+          "author": "Cutlass",
+          "license": "CC0",
+          "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+          "source": "https://commons.wikimedia.org/wiki/File:2015_Peugeot_2008_in_Bianca_White,_front_right,_06-08-2025.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/55741f632d662aac.jpg",
+          "title": "2015 Peugeot 2008 in Bianca White, rear right, 06-08-2025.jpg",
+          "author": "Cutlass",
+          "license": "CC0",
+          "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+          "source": "https://commons.wikimedia.org/wiki/File:2015_Peugeot_2008_in_Bianca_White,_rear_right,_06-08-2025.jpg"
+        },
+        "interior": {
+          "src": "vehicles/generations/362c3caceeb1343a.jpg",
+          "title": "Peugeot 2008 Allure e-HDi 116 inside 1.jpg",
+          "author": "peugeot-laumer",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Peugeot_2008_Allure_e-HDi_116_inside_1.jpg"
+        }
+      }
+    },
+    {
+      "id": "i-fl",
+      "fromYear": 2016,
+      "toYear": 2019,
+      "label": "1. nesil · Makyajlı",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Peugeot_2008"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/efe9fcc6d92dfac1.jpg",
+          "title": "2017 Peugeot 2008 Allure 1.2 Front.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2017_Peugeot_2008_Allure_1.2_Front.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/792c5078516df8da.jpg",
+          "title": "2017 Peugeot 2008 Allure 1.2 Rear.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2017_Peugeot_2008_Allure_1.2_Rear.jpg"
+        },
+        "interior": {
+          "src": "vehicles/generations/362c3caceeb1343a.jpg",
+          "title": "Peugeot 2008 Allure e-HDi 116 inside 1.jpg",
+          "author": "peugeot-laumer",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Peugeot_2008_Allure_e-HDi_116_inside_1.jpg"
+        }
+      }
+    },
+    {
+      "id": "ii",
+      "fromYear": 2020,
+      "toYear": 2023,
+      "label": "2. nesil",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Peugeot_2008"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/9c6088a54e94dfd6.jpg",
+          "title": "2020 Peugeot 2008 Allure Front.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2020_Peugeot_2008_Allure_Front.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/864a81c278094c03.jpg",
+          "title": "2020 Peugeot 2008 Allure Rear.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2020_Peugeot_2008_Allure_Rear.jpg"
+        },
+        "interior": null
+      }
+    },
+    {
+      "id": "ii-fl",
+      "fromYear": 2023,
+      "toYear": 2026,
+      "label": "2. nesil · Makyajlı",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Peugeot_2008"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/21a39c8ebb1b92ef.jpg",
+          "title": "Peugeot e-2008 Facelift Autofrühling Ulm IMG 9298.jpg",
+          "author": "Alexander-93",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Peugeot_e-2008_Facelift_Autofr%C3%BChling_Ulm_IMG_9298.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/ab9b5fff3bd2c61c.jpg",
+          "title": "Peugeot e-2008 Facelift Autofrühling Ulm IMG 9288.jpg",
+          "author": "Alexander-93",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Peugeot_e-2008_Facelift_Autofr%C3%BChling_Ulm_IMG_9288.jpg"
+        },
+        "interior": null
+      }
+    }
+  ],
+  "opel-insignia": [
+    {
+      "id": "a-fl",
+      "fromYear": 2015,
+      "toYear": 2017,
+      "label": "A · Makyajlı liftback",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Opel_Insignia"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/b7c0164eccf1bce3.jpg",
+          "title": "2016 Opel Insignia in Dark Sea Blue Pearl Effect, front left, 06-05-2025.jpg",
+          "author": "Cutlass",
+          "license": "CC0",
+          "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+          "source": "https://commons.wikimedia.org/wiki/File:2016_Opel_Insignia_in_Dark_Sea_Blue_Pearl_Effect,_front_left,_06-05-2025.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/3a33374c873174e5.jpg",
+          "title": "2016 Opel Insignia in Dark Sea Blue Pearl Effect, rear left, 06-05-2025.jpg",
+          "author": "Cutlass",
+          "license": "CC0",
+          "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+          "source": "https://commons.wikimedia.org/wiki/File:2016_Opel_Insignia_in_Dark_Sea_Blue_Pearl_Effect,_rear_left,_06-05-2025.jpg"
+        },
+        "interior": null
+      }
+    },
+    {
+      "id": "b",
+      "fromYear": 2017,
+      "toYear": 2020,
+      "label": "B · Grand Sport",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Opel_Insignia"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/bd063c0d6fbc5dbf.jpg",
+          "title": "Opel Insignia Grand Sport 1.6 Diesel Business Innovation (B) – Frontansicht, 5. Mai 2017, Düsseldorf.jpg",
+          "author": "© M 93",
+          "license": "CC BY-SA 3.0 de",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+          "source": "https://commons.wikimedia.org/wiki/File:Opel_Insignia_Grand_Sport_1.6_Diesel_Business_Innovation_(B)_%E2%80%93_Frontansicht,_5._Mai_2017,_D%C3%BCsseldorf.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/1f1b290eb02b24ff.jpg",
+          "title": "Opel Insignia Grand Sport 1.6 Diesel Business Innovation (B) – Heckansicht, 5. Mai 2017, Düsseldorf.jpg",
+          "author": "© M 93",
+          "license": "CC BY-SA 3.0 de",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+          "source": "https://commons.wikimedia.org/wiki/File:Opel_Insignia_Grand_Sport_1.6_Diesel_Business_Innovation_(B)_%E2%80%93_Heckansicht,_5._Mai_2017,_D%C3%BCsseldorf.jpg"
+        },
+        "interior": null
+      }
+    },
+    {
+      "id": "b-fl",
+      "fromYear": 2020,
+      "toYear": 2022,
+      "label": "B · Makyajlı Grand Sport",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Opel_Insignia"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/7e1ef8d42953f82b.jpg",
+          "title": "Opel Insignia B FL IMG 4456.jpg",
+          "author": "Alexander Migl",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Opel_Insignia_B_FL_IMG_4456.jpg"
+        },
+        "rear": null,
+        "interior": null
+      }
+    }
+  ],
+  "peugeot-3008": [
+    {
+      "id": "i-fl",
+      "fromYear": 2015,
+      "toYear": 2016,
+      "label": "1. nesil · Makyajlı",
+      "sources": [
+        {
+          "label": "Peugeot Türkiye · Eylül 2024 yeni kasa",
+          "url": "https://basin.peugeot.com.tr/yeni-peugeot-3008-eylul-ayinda-turkiyede"
+        },
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Peugeot_3008"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/a4d00f3a0049bc99.jpg",
+          "title": "2016 Peugeot 3008 in Vapor Grey, front left, 06-08-2025.jpg",
+          "author": "Cutlass",
+          "license": "CC0",
+          "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+          "source": "https://commons.wikimedia.org/wiki/File:2016_Peugeot_3008_in_Vapor_Grey,_front_left,_06-08-2025.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/8515d39cbd60740a.jpg",
+          "title": "2016 Peugeot 3008 in Vapor Grey, rear left, 06-08-2025.jpg",
+          "author": "Cutlass",
+          "license": "CC0",
+          "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+          "source": "https://commons.wikimedia.org/wiki/File:2016_Peugeot_3008_in_Vapor_Grey,_rear_left,_06-08-2025.jpg"
+        },
+        "interior": null
+      }
+    },
+    {
+      "id": "ii",
+      "fromYear": 2016,
+      "toYear": 2020,
+      "label": "2. nesil",
+      "sources": [
+        {
+          "label": "Peugeot Türkiye · Eylül 2024 yeni kasa",
+          "url": "https://basin.peugeot.com.tr/yeni-peugeot-3008-eylul-ayinda-turkiyede"
+        },
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Peugeot_3008"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/2b75687da4cc9712.jpg",
+          "title": "Peugeot 3008 BlueHDi 180 EAT8 GT (II) – Frontansicht, 25. November 2018, Düsseldorf.jpg",
+          "author": "© M 93",
+          "license": "CC BY-SA 3.0 de",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+          "source": "https://commons.wikimedia.org/wiki/File:Peugeot_3008_BlueHDi_180_EAT8_GT_(II)_%E2%80%93_Frontansicht,_25._November_2018,_D%C3%BCsseldorf.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/e2b26d509f77488e.jpg",
+          "title": "Peugeot 3008 BlueHDi 180 EAT8 GT (II) – Heckansicht (1), 25. November 2018, Düsseldorf.jpg",
+          "author": "© M 93",
+          "license": "CC BY-SA 3.0 de",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+          "source": "https://commons.wikimedia.org/wiki/File:Peugeot_3008_BlueHDi_180_EAT8_GT_(II)_%E2%80%93_Heckansicht_(1),_25._November_2018,_D%C3%BCsseldorf.jpg"
+        },
+        "interior": {
+          "src": "vehicles/generations/b6ca89399b04eade.jpg",
+          "title": "Peugeot 3008 THP 165 EAT6 Allure GT-Line (II) – Innenraum, 20. September 2017, Düsseldorf.jpg",
+          "author": "© M 93",
+          "license": "CC BY-SA 3.0 de",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+          "source": "https://commons.wikimedia.org/wiki/File:Peugeot_3008_THP_165_EAT6_Allure_GT-Line_(II)_%E2%80%93_Innenraum,_20._September_2017,_D%C3%BCsseldorf.jpg"
+        }
+      }
+    },
+    {
+      "id": "ii-fl",
+      "fromYear": 2021,
+      "toYear": 2024,
+      "label": "2. nesil · Makyajlı",
+      "sources": [
+        {
+          "label": "Peugeot Türkiye · Eylül 2024 yeni kasa",
+          "url": "https://basin.peugeot.com.tr/yeni-peugeot-3008-eylul-ayinda-turkiyede"
+        },
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Peugeot_3008"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/5cd14da9a604db2f.jpg",
+          "title": "2021 Peugeot 3008 B Hybrid4 1X7A5797.jpg",
+          "author": "Alexander Migl",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2021_Peugeot_3008_B_Hybrid4_1X7A5797.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/8be1e8f32f1ef2ac.jpg",
+          "title": "2021 Peugeot 3008 B Hybrid4 1X7A5799.jpg",
+          "author": "Alexander Migl",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2021_Peugeot_3008_B_Hybrid4_1X7A5799.jpg"
+        },
+        "interior": null
+      }
+    },
+    {
+      "id": "iii",
+      "fromYear": 2024,
+      "toYear": 2026,
+      "label": "3. nesil · Fastback",
+      "sources": [
+        {
+          "label": "Peugeot Türkiye · Eylül 2024 yeni kasa",
+          "url": "https://basin.peugeot.com.tr/yeni-peugeot-3008-eylul-ayinda-turkiyede"
+        },
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Peugeot_3008"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/c5a2cb117aeb601f.jpg",
+          "title": "Peugeot e-3008 Automesse Ludwigsburg 2024 IMG 1537.jpg",
+          "author": "Alexander-93",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Peugeot_e-3008_Automesse_Ludwigsburg_2024_IMG_1537.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/8251bc9a88b53d22.jpg",
+          "title": "Peugeot e-3008 Automesse Ludwigsburg 2024 IMG 1367.jpg",
+          "author": "Alexander-93",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Peugeot_e-3008_Automesse_Ludwigsburg_2024_IMG_1367.jpg"
+        },
+        "interior": {
+          "src": "vehicles/generations/01586584ac63f5fa.jpg",
+          "title": "Peugeot e-3008 Auto Zuerich 2023 1X7A1333.jpg",
+          "author": "Alexander-93",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Peugeot_e-3008_Auto_Zuerich_2023_1X7A1333.jpg"
+        }
+      }
+    }
+  ],
+  "volkswagen-touareg": [
+    {
+      "id": "7p-fl",
+      "fromYear": 2015,
+      "toYear": 2016,
+      "label": "7P · Makyajlı 2. nesil",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Volkswagen_Touareg"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/4a8dc7c579963420.jpg",
+          "title": "2015 Volkswagen Touareg V6 R-Line TDi BMT 3.0.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2015_Volkswagen_Touareg_V6_R-Line_TDi_BMT_3.0.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/ecb183ab5c75a187.jpg",
+          "title": "VW Touareg 3.0 TDI V6 SCR 4Motion Facelift Heck.JPG",
+          "author": "TD",
+          "license": "CC BY-SA 3.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+          "source": "https://commons.wikimedia.org/wiki/File:VW_Touareg_3.0_TDI_V6_SCR_4Motion_Facelift_Heck.JPG"
+        },
+        "interior": null
+      }
+    }
+  ],
+  "land-rover-discovery-sport": [
+    {
+      "id": "l550",
+      "fromYear": 2015,
+      "toYear": 2019,
+      "label": "L550 · İlk tasarım",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Land_Rover_Discovery_Sport"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/e295f1685a2714f1.jpg",
+          "title": "2016 Land Rover Discovery Sport SE Tech T 2.0 Front.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2016_Land_Rover_Discovery_Sport_SE_Tech_T_2.0_Front.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/64eac786a7921aee.jpg",
+          "title": "2016 Land Rover Discovery Sport SE Tech T 2.0 Rear.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2016_Land_Rover_Discovery_Sport_SE_Tech_T_2.0_Rear.jpg"
+        },
+        "interior": {
+          "src": "vehicles/generations/3c348590597df035.jpg",
+          "title": "Land Rover Discovery Sport - Interior (14916361129).jpg",
+          "author": "Land Rover MENA",
+          "license": "CC BY 2.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by/2.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Land_Rover_Discovery_Sport_-_Interior_(14916361129).jpg"
+        }
+      }
+    },
+    {
+      "id": "l550-fl",
+      "fromYear": 2019,
+      "toYear": 2020,
+      "label": "L550 · Makyajlı",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Land_Rover_Discovery_Sport"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/2ccb59e4548db378.jpg",
+          "title": "2019 Land Rover Discovery Sport R-Dynamic SE 2.0 Front.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2019_Land_Rover_Discovery_Sport_R-Dynamic_SE_2.0_Front.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/50d21504749bdbf7.jpg",
+          "title": "2019 Land Rover Discovery Sport R-Dynamic SE 2.0 Rear.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2019_Land_Rover_Discovery_Sport_R-Dynamic_SE_2.0_Rear.jpg"
+        },
+        "interior": null
+      }
+    }
+  ],
+  "land-rover-range-rover-evoque": [
+    {
+      "id": "l538",
+      "fromYear": 2015,
+      "toYear": 2015,
+      "label": "L538 · 5 kapı",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Range_Rover_Evoque"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/5cf40574b2f479c1.jpg",
+          "title": "2011 Land Rover Range Rover Evoque Pure SD4 2.2 Front.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2011_Land_Rover_Range_Rover_Evoque_Pure_SD4_2.2_Front.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/2fef3650a0cdde4f.jpg",
+          "title": "Range Rover Evoque SD4 4WD Prestige – Heckansicht, 12. Juli 2014, Düsseldorf.jpg",
+          "author": "M 93",
+          "license": "CC BY-SA 3.0 de",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+          "source": "https://commons.wikimedia.org/wiki/File:Range_Rover_Evoque_SD4_4WD_Prestige_%E2%80%93_Heckansicht,_12._Juli_2014,_D%C3%BCsseldorf.jpg"
+        },
+        "interior": null
+      }
+    },
+    {
+      "id": "l538-fl",
+      "fromYear": 2016,
+      "toYear": 2017,
+      "label": "L538 · Makyajlı 5 kapı",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Range_Rover_Evoque"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/9c5eae393437acaa.jpg",
+          "title": "2017 Range Rover Evoque HSE 2.0 Front.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2017_Range_Rover_Evoque_HSE_2.0_Front.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/ac5a729472b7f830.jpg",
+          "title": "2017 Range Rover Evoque HSE 2.0 Rear.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2017_Range_Rover_Evoque_HSE_2.0_Rear.jpg"
+        },
+        "interior": null
+      }
+    }
+  ],
+  "mercedes-benz-glc": [
+    {
+      "id": "x253",
+      "fromYear": 2015,
+      "toYear": 2017,
+      "label": "X253 · SUV",
+      "sources": [
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Mercedes_GLC"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/f6072a410b50206e.jpg",
+          "title": "2018 Mercedes-Benz GLC 250 Urban Edition 4MATIC 2.0 Front.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2018_Mercedes-Benz_GLC_250_Urban_Edition_4MATIC_2.0_Front.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/1b6b4fc1c3e64a1e.jpg",
+          "title": "2018 Mercedes-Benz GLC 250 Urban Edition 4MATIC 2.0 Rear.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2018_Mercedes-Benz_GLC_250_Urban_Edition_4MATIC_2.0_Rear.jpg"
+        },
+        "interior": null
+      }
+    }
+  ],
+  "hyundai-tucson": [
+    {
+      "id": "tl",
+      "fromYear": 2015,
+      "toYear": 2018,
+      "label": "TL · 3. nesil",
+      "sources": [
+        {
+          "label": "Hyundai Türkiye · Güncel Tucson",
+          "url": "https://www.hyundai.com/tr/tr/modeller/tucson.html"
+        },
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Hyundai_Tucson"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/a09a1467fb4f006e.jpg",
+          "title": "Hyundai Tucson 2.0 CRDi 4WD Premium (III) – Frontansicht, 5. September 2015, Düsseldorf (colour corrected).jpg",
+          "author": "M 93",
+          "license": "CC BY-SA 3.0 de",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+          "source": "https://commons.wikimedia.org/wiki/File:Hyundai_Tucson_2.0_CRDi_4WD_Premium_(III)_%E2%80%93_Frontansicht,_5._September_2015,_D%C3%BCsseldorf_(colour_corrected).jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/eabc03259e8c294b.jpg",
+          "title": "Hyundai Tucson 2.0 CRDi 4WD Premium (III) – Heckansicht, 5. September 2015, Düsseldorf.jpg",
+          "author": "M 93",
+          "license": "CC BY-SA 3.0 de",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+          "source": "https://commons.wikimedia.org/wiki/File:Hyundai_Tucson_2.0_CRDi_4WD_Premium_(III)_%E2%80%93_Heckansicht,_5._September_2015,_D%C3%BCsseldorf.jpg"
+        },
+        "interior": null
+      }
+    },
+    {
+      "id": "tl-fl",
+      "fromYear": 2018,
+      "toYear": 2020,
+      "label": "TL · Makyajlı",
+      "sources": [
+        {
+          "label": "Hyundai Türkiye · Güncel Tucson",
+          "url": "https://www.hyundai.com/tr/tr/modeller/tucson.html"
+        },
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Hyundai_Tucson"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/2aff0a67f9cd93b1.jpg",
+          "title": "2018 Hyundai Tucson Premium SE CRDi 2WD facelift 2.0 Front.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2018_Hyundai_Tucson_Premium_SE_CRDi_2WD_facelift_2.0_Front.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/291cda60f5367e57.jpg",
+          "title": "2018 Hyundai Tucson Premium SE CRDi 2WD facelift 2.0 Rear.jpg",
+          "author": "Vauxford",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:2018_Hyundai_Tucson_Premium_SE_CRDi_2WD_facelift_2.0_Rear.jpg"
+        },
+        "interior": null
+      }
+    },
+    {
+      "id": "nx4",
+      "fromYear": 2021,
+      "toYear": 2024,
+      "label": "NX4 · Avrupa kısa şasi",
+      "sources": [
+        {
+          "label": "Hyundai Türkiye · Güncel Tucson",
+          "url": "https://www.hyundai.com/tr/tr/modeller/tucson.html"
+        },
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Hyundai_Tucson"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/004e4e1ed4ff269f.jpg",
+          "title": "Hyundai Tucscon 1.6 T-GDI Hybrid Prime (IV) – f 25042024.jpg",
+          "author": "© M 93",
+          "license": "CC BY-SA 3.0 de",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+          "source": "https://commons.wikimedia.org/wiki/File:Hyundai_Tucscon_1.6_T-GDI_Hybrid_Prime_(IV)_%E2%80%93_f_25042024.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/60b41719b6b4e316.jpg",
+          "title": "Hyundai Tucscon 1.6 T-GDI Hybrid Prime (IV) – h 25042024.jpg",
+          "author": "© M 93",
+          "license": "CC BY-SA 3.0 de",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+          "source": "https://commons.wikimedia.org/wiki/File:Hyundai_Tucscon_1.6_T-GDI_Hybrid_Prime_(IV)_%E2%80%93_h_25042024.jpg"
+        },
+        "interior": {
+          "src": "vehicles/generations/e7b6b84cd8588346.jpg",
+          "title": "Hyundai Tucson Inspiration NX4 Gray Interior (4).jpg",
+          "author": "Damian B Oh",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+          "source": "https://commons.wikimedia.org/wiki/File:Hyundai_Tucson_Inspiration_NX4_Gray_Interior_(4).jpg"
+        }
+      }
+    },
+    {
+      "id": "nx4-fl",
+      "fromYear": 2024,
+      "toYear": 2026,
+      "label": "NX4 · Makyajlı Avrupa kasa",
+      "sources": [
+        {
+          "label": "Hyundai Türkiye · Güncel Tucson",
+          "url": "https://www.hyundai.com/tr/tr/modeller/tucson.html"
+        },
+        {
+          "label": "Nesil ve makyaj tarihçesi",
+          "url": "https://en.wikipedia.org/wiki/Hyundai_Tucson"
+        }
+      ],
+      "photos": {
+        "front": {
+          "src": "vehicles/generations/76008bfd50e40645.jpg",
+          "title": "Hyundai Tucson 1.6 T-GDI PHEV Trend (IV, Facelift) – f 15022025.jpg",
+          "author": "© M 93",
+          "license": "CC BY-SA 3.0 de",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+          "source": "https://commons.wikimedia.org/wiki/File:Hyundai_Tucson_1.6_T-GDI_PHEV_Trend_(IV,_Facelift)_%E2%80%93_f_15022025.jpg"
+        },
+        "rear": {
+          "src": "vehicles/generations/63e535552d0418b7.jpg",
+          "title": "Hyundai Tucson 1.6 T-GDI PHEV Trend (IV, Facelift) – h 15022025.jpg",
+          "author": "© M 93",
+          "license": "CC BY-SA 3.0 de",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+          "source": "https://commons.wikimedia.org/wiki/File:Hyundai_Tucson_1.6_T-GDI_PHEV_Trend_(IV,_Facelift)_%E2%80%93_h_15022025.jpg"
+        },
+        "interior": null
+      }
+    }
+  ]
+}

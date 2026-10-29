@@ -30,6 +30,7 @@
 .vehicle-identity h2 { font-size: var(--budget-fontMetric); }
 .vehicle-identity span { color: var(--budget-muted); }
 .vehicle-identity > strong { font-size: var(--budget-fontMetric); font-variant-numeric: tabular-nums; }
+.generation-label { margin-bottom: var(--budget-spaceTight); color: var(--budget-muted); font-size: var(--budget-fontSmall); }
 .vehicle-photo img { display: block; width: 100%; height: var(--budget-photoHeight); object-fit: contain; background: var(--budget-vehicleSurface); border-radius: var(--budget-vehicleRadius); }
 .vehicle-photo .view-nav { padding: 0; margin: 0; gap: var(--budget-spaceTight); display: flex; flex-wrap: wrap; }
 .vehicle-photo .view-nav button { flex: 1; min-height: var(--budget-targetMin); padding: var(--budget-spaceTight); background: transparent; border: 0; border-radius: var(--budget-radius); color: var(--budget-muted); }

@@ -121,19 +121,11 @@
     "name": "Toyota Hilux",
     "package": "Invincible 4x4 / GR SPORT (yıla göre)",
     "engine": "2.4 / 2.8 D-4D 4x4, AT",
-    "note": "4x2 ile 4x4 fiyatları karışıktır. Ticari kullanım, şasi ve diferansiyel önemli.",
+    "note": "4x2 ile 4x4 fiyatları karışıktır. Ticari kullanım, şasi ve diferansiyel önemli. 2026 yeni kasanın resmî başlangıç fiyatı 3 milyon ₺ sınırının üzerinde. Eski/yeni kasa ayrımı olmayan 2026 ilan göstergesi seçim listesinden çıkarıldı.",
     "body": "Pick-up",
     "url": "https://aracdeger.net/piyasa/toyota/hilux",
     "checked": "2026-10-29",
     "years": [
-      {
-        "year": 2026,
-        "price": 2370000,
-        "low": 2275000,
-        "high": 2545000,
-        "sample": 23,
-        "upperClaim": 2200000.0
-      },
       {
         "year": 2025,
         "price": 2450000,

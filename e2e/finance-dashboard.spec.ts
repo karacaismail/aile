@@ -96,6 +96,8 @@ test('vehicle gallery switches front, rear and cabin and resets with the model',
  await page.getByRole('button',{name:'Arka görünüm',exact:true}).click();
  const rear=page.getByRole('img',{name:'Toyota Corolla · Arka görünüm',exact:true});await expect(rear).toBeVisible();
  await expect.poll(()=>rear.evaluate((e:HTMLImageElement)=>e.complete&&e.naturalWidth>0)).toBe(true);
+ await page.getByRole('combobox',{name:'Model yılı',exact:true}).click();
+ await page.getByRole('option',{name:'2020',exact:true}).click();
  await page.getByRole('button',{name:'İç mekân',exact:true}).click();
  await expect(page.getByRole('img',{name:'Toyota Corolla · İç mekân',exact:true})).toBeVisible();
  await page.getByRole('combobox',{name:'Model',exact:true}).click();await page.getByRole('option',{name:'Honda HR-V',exact:true}).click();
@@ -183,7 +185,7 @@ test('compact details preserve motion, focus, readable text and on-demand resour
   await expect(panel).not.toBeVisible();
   // macOS WebKit uses Option+Tab to traverse buttons when full keyboard access is off.
   const macWebKit=browserName==='webkit'&&process.platform==='darwin';
-  const precedingInput=page.getByRole('button',{name:'Fotoğraf bilgisi ve lisans',exact:true});
+  const precedingInput=page.getByRole('button',{name:'Fotoğraf bilgisi ve kasa kaynakları',exact:true});
   await precedingInput.focus();
   await expect(precedingInput).toBeFocused();
   await page.keyboard.press(macWebKit?'Alt+Tab':'Tab');
@@ -326,4 +328,83 @@ test('quarter-width sidebar keeps forms together and mobile settings preserve ed
     await expect(collapse).not.toHaveAttribute('inert');
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
   }
+});
+
+test('model year selects the matching body gallery, preserves the angle and requests only that photo',async({page})=>{
+  await mockLayoutSheets(page);
+  await page.setViewportSize({width:1440,height:900});
+  const photos:string[]=[];
+  page.on('request',r=>{if(r.url().includes('/vehicles/'))photos.push(r.url());});
+  await page.goto('/aile/#/arac');
+  const front=page.getByRole('img',{name:'Toyota Corolla · Ön görünüm',exact:true});
+  await expect(front).toBeVisible();
+  const oldBody=await front.getAttribute('src');
+  await page.getByRole('combobox',{name:'Model yılı',exact:true}).click();
+  await page.getByRole('option',{name:'2026',exact:true}).click();
+  await expect(front).not.toHaveAttribute('src',oldBody!);
+  await expect(page.getByTestId('vehicle-generation')).toContainText('E210');
+  await expect.poll(()=>front.evaluate(img=>(img as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+  const currentBody=await front.getAttribute('src');
+  await page.getByRole('combobox',{name:'Model yılı',exact:true}).click();
+  await page.getByRole('option',{name:'2025',exact:true}).click();
+  await expect(front).toHaveAttribute('src',currentBody!);
+  await page.getByRole('button',{name:'Arka görünüm',exact:true}).click();
+  const rear=page.getByRole('img',{name:'Toyota Corolla · Arka görünüm',exact:true});
+  await expect(rear).toBeVisible();
+  const currentRear=await rear.getAttribute('src');
+  await page.getByRole('combobox',{name:'Model yılı',exact:true}).click();
+  await page.getByRole('option',{name:'2015',exact:true}).click();
+  await expect(rear).not.toHaveAttribute('src',currentRear!);
+  await expect(page.getByTestId('vehicle-generation')).toContainText('E180');
+  await expect.poll(()=>rear.evaluate(img=>(img as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+  const oldRear=await rear.getAttribute('src');
+  expect(new Set(photos.map(url=>new URL(url).pathname))).toEqual(new Set([oldBody,currentBody,currentRear,oldRear]));
+  for(const width of [320,360,375,390,768,1440]) {
+    await page.setViewportSize({width,height:800});
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+  }
+  await page.screenshot({path:`test-results/generation-${test.info().project.name}.png`});
+});
+
+
+test('transition year requires a body choice and missing angles never reuse the preceding body',async({page})=>{
+  await mockLayoutSheets(page);
+  await page.setViewportSize({width:320,height:740});
+  await page.goto('/aile/#/arac');
+  await openSettings(page);
+  await page.getByRole('combobox',{name:'Model yılı',exact:true}).click();
+  await page.getByRole('option',{name:'2016',exact:true}).click();
+  await expect(page.locator('.vehicle-photo img')).toHaveCount(0);
+  const body=page.getByRole('combobox',{name:'Kasa / makyaj',exact:true});
+  await expect(body).toHaveValue('');
+  await expect(page.getByTestId('vehicle-generation')).toContainText('Geçiş yılı');
+  await body.focus();
+  await body.press('ArrowDown');
+  await body.press('ArrowDown');
+  await body.press('Enter');
+  await expect(body).toHaveValue('E180 · Makyajlı sedan');
+  await expect(page.getByTestId('vehicle-generation')).toHaveText('E180 · Makyajlı sedan');
+  await expect(page.getByRole('img',{name:'Toyota Corolla · Ön görünüm',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'İç mekân',exact:true}).click();
+  await expect(page.locator('.vehicle-photo img')).toHaveCount(0);
+  await expect(page.locator('.vehicle-photo [role="status"]')).toContainText('henüz doğrulanmadı');
+  await page.getByRole('combobox',{name:'Model yılı',exact:true}).click();
+  await page.getByRole('option',{name:'2020',exact:true}).click();
+  await expect(body).toHaveCount(0);
+  await expect(page.getByRole('img',{name:'Toyota Corolla · İç mekân',exact:true})).toBeVisible();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+});
+
+
+test('a failed vehicle photo can be retried without changing the selected model',async({page})=>{
+  await mockLayoutSheets(page);
+  let fail=true;
+  await page.route('**/vehicles/**',route=>fail?route.abort():route.continue());
+  await page.goto('/aile/#/arac');
+  await expect(page.locator('.vehicle-photo [role="status"]')).toContainText('Fotoğraf yüklenemedi');
+  fail=false;
+  await page.getByRole('button',{name:'Fotoğrafı yeniden yükle',exact:true}).click();
+  const photo=page.getByRole('img',{name:'Toyota Corolla · Ön görünüm',exact:true});
+  await expect(photo).toBeVisible();
+  await expect.poll(()=>photo.evaluate(img=>(img as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
 });
