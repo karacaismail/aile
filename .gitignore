@@ -16,3 +16,6 @@ apps-script/.clasprc.json
 .clasprc.json
 .tmp-shots/
 .tmp-live/
+apps-script-finance/.clasp.json
+apps-script-finance/.clasprc.json
+apps-script-finance/*private*

@@ -1,0 +1,4 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {validateCandidateSource} from './preflight.mjs';
+const source=()=>({spreadsheetId:'test',sheets:[{properties:{title:'Input',sheetId:1},data:[{rowData:[{values:[{userEnteredValue:{formulaValue:'=A2'},effectiveValue:{numberValue:12}}]}]}]}]});
+const candidate={targets:[],clearRanges:[],financeManifest:{sourceSpreadsheetId:'test',targetSpreadsheetId:'test',identities:[],dependencies:[{kind:'cell',title:'Input',sheetId:1,row:0,column:0,address:'Input!A1',entered:{formulaValue:'=A2'},effective:{numberValue:12},tolerance:0}]}};
+test('effective-only formula changes fail precommit despite unchanged entered formula',()=>{const s=source();assert.equal(validateCandidateSource(candidate,s).failures.length,0);s.sheets[0].data[0].rowData[0].values[0].effectiveValue.numberValue=13;assert.ok(validateCandidateSource(candidate,s).failures.some(f=>f.kind==='effective'));});
