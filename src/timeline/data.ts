@@ -10,7 +10,9 @@ export type Timeline = { events: TimelineEvent[]; months: string[] };
 export const timelineSheetUrl = `${sheetUrl}#gid=7302613`;
 const eventTypes = ['Başlangıç', 'Gelir', 'Gider', 'Alışveriş', 'Kart ödemesi', 'Faiz', 'Birikim', 'Kontrol', 'Teslimat'];
 const dateQualities = ['Teyitli plan', 'Tarih varsayımı', 'Ay sonu kontrolü'];
-const equalMoney = (a: number, b: number) => Math.abs(a - b) <= .011;
+// Allow spreadsheet binary rounding noise, never a one-kurus discrepancy.
+const moneyEpsilon = 1e-6;
+const equalMoney = (a: number, b: number) => Math.abs(a - b) <= moneyEpsilon;
 const invalid = (detail: string): never => { throw new Error(`Timeline verileri doğrulanamadı: ${detail}.`); };
 const requiredText = (value: unknown, label: string) => typeof value === 'string' && value.trim() ? value.trim() : invalid(`${label} eksik`);
 const requiredNumber = (value: unknown) => typeof value === 'number' && Number.isFinite(value) ? value : invalid('bir tutar veya sıra eksik');
@@ -39,7 +41,7 @@ export function buildTimeline(table: TimelineTable): Timeline {
     const month = requiredText(row[16], 'dönem');
     if (month !== date.slice(0, 7)) invalid('tarih ile dönem uyuşmuyor');
     if (!equalMoney(requiredNumber(row[15]), 0)) invalid('aylık mutabakat farkı var');
-    if (!equalMoney(totalDebt, denizDebt + isDebt) || denizDebt < -.011 || isDebt < -.011) invalid('kart borçları uyuşmuyor');
+    if (!equalMoney(totalDebt, denizDebt + isDebt) || denizDebt < -moneyEpsilon || isDebt < -moneyEpsilon) invalid('kart borçları uyuşmuyor');
     if (row[14] != null && typeof row[14] !== 'string') invalid('açıklama biçimi');
     return { id, date, order, type, title: requiredText(row[4], 'adım'), source: requiredText(row[5], 'kaynak'), cashChange, denizChange, isChange, cash, denizDebt, isDebt, totalDebt, certainty, note: String(row[14] ?? ''), month };
   });

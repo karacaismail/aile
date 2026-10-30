@@ -33,4 +33,14 @@ describe('Timeline Sheet contract', () => {
     table.rows.slice(5).forEach(row => { row[1] = String(row[1]).replace('2098-12', '2099-01'); row[16] = '2099-01'; });
     expect(() => buildTimeline(table)).toThrow();
   });
+  it.each([['running cash', 2, 9], ['card total', 2, 12], ['reconciliation', 4, 15]] as const)('rejects a one-kurus %s discrepancy', (_, row, column) => {
+    const table = syntheticTimeline();
+    table.rows[row][column] = Number(table.rows[row][column]) + .01;
+    expect(() => buildTimeline(table)).toThrow();
+  });
+  it('allows floating-point noise below a kurus without accepting monetary discrepancies', () => {
+    const table = syntheticTimeline();
+    table.rows[2][9] = Number(table.rows[2][9]) + 1e-9;
+    expect(buildTimeline(table).events).toHaveLength(8);
+  });
 });

@@ -13,7 +13,7 @@ Hesapların kaynağı `Timeline` sekmesidir. Web, `_Timeline web!A1:Q1600` aral�
 | J–M | Adımdan sonraki nakit, iki kart borcu ve toplam kart borcu |
 | N–Q | Tarih niteliği, açıklama, mutabakat farkı, dönem |
 
-İlk olay açık bir `Başlangıç` kaydıdır; G–I başlangıç bakiyelerini taşır. Sonraki her bakiye önceki bakiye + değişim ile uyuşmalıdır. Tarih ve gün içi sıra artar; kimlikler tekrarlanmaz. Her dönemin son olayı takvim ayının son gününde `Kontrol` / `Ay sonu kontrolü` olmalıdır. Mutabakat farkı sıfır, toplam borç iki banka borcunun toplamı olmalıdır. Kuruş yuvarlaması için en fazla 0,011 TL fark kabul edilir. Negatif nakit saklanır ve uyarılır; negatif kart borcu geçerli model verisi sayılmaz.
+İlk olay açık bir `Başlangıç` kaydıdır; G–I başlangıç bakiyelerini taşır. Sonraki her bakiye önceki bakiye + değişim ile uyuşmalıdır. Tarih ve gün içi sıra artar; kimlikler tekrarlanmaz. Her dönemin son olayı takvim ayının son gününde `Kontrol` / `Ay sonu kontrolü` olmalıdır. Mutabakat farkı sıfır, toplam borç iki banka borcunun toplamı olmalıdır. Yalnız sayısal hesaplamanın kayan nokta gürültüsü için en fazla 0,000001 TL fark kabul edilir; bir kuruşluk bakiye, toplam veya mutabakat farkı reddedilir. Negatif nakit saklanır ve uyarılır; negatif kart borcu geçerli model verisi sayılmaz.
 
 Satır sonunda açık tutar, yeni düzenleme sırasında formül hatası, eksik ay sonu kontrolü veya bakiye uyuşmazlığı varsa yeni görüntü reddedilir. Son başarılı görüntü yalnız bellekte tutulur. Gerçek aile verileri kaynak koda, fixture'a, yerel kalıcı depoya veya service worker önbelleğine yazılmaz.
 

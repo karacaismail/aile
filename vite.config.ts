@@ -2,10 +2,17 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import { fileURLToPath, URL } from 'node:url';
+import { startupFailureScript, startupMarkup, startupStyles } from './src/app/startup.ts';
 
 export default defineConfig({
   base: '/aile/',
   plugins: [
+    {
+      name: 'aile-startup-html',
+      transformIndexHtml(html) {
+        return { html: html.replace('<!--app-startup-failure-->', `<script>${startupFailureScript}</script>`).replace('<!--app-startup-->', startupMarkup), tags: [{ tag: 'style', attrs: { 'data-app-startup': '' }, children: startupStyles, injectTo: 'head' }] };
+      },
+    },
     react(),
     VitePWA({
       registerType: 'autoUpdate',
