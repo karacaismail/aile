@@ -5,7 +5,7 @@ export const BASE_URL = `http://127.0.0.1:${PORT}/aile/`;
 
 export default defineConfig({
   testDir: './e2e',
-  testIgnore: '**/*-dashboard.spec.ts',
+  testIgnore: ['**/*-dashboard.spec.ts', '**/*-production.spec.ts'],
   fullyParallel: true,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : [['list']],

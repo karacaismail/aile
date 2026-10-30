@@ -15,6 +15,8 @@ export const tokens = {
   fontHeroMetric: 'clamp(2rem, 3.4vw, 2.75rem)', fontSection: '1.125rem',
   labelWeight: 500, headingWeight: 700, lineCompact: 1.25, lineBody: 1.5,
   metricTracking: '-.035em', focusOffset: '6px', focusThickness: '3px',
+  loadingDuration: '1440ms', loadingSegmentWidth: '33.333%', loadingTravel: '200%',
+  loadingTextHeight: '1rem', loadingTextWidth: '45%', loadingValueWidth: '65%', loadingTitleWidth: '75%',
   duration: 240, ease: 'cubic-bezier(.65, 0, .35, 1)',
   layerSticky: 20, layerDropdown: 300,
   timelineReadingWidth: '75ch', timelineFilterWidth: '20rem', timelineBalanceWidth: '22rem', timelineMetricWidth: '7.5rem',
@@ -25,6 +27,9 @@ export const tokens = {
   timelineStickyInset: '16px', timelineStepSurface: '#F0F4F7', timelineStepRadius: '12px',
   timelineOverviewSurface: '#1B3E55', timelineOverviewMuted: '#C9DBE7', timelineOverviewNegative: '#FFC4BB',
   timelinePanelRadius: '16px',
+  timelineTableDateWidth: '9rem', timelineTableEventWidth: '20rem', timelineTableAmountWidth: '10rem',
+  timelineTableNoteWidth: '25rem',
+  timelineViewSelectedSurface: '#C9DBE7', timelineViewTabWidth: '3.5rem',
 } as const;
 // ECharts' typed function adapter evaluates exactly the shared CSS curve.
 export function budgetEasing(progress: number) {

@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { Tabs } from '@mantine/core';
 import { Select } from '../dashboard/Select';
 import { money } from '../dashboard/data';
 import { dateLabel, monthLabel, timelineSheetUrl, type Timeline, type TimelineEvent } from './data';
 import { useTimeline } from './useTimeline';
+import { TimelineLoading } from './TimelineLoading';
 import './timeline.css';
 
 const signedMoney = (value: number) => `${value > 0 ? '+' : ''}${money(value)}`;
@@ -28,22 +30,36 @@ function StepPages({ position, page, count, onChange }: { position: 'üst' | 'al
     <div className="button-row"><button className="quiet-button" disabled={page === 0} onClick={() => onChange(page - 1)}>Önceki adımlar</button><button className="quiet-button" disabled={(page + 1) * stepsPerPage >= count} onClick={() => onChange(page + 1)}>Sonraki adımlar</button></div>
   </nav>;
 }
-function EventStep({ event, number, incomes }: { event: TimelineEvent; number: number; incomes: TimelineEvent[] }) {
+function EventDetails({ event, incomes }: { event: TimelineEvent; incomes: TimelineEvent[] }) {
   // The legacy conditional hint is superseded by the explicit dates below; retain every other source note.
   const note = event.type === 'Kart ödemesi'
     ? event.note.replace('Maaştan önceyse önceki aydan nakit gerekir; aynı günse maaşın yatması beklenir.', '').trim()
     : event.note;
+  return <div className="timeline-details">
+    {event.type === 'Kart ödemesi' && <div className="timeline-payment-dates" role="group" aria-label="Ödeme ve gelir tarihleri">
+      <p><strong>Ödeme günü</strong> {dateLabel(event.date)}</p>
+      <p><strong>Ödeme öncesi nakit</strong> {money(event.cash - event.cashChange)}</p>
+      <div className="timeline-income-dates">{incomes.length ? <><p><strong>Bu ayın gelir takvimi</strong></p><ul>{incomes.map(income => <li key={income.id}>{dateLabel(income.date)} · {income.title} · {incomeTiming(income, event)}{income.certainty === 'Tarih varsayımı' ? ' · gün varsayımı' : ''}</li>)}</ul>{incomes.some(income => income.certainty === 'Tarih varsayımı') && <p>Varsayılan gelir günü, kesin maaş günü değildir.</p>}</> : <p>Bu ay için gelir adımı kayıtlı değil.</p>}</div>
+    </div>}
+    {note && <p className="timeline-source-note"><strong>E-tablo notu</strong> {note}</p>}
+    <p className="timeline-source"><strong>Kaynak</strong> {event.source} <span>· {event.certainty}</span></p>
+  </div>;
+}
+function EventEffects({ event }: { event: TimelineEvent }) {
   const changes = [
     { label: 'Nakit', value: event.cashChange, tone: event.cashChange > 0 ? 'inflow' : 'outflow' },
     { label: 'Denizbank borcu', value: event.denizChange, tone: event.denizChange > 0 ? 'outflow' : 'neutral' },
     { label: 'İşbank borcu', value: event.isChange, tone: event.isChange > 0 ? 'outflow' : 'neutral' },
   ].filter(change => change.value !== 0);
+  return <div className="timeline-effect">{changes.length ? changes.map(change => <span className="timeline-change" data-tone={change.tone} key={change.label}><span>{change.label}</span> <strong>{signedMoney(change.value)}</strong></span>) : <span className="muted">Nakit ve kart borcu değişmez.</span>}</div>;
+}
+function EventStep({ event, number, incomes }: { event: TimelineEvent; number: number; incomes: TimelineEvent[] }) {
   return <li className={`timeline-step${event.type === 'Kontrol' ? ' timeline-control' : ''}`}>
     <article aria-label={`${number}. adım · ${event.title}`}>
       <div className="timeline-step-context">
         <p className="timeline-meta"><span className="timeline-kind" data-kind={event.type}>{event.type}</span><span>Adım {number}</span>{event.certainty === 'Tarih varsayımı' && <span className="timeline-assumption">Tarih varsayımı</span>}</p>
         <h3>{event.title}</h3>
-        <div className="timeline-effect">{changes.length ? changes.map(change => <span className="timeline-change" data-tone={change.tone} key={change.label}><span>{change.label}</span> <strong>{signedMoney(change.value)}</strong></span>) : <span className="muted">Nakit ve kart borcu değişmez.</span>}</div>
+        <EventEffects event={event} />
       </div>
       <dl className="timeline-balances" aria-label="Bu adımdan sonraki plan bakiyesi">
         <div className="timeline-cash"><dt>Kalan nakit</dt><dd className={event.cash < 0 ? 'negative' : undefined}>{money(event.cash)}</dd></div>
@@ -51,17 +67,34 @@ function EventStep({ event, number, incomes }: { event: TimelineEvent; number: n
         <div className="timeline-bank-debt"><dt>Denizbank</dt><dd>{money(event.denizDebt)}</dd></div>
         <div className="timeline-bank-debt"><dt>İşbank</dt><dd>{money(event.isDebt)}</dd></div>
       </dl>
-      <div className="timeline-details">
-        {event.type === 'Kart ödemesi' && <div className="timeline-payment-dates" role="group" aria-label="Ödeme ve gelir tarihleri">
-          <p><strong>Ödeme günü</strong> {dateLabel(event.date)}</p>
-          <p><strong>Ödeme öncesi nakit</strong> {money(event.cash - event.cashChange)}</p>
-          <div className="timeline-income-dates">{incomes.length ? <><p><strong>Bu ayın gelir takvimi</strong></p><ul>{incomes.map(income => <li key={income.id}>{dateLabel(income.date)} · {income.title} · {incomeTiming(income, event)}{income.certainty === 'Tarih varsayımı' ? ' · gün varsayımı' : ''}</li>)}</ul>{incomes.some(income => income.certainty === 'Tarih varsayımı') && <p>Varsayılan gelir günü, kesin maaş günü değildir.</p>}</> : <p>Bu ay için gelir adımı kayıtlı değil.</p>}</div>
-        </div>}
-        {note && <p className="timeline-source-note"><strong>E-tablo notu</strong> {note}</p>}
-        <p className="timeline-source"><strong>Kaynak</strong> {event.source} <span>· {event.certainty}</span></p>
-      </div>
+      <EventDetails event={event} incomes={incomes} />
     </article>
   </li>;
+}
+
+function EventTable({ events, eventNumbers, incomesByMonth }: { events: TimelineEvent[]; eventNumbers: Map<string, number>; incomesByMonth: Map<string, TimelineEvent[]> }) {
+  return <div className="timeline-table-block">
+    <p className="timeline-table-help">Adım sonrası bakiyeler. Diğer sütunlar için yatay kaydır.</p>
+    <div className="table-scroll timeline-table-scroll" tabIndex={0} role="region" aria-label="Ödeme tablosu; yatay kaydırılabilir" onKeyDown={event => {
+      if (event.target === event.currentTarget && ['ArrowLeft', 'ArrowRight'].includes(event.key)) {
+        event.preventDefault();
+        event.currentTarget.scrollLeft += event.currentTarget.clientWidth / 2 * (event.key === 'ArrowRight' ? 1 : -1);
+      }
+    }}>
+      <table className="timeline-table" aria-label="Kronolojik ödeme tablosu">
+        <thead><tr><th scope="col">Tarih / adım</th><th scope="col">İşlem ve etkisi</th><th scope="col" className="numeric">Kalan nakit</th><th scope="col" className="numeric">Denizbank borcu</th><th scope="col" className="numeric">İşbank borcu</th><th scope="col" className="numeric">Toplam kart borcu</th><th scope="col">Açıklama / kaynak</th></tr></thead>
+        <tbody>{events.map(event => <tr key={event.id}>
+          <td className="timeline-table-date"><time dateTime={event.date}>{dateLabel(event.date)}</time><span>Adım {eventNumbers.get(event.id)}</span></td>
+          <td className="timeline-table-event"><p className="timeline-meta"><span className="timeline-kind" data-kind={event.type}>{event.type}</span>{event.certainty === 'Tarih varsayımı' && <span className="timeline-assumption">Tarih varsayımı</span>}</p><strong className="timeline-table-title">{event.title}</strong><EventEffects event={event} /></td>
+          <td className={`numeric${event.cash < 0 ? ' negative' : ''}`} data-balance="cash">{money(event.cash)}</td>
+          <td className="numeric" data-balance="denizDebt">{money(event.denizDebt)}</td>
+          <td className="numeric" data-balance="isDebt">{money(event.isDebt)}</td>
+          <td className="numeric" data-balance="totalDebt">{money(event.totalDebt)}</td>
+          <td className="timeline-table-note"><EventDetails event={event} incomes={incomesByMonth.get(event.month) ?? []} /></td>
+        </tr>)}</tbody>
+      </table>
+    </div>
+  </div>;
 }
 
 function DayHeading({ date, count }: { date: string; count: number }) {
@@ -72,7 +105,18 @@ function DayHeading({ date, count }: { date: string; count: number }) {
 }
 
 function TimelineJourney({ data }: { data: Timeline }) {
+  const incomesByMonth = useMemo(() => {
+    const months = new Map<string, TimelineEvent[]>();
+    data.events.forEach(event => {
+      if (event.type !== 'Gelir') return;
+      const incomes = months.get(event.month) ?? [];
+      incomes.push(event);
+      months.set(event.month, incomes);
+    });
+    return months;
+  }, [data.events]);
   const [selection, setSelection] = useState('');
+  const [view, setView] = useState<string | null>('timeline');
   const [filter, setFilter] = useState<JourneyFilter>('all');
   const [pageSelection, setPageSelection] = useState({ scope: '', page: 0 });
   const changeSelection = (next: string) => { setSelection(next); setPageSelection({ scope: next, page: 0 }); };
@@ -109,15 +153,18 @@ function TimelineJourney({ data }: { data: Timeline }) {
     {minimumCash < 0 && <p className="timeline-cash-warning" role="alert">Bu dönemde planlanan nakit {money(minimumCash)} seviyesine düşüyor. Negatif tutar kullanılabilir para değildir; ödeme sırası veya finansmanı düzeltilmelidir.</p>}
     </aside>
     <section className="timeline-flow" aria-label="Ödeme akışı">
-    <div className="timeline-flow-heading"><div><p className="timeline-flow-label">Ödeme akışı</p><h2>{scope}</h2></div><span className="timeline-step-count">{events.length} adım</span></div>
+    <Tabs value={view} onChange={setView} keepMounted={false} unstyled className="timeline-views">
+    <div className="timeline-flow-heading"><div><div className="timeline-flow-meta"><p className="timeline-flow-label">Ödeme akışı</p><span className="timeline-step-count">{events.length} adım</span></div><h2>{scope}</h2></div><Tabs.List aria-label="Takvim görünümü" className="timeline-view-switch"><Tabs.Tab value="timeline" aria-label="Zaman akışı">Akış</Tabs.Tab><Tabs.Tab value="table">Tablo</Tabs.Tab></Tabs.List></div>
     <div className="timeline-filters" role="group" aria-label="Adımları filtrele">{journeyFilters.map(item => <button key={item.id} type="button" aria-pressed={filter === item.id} onClick={() => { setFilter(item.id); setPageSelection({ scope: `${selected}:${item.id}`, page: 0 }); }}>{item.label}</button>)}</div>
     {filter !== 'all' && <p className="timeline-filter-note" role="status">{filteredEvents.length} / {events.length} adım gösteriliyor. Bakiyeler tüm işlemleri içerir.</p>}
     {filteredEvents.length === 0 && <div className="timeline-empty"><h3>Bu dönemde {filter === 'purchase' ? 'alışveriş' : filter === 'payment' ? 'ödeme' : 'gelir'} adımı yok.</h3><p>Başka bir ay seçebilir veya tüm adımları görüntüleyebilirsin.</p></div>}
     {filteredEvents.length > stepsPerPage && <StepPages position="üst" page={page} count={filteredEvents.length} onChange={changePage} />}
-    <div className="timeline-journey" aria-label="Kronolojik ödeme adımları">
-      {[...dates].map(([date, day]) => <section className="timeline-day" key={date} aria-labelledby={`timeline-date-${date}`}><DayHeading date={date} count={day.length} /><ol>{day.map(event => <EventStep key={event.id} event={event} number={eventNumbers.get(event.id)!} incomes={data.events.filter(income => income.type === 'Gelir' && income.month === event.month)} />)}</ol></section>)}
-    </div>
+    <Tabs.Panel value="timeline"><div className="timeline-journey" aria-label="Kronolojik ödeme adımları">
+      {[...dates].map(([date, day]) => <section className="timeline-day" key={date} aria-labelledby={`timeline-date-${date}`}><DayHeading date={date} count={day.length} /><ol>{day.map(event => <EventStep key={event.id} event={event} number={eventNumbers.get(event.id)!} incomes={incomesByMonth.get(event.month) ?? []} />)}</ol></section>)}
+    </div></Tabs.Panel>
+    <Tabs.Panel value="table">{visibleEvents.length > 0 && <EventTable events={visibleEvents} eventNumbers={eventNumbers} incomesByMonth={incomesByMonth} />}</Tabs.Panel>
     {filteredEvents.length > stepsPerPage && <StepPages position="alt" page={page} count={filteredEvents.length} onChange={changePage} />}
+    </Tabs>
     </section>
   </div>;
 }
@@ -130,8 +177,8 @@ export default function TimelinePage() {
       <div className="timeline-heading-tools"><button className="quiet-button" disabled={state.loading} onClick={state.refresh}>Yenile</button></div>
     </header>
     <p className="timeline-plan-label"><span>Plan</span> Gerçekleşmiş ödeme değildir.</p>
-    {state.error && <p className="error-message" role="alert">{state.error} {state.data ? 'Son başarılı takvim gösteriliyor.' : 'E-tabloyu kontrol edip yeniden deneyin.'}</p>}
-    {state.data ? <TimelineJourney data={state.data} /> : <p className="loading-message">{state.loading ? 'Adımlar ve bakiye kontrolleri yükleniyor…' : 'Doğrulanmış Timeline verisi şu anda alınamıyor.'}</p>}
+    {state.error && !state.loading && <p className="error-message" role="alert">{state.error} {state.data ? 'Son başarılı takvim gösteriliyor.' : 'E-tabloyu kontrol edip yeniden deneyin.'}</p>}
+    {state.data ? <TimelineJourney data={state.data} /> : state.loading ? <TimelineLoading /> : <p className="loading-message">Doğrulanmış Timeline verisi şu anda alınamıyor.</p>}
     <footer className="timeline-data-note"><span className="timeline-sync" role="status" aria-live="polite">{state.loading ? 'Kontrol ediliyor…' : state.updatedAt ? `Güncellendi ${state.updatedAt.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Istanbul' })}` : 'Google Sheets bağlantısı'}</span><a className="timeline-sheet-link" href={timelineSheetUrl} target="_blank" rel="noreferrer">E-tabloda aç <span aria-hidden="true">↗</span></a><p>Açıkken her dakika yenilenir. Aynı gün maaşın geliş saati ve ödeme sırası ara bakiyeyi değiştirebilir.</p></footer>
   </div>;
 }

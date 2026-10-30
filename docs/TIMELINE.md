@@ -23,13 +23,14 @@ Satır sonunda açık tutar, yeni düzenleme sırasında formül hatası, eksik 
 
 Uzun dönemler 50 adımlık sayfalara ayrılır. Özet seçilen dönemin tamamını kapsar; sayfa değiştirmek hesap sonucunu veya adımların genel sıra numarasını değiştirmez. Dönem filtresi değişince ilk adım sayfasına dönülür. Altı/yedi haneli sentetik tutarlar 320 px ve %200 metin büyütmede, 716 adımlık / 26 aylık sentetik takvim de tüm sayfalarda test edilir. Bakiyeler metin büyüdüğünde tek sütuna geçer; sayı basamakları bölünmez.
 
-Sayfa kendi veri isteğini yapar; eski bütçe şemasının doğrulanmasına bağımlı değildir. Açılış, görünürken her dakika, odağa/çevrimiçine dönüş ve Yenile okuma tetikler. 20 saniye zaman aşımı, çakışmayan istek ve unmount iptali vardır. Yeni Timeline JS/CSS yalnız rota seçildiğinde yüklenir ve önceden PWA önbelleğine alınmaz. Google Sheets’in mevcut erişimi korunur; bu rota bir kimlik doğrulama katmanı eklemez.
+Timeline rota seçimi, arayüz paketi yüklenirken veri isteğini paralel başlatır; eski bütçe şemasının doğrulanmasına bağımlı değildir. Doğrulanmış görüntü yalnız bellekte tutulur ve 60 saniyelik otomatik tazelik süresinde yeniden rota ziyaretinde doğrudan kullanılır. Görünürken her dakika, odağa/çevrimiçine dönüş ve Yenile kontrolü tetikler; Yenile tazelik süresini beklemez. Aynı anda tek istek paylaşılır, 20 saniyede zaman aşımına uğrar ve yalnız son abone veya rota bekleyicisi ayrıldığında iptal edilir. Timeline veri deposu ve ağır arayüz paketi yalnız rota seçildiğinde yüklenir, PWA precache listesine alınmaz. Küçük yükleme kabuğu ortak başlangıç paketindedir; finans verisi veya doğrulama kodu içermez. Google Sheets’in mevcut erişimi korunur; bu rota bir kimlik doğrulama katmanı eklemez.
 
 ## Doğrulama
 
 - `pnpm exec vitest run src/timeline src/dashboard/useBudget.test.tsx`
 - `pnpm exec playwright test --config playwright.dashboard.config.ts e2e/timeline-dashboard.spec.ts`
 - `pnpm typecheck`, `pnpm test`, `pnpm build`
+- Production kaynak izolasyonu: `pnpm build` ardından `pnpm exec playwright test --config playwright.timeline-production.config.ts`. Temiz Chromium bağlamında Pano ve service worker kurulumu tamamlanana kadar Timeline verisi, deposu ve `Tabs` paketi istenmemeli; Timeline açıldığında veri isteği arayüz paketini beklemeden başlamalı. Taze görüntüyle rota dönüşü yeni istek başlatmaz, Yenile bir yeni istek başlatır. Test ayrı 5177 önizlemesini kullanır, bütün Sheet yanıtları sentetiktir. Aynı kapı CI ve Pages deploy akışında build sonrası çalışır.
 
 Regresyonlar sentetik veri kullanır: hatalı/eksik veri reddi, nakit/borç zinciri, son başarılı veriyi koruma, rota izolasyonu, görünür varsayımlar, negatif nakit, 320–1440 px yeniden yerleşme, uzun adım adı, klavye odağı, özel ay seçimi ve azaltılmış hareket. Playwright WebKit gerçek Safari/iOS cihaz testi değildir. Tarayıcı görüntüleri test kanıtıdır, otomatik onaylı piksel referansı değildir.
 
@@ -48,3 +49,17 @@ Regresyonlar sentetik veri kullanır: hatalı/eksik veri reddi, nakit/borç zinc
 ### Dönemden işleme ilerleme
 
 Koyu lacivert “Dönem özeti” paneli masaüstünde sol sütundadır; açık sayfa zemini üzerindeki “Ödeme akışı” ve orta açıklıktaki işlem yüzeylerinden ayrılır. İkincil metin ve negatif bakiye için koyu yüzeye uygun merkezi renk tokenları kullanılır. Mobilde aynı içerik tek akışa geçer. Tüm adımlar / Ödemeler / Alışveriş / Gelir filtreleri kayıtları daraltır; hesap yeniden yapılmaz. Ödemeler nakit çıkışı olan adımlardır. Dönem özeti ve uyarılar tüm dönemi kapsar; filtreli listede de her bakiye kaynaktaki özgün adım sonu değeridir. Boş sonuçta dönem değiştirilebilir veya tüm adımlara dönülebilir. Kart ödemesinin ayrıntısı, plan ödeme tarihini ve o ayın gelir tarihlerini birlikte gösterir. Kesinleşmemiş gelir gününün varsayım niteliği korunur.
+
+### Akış / tablo görünümü
+
+Akış ve Tablo, dönem başlığının yanındaki ortak yüzeyde iki sekmedir. Kurulu Mantine `Tabs` unstyled kullanılır; ok tuşları, Home/End ve Enter/Space ile erişilebilir. Görünüm değişimi dönem, adım filtresi ve 50 adımlık sayfayı korur. Yalnız aktif sunum oluşturulur; tablo ayrı veri isteği, sıralama veya hesap üretmez. Aynı `visibleEvents` ve kaynak adım numaraları iki görünümü besler.
+
+Tablo kronolojik sırayı, işlem etkisini, adım sonrası nakdi, iki bankanın borcunu ve toplam kart borcunu ayrı sütunlarda gösterir. Açıklama/kaynak ve kart ödemesinin gelir takvimi, akışla aynı bileşenden açık olarak gelir. Tarih/işlem/tutar/açıklama sütunlarının okunabilir minimumları merkezi tokenlardır. Dar görünümde yalnız tablo kapsayıcısı yatay kayar; klavye odağı tek alt çizgidir, sağ/sol oklar kaydırır. `e2e/timeline-dashboard.spec.ts` iki görünümün aynı bakiyeyi korumasını, filtre/dönem/sayfa sürekliliğini, 320–1440 px taşmayı, %200 metni, sekme klavyesini ve hareket tokenlarını denetler.
+
+Görünüm sekmelerinde koyu yazı sabit kalır; açık ve orta tonlu yüzeyler ortak hareket tokenıyla geçiş yapar. Seçim kalın metinle anında belli olur, düğme genişliği değişmez. Başlangıç/son renkleriyle yetinilmez: her animasyon karesinde ve geçiş yarıda tersine çevrildiğinde en az 4,5:1 yazı kontrastı denetlenir. `Tabs` ortak paketi yalnız Timeline/araç özelliği gerektiğinde yüklenir; service worker precache listesine girmez.
+
+### Yükleme ve yenileme
+
+Rota paketi veya doğrulanmış ilk veri beklenirken aynı hafif iskelet kullanılır: koyu dönem alanı, nötr işlem yer tutucuları ve açıklayıcı yükleme metni. Tarih, tutar veya yüzde uydurulmaz; yer tutucular erişilebilirlik ağacından gizlidir, yükleme bölgesi `aria-busy` taşır. Tek etkinlik şeridi ortak simetrik easing ile 1440 ms boyunca ileri/geri hareket eder; reduced-motion tercihi hareketi kapatır. Veri doğrulanınca mevcut 50 adımlık sayfa doğrudan gösterilir; görünürlük için yapay bekleme eklenmez. Yenilemede mevcut doğrulanmış bakiyeler korunur; ilk hata sonrası tekrar denemede eski hata ve yükleme mesajı birlikte gösterilmez.
+
+İlk yükleme, yavaş ağ, hata→yeniden deneme, veri korunması, tek hareket, reduced-motion ve 320–1440 px kabuk hizası hedefli Timeline E2E kapısındadır. Gelir adımları ay başına bir kez indekslenir; görünür her adım için bütün takvim yeniden taranmaz.
