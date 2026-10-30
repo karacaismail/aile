@@ -76,7 +76,7 @@ test('journey filters preserve period totals and original balances while making 
   const payment = page.getByRole('article', { name: /4\. adım/ });
   await expect(payment).toContainText('800 ₺');
   await expect(summary).toHaveText(totals, { useInnerText: true });
-  await payment.getByRole('button', { name: /^Ayrıntı:/ }).click();
+  await expect(payment.getByRole('group', { name: 'Ödeme ve gelir tarihleri' })).toBeVisible();
   await expect(payment.getByRole('group', { name: 'Ödeme ve gelir tarihleri' })).toContainText('27 Kasım 2098');
   await expect(payment.getByRole('group', { name: 'Ödeme ve gelir tarihleri' })).toContainText('10 Kasım 2098');
   await expect(payment.getByRole('group', { name: 'Ödeme ve gelir tarihleri' })).toContainText('ödemeden 17 gün önce');
@@ -94,52 +94,72 @@ test('journey filters preserve period totals and original balances while making 
   await expect(page.getByRole('article')).toHaveCount(3);
 });
 
-test('scannable ledger keeps balances visible while details expand accessibly', async ({ page, browserName }) => {
+test('compact steps show every explanation immediately without a disclosure button', async ({ page }) => {
   await mockTimeline(page);
   await page.setViewportSize({ width: 320, height: 740 });
   await page.goto('/aile/#/timeline');
+  await expect(page.getByRole('article')).toHaveCount(5);
   await page.evaluate(() => document.fonts.ready);
   expect((await page.getByRole('article').first().boundingBox())!.y, 'first step begins in the narrow viewport').toBeLessThan(740);
   const purchase = page.getByRole('article', { name: /3\. adım/ });
-  const toggle = purchase.getByRole('button', { name: /^Ayrıntı:/ });
-  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
-  await expect(purchase.getByText('Teslimat tarihi satıcı ile teyit edilecek; satın alma ve teslimat ayrı adımlardır.')).not.toBeVisible();
+  const note = purchase.getByText(/Teslimat tarihi satıcı ile teyit edilecek; satın alma ve teslimat ayrı adımlardır\./);
+  await expect(note).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Ayrıntı/ })).toHaveCount(0);
   for (const label of ['Kalan nakit', 'Toplam kart borcu', 'Denizbank', 'İşbank']) await expect(purchase.getByText(label, { exact: true })).toBeVisible();
-  await toggle.focus();
-  await page.keyboard.press(browserName === 'webkit' ? 'Alt+Shift+Tab' : 'Shift+Tab');
-  await page.keyboard.press(browserName === 'webkit' ? 'Alt+Tab' : 'Tab');
-  await expect(toggle).toBeFocused();
-  expect(await toggle.evaluate(el => getComputedStyle(el).textDecorationLine)).toBe('underline');
-  await toggle.press('Enter');
-  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
-  const panel = page.locator(`[id="${await toggle.getAttribute('aria-controls')}"]`);
-  await expect(panel).toHaveAttribute('aria-hidden', 'false');
-  await expect(panel).toContainText('Örnek kaynak');
-  await expect.poll(() => panel.evaluate(el => getComputedStyle(el).transitionTimingFunction)).toContain('cubic-bezier(0.65, 0, 0.35, 1)');
-  await expect.poll(() => panel.evaluate(el => getComputedStyle(el).transitionDuration)).toContain('0.24s');
-  await page.setViewportSize({ width: 740, height: 360 });
-  await expect(toggle).toBeFocused();
-  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
-  await toggle.press('Space');
-  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
-  await expect(panel).toHaveAttribute('aria-hidden', 'true');
-  await expect(panel).toHaveAttribute('inert', '');
-  // Interrupt the closing motion: the current item and its balances must remain intact.
-  await toggle.press('Enter');
-  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
-  await expect(purchase.locator('.timeline-balances')).toContainText('1.000 ₺');
-  await page.emulateMedia({ reducedMotion: 'reduce' });
-  await toggle.click(); await toggle.click();
-  expect(await panel.evaluate(el => getComputedStyle(el).transitionDuration)).toBe('0s');
-  await page.emulateMedia({ reducedMotion: 'no-preference' });
-  await toggle.click();
-  await expect.poll(() => panel.evaluate(el => el.getBoundingClientRect().height)).toBe(0);
+  await expect(purchase.locator('.timeline-source')).toBeVisible();
+  await expect(purchase.locator('.timeline-source')).toContainText('Örnek kaynak');
+  for (const size of [{ width: 740, height: 360 }, { width: 1440, height: 900 }, { width: 320, height: 740 }]) {
+    await page.setViewportSize(size);
+    await expect(note).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    const layout = await purchase.evaluate(el => {
+      const context = el.querySelector('.timeline-step-context')!.getBoundingClientRect();
+      const balances = el.querySelector('.timeline-balances')!.getBoundingClientRect();
+      const details = el.querySelector('.timeline-details')!;
+      const bounds = details.getBoundingClientRect();
+      return { gap: bounds.top - Math.max(context.bottom, balances.bottom), padding: getComputedStyle(details).paddingTop, hidden: !!details.closest('[inert], [aria-hidden="true"]'), aligned: Math.abs(context.top - balances.top) < 1 };
+    });
+    expect(layout.gap, 'notes follow the content without a large empty panel').toBeLessThanOrEqual(8);
+    expect(layout.gap).toBeGreaterThanOrEqual(0);
+    expect(layout.padding).toBe('0px');
+    expect(layout.hidden).toBe(false);
+    if (size.width === 1440) expect(layout.aligned, 'event and balances share the top row').toBe(true);
+  }
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.evaluate(() => window.scrollTo(0, 0));
   const first = await page.getByRole('article').first().boundingBox();
   expect(first!.y + first!.height, 'first complete step is above the fold').toBeLessThan(900);
-  const row = await purchase.boundingBox();
-  expect(row!.height, 'long purchase stays compact with all balances').toBeLessThan(180);
+  await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
+  await expect(note).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+});
+
+test('same-day steps have separate surfaces without oversized inner spacing', async ({ page }) => {
+  const table = syntheticTimeline();
+  table.rows[2][1] = table.rows[1][1];
+  table.rows[2][2] = 2;
+  await page.route('**/gviz/tq?*', route => route.fulfill({ contentType: 'application/json', body: gviz(table.rows, table.labels) }));
+  await page.goto('/aile/#/timeline');
+  const day = page.getByRole('region', { name: '10 Kasım 2098' });
+  await expect(day.getByRole('article')).toHaveCount(2);
+  for (const width of [320, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    const steps = await day.locator('.timeline-step').evaluateAll(elements => elements.map(el => {
+      const box = el.getBoundingClientRect(), body = el.querySelector('article')!.getBoundingClientRect();
+      const style = getComputedStyle(el);
+      return { top: box.top, bottom: box.bottom, inset: body.left - box.left, surface: style.backgroundColor, pageSurface: getComputedStyle(document.querySelector('.budget-app')!).backgroundColor, radius: parseFloat(style.borderTopLeftRadius) };
+    }));
+    for (const step of steps) {
+      expect(step.surface).not.toBe('rgba(0, 0, 0, 0)');
+      expect(step.surface).not.toBe(step.pageSurface);
+      expect(step.radius).toBeGreaterThan(0);
+      expect(step.inset).toBeGreaterThanOrEqual(8);
+      expect(step.inset).toBeLessThanOrEqual(16);
+    }
+    expect(steps[1].top - steps[0].bottom, 'white space separates consecutive steps on the same day').toBeGreaterThanOrEqual(8);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    await expect(day.getByRole('button', { name: /^Ayrıntı/ })).toHaveCount(0);
+  }
 });
 
 test('six-digit cash and debt stay intact at 320px with 200% text', async ({ page, browserName }) => {

@@ -1,7 +1,4 @@
-import { useId, useState } from 'react';
-import { Collapse } from '@mantine/core';
-import { useReducedMotion } from '@mantine/hooks';
-import { tokens } from '../dashboard/tokens';
+import { useState } from 'react';
 import { Select } from '../dashboard/Select';
 import { money } from '../dashboard/data';
 import { dateLabel, monthLabel, timelineSheetUrl, type Timeline, type TimelineEvent } from './data';
@@ -32,9 +29,6 @@ function StepPages({ position, page, count, onChange }: { position: 'üst' | 'al
   </nav>;
 }
 function EventStep({ event, number, incomes }: { event: TimelineEvent; number: number; incomes: TimelineEvent[] }) {
-  const [open, setOpen] = useState(false);
-  const detailsId = useId();
-  const reduced = useReducedMotion();
   // The legacy conditional hint is superseded by the explicit dates below; retain every other source note.
   const note = event.type === 'Kart ödemesi'
     ? event.note.replace('Maaştan önceyse önceki aydan nakit gerekir; aynı günse maaşın yatması beklenir.', '').trim()
@@ -57,19 +51,15 @@ function EventStep({ event, number, incomes }: { event: TimelineEvent; number: n
         <div className="timeline-bank-debt"><dt>Denizbank</dt><dd>{money(event.denizDebt)}</dd></div>
         <div className="timeline-bank-debt"><dt>İşbank</dt><dd>{money(event.isDebt)}</dd></div>
       </dl>
-      <button className="timeline-detail-toggle" type="button" aria-label={`Ayrıntı: ${event.title}`} aria-expanded={open} aria-controls={detailsId} onClick={() => setOpen(!open)}><span>Ayrıntı</span><span aria-hidden="true">{open ? '−' : '+'}</span></button>
-      <Collapse className="timeline-details" id={detailsId} expanded={open} aria-hidden={!open} inert={!open} keepMounted
-        transitionDuration={reduced ? 0 : tokens.duration} transitionTimingFunction={tokens.ease} animateOpacity={false}>
-        <div className="timeline-details-body">
-          {event.type === 'Kart ödemesi' && <div className="timeline-payment-dates" role="group" aria-label="Ödeme ve gelir tarihleri">
-            <p><strong>Ödeme günü</strong> {dateLabel(event.date)}</p>
-            <p><strong>Ödeme öncesi nakit</strong> {money(event.cash - event.cashChange)}</p>
-            {incomes.length ? <><p><strong>Bu ayın gelir takvimi</strong></p><ul>{incomes.map(income => <li key={income.id}>{dateLabel(income.date)} · {income.title} · {incomeTiming(income, event)}{income.certainty === 'Tarih varsayımı' ? ' · gün varsayımı' : ''}</li>)}</ul>{incomes.some(income => income.certainty === 'Tarih varsayımı') && <p>Varsayılan gelir günü, kesin maaş günü değildir.</p>}</> : <p>Bu ay için gelir adımı kayıtlı değil.</p>}
-          </div>}
-          {note && <p className="timeline-source-note"><strong>E-tablo notu</strong> {note}</p>}
-          <p className="timeline-source"><strong>Kaynak</strong> {event.source} <span>· {event.certainty}</span></p>
-        </div>
-      </Collapse>
+      <div className="timeline-details">
+        {event.type === 'Kart ödemesi' && <div className="timeline-payment-dates" role="group" aria-label="Ödeme ve gelir tarihleri">
+          <p><strong>Ödeme günü</strong> {dateLabel(event.date)}</p>
+          <p><strong>Ödeme öncesi nakit</strong> {money(event.cash - event.cashChange)}</p>
+          <div className="timeline-income-dates">{incomes.length ? <><p><strong>Bu ayın gelir takvimi</strong></p><ul>{incomes.map(income => <li key={income.id}>{dateLabel(income.date)} · {income.title} · {incomeTiming(income, event)}{income.certainty === 'Tarih varsayımı' ? ' · gün varsayımı' : ''}</li>)}</ul>{incomes.some(income => income.certainty === 'Tarih varsayımı') && <p>Varsayılan gelir günü, kesin maaş günü değildir.</p>}</> : <p>Bu ay için gelir adımı kayıtlı değil.</p>}</div>
+        </div>}
+        {note && <p className="timeline-source-note"><strong>E-tablo notu</strong> {note}</p>}
+        <p className="timeline-source"><strong>Kaynak</strong> {event.source} <span>· {event.certainty}</span></p>
+      </div>
     </article>
   </li>;
 }

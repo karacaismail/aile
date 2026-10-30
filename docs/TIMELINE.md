@@ -41,8 +41,9 @@ Regresyonlar sentetik veri kullanır: hatalı/eksik veri reddi, nakit/borç zinc
 
 - Dönem seçimi ve başlangıç/son/en düşük nakit ile son kart borcu, tek özet alanındadır.
 - Geniş görünümde tarih sütunu, işlem ve sonraki bakiyeleri hizalar. Dar görünümde aynı DOM tek akışa dönüşür; gezinme kendi içinde kayar.
-- Her adımda nakit ve iki kartın borcu görünür kalır. Uzun not ve kaynak bilgisi, klavye ve dokunmayla açılan Ayrıntı düğmesindedir. Tarih varsayımları ve negatif nakit uyarıları bu panele saklanmaz.
-- `e2e/timeline-dashboard.spec.ts` ayrıntı açma/kapatma, anlık ARIA/inert, iki yönlü hareket, kesilen animasyon, klavye odağı, yön değişiminde açık durum, ilk görünüm yoğunluğu, 320 px ve masaüstünde %200 metin büyütmeyi kontrol eder.
+- Her adım, hafif tonlu ve yuvarlatılmış ayrı bir yüzeyde yer alır. 12px iç boşluk ve adımlar arasında 12px aralık, aynı gündeki işlemleri ayırırken kompaktlığı korur.
+- Her adımda nakit, toplam kart borcu ve iki kartın borcu görünür kalır. Açıklama, kaynak ve ödeme/gelir tarihleri ilk açılışta doğrudan adımın altındadır; Ayrıntı düğmesi yoktur. Açıklamalar ayrı kutu veya iç padding kullanmaz. Tarih varsayımları ve negatif nakit uyarıları korunur.
+- `e2e/timeline-dashboard.spec.ts` açıklamaların etkileşim gerektirmeden görünürlüğünü, düğmenin yokluğunu, işlem/bakiye hizasını, açıklama öncesi en fazla 8px boşluğu, ay kontrollerinin klavye odağı/hareketini, yön değişiminde okunabilirliği, ilk görünüm yoğunluğunu, 320 px ve masaüstünde %200 metin büyütmeyi kontrol eder.
 
 ### Dönemden işleme ilerleme
 
