@@ -72,7 +72,7 @@ export default function Dashboard() {
   const timeline = location === '/timeline';
   const state = useBudget(!timeline);
   const vehicle = location.startsWith('/arac');
-  return <MantineProvider theme={dashboardTheme} forceColorScheme="light"><div className={`budget-app${vehicle ? ' vehicle-shell' : ''}`} style={cssTokens}>
+  return <MantineProvider theme={dashboardTheme} forceColorScheme="light"><div className={`budget-app${vehicle ? ' vehicle-shell' : timeline ? ' timeline-shell' : ''}`} style={cssTokens}>
     <a className="skip-link" href="#budget-content" onClick={e=>{e.preventDefault();document.getElementById('budget-content')?.focus();}}>İçeriğe geç</a>
     <header className="budget-header"><a href="#/pano" className="wordmark">aile<span>birlikte planla</span></a><nav aria-label="Ana gezinme"><a href="#/pano" aria-current={!vehicle && !timeline ? "page" : undefined}>Bütçe</a><a href="#/timeline" aria-current={timeline ? "page" : undefined}>Timeline</a><a href="#/arac" aria-current={vehicle ? "page" : undefined}>Araç ve finansman</a><a href={sheetUrl} target="_blank" rel="noreferrer">E-tabloyu aç</a></nav></header>
     <main id="budget-content" tabIndex={-1}>

@@ -62,6 +62,54 @@ test('plain Timeline URLs override an obsolete pano hash and open the same canon
   }
 });
 
+test('scannable ledger keeps balances visible while details expand accessibly', async ({ page, browserName }) => {
+  await mockTimeline(page);
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.goto('/aile/#/timeline');
+  await page.evaluate(() => document.fonts.ready);
+  expect((await page.getByRole('article').first().boundingBox())!.y, 'first step begins in the narrow viewport').toBeLessThan(740);
+  const purchase = page.getByRole('article', { name: /3\. adım/ });
+  const toggle = purchase.getByRole('button', { name: /^Ayrıntı:/ });
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(purchase.getByText('Teslimat tarihi satıcı ile teyit edilecek; satın alma ve teslimat ayrı adımlardır.')).not.toBeVisible();
+  for (const label of ['Kalan nakit', 'Toplam kart borcu', 'Denizbank', 'İşbank']) await expect(purchase.getByText(label, { exact: true })).toBeVisible();
+  await toggle.focus();
+  await page.keyboard.press(browserName === 'webkit' ? 'Alt+Shift+Tab' : 'Shift+Tab');
+  await page.keyboard.press(browserName === 'webkit' ? 'Alt+Tab' : 'Tab');
+  await expect(toggle).toBeFocused();
+  expect(await toggle.evaluate(el => getComputedStyle(el).textDecorationLine)).toBe('underline');
+  await toggle.press('Enter');
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  const panel = page.locator(`[id="${await toggle.getAttribute('aria-controls')}"]`);
+  await expect(panel).toHaveAttribute('aria-hidden', 'false');
+  await expect(panel).toContainText('Örnek kaynak');
+  await expect.poll(() => panel.evaluate(el => getComputedStyle(el).transitionTimingFunction)).toContain('cubic-bezier(0.65, 0, 0.35, 1)');
+  await expect.poll(() => panel.evaluate(el => getComputedStyle(el).transitionDuration)).toContain('0.24s');
+  await page.setViewportSize({ width: 740, height: 360 });
+  await expect(toggle).toBeFocused();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await toggle.press('Space');
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(panel).toHaveAttribute('aria-hidden', 'true');
+  await expect(panel).toHaveAttribute('inert', '');
+  // Interrupt the closing motion: the current item and its balances must remain intact.
+  await toggle.press('Enter');
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(purchase.locator('.timeline-balances')).toContainText('1.000 ₺');
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await toggle.click(); await toggle.click();
+  expect(await panel.evaluate(el => getComputedStyle(el).transitionDuration)).toBe('0s');
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await toggle.click();
+  await expect.poll(() => panel.evaluate(el => el.getBoundingClientRect().height)).toBe(0);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.evaluate(() => window.scrollTo(0, 0));
+  const first = await page.getByRole('article').first().boundingBox();
+  expect(first!.y + first!.height, 'first complete step is above the fold').toBeLessThan(900);
+  const row = await purchase.boundingBox();
+  expect(row!.height, 'long purchase stays compact with all balances').toBeLessThan(180);
+});
+
 test('six-digit cash and debt stay intact at 320px with 200% text', async ({ page, browserName }) => {
   await mockTimeline(page, true);
   await page.setViewportSize({ width: 320, height: 740 });
@@ -123,18 +171,28 @@ test('compact journey preserves readability, focus, dropdown state and responsiv
   await expect(page.getByRole('option', { name: 'Aralık 2098' })).toBeVisible();
   await picker.press('ArrowDown'); await picker.press('Enter');
   await picker.press(browserName === 'webkit' ? 'Alt+Tab' : 'Tab');
+  expect(await page.locator(':focus').evaluate(el => getComputedStyle(el).boxShadow)).toContain('inset');
   const focus = await page.evaluate(() => { const style = getComputedStyle(document.activeElement!); return { mode: document.documentElement.dataset.keyboard, outline: style.outlineStyle, decoration: style.textDecorationLine }; });
   expect(focus).toEqual({ mode: 'true', outline: 'none', decoration: 'underline' });
   const previous = page.getByRole('button', { name: 'Önceki ay' });
   await previous.click();
   const motion = await previous.evaluate(element => { const style = getComputedStyle(element); return { duration: style.transitionDuration, easing: style.transitionTimingFunction }; });
   expect(motion.duration).toContain('0.24s'); expect(motion.easing).toContain('cubic-bezier(0.65, 0, 0.35, 1)');
-  for (const width of [320, 360, 375, 390, 740, 768, 1023, 1024, 1025, 1440]) {
+  for (const width of [320, 360, 375, 390, 740, 767, 768, 769, 991, 992, 993, 1023, 1024, 1025, 1440]) {
     await page.setViewportSize({ width, height: width === 740 ? 360 : 900 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `page overflow at ${width}`).toBe(true);
     expect(await page.locator('main').evaluate(element => Array.from(element.querySelectorAll('*')).filter(node => node.textContent?.trim() && node.getBoundingClientRect().width > 0 && parseFloat(getComputedStyle(node).fontSize) < 14).map(node => node.tagName))).toEqual([]);
     await expect(picker).toHaveValue('Kasım 2098');
   }
+  await picker.click();
+  await page.setViewportSize({ width: 320, height: 740 });
+  const menu = page.locator('.mantine-Select-dropdown');
+  await expect.poll(() => menu.evaluate(el => { const r = el.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth + 1; }), { message: 'open month menu follows the narrower viewport' }).toBe(true);
+  await expect(picker).toBeFocused();
+  await expect(picker).toHaveValue('Kasım 2098');
+  await picker.press('Escape');
+  await expect(menu).not.toBeVisible();
+  await page.setViewportSize({ width: 1440, height: 900 });
   const violations = (await new AxeBuilder({ page }).include('.budget-app').analyze()).violations;
   expect(violations.map(violation => violation.id)).toEqual([]);
   await page.screenshot({ path: `test-results/timeline-${browserName}-1440.png`, fullPage: true });
@@ -142,6 +200,8 @@ test('compact journey preserves readability, focus, dropdown state and responsiv
   await page.screenshot({ path: `test-results/timeline-${browserName}-320.png`, fullPage: true });
   await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'desktop with 200% text').toBe(true);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   expect(await previous.evaluate(element => getComputedStyle(element).transitionDuration)).toBe('0s');
 });

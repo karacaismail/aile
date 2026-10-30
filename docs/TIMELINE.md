@@ -36,3 +36,10 @@ Regresyonlar sentetik veri kullanır: hatalı/eksik veri reddi, nakit/borç zinc
 ## Düz URL ve sayfalama
 
 `/aile/timeline`, `/aile/timeline/` ve `/aile/timeline/index.html` statik girişleri `/aile/#/timeline` adresine döner. Eski `#/pano` parçası bu girişte Timeline seçimini değiştirmez. GitHub Pages için `public/timeline/index.html` gerçek dosya olarak derlemeye girer; sunucu rewrite kuralı gerekmez. Ay seçimi veya önceki/sonraki ay gezinmesi adım sayfasını sıfırlar. Tüm döneme geri dönmek ilk 50 adıma döner.
+
+## Timeline görünümü
+
+- Dönem seçimi ve başlangıç/son/en düşük nakit ile son kart borcu, tek özet alanındadır.
+- Geniş görünümde tarih sütunu, işlem ve sonraki bakiyeleri hizalar. Dar görünümde aynı DOM tek akışa dönüşür; gezinme kendi içinde kayar.
+- Her adımda nakit ve iki kartın borcu görünür kalır. Uzun not ve kaynak bilgisi, klavye ve dokunmayla açılan Ayrıntı düğmesindedir. Tarih varsayımları ve negatif nakit uyarıları bu panele saklanmaz.
+- `e2e/timeline-dashboard.spec.ts` ayrıntı açma/kapatma, anlık ARIA/inert, iki yönlü hareket, kesilen animasyon, klavye odağı, yön değişiminde açık durum, ilk görünüm yoğunluğu, 320 px ve masaüstünde %200 metin büyütmeyi kontrol eder.
