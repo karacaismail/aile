@@ -63,6 +63,8 @@ export class FinanceSheetRepository {
 
   apply(candidate, state) {
     return measurePhase('apply', () => {
+      this.log({phase: 'cell-write', ...candidate.cells, requests: candidate.requests.length});
+      if (!candidate.requests.length) return;
       this.spreadsheets.batchUpdate({requests: candidate.requests}, state.targetId);
       this.flush();
     }, this.clock, this.log);

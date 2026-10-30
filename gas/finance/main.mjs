@@ -10,6 +10,7 @@ import {FinanceSheetRepository} from './sheet-repository.mjs';
 import {HANDLERS, ensureTriggers} from './triggers.mjs';
 import {measurePhase} from './timing.mjs';
 import {sheetsApi} from './sheets-api.mjs';
+import {planCellWrites} from './cell-writes.mjs';
 
 export {DurableStateStore, FinanceSheetRepository};
 const ENGINE_REV = typeof __FINANCE_ENGINE_REV__ === 'string' ? __FINANCE_ENGINE_REV__ : 'development';
@@ -33,15 +34,8 @@ function createCandidate(source, state, sourceHash) {
   const control = native.financeManifest.sheets.find(s => s.title === '_Finans kontrol');
   const gateFormula = native.financeManifest.cells.find(c => c.sheetId === control.sheetId && c.row === 1 && c.column === 1)?.entered.formulaValue;
   if (!gateFormula) throw Error('Yeni hesap kaynak koruması eksik.');
-  // Keep the gate closed even if a generated rectangle includes B2.
-  const requests = JSON.parse(JSON.stringify(native.requests));
-  for (const request of requests) {
-    const u = request.updateCells;
-    if (!u || u.range.sheetId !== control.sheetId) continue;
-    const r = 1 - u.range.startRowIndex, c = 1 - u.range.startColumnIndex;
-    if (u.rows?.[r]?.values?.[c]) u.rows[r].values[c].userEnteredValue = {boolValue: false};
-  }
-  return {native, prior: compactOwnership(native, {hash}), generation: native.generationHash, requests, gateFormula};
+  const patch = planCellWrites(source, native.requests, {sheetId: control.sheetId, row: 1, column: 1});
+  return {native, prior: compactOwnership(native, {hash}), generation: native.generationHash, ...patch, gateFormula};
 }
 
 function ports() {

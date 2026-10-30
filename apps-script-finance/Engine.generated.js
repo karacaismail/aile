@@ -1672,11 +1672,12 @@ var __finance = (() => {
       }
     }
     ranges.push(...candidate.retainedRanges ?? []);
+    const uniqueRanges = [...new Map(ranges.map((range) => [encode(range), range])).values()];
     const dates = (candidate.dates?.catalogue ?? []).map(({ key: key2, ariziRow, priorityRow, owner, managed, manual }) => ({ key: key2, ariziRow, priorityRow, owner, managed, manual }));
     const wire = candidate.wire ? Object.fromEntries(["schema", "sheetId", "title", "rowCount", "eventCount", "monthCount", "digest", "sourceHash", "formula", "range", "metadataRange"].map((k) => [k, candidate.wire[k]])) : void 0;
     const control = (candidate.financeManifest?.sheets ?? []).find((s) => s.title === "_Finans kontrol"), gateCell = (candidate.financeManifest?.cells ?? []).find((c) => c.sheetId === control?.sheetId && c.row === 1 && c.column === 1);
     const gate = gateCell ? { sheetId: control.sheetId, title: control.title, entered: gateCell.entered } : void 0;
-    return { gate, schema: "finance-ownership-v1", sourceSpreadsheetId: candidate.sourceSpreadsheetId, targetSpreadsheetId: candidate.targetSpreadsheetId, ranges, dates: { catalogue: dates }, controls: { mapping: candidate.controls?.mapping ?? [] }, wire, mirror: candidate.mirror, financeSheets: candidate.financeManifest?.sheets ?? [], generationHash: candidate.generationHash };
+    return { gate, schema: "finance-ownership-v1", sourceSpreadsheetId: candidate.sourceSpreadsheetId, targetSpreadsheetId: candidate.targetSpreadsheetId, ranges: uniqueRanges, dates: { catalogue: dates }, controls: { mapping: candidate.controls?.mapping ?? [] }, wire, mirror: candidate.mirror, financeSheets: candidate.financeManifest?.sheets ?? [], generationHash: candidate.generationHash };
   }
   function assertRefreshOwnership(source, prior, { hash: hash2 } = {}) {
     if (prior?.schema !== "finance-ownership-v1") throw Error("Compact finance ownership required");
@@ -2133,6 +2134,8 @@ var __finance = (() => {
     }
     apply(candidate, state2) {
       return measurePhase("apply", () => {
+        this.log({ phase: "cell-write", ...candidate.cells, requests: candidate.requests.length });
+        if (!candidate.requests.length) return;
         this.spreadsheets.batchUpdate({ requests: candidate.requests }, state2.targetId);
         this.flush();
       }, this.clock, this.log);
@@ -2186,8 +2189,76 @@ var __finance = (() => {
     };
   }
 
+  // gas/finance/cell-writes.mjs
+  function planCellWrites(source, requests, gate) {
+    const sheets = /* @__PURE__ */ new Map(), before = [], after = [], patches = [];
+    const cells = { requested: 0, compared: 0, changed: 0 };
+    for (const request of requests) {
+      const u = request.updateCells;
+      if (!u) {
+        if (request.appendDimension || request.unmergeCells || request.updateSheetProperties?.fields === "gridProperties.frozenRowCount") before.push(request);
+        else if (request.mergeCells || request.copyPaste?.pasteType === "PASTE_FORMAT") after.push(request);
+        else throw Error("Unsupported finance patch operation");
+        continue;
+      }
+      const r = u.range;
+      if (u.fields !== "userEnteredValue" || !r || ![r.sheetId, r.startRowIndex, r.endRowIndex, r.startColumnIndex, r.endColumnIndex].every(Number.isInteger)) {
+        throw Error("Bounded entered-value writes required");
+      }
+      if (!sheets.has(r.sheetId)) sheets.set(r.sheetId, /* @__PURE__ */ new Map());
+      const rows = sheets.get(r.sheetId);
+      for (let y = r.startRowIndex; y < r.endRowIndex; y++) {
+        if (!rows.has(y)) rows.set(y, /* @__PURE__ */ new Map());
+        for (let x = r.startColumnIndex; x < r.endColumnIndex; x++) {
+          rows.get(y).set(x, u.rows?.[y - r.startRowIndex]?.values?.[x - r.startColumnIndex]?.userEnteredValue ?? {});
+          cells.requested++;
+        }
+      }
+    }
+    for (const [sheetId, rows] of sheets) {
+      const sheet = source.sheets.find((s) => s.properties.sheetId === sheetId);
+      if (!sheet) throw Error("Patch source sheet missing");
+      const original = grid(source, sheet.properties.title), runs = /* @__PURE__ */ new Map();
+      for (const [y, row] of [...rows].sort(([a], [b]) => a - b)) {
+        let run;
+        for (const [x, entered2] of [...row].sort(([a], [b]) => a - b)) {
+          if (gate?.sheetId === sheetId && gate.row === y && gate.column === x) continue;
+          cells.compared++;
+          if (JSON.stringify(original[y]?.[x]?.userEnteredValue ?? {}) === JSON.stringify(entered2)) continue;
+          cells.changed++;
+          if (!run || run.end !== x) {
+            run = { start: x, end: x, values: [] };
+            if (!runs.has(y)) runs.set(y, []);
+            runs.get(y).push(run);
+          }
+          run.values.push({ userEnteredValue: entered2 });
+          run.end++;
+        }
+      }
+      const previous = /* @__PURE__ */ new Map();
+      for (const [y, rowRuns] of runs) for (const run of rowRuns) {
+        const key2 = run.start + ":" + run.end, prior = previous.get(key2);
+        if (prior?.range.endRowIndex === y && prior.rows.length * run.values.length < 500) {
+          prior.range.endRowIndex++;
+          prior.rows.push({ values: run.values });
+        } else {
+          const updateCells = { range: {
+            sheetId,
+            startRowIndex: y,
+            endRowIndex: y + 1,
+            startColumnIndex: run.start,
+            endColumnIndex: run.end
+          }, rows: [{ values: run.values }], fields: "userEnteredValue" };
+          patches.push({ updateCells });
+          previous.set(key2, updateCells);
+        }
+      }
+    }
+    return { requests: [...before, ...patches, ...after], cells };
+  }
+
   // gas/finance/main.mjs
-  var ENGINE_REV = true ? "d80757149562fdb1b20084b42452a41a8437b92153c95cd897018d37ea5b5fc6" : "development";
+  var ENGINE_REV = true ? "b1484d85ff7ed3f63deddbaf031c1bbb178924f62ee5e3fba520a5e29a0fd8ce" : "development";
   var properties = () => PropertiesService.getScriptProperties();
   var stateStore = () => new DurableStateStore({ properties: properties(), utilities: Utilities });
   var sheetRepository = () => new FinanceSheetRepository({
@@ -2206,14 +2277,8 @@ var __finance = (() => {
     const control = native.financeManifest.sheets.find((s) => s.title === "_Finans kontrol");
     const gateFormula = native.financeManifest.cells.find((c) => c.sheetId === control.sheetId && c.row === 1 && c.column === 1)?.entered.formulaValue;
     if (!gateFormula) throw Error("Yeni hesap kaynak korumas\u0131 eksik.");
-    const requests = JSON.parse(JSON.stringify(native.requests));
-    for (const request of requests) {
-      const u = request.updateCells;
-      if (!u || u.range.sheetId !== control.sheetId) continue;
-      const r = 1 - u.range.startRowIndex, c = 1 - u.range.startColumnIndex;
-      if (u.rows?.[r]?.values?.[c]) u.rows[r].values[c].userEnteredValue = { boolValue: false };
-    }
-    return { native, prior: compactOwnership(native, { hash }), generation: native.generationHash, requests, gateFormula };
+    const patch = planCellWrites(source, native.requests, { sheetId: control.sheetId, row: 1, column: 1 });
+    return { native, prior: compactOwnership(native, { hash }), generation: native.generationHash, ...patch, gateFormula };
   }
   function ports() {
     const lock = LockService.getScriptLock(), store = stateStore(), repository = sheetRepository();

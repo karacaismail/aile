@@ -44,3 +44,19 @@ REST okumaları dört sekmelik gruplarla sınırlıdır; 16 sekmeli bir snapshot
 metadata dahil beş istek yapılır. `_Kasa hesap` yalnız kur başlığından okunur;
 ilgisiz üretilmiş matris yüklenmez. Düzenlenebilir kaynakların ve yazılan
 çıktıların ayrılmış satır/sütun sonları korunur. Canlı süreler ayrıca ölçülmelidir.
+
+Yazım hücre bazındadır: `planCellWrites` temizleme ve güncelleme isteklerini son
+değerlerine indirger, `userEnteredValue` ile karşılaştırır ve yalnız değişen
+hücreleri bitişik aralıklarda tek atomik batch'e gönderir. Hesaplanmış değer
+önbelleği karşılaştırılmaz; aynı sonucu veren farklı formül hâlâ değişikliktir.
+Eski satırların temizlenmesi ve kullanıcı girdisi boşlukları korunur. B2 yayın
+kapısını yalnız controller açıp kapatır. Tam aday sahiplik ve readback için kalır;
+az yazım, eksik hesap veya azaltılmış doğrulama anlamına gelmez.
+
+Planner yalnız mevcut üreticinin değer yazımı, sona satır/sütun ekleme, dondurma,
+birleştirme ve biçim kopyalama işlemlerini kabul eder; yeni işlem türleri test
+edilmeden aktarılmaz. `gas/src/finance-cell-patch.test.ts` örtüşme, örtük temizleme,
+korunan girdi, boş batch ve tekrar çalıştırma kapısıdır. `cell-write` günlüğü
+istenen/karşılaştırılan/değişen hücre sayısını içerir; hücre içeriklerini içermez.
+Aynı sahiplik kaydı yenilemeler boyunca birikmez: aralık, dışlanan girdiler ve
+digest birlikte aynıysa tek kayıt saklanır. Farklı kanıtlar birleştirilmez.

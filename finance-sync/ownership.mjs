@@ -28,11 +28,13 @@ export function compactOwnership(candidate,{hash}={}) {
   for(let i=0;i<cols.length;){let j=i+1;while(j<cols.length&&cols[j]===cols[j-1]+1)j++;finish({title:row.title,sheetId:row.sheetId,startRow:row.row,endRow:row.row+1,startColumn:cols[i],endColumn:cols[j-1]+1});i=j;}
  }
  ranges.push(...(candidate.retainedRanges??[]));
+ // Old clear rectangles recur on every refresh. Keep each exact proof only once.
+ const uniqueRanges=[...new Map(ranges.map(range=>[encode(range),range])).values()];
  const dates=(candidate.dates?.catalogue??[]).map(({key,ariziRow,priorityRow,owner,managed,manual})=>({key,ariziRow,priorityRow,owner,managed,manual}));
  const wire=candidate.wire?Object.fromEntries(['schema','sheetId','title','rowCount','eventCount','monthCount','digest','sourceHash','formula','range','metadataRange'].map(k=>[k,candidate.wire[k]])):undefined;
  const control=(candidate.financeManifest?.sheets??[]).find(s=>s.title==='_Finans kontrol'),gateCell=(candidate.financeManifest?.cells??[]).find(c=>c.sheetId===control?.sheetId&&c.row===1&&c.column===1);
  const gate=gateCell?{sheetId:control.sheetId,title:control.title,entered:gateCell.entered}:undefined;
- return{gate,schema:'finance-ownership-v1',sourceSpreadsheetId:candidate.sourceSpreadsheetId,targetSpreadsheetId:candidate.targetSpreadsheetId,ranges,dates:{catalogue:dates},controls:{mapping:candidate.controls?.mapping??[]},wire,mirror:candidate.mirror,financeSheets:candidate.financeManifest?.sheets??[],generationHash:candidate.generationHash};
+ return{gate,schema:'finance-ownership-v1',sourceSpreadsheetId:candidate.sourceSpreadsheetId,targetSpreadsheetId:candidate.targetSpreadsheetId,ranges:uniqueRanges,dates:{catalogue:dates},controls:{mapping:candidate.controls?.mapping??[]},wire,mirror:candidate.mirror,financeSheets:candidate.financeManifest?.sheets??[],generationHash:candidate.generationHash};
 }
 export function assertRefreshOwnership(source,prior,{hash}={}){
  if(prior?.schema!=='finance-ownership-v1')throw Error('Compact finance ownership required');
