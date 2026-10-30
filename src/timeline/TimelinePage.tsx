@@ -94,8 +94,9 @@ function TimelineJourney({ data }: { data: Timeline }) {
   const scope = selected === 'all' ? 'Tüm dönem' : monthLabel(selected);
   return <div className="timeline-workspace">
     <aside className="timeline-overview" aria-label="Dönem kontrolü">
+    <h2 className="timeline-overview-heading">Dönem özeti</h2>
     <div className="timeline-toolbar">
-      <div className="timeline-month"><Select label="Dönem" aria-label="Gösterilen dönem" value={selected} onChange={value => value && changeSelection(value)} allowDeselect={false} data={[...data.months.map(month => ({ value: month, label: monthLabel(month) })), { value: 'all', label: 'Tüm dönem' }]} /></div>
+      <div className="timeline-month"><Select aria-label="Gösterilen dönem" value={selected} onChange={value => value && changeSelection(value)} allowDeselect={false} data={[...data.months.map(month => ({ value: month, label: monthLabel(month) })), { value: 'all', label: 'Tüm dönem' }]} /></div>
       <div className="button-row timeline-period-buttons"><button className="quiet-button timeline-month-arrow" aria-label="Önceki ay" disabled={index <= 0} onClick={() => changeSelection(data.months[index - 1])}><MonthArrow /></button><button className="quiet-button timeline-month-arrow" aria-label="Sonraki ay" disabled={index < 0 || index >= data.months.length - 1} onClick={() => changeSelection(data.months[index + 1])}><MonthArrow next /></button></div>
     </div>
     <section className="timeline-summary" aria-label={`${scope} özeti`}>
@@ -108,7 +109,7 @@ function TimelineJourney({ data }: { data: Timeline }) {
     {minimumCash < 0 && <p className="timeline-cash-warning" role="alert">Bu dönemde planlanan nakit {money(minimumCash)} seviyesine düşüyor. Negatif tutar kullanılabilir para değildir; ödeme sırası veya finansmanı düzeltilmelidir.</p>}
     </aside>
     <section className="timeline-flow" aria-label="Ödeme akışı">
-    <div className="timeline-flow-heading"><div><h2>{scope}</h2><p className="muted">Ne zaman, ne ödeyeceğiz?</p></div><span className="timeline-step-count">{events.length} adım</span></div>
+    <div className="timeline-flow-heading"><div><p className="timeline-flow-label">Ödeme akışı</p><h2>{scope}</h2></div><span className="timeline-step-count">{events.length} adım</span></div>
     <div className="timeline-filters" role="group" aria-label="Adımları filtrele">{journeyFilters.map(item => <button key={item.id} type="button" aria-pressed={filter === item.id} onClick={() => { setFilter(item.id); setPageSelection({ scope: `${selected}:${item.id}`, page: 0 }); }}>{item.label}</button>)}</div>
     {filter !== 'all' && <p className="timeline-filter-note" role="status">{filteredEvents.length} / {events.length} adım gösteriliyor. Bakiyeler tüm işlemleri içerir.</p>}
     {filteredEvents.length === 0 && <div className="timeline-empty"><h3>Bu dönemde {filter === 'purchase' ? 'alışveriş' : filter === 'payment' ? 'ödeme' : 'gelir'} adımı yok.</h3><p>Başka bir ay seçebilir veya tüm adımları görüntüleyebilirsin.</p></div>}

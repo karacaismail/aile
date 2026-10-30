@@ -162,6 +162,25 @@ test('same-day steps have separate surfaces without oversized inner spacing', as
   }
 });
 
+test('overview and steps have distinct contrasting surfaces with readable summary values', async ({ page }) => {
+  await mockTimeline(page);
+  await page.goto('/aile/#/timeline');
+  const overview = page.getByRole('complementary', { name: 'Dönem kontrolü' });
+  await expect(overview.getByRole('heading', { name: 'Dönem özeti' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Ödeme akışı' }).getByText('Ödeme akışı', { exact: true })).toBeVisible();
+  const surface = await overview.evaluate(el => getComputedStyle(el).backgroundColor);
+  expect(surface).not.toBe('rgba(0, 0, 0, 0)');
+  expect(surface).not.toBe(await page.locator('.timeline-step').first().evaluate(el => getComputedStyle(el).backgroundColor));
+  await page.getByRole('button', { name: 'Sonraki ay' }).click();
+  await expect(overview).toContainText('-100 ₺');
+  for (const width of [320, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    const violations = (await new AxeBuilder({ page }).include('.timeline-overview').analyze()).violations;
+    expect(violations.map(violation => violation.id)).toEqual([]);
+  }
+});
+
 test('six-digit cash and debt stay intact at 320px with 200% text', async ({ page, browserName }) => {
   await mockTimeline(page, true);
   await page.setViewportSize({ width: 320, height: 740 });
