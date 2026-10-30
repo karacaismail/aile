@@ -65,11 +65,16 @@ export function buildTimeline(table: TimelineTable): Timeline {
 
 export async function fetchTimeline(signal: AbortSignal): Promise<Timeline> {
   if (!/^[\w-]{20,}$/.test(sheetId)) throw new Error('Google Sheets bağlantısı henüz tanımlanmamış.');
-  const url = new URL(`https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq`);
-  url.search = new URLSearchParams({ sheet: 'Timeline', range: 'A8:Q1600', headers: '1', tqx: 'out:json', _: String(Date.now()) }).toString();
-  const response = await fetch(url, { signal, cache: 'no-store', credentials: 'omit' });
-  if (!response.ok) throw new Error(`Timeline bağlantısı başarısız (${response.status}).`);
-  return buildTimeline(parseTable(await response.text()));
+  const read = async (sheet: string, range: string, headers: string) => {
+    const url = new URL(`https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq`);
+    url.search = new URLSearchParams({ sheet, range, headers, tqx: 'out:json', _: String(Date.now()) }).toString();
+    const response = await fetch(url, { signal, cache: 'no-store', credentials: 'omit' });
+    if (!response.ok) throw new Error(`Timeline bağlantısı başarısız (${response.status}).`);
+    return parseTable(await response.text());
+  };
+  // The editable Timeline may hide rows through filters. Its unfiltered formula
+  // mirror also follows row insertions/deletions above the visible header.
+  return buildTimeline(await read('_Timeline web', 'A1:Q1600', '1'));
 }
 
 const dateFormatter = new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });

@@ -3,6 +3,13 @@ import AxeBuilder from '@axe-core/playwright';
 import { syntheticLongTimeline, syntheticTimeline } from '../src/timeline/fixtures';
 import { gviz } from '../src/dashboard/fixtures';
 
+function timelineResponse(url: string, table: ReturnType<typeof syntheticTimeline>) {
+  const params = new URL(url).searchParams;
+  expect(params.get('sheet')).toBe('_Timeline web');
+  expect(params.get('range')).toBe('A1:Q1600');
+  return gviz(table.rows, table.labels);
+}
+
 async function mockTimeline(page: Page, largeAmounts = false) {
   const table = syntheticTimeline();
   if (largeAmounts) table.rows.forEach(row => {
@@ -18,10 +25,10 @@ async function mockTimeline(page: Page, largeAmounts = false) {
   await page.route('**/gviz/tq?*', route => {
     const sheet = new URL(route.request().url()).searchParams.get('sheet') ?? '';
     feeds.push(sheet);
-    if (sheet !== 'Timeline') return route.fulfill({ status: 503, body: 'Unexpected feed' });
+    if (sheet !== '_Timeline web') return route.fulfill({ status: 503, body: 'Unexpected feed' });
     const rows = table.rows.map(row => [...row]);
     if (broken) rows[4][15] = 5;
-    return route.fulfill({ contentType: 'application/json', body: gviz(rows, table.labels) });
+    return route.fulfill({ contentType: 'application/json', body: timelineResponse(route.request().url(), { rows, labels: table.labels }) });
   });
   return { feeds, requests, breakLedger: () => { broken = true; }, restore: () => { broken = false; } };
 }
@@ -34,8 +41,12 @@ test('timeline deep link shows each cash/debt step independently of old budget f
   await expect(purchase).toContainText('1.000 ₺');
   await expect(purchase).toContainText('500 ₺');
   await expect(page.getByRole('link', { name: 'Timeline', exact: true })).toHaveAttribute('aria-current', 'page');
-  expect(mock.feeds.every(feed => feed === 'Timeline')).toBe(true);
+  expect(mock.feeds.every(feed => feed === '_Timeline web')).toBe(true);
   expect(mock.requests.some(url => /(?:VehiclePage|LegacyApp|\/Charts\.tsx)/.test(url))).toBe(false);
+  await page.getByRole('button', { name: 'Yenile', exact: true }).click();
+  await expect.poll(() => mock.requests.some(url => new URL(url).searchParams.get('range') === 'A1:Q1600')).toBe(true);
+  await expect(page.getByRole('article', { name: /1\. adım/ })).toContainText('Adım opening');
+  await expect(page.getByRole('alert')).toHaveCount(0);
   mock.breakLedger();
   await page.getByRole('button', { name: 'Yenile', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('Son başarılı takvim');
@@ -59,7 +70,7 @@ test('plain Timeline URLs override an obsolete pano hash and open the same canon
     await page.goto(path);
     await expect(page).toHaveURL(/\/aile\/#\/timeline$/);
     await expect(page.getByRole('article')).toHaveCount(5);
-    expect(mock.feeds.every(feed => feed === 'Timeline')).toBe(true);
+    expect(mock.feeds.every(feed => feed === '_Timeline web')).toBe(true);
   }
 });
 
@@ -138,7 +149,7 @@ test('same-day steps have separate surfaces without oversized inner spacing', as
   const table = syntheticTimeline();
   table.rows[2][1] = table.rows[1][1];
   table.rows[2][2] = 2;
-  await page.route('**/gviz/tq?*', route => route.fulfill({ contentType: 'application/json', body: gviz(table.rows, table.labels) }));
+  await page.route('**/gviz/tq?*', route => route.fulfill({ contentType: 'application/json', body: timelineResponse(route.request().url(), table) }));
   await page.goto('/aile/#/timeline');
   const day = page.getByRole('region', { name: '10 Kasım 2098' });
   await expect(day.getByRole('article')).toHaveCount(2);
@@ -223,7 +234,7 @@ test('six-digit cash and debt stay intact at 320px with 200% text', async ({ pag
 test('all-period view bounds rendering and preserves balances through 716 chronological steps', async ({ page }) => {
   const table = syntheticLongTimeline();
   expect(table.rows).toHaveLength(716);
-  await page.route('**/gviz/tq?*', route => route.fulfill({ contentType: 'application/json', body: gviz(table.rows, table.labels) }));
+  await page.route('**/gviz/tq?*', route => route.fulfill({ contentType: 'application/json', body: timelineResponse(route.request().url(), table) }));
   await page.goto('/aile/#/timeline');
   await expect(page.getByRole('article')).toHaveCount(28);
   const picker = page.getByRole('combobox', { name: 'Gösterilen dönem' });

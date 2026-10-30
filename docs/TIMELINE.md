@@ -4,7 +4,7 @@
 
 ## Veri sözleşmesi
 
-Kaynak `Timeline!A8:Q1600`; 8. satır başlıktır. `src/timeline/contract.ts` sütunların sırasını ve başlıklarını tanımlar. Tarih ISO `YYYY-MM-DD`, dönem `YYYY-MM`; tutarlar sonlu sayıdır. Eksik değer sıfır kabul edilmez.
+Hesapların kaynağı `Timeline` sekmesidir. Web, `_Timeline web!A1:Q1600` aralığındaki filtresiz formül aynasını okur. Aynanın A1 hücresi, Timeline başlığından son hesap satırına kadar doğrudan `ARRAYFORMULA` referansı taşır; finansal hesapları çoğaltmaz. Sheets bu referansı üst açıklama satırlarının eklenmesi/silinmesiyle günceller. Kullanıcının Timeline görünüm filtresi web kayıtlarını daraltamaz. Ayna sekmesine filtre eklenmez. Eksik/hatalı ayna halinde görünür sekmeye geri dönülmez; veri reddedilir. `src/timeline/contract.ts` sütunların sırasını ve başlıklarını tanımlar. Tarih ISO `YYYY-MM-DD`, dönem `YYYY-MM`; tutarlar sonlu sayıdır. Eksik değer sıfır kabul edilmez.
 
 | Sütun | Anlam |
 |---|---|
