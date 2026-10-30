@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Tabs } from '@mantine/core';
 import { Select } from '../dashboard/Select';
 import { money } from '../dashboard/data';
@@ -13,6 +13,21 @@ function incomeTiming(income: TimelineEvent, payment: TimelineEvent) {
   return days === 0 ? 'ödemeyle aynı gün' : `ödemeden ${Math.abs(days)} gün ${days < 0 ? 'önce' : 'sonra'}`;
 }
 const stepsPerPage = 50;
+function useVisibleStepCount(scope: string, total: number) {
+  const initial = Math.min(8, total);
+  const [progress, setProgress] = useState({ scope, count: initial });
+  const count = progress.scope === scope ? Math.min(progress.count, total) : initial;
+  useEffect(() => {
+    if (count >= total) return;
+    let active = true;
+    // Queue the next batch only after this one commits, so React cannot merge frames.
+    const frame = requestAnimationFrame(() => {
+      if (active) setProgress({ scope, count: Math.min(total, count + 16) });
+    });
+    return () => { active = false; cancelAnimationFrame(frame); };
+  }, [scope, total, count]);
+  return count;
+}
 const journeyFilters = [
   { id: 'all', label: 'Tüm adımlar' }, { id: 'payment', label: 'Ödemeler' },
   { id: 'purchase', label: 'Alışveriş' }, { id: 'income', label: 'Gelir' },
@@ -125,7 +140,12 @@ function TimelineJourney({ data }: { data: Timeline }) {
   const filteredEvents = events.filter(event => matchesFilter(event, filter));
   const pageScope = `${selected}:${filter}`;
   const page = Math.max(0, Math.min(pageSelection.scope === pageScope ? pageSelection.page : 0, Math.floor((filteredEvents.length - 1) / stepsPerPage)));
-  const visibleEvents = filteredEvents.slice(page * stepsPerPage, (page + 1) * stepsPerPage);
+  const pageEvents = filteredEvents.slice(page * stepsPerPage, (page + 1) * stepsPerPage);
+  // A fresh copy of the same ledger must not collapse an already visible page.
+  const renderScope = JSON.stringify([selected, filter, page, view, pageEvents.map(event => event.id)]);
+  const visibleCount = useVisibleStepCount(renderScope, pageEvents.length);
+  const visibleEvents = pageEvents.slice(0, visibleCount);
+  const rendering = visibleCount < pageEvents.length;
   const dates = new Map<string, TimelineEvent[]>();
   visibleEvents.forEach(event => { const day = dates.get(event.date) ?? []; day.push(event); dates.set(event.date, day); });
   const eventNumbers = new Map(data.events.map((event, i) => [event.id, i + 1]));
@@ -159,10 +179,10 @@ function TimelineJourney({ data }: { data: Timeline }) {
     {filter !== 'all' && <p className="timeline-filter-note" role="status">{filteredEvents.length} / {events.length} adım gösteriliyor. Bakiyeler tüm işlemleri içerir.</p>}
     {filteredEvents.length === 0 && <div className="timeline-empty"><h3>Bu dönemde {filter === 'purchase' ? 'alışveriş' : filter === 'payment' ? 'ödeme' : 'gelir'} adımı yok.</h3><p>Başka bir ay seçebilir veya tüm adımları görüntüleyebilirsin.</p></div>}
     {filteredEvents.length > stepsPerPage && <StepPages position="üst" page={page} count={filteredEvents.length} onChange={changePage} />}
-    <Tabs.Panel value="timeline"><div className="timeline-journey" aria-label="Kronolojik ödeme adımları">
+    <Tabs.Panel value="timeline" aria-busy={rendering}><div className="timeline-journey" aria-label="Kronolojik ödeme adımları">
       {[...dates].map(([date, day]) => <section className="timeline-day" key={date} aria-labelledby={`timeline-date-${date}`}><DayHeading date={date} count={day.length} /><ol>{day.map(event => <EventStep key={event.id} event={event} number={eventNumbers.get(event.id)!} incomes={incomesByMonth.get(event.month) ?? []} />)}</ol></section>)}
     </div></Tabs.Panel>
-    <Tabs.Panel value="table">{visibleEvents.length > 0 && <EventTable events={visibleEvents} eventNumbers={eventNumbers} incomesByMonth={incomesByMonth} />}</Tabs.Panel>
+    <Tabs.Panel value="table" aria-busy={rendering}>{visibleEvents.length > 0 && <EventTable events={visibleEvents} eventNumbers={eventNumbers} incomesByMonth={incomesByMonth} />}</Tabs.Panel>
     {filteredEvents.length > stepsPerPage && <StepPages position="alt" page={page} count={filteredEvents.length} onChange={changePage} />}
     </Tabs>
     </section>

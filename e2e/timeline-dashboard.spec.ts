@@ -293,6 +293,40 @@ test('changing timeline/table view preserves the current chronological page', as
   await expect(pages).toContainText('101–150 / 716 adım');
 });
 
+test('verified steps commit in frame-sized batches in both views while summaries stay complete', async ({ page }, testInfo) => {
+  await page.addInitScript(() => {
+    const paints: { view: string; count: number; busy: string | null }[] = [];
+    Object.assign(window, { timelinePaints: paints });
+    new MutationObserver(() => {
+      const timeline = document.querySelectorAll('.timeline-journey article').length;
+      const table = document.querySelectorAll('.timeline-table tbody tr').length;
+      const count = timeline || table;
+      if (!count) return;
+      const view = timeline ? 'timeline' : 'table';
+      const busy = document.querySelector('[role="tabpanel"]:not([hidden])')?.getAttribute('aria-busy') ?? null;
+      const last = paints.at(-1);
+      if (last?.view !== view || last.count !== count || last.busy !== busy) paints.push({ view, count, busy });
+    }).observe(document, { subtree: true, childList: true, attributes: true, attributeFilter: ['aria-busy'] });
+  });
+  const table = syntheticLongTimeline();
+  await page.route('**/gviz/tq?*', route => route.fulfill({ contentType: 'application/json', body: timelineResponse(route.request().url(), table) }));
+  await page.goto('/aile/#/timeline');
+  await expect(page.getByRole('article')).toHaveCount(28);
+  const summary = page.getByRole('region', { name: 'Kasım 2098 özeti' });
+  const totals = await summary.innerText();
+  await page.getByRole('tab', { name: 'Tablo', exact: true }).click();
+  await expect(page.getByRole('table').locator('tbody tr')).toHaveCount(28);
+  await expect(page.getByRole('tabpanel')).toHaveAttribute('aria-busy', 'false');
+  expect(await summary.innerText()).toBe(totals);
+  const paints = await page.evaluate(() => (window as unknown as { timelinePaints: { view: string; count: number; busy: string | null }[] }).timelinePaints);
+  const evidence = testInfo.outputPath('verified-step-commits.json');
+  await writeFile(evidence, JSON.stringify(paints, null, 2));
+  await testInfo.attach('verified-step-commits', { path: evidence, contentType: 'application/json' });
+  for (const view of ['timeline', 'table']) expect(paints.filter(paint => paint.view === view)).toEqual([
+    { view, count: 8, busy: 'true' }, { view, count: 24, busy: 'true' }, { view, count: 28, busy: 'false' },
+  ]);
+});
+
 test('view tab text retains contrast throughout normal and interrupted selection motion', async ({ page }, testInfo) => {
   await mockTimeline(page);
   await page.emulateMedia({ reducedMotion: 'no-preference' });
