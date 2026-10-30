@@ -1,7 +1,13 @@
 import { readdir, writeFile } from 'node:fs/promises';
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { syntheticSheets, gviz } from '../src/dashboard/fixtures';
 import { syntheticTimeline } from '../src/timeline/fixtures';
+
+async function selectPage(page: Page, name: string) {
+  const trigger = page.getByRole('button', { name: 'Sayfalar', exact: true });
+  if (await trigger.isVisible()) await trigger.click();
+  await page.getByRole('navigation', { name: 'Sayfalar', exact: true }).getByRole('link', { name, exact: true }).click();
+}
 
 test('a clean production budget visit does not fetch Tabs until Timeline needs it', async ({ page, context }, testInfo) => {
   const tabsFiles = (await readdir('dist/assets')).filter(name => /^Tabs-.*\.js$/.test(name));
@@ -10,6 +16,8 @@ test('a clean production budget visit does not fetch Tabs until Timeline needs i
   const storeFiles = (await readdir('dist/assets')).filter(name => /^timelineStore-.*\.js$/.test(name));
   expect(storeFiles.length).toBeGreaterThan(0);
   const storePaths = new Set(storeFiles.map(name => `/aile/assets/${name}`));
+  const otherFeaturePaths = new Set((await readdir('dist/assets')).filter(name => /^(LegacyApp|HomePlanPage|VehiclePage)-/.test(name)).map(name => `/aile/assets/${name}`));
+  expect(otherFeaturePaths.size, 'separate family areas remain deferred').toBeGreaterThanOrEqual(3);
   const requests: string[] = [];
   let timelineReads = 0;
   context.on('request', request => {
@@ -40,7 +48,8 @@ test('a clean production budget visit does not fetch Tabs until Timeline needs i
   expect(beforeTimeline, 'service worker installation must not prefetch a feature-specific module').toEqual([]);
   expect(requests.filter(path => storePaths.has(path)), 'Pano must not load the Timeline data module').toEqual([]);
   expect(timelineReads, 'Pano must not fetch the Timeline ledger').toBe(0);
-  await page.getByRole('link', { name: 'Timeline', exact: true }).click();
+  expect(requests.filter(path => otherFeaturePaths.has(path)), 'shared navigation must not eagerly fetch the home, editing or vehicle areas').toEqual([]);
+  await selectPage(page, 'Ödeme takvimi');
   await expect(page.getByRole('tablist', { name: 'Takvim görünümü' })).toBeVisible();
   await expect.poll(() => requests.filter(path => tabsPaths.has(path)).length).toBeGreaterThan(0);
   await page.getByRole('tab', { name: 'Tablo', exact: true }).click();
@@ -79,7 +88,7 @@ test('selected Timeline fetches before its UI arrives and revisits reuse verifie
     await expect(page.getByRole('region', { name: 'Seçili ay özeti' })).toBeVisible();
     expect(timelineReads).toBe(0);
     const selectedAt = performance.now();
-    await page.getByRole('link', { name: 'Timeline', exact: true }).click();
+    await selectPage(page, 'Ödeme takvimi');
     // This assertion only passes if data and UI downloads are independent.
     await expect.poll(() => timelineReads).toBe(1);
     const uiReleasedAt = performance.now();
@@ -87,10 +96,10 @@ test('selected Timeline fetches before its UI arrives and revisits reuse verifie
     releaseUi();
     await expect(page.getByRole('article')).toHaveCount(5);
     const coldShownAt = performance.now();
-    await page.getByRole('link', { name: 'Bütçe', exact: true }).click();
+    await selectPage(page, 'Genel bütçe');
     await expect(page.getByRole('region', { name: 'Seçili ay özeti' })).toBeVisible();
     const revisitAt = performance.now();
-    await page.getByRole('link', { name: 'Timeline', exact: true }).click();
+    await selectPage(page, 'Ödeme takvimi');
     await expect(page.getByRole('article')).toHaveCount(5);
     const warmShownAt = performance.now();
     expect(timelineReads, 'a fresh route revisit must not wait for another Google request').toBe(1);

@@ -114,7 +114,7 @@ test('timeline deep link shows each cash/debt step independently of old budget f
   const purchase = page.getByRole('article', { name: /3\. adım/ });
   await expect(purchase).toContainText('1.000 ₺');
   await expect(purchase).toContainText('500 ₺');
-  await expect(page.getByRole('link', { name: 'Timeline', exact: true })).toHaveAttribute('aria-current', 'page');
+  await expect(page.locator('.family-page-navigation a[href="#/timeline"]')).toHaveAttribute('aria-current', 'page');
   expect(mock.feeds.every(feed => feed === '_Timeline web')).toBe(true);
   expect(mock.requests.some(url => /(?:VehiclePage|LegacyApp|\/Charts\.tsx)/.test(url))).toBe(false);
   await page.getByRole('button', { name: 'Yenile', exact: true }).click();
@@ -177,6 +177,47 @@ test('journey filters preserve period totals and original balances while making 
   await expect(page.getByRole('article')).toHaveCount(0);
   await page.getByRole('button', { name: 'Tüm adımlar', exact: true }).click();
   await expect(page.getByRole('article')).toHaveCount(3);
+});
+
+test('journey filters share the view switch surface and remain usable at narrow widths', async ({ page, browserName }, testInfo) => {
+  await mockTimeline(page);
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.goto('/aile/#/timeline');
+  const filters = page.getByRole('group', { name: 'Adımları filtrele' });
+  const views = page.getByRole('tablist', { name: 'Takvim görünümü' });
+  const surface = (element: Element) => {
+    const style = getComputedStyle(element);
+    return { background: style.backgroundColor, radius: style.borderRadius, padding: style.padding, gap: style.gap };
+  };
+  await expect(filters).toBeVisible();
+  expect(await filters.evaluate(surface)).toEqual(await views.evaluate(surface));
+  const selected = filters.getByRole('button', { name: 'Tüm adımlar', exact: true });
+  const selectedStyle = (element: Element) => {
+    const style = getComputedStyle(element);
+    return { background: style.backgroundColor, color: style.color, radius: style.borderRadius, height: style.minHeight, weight: style.fontWeight };
+  };
+  expect(await selected.evaluate(selectedStyle)).toEqual(await views.getByRole('tab', { name: 'Zaman akışı' }).evaluate(selectedStyle));
+  for (const width of [320, 390, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    for (const button of await filters.getByRole('button').all()) {
+      const box = await button.boundingBox();
+      expect(box!.height).toBeGreaterThanOrEqual(44);
+      expect(await button.evaluate(el => parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(14);
+    }
+  }
+  await page.setViewportSize({ width: 320, height: 740 });
+  await selected.focus();
+  await page.keyboard.press(browserName === 'webkit' ? 'Alt+Tab' : 'Tab');
+  const payments = filters.getByRole('button', { name: 'Ödemeler', exact: true });
+  await expect(payments).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(payments).toHaveAttribute('aria-pressed', 'true');
+  expect(await payments.evaluate(el => ({ outline: getComputedStyle(el).outlineStyle, decoration: getComputedStyle(el).textDecorationLine }))).toEqual({ outline: 'none', decoration: 'underline' });
+  await expect(page.getByRole('article')).toHaveCount(1);
+  await page.screenshot({ path: testInfo.outputPath('filter-wrapper-320.png'), fullPage: true });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.screenshot({ path: testInfo.outputPath('filter-wrapper-1440.png'), fullPage: true });
 });
 
 test('timeline and table views share exact balances, notes and period/filter state', async ({ page }) => {
@@ -470,18 +511,18 @@ test('six-digit cash and debt stay intact at 320px with 200% text', async ({ pag
   await expect(page.getByRole('article')).toHaveCount(5);
   const picker = page.getByRole('combobox', { name: 'Gösterilen dönem' });
   await picker.click();
-  for (const width of [671, 672, 673, 1087, 1088, 1089]) {
+  for (const width of [671, 672, 673, 1087, 1088, 1089, 1359, 1360, 1361]) {
     await page.setViewportSize({ width, height: 900 });
     await expect(picker).toBeFocused();
     await expect(picker).toHaveValue('Kasım 2098');
     await expect.poll(() => page.locator('.mantine-Select-dropdown').evaluate(el => { const r = el.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth + 1; })).toBe(true);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `large amount overflow at ${width}`).toBe(true);
     const columns = await page.locator('.timeline-workspace').evaluate(el => getComputedStyle(el).gridTemplateColumns.split(' ').length);
-    expect(columns, `workspace at ${width}`).toBe(width >= 1088 ? 2 : 1);
-    if (width < 1087) {
-      const dayColumns = await page.locator('.timeline-day').first().evaluate(el => getComputedStyle(el).gridTemplateColumns.split(' ').length);
-      expect(dayColumns, `date rail at ${width}`).toBe(width >= 672 ? 2 : 1);
-    }
+    const wideWorkspace = await page.locator('.timeline-page').evaluate(el => el.clientWidth >= 64 * parseFloat(getComputedStyle(el).fontSize));
+    expect(columns, `workspace at ${width}`).toBe(wideWorkspace ? 2 : 1);
+    const dayColumns = await page.locator('.timeline-day').first().evaluate(el => getComputedStyle(el).gridTemplateColumns.split(' ').length);
+    const wideFlow = await page.locator('.timeline-flow').evaluate(el => el.clientWidth >= 40 * parseFloat(getComputedStyle(el).fontSize));
+    expect(dayColumns, `date rail at ${width}`).toBe(wideFlow ? 2 : 1);
   }
   await picker.press('Escape');
   await page.setViewportSize({ width: 320, height: 740 });

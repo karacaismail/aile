@@ -30,7 +30,7 @@ describe('SceneForm: kayıt zamanlaması', () => {
     read([layer, scene]);
     expect(await screen.findByTestId('scene-form')).toBeInTheDocument();
     expect(screen.getByLabelText(/^Ad/)).toHaveValue('Akşam filmi');
-    expect(screen.getByLabelText('Katman 1')).toHaveValue('L1');
+    expect(screen.getByRole('combobox', { name: 'Katman 1' })).toHaveValue('Salon · Tavan');
     expect(screen.getByLabelText('Parlaklık %')).toHaveValue('40');
   });
   it('yükleme bitti ve kayıt yoksa "bulunamadı"', () => {

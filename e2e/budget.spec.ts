@@ -51,7 +51,8 @@ test('üst çubuktan tek dokunuşla harcama: tutar → kalem → kaydet, liste v
   await expect(form.getByLabel('Tutar')).toBeFocused();
   await measured(page);
   await form.getByLabel('Tutar').fill('99,5');
-  await form.getByTestId('kalem-select').selectOption('Okul servisi');
+  await form.getByTestId('kalem-select').click();
+  await page.getByRole('option', { name: 'Okul servisi', exact: true }).click();
   await form.getByTestId('expense-save').click();
   await expect(form).toBeHidden();
   await expect(page.getByTestId('month-actual')).toContainText('2.400');

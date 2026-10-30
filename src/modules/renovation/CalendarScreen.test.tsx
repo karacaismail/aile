@@ -21,10 +21,10 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 
 describe('Takvim', () => {
-  it('dört alt sekme; taşınma sayacı ve senaryo seçici', () => {
+  it('sayfa bağlantılarını radyo gibi sunmaz; taşınma sayacı ve yerel senaryo seçiciyi korur', () => {
     applyRead(readFull());
     mount();
-    for (const t of ['Takvim', 'İşler', 'Ustalar', 'Kontrol']) expect(screen.getByRole('radio', { name: t })).toBeInTheDocument();
+    for (const t of ['Takvim', 'İşler', 'Ustalar', 'Kontrol']) expect(screen.queryByRole('radio', { name: t })).not.toBeInTheDocument();
     const strip = screen.getByTestId('countdown');
     expect(strip).toHaveTextContent('Taşınmaya');
     expect(within(strip).getByTestId('countdown-days')).toHaveTextContent('40');

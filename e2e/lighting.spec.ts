@@ -55,7 +55,8 @@ test('Katman formu: taşma yok, görev CRI doğrulaması, kayıt sonrası kart',
   expect(await smallText(page), 'metin < 1rem').toEqual([]);
   await page.getByRole('button', { name: 'Kaydet' }).click();
   await expect(page.getByText('Katman türü gerekli')).toBeVisible();
-  await page.getByLabel('Katman türü').selectOption('gorev');
+  await page.getByRole('combobox', { name: 'Katman türü' }).click();
+  await page.getByRole('option', { name: 'Görev', exact: true }).click();
   await page.getByLabel('CRI min').fill('80');
   await page.getByRole('button', { name: 'Kaydet' }).click();
   await expect(page.getByText('Görev katmanında CRI ≥ 90 olmalı')).toBeVisible();
@@ -102,7 +103,8 @@ test('Sahneler sekmesi: sahne kartı ve seviyeler; sahne formu', async ({ page }
   expect(await smallText(page), 'metin < 1rem').toEqual([]);
   await page.getByRole('button', { name: 'Seviye ekle' }).click();
   await expect(page.getByTestId('scene-level-row')).toHaveCount(3);
-  await page.getByLabel('Katman 3').selectOption('01TESTLAYER000000000000002');
+  await page.getByRole('combobox', { name: 'Katman 3' }).click();
+  await page.getByRole('option', { name: /Salon · Okuma köşesi/ }).click();
   await page.getByRole('button', { name: 'Kaydet' }).click();
   await expect(page.getByTestId('scene-form')).toHaveCount(0);
   await expect(card.getByTestId('scene-level')).toHaveCount(3);

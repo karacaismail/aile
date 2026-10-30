@@ -25,12 +25,12 @@ export function TotalsBar({ faz, onFaz, totals, count, total, filtered = false }
   const shown = count ?? totals.count;
   const countText = filtered && total != null ? `${shown} / ${total} kalem` : `${shown} kalem`;
   return (
-    <Paper className={classes.bar} px="sm" py={6} radius={0} data-testid="totals-bar">
+    <Paper className={classes.bar} px="sm" py="xs" radius={0} data-testid="totals-bar">
       <SegmentedControl
         fullWidth size="xs" value={faz} onChange={(v) => onFaz(v as Faz | 'hepsi')} aria-label="Faz"
         data={[{ value: 'hepsi', label: 'Hepsi' }, { value: '1', label: 'Önce' }, { value: '2', label: 'Yerleşme' }, { value: '3', label: 'Bebek' }]}
       />
-      <Group gap={6} wrap="wrap" align="baseline" mt={6}>
+      <Group gap="xs" wrap="wrap" align="baseline" mt="xs">
         <Text fw={700} className="tabular" size="lg" style={{ whiteSpace: 'nowrap' }} data-testid="totals-sum" data-filtered={filtered || undefined}>{range}</Text>
         {/* Ayraç sayımla aynı satırda kalır: uzun aralıkta yalnız "· N kalem" alt satıra iner */}
         <Text component="span" className="tabular" style={{ whiteSpace: 'nowrap' }}>

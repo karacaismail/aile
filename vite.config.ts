@@ -11,9 +11,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg'],
       manifest: {
-        name: 'aile — bütçe ve araç planı',
+        name: 'aile — birlikte planla',
         short_name: 'aile',
-        description: 'Canlı aile bütçesi, araç ve finansman simülasyonu',
+        description: 'Aile bütçesi, ödeme takvimi, ev hazırlıkları ve araç planı',
         lang: 'tr',
         start_url: '/aile/',
         scope: '/aile/',
@@ -27,7 +27,7 @@ export default defineConfig({
       workbox: {
         // Yalnız uygulama kabuğu önbelleğe alınır; veri (Apps Script) asla önbelleklenmez.
         globPatterns: ['**/*.{js,css,html,svg,woff2,ttf}'],
-        globIgnores: ['**/Charts-*', '**/PaymentChart-*', '**/VehiclePage-*', '**/TimelinePage-*', '**/timelineStore-*', '**/LegacyApp-*', '**/NumberInput-*', '**/Collapse-*', '**/Tabs-*'],
+        globIgnores: ['**/Charts-*', '**/PaymentChart-*', '**/VehiclePage-*', '**/TimelinePage-*', '**/timelineStore-*', '**/LegacyApp-*', '**/HomePlanPage-*', '**/NumberInput-*', '**/Collapse-*', '**/Tabs-*'],
         navigateFallback: '/aile/index.html',
         runtimeCaching: [{ urlPattern: ({url,request}) => url.origin === self.location.origin && url.pathname.includes('/assets/') && ['script','style'].includes(request.destination), handler: 'CacheFirst', options: { cacheName: 'aile-visited-modules', expiration: { maxEntries: 30, maxAgeSeconds: 604800 } } }],
       },

@@ -6,7 +6,7 @@
 .timeline-month-arrow { padding: 0; width: var(--budget-targetMin); display: inline-flex; align-items: center; justify-content: center; position: relative; }
 .timeline-arrow { width: var(--budget-timelineIconSize); height: var(--budget-timelineIconSize); }
 html[data-keyboard='true'] .timeline-month-arrow:focus-visible::after { content: ''; position: absolute; width: var(--budget-timelineIconSize); height: var(--budget-focusThickness); background: var(--budget-blue); bottom: var(--budget-spaceDense); }
-.timeline-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--budget-timelineMetricWidth)), 1fr)); gap: var(--budget-spaceSmall); margin-top: var(--budget-spaceSmall); }
+.timeline-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--budget-timelineMetricWidth)), 1fr)); gap: var(--budget-spaceTight); margin-top: var(--budget-spaceTight); }
 .timeline-summary > div { min-width: 0; padding: var(--budget-spaceSmall); }
 .timeline-summary-cash { background: var(--budget-timelineHeroSurface); color: var(--budget-ink); border-radius: var(--budget-timelineSummaryRadius); }
 .timeline-summary-debt { background: var(--budget-timelineSurface); color: var(--budget-ink); border-radius: var(--budget-timelineSummaryRadius); }
@@ -27,11 +27,12 @@ html[data-keyboard='true'] .timeline-month-arrow:focus-visible::after { content:
 .timeline-flow-heading h2 { font-size: var(--budget-fontMetric); letter-spacing: var(--budget-metricTracking); }
 .timeline-step-count { color: var(--budget-muted); white-space: nowrap; }
 .timeline-views { min-width: 0; }
-.timeline-view-switch { display: inline-flex; max-width: 100%; gap: var(--budget-spaceDense); padding: var(--budget-spaceDense); border-radius: var(--budget-timelineSummaryRadius); background: var(--budget-blueSurface); }
-.timeline-view-switch [role='tab'] { min-height: var(--budget-targetMin); width: var(--budget-timelineViewTabWidth); min-width: 0; border: 0; border-radius: var(--budget-radius); padding: var(--budget-spaceTight); background: transparent; color: var(--budget-ink); font-weight: var(--budget-labelWeight); transition: background-color var(--budget-duration) var(--budget-ease); }
-.timeline-view-switch [role='tab']:hover { background: var(--budget-paper); }
-.timeline-view-switch [role='tab'][aria-selected='true'] { background: var(--budget-timelineViewSelectedSurface); font-weight: var(--budget-headingWeight); }
-.timeline-view-switch [role='tab'][aria-selected='true']:hover { background: var(--budget-lightBlue); }
+.timeline-view-switch, .timeline-filters { display: inline-flex; max-width: 100%; gap: var(--budget-spaceDense); padding: var(--budget-spaceDense); border-radius: var(--budget-timelineSummaryRadius); background: var(--budget-blueSurface); }
+.timeline-view-switch [role='tab'], .timeline-filters button { min-height: var(--budget-targetMin); min-width: 0; border: 0; border-radius: var(--budget-radius); padding: var(--budget-spaceTight); background: transparent; color: var(--budget-ink); font-weight: var(--budget-headingWeight); transition: background-color var(--budget-duration) var(--budget-ease); }
+.timeline-view-switch [role='tab'] { width: var(--budget-timelineViewTabWidth); }
+.timeline-view-switch [role='tab']:hover, .timeline-filters button:hover { background: var(--budget-paper); }
+.timeline-view-switch [role='tab'][aria-selected='true'], .timeline-filters button[aria-pressed='true'] { background: var(--budget-timelineViewSelectedSurface); }
+.timeline-view-switch [role='tab'][aria-selected='true']:hover, .timeline-filters button[aria-pressed='true']:hover { background: var(--budget-lightBlue); }
 .timeline-views [role='tabpanel'] { min-width: 0; }
 .timeline-table-help { color: var(--budget-muted); margin-top: var(--budget-spaceSmall) !important; }
 .timeline-table-scroll { margin-top: var(--budget-spaceSmall); }
@@ -50,10 +51,8 @@ html[data-keyboard='true'] .budget-app .timeline-table-scroll:focus-visible { te
 .timeline-table .timeline-effect { display: grid; gap: var(--budget-spaceDense); }
 .timeline-table-note, .timeline-table th:last-child { min-width: var(--budget-timelineTableNoteWidth); }
 .timeline-table-note .timeline-payment-dates { display: grid; }
-.timeline-filters { display: flex; overflow-x: auto; gap: var(--budget-spaceDense); margin-top: var(--budget-spaceSmall); padding-block: var(--budget-spaceDense); }
-.timeline-filters button { flex-shrink: 0; border: 0; border-radius: var(--budget-radius); background: transparent; color: var(--budget-muted); padding: var(--budget-spaceTight) var(--budget-spaceSmall); min-height: var(--budget-targetMin); transition: background-color var(--budget-duration) var(--budget-ease), color var(--budget-duration) var(--budget-ease); }
-.timeline-filters button:hover { background: var(--budget-canvas); color: var(--budget-ink); }
-.timeline-filters button[aria-pressed='true'] { background: var(--budget-navy); color: var(--budget-paper); }
+.timeline-filters { overflow-x: auto; margin-top: var(--budget-spaceSmall); }
+.timeline-filters button { flex-shrink: 0; padding-inline: var(--budget-spaceSmall); }
 .timeline-filter-note { color: var(--budget-muted); margin-top: var(--budget-spaceSmall) !important; }
 .timeline-empty { padding-block: var(--budget-spaceWide); color: var(--budget-muted); }
 .timeline-empty h3 { margin-top: 0; color: var(--budget-ink); font-size: var(--budget-fontSection); }

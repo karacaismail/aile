@@ -1,5 +1,7 @@
 import type { CSSProperties } from 'react';
 export const tokens = {
+  familyMaxWidth: '1480px', familySidebarWidth: '17rem', familyNavHover: '#264A63', familyOverlayOpacity: 0.5,
+  dropdownMaxHeight: '220px',
   ink: '#203A51', muted: '#52697C', navy: '#1B3E55', paper: '#FFFFFF', canvas: '#F5F7FA',
   line: '#DCE4EB', blue: '#326B94', lightBlue: '#A6BED0', green: '#316653', red: '#9F4E48', amber: '#805C22',
   greenSurface: '#EFF7F3', redSurface: '#FCF0EE', blueSurface: '#EAF1F6', amberSurface: '#FCF8EE',

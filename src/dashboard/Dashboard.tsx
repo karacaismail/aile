@@ -1,19 +1,19 @@
 import { useHashLocation } from 'wouter/use-hash-location';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
-import { MantineProvider, TextInput, createTheme } from '@mantine/core';
+import { TextInput } from '@mantine/core';
 import { useReducedMotion } from '@mantine/hooks';
-import { tokens, cssTokens, dropdownTransition } from './tokens';
-import { useKeyboardMode } from './keyboard';
+import { tokens, dropdownTransition } from './tokens';
 import { Select } from './Select';
 import { TimelineRouteLoading } from '../timeline/TimelineLoading';
 import { useBudget } from './useBudget';
-import { money, percent, percentChange, sheetUrl, type Budget, type Category, type Irregular, type Month } from './data';
+import { money, percent, percentChange, type Budget, type Category, type Irregular, type Month } from './data';
 import { DataTable, type Column } from './DataTable';
 import './dashboard.css';
 const VehiclePage = lazy(() => import('../vehicle/VehiclePage'));
 const TimelinePage = lazy(() => import('../timeline/TimelinePage'));
 const Charts = lazy(() => import('./Charts'));
-const dashboardTheme = createTheme({ fontFamily: tokens.font, primaryColor: 'blue', defaultRadius: tokens.radius, fontSizes: { xs: '1rem', sm: '1rem', md: '1rem' }, components: { Input: { styles: { input: { minHeight: 44, fontSize: '1rem' } } }, Select: { styles: { option: { minHeight: 44, fontSize: '1rem' } } } } });
+const HomePlanPage = lazy(() => import('../home/HomePlanPage'));
+
 export const Amount = ({ value }: { value: number | null }) => <span className={value !== null && value < 0 ? 'negative' : undefined}>{money(value)}</span>;
 function DeferredCharts({ data, selected }: { data: Budget; selected: number }) {
   const ref = useRef<HTMLDivElement>(null); const [visible, setVisible] = useState(false);
@@ -68,7 +68,6 @@ function BudgetContent({ data }: { data: Budget }) {
   </>;
 }
 export default function Dashboard() {
-  useKeyboardMode();
   const [location] = useHashLocation();
   const timeline = location === '/timeline';
   useEffect(() => {
@@ -84,14 +83,11 @@ export default function Dashboard() {
   }, [timeline]);
   const state = useBudget(!timeline);
   const vehicle = location.startsWith('/arac');
-  return <MantineProvider theme={dashboardTheme} forceColorScheme="light"><div className={`budget-app${vehicle ? ' vehicle-shell' : timeline ? ' timeline-shell' : ''}`} style={cssTokens}>
-    <a className="skip-link" href="#budget-content" onClick={e=>{e.preventDefault();document.getElementById('budget-content')?.focus();}}>İçeriğe geç</a>
-    <header className="budget-header"><a href="#/pano" className="wordmark">aile<span>birlikte planla</span></a><nav aria-label="Ana gezinme"><a href="#/pano" aria-current={!vehicle && !timeline ? "page" : undefined}>Bütçe</a><a href="#/timeline" aria-current={timeline ? "page" : undefined}>Timeline</a><a href="#/arac" aria-current={vehicle ? "page" : undefined}>Araç ve finansman</a><a href={sheetUrl} target="_blank" rel="noreferrer">E-tabloyu aç</a></nav></header>
-    <main id="budget-content" tabIndex={-1}>
+  const home = location === '/ev';
+  return <div className={`budget-app${vehicle ? ' vehicle-shell' : timeline ? ' timeline-shell' : ''}`}>
       {!vehicle && !timeline && <div className="sync-strip"><span role="status" aria-live="polite">{state.loading ? 'Google Sheets kontrol ediliyor…' : state.updatedAt ? `Son okuma ${state.updatedAt.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })} · Açıkken her dakika yenilenir` : 'Google Sheets bağlantısı'}</span><button className="quiet-button" disabled={state.loading} onClick={state.refresh}>Yenile</button></div>}
       {!timeline && state.error && <div role="alert" className="error-message">{state.error} {state.data ? 'Son başarılı veriler gösteriliyor.' : 'E-tablo erişimini kontrol edip yeniden deneyin.'}</div>}
-      {timeline ? <Suspense fallback={<TimelineRouteLoading />}><TimelinePage /></Suspense> : vehicle ? <Suspense fallback={<p>Araç kataloğu yükleniyor…</p>}><VehiclePage budget={state.data} /></Suspense> : state.data ? <BudgetContent data={state.data} /> : <div className="loading-message"><h1>Aile bütçesi</h1><p>{state.loading ? 'Aylık plan ve güncel tutarlar yükleniyor…' : 'Veriler şu anda alınamıyor.'}</p></div>}
+      {timeline ? <Suspense fallback={<TimelineRouteLoading />}><TimelinePage /></Suspense> : vehicle ? <Suspense fallback={<p>Araç kataloğu yükleniyor…</p>}><VehiclePage budget={state.data} /></Suspense> : home ? <Suspense fallback={<p role="status">Alım planı yükleniyor…</p>}><HomePlanPage data={state.data} loading={state.loading} /></Suspense> : state.data ? <BudgetContent data={state.data} /> : <div className="loading-message"><h1>Aile bütçesi</h1><p>{state.loading ? 'Aylık plan ve güncel tutarlar yükleniyor…' : 'Veriler şu anda alınamıyor.'}</p></div>}
       {vehicle && <div className="sync-strip"><span role="status" aria-live="polite">{state.loading ? 'Google Sheets kontrol ediliyor…' : state.updatedAt ? `Son okuma ${state.updatedAt.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })} · Açıkken her dakika yenilenir` : 'Google Sheets bağlantısı'}</span><button className="quiet-button" disabled={state.loading} onClick={state.refresh}>Yenile</button></div>}
-    </main><footer className="budget-footer"><span>Veri kaynağı Google Sheets · Tutarlar Türk lirası</span><a href="#/satinalma">Önceki taşınma planlayıcısı</a></footer>
-  </div></MantineProvider>;
+  </div>;
 }

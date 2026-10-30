@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { mockApi, horizontalOverflow, smallTargets, smallText } from './helpers';
+import { tokens } from '../src/dashboard/tokens';
 
 const measure = async (page: Page, where: string) => {
   expect(await horizontalOverflow(page), `${where}: taşma`).toEqual([]);
@@ -16,6 +17,49 @@ async function chipStyle(page: Page, name: RegExp) {
     const cs = getComputedStyle(el);
     return { bg: cs.backgroundColor, color: cs.color, border: cs.borderTopColor, checked: el.hasAttribute('data-checked') };
   }, id);
+}
+
+const rgb = (hex: string) => `rgb(${[1, 3, 5].map(start => parseInt(hex.slice(start, start + 2), 16)).join(', ')})`;
+const contrast = (foreground: string, background: string) => {
+  const luminance = (color: string) => {
+    const channels = color.match(/[\d.]+/g)!.slice(0, 3).map(value => {
+      const channel = Number(value) / 255;
+      return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+    });
+    return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
+  };
+  const a = luminance(foreground), b = luminance(background);
+  return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+};
+
+/** Shared family identity remains readable and selected state remains distinct in either OS preference. */
+async function expectFamilyChipPalette(page: Page) {
+  await expect(page.locator('html')).toHaveAttribute('data-mantine-color-scheme', 'light');
+  const off = await chipStyle(page, /^Fiyatsız/);
+  expect(off).toEqual({ bg: rgb(tokens.paper), color: rgb(tokens.ink), border: 'rgba(0, 0, 0, 0)', checked: false });
+  expect(contrast(off.color, off.bg), 'unselected chip text contrast').toBeGreaterThanOrEqual(4.5);
+  await page.getByTestId('quick-chip-fiyatsiz').click();
+  await expect(page.getByTestId('filter-rail').getByRole('checkbox', { name: /^Fiyatsız/ })).toBeChecked();
+  await expect(page.getByTestId('quick-chip-fiyatsiz').getByTestId('chip-icon-check')).toBeVisible();
+  const frames = await page.getByTestId('quick-chip-fiyatsiz').evaluate(async (element, duration) => {
+    const label = element.querySelector('label')!;
+    const samples: { color: string; bg: string }[] = [];
+    const started = performance.now();
+    do {
+      const style = getComputedStyle(label);
+      samples.push({ color: style.color, bg: style.backgroundColor });
+      await new Promise(requestAnimationFrame);
+    } while (performance.now() - started < duration);
+    return samples;
+  }, tokens.duration);
+  for (const frame of frames) expect(contrast(frame.color, frame.bg), 'chip text remains readable while its selected surface animates').toBeGreaterThanOrEqual(4.5);
+  // Wait for the shared surface transition; checking an intermediate RGB is not a palette contract.
+  await expect.poll(() => chipStyle(page, /^Fiyatsız/)).toEqual({
+    bg: rgb(tokens.timelineViewSelectedSurface), color: rgb(tokens.ink), border: 'rgba(0, 0, 0, 0)', checked: true,
+  });
+  const on = await chipStyle(page, /^Fiyatsız/);
+  expect(on.bg, 'checked and unchecked surfaces must remain distinct').not.toBe(off.bg);
+  expect(contrast(on.color, on.bg), 'selected chip text contrast').toBeGreaterThanOrEqual(4.5);
 }
 
 test.beforeEach(async ({ page }) => {
@@ -123,26 +167,14 @@ test('sıralama: Ad seçimi uygulanır ve kapanır; alındı işaretlenen kalem 
   await expect(page.getByTestId('closed-divider')).toHaveCount(0);
 });
 
-test('çip renkleri (açık tema): seçili ember-7 + beyaz, seçisiz kenarlıklı', async ({ page }) => {
-  const off = await chipStyle(page, /^Fiyatsız/);
-  expect(off.checked).toBe(false);
-  expect(off.border).toBe('rgb(143, 127, 102)');
-  await page.getByTestId('quick-chip-fiyatsiz').click();
-  const on = await chipStyle(page, /^Fiyatsız/);
-  expect(on.checked).toBe(true);
-  expect(on.bg).toBe('rgb(169, 74, 45)');
-  expect(on.color).toBe('rgb(255, 253, 249)');
+test('çip renkleri: ortak aile tokenları, ayırt edilebilir seçim ve okunabilir metin', async ({ page }) => {
+  await expectFamilyChipPalette(page);
 });
 
-test.describe('koyu tema', () => {
+test.describe('koyu sistem tercihi', () => {
   test.use({ colorScheme: 'dark' });
-  test('çip renkleri: seçili ember-4 + siyah metin, seçisiz dark-2 kenarlık; ölçümler', async ({ page }) => {
-    const off = await chipStyle(page, /^Fiyatsız/);
-    expect(off.border).toBe('rgb(130, 130, 130)');
-    await page.getByTestId('quick-chip-fiyatsiz').click();
-    const on = await chipStyle(page, /^Fiyatsız/);
-    expect(on.bg).toBe('rgb(224, 123, 90)');
-    expect(on.color).toBe('rgb(31, 26, 22)');
+  test('çip renkleri: ortak aile teması korunur; seçili/seçisiz kontrast ve ölçümler', async ({ page }) => {
+    await expectFamilyChipPalette(page);
     await measure(page, 'koyu şerit');
     await page.getByTestId('filter-button').click();
     await expect(page.getByTestId('filter-drawer')).toBeVisible();

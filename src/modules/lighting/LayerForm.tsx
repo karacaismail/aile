@@ -176,7 +176,7 @@ function LayerFormBody({ oda, item, onClose }: { oda: string; item?: Item; onClo
 
   return (
     <Modal opened onClose={onClose} title={isNew ? `${roomLabel} · yeni katman` : `${roomLabel} · katman`} fullScreen={isMobile} size="lg"
-      transitionProps={{ transition: 'fade', duration: 120 }} closeButtonProps={modalCloseProps} styles={{ body: { paddingBottom: 96 } }}>
+      closeButtonProps={modalCloseProps} styles={{ body: { paddingBottom: 96 } }}>
       <form onSubmit={form.onSubmit(save)} noValidate data-testid="layer-form">
         <Stack gap="sm">
           <EnumSelect label="Katman türü" field="katman_tur" options={KATMAN_TUR} required value={values.katman_tur || undefined}

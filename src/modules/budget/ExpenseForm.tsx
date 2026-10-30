@@ -1,5 +1,6 @@
+import { FormSelect } from '@/components/FormSelect';
 import { useMemo, useState } from 'react';
-import { Modal, Stack, TextInput, Button, Group, Chip, NativeSelect, Alert, Text, Box } from '@mantine/core';
+import { Modal, Stack, TextInput, Button, Group, Chip, Alert, Text, Box } from '@mantine/core';
 import { DatePickerInput } from '@mantine/dates';
 import { useMediaQuery } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
@@ -9,7 +10,7 @@ import { upsert, remove } from '@/sync/controller';
 import { PriceInput } from '@/components/PriceInput';
 import { formatTl } from '@/lib/price';
 import { todayIso } from '@/lib/dates';
-import { kalemOptions, quickKalems, normKalem, OTHER_GROUP } from './rules';
+import { kalemOptions, quickKalems, normKalem } from './rules';
 import { closeExpense, useExpenseTarget, type ExpenseTarget } from './quick';
 import classes from './budget.module.css';
 
@@ -97,20 +98,16 @@ function ExpenseForm({ target }: { target: ExpenseTarget }) {
           </Stack>
         )}
         {groups.length > 0 ? (
-          <NativeSelect
+          <FormSelect
             label={chips.length ? 'Tüm kalemler' : 'Kalem'}
             value={kalem}
-            onChange={(e) => { setKalem(e.currentTarget.value); setError(null); }}
+            onChange={(value) => { setKalem(value ?? ''); setError(null); }}
+            placeholder="Seçin"
+            allowDeselect={false}
+            data={groups.map(group => ({ group: group.group, items: group.items }))}
             error={error === 'Kalem seçin' ? error : undefined}
             data-testid="kalem-select"
-          >
-            <option value="">Seçin</option>
-            {groups.map((g) => (
-              <optgroup key={g.group} label={g.group === OTHER_GROUP ? OTHER_GROUP : g.group}>
-                {g.items.map((k) => <option key={k} value={k}>{k}</option>)}
-              </optgroup>
-            ))}
-          </NativeSelect>
+          />
         ) : (
           <TextInput label="Kalem" value={kalem} onChange={(e) => setKalem(e.currentTarget.value)} error={error === 'Kalem seçin' ? error : undefined} />
         )}

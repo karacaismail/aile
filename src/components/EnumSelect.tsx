@@ -1,4 +1,5 @@
-import { NativeSelect, type NativeSelectProps } from '@mantine/core';
+import type { SelectProps } from '@mantine/core';
+import { FormSelect } from './FormSelect';
 import { label } from '@shared/schema';
 
 export function EnumSelect({ field, options, value, onChange, allowEmpty = true, ...rest }: {
@@ -7,12 +8,12 @@ export function EnumSelect({ field, options, value, onChange, allowEmpty = true,
   value: string | undefined;
   onChange: (v: string | undefined) => void;
   allowEmpty?: boolean;
-} & Omit<NativeSelectProps, 'value' | 'onChange' | 'data'>) {
+} & Omit<SelectProps, 'value' | 'onChange' | 'data'>) {
   const data = [
     ...(allowEmpty ? [{ value: '', label: '—' }] : []),
     ...options.map((o) => ({ value: o, label: label(field, o) })),
   ];
   return (
-    <NativeSelect data={data} value={value ?? ''} onChange={(e) => onChange(e.currentTarget.value || undefined)} {...rest} />
+    <FormSelect data={data} value={value ?? ''} allowDeselect={false} onChange={(next) => onChange(next || undefined)} {...rest} />
   );
 }

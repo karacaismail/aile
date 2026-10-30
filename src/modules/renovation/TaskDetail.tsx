@@ -1,5 +1,6 @@
+import { FormSelect } from '@/components/FormSelect';
 import { useMemo } from 'react';
-import { Alert, Button, Chip, Divider, Group, Modal, NativeSelect, NumberInput, SimpleGrid, Stack, Switch, Text, TextInput, Textarea } from '@mantine/core';
+import { Alert, Button, Chip, Divider, Group, Modal, NumberInput, SimpleGrid, Stack, Switch, Text, TextInput, Textarea } from '@mantine/core';
 import { DatePickerInput } from '@mantine/dates';
 import { useForm, schemaResolver } from '@mantine/form';
 import { useMediaQuery } from '@mantine/hooks';
@@ -101,7 +102,7 @@ function TaskDetailBody({ item, onClose }: { item?: Item; onClose: () => void })
   const v = form.getValues();
   const depsInput = form.getInputProps('bagimlilik');
   return (
-    <Modal opened onClose={onClose} title={isNew ? 'Yeni iş' : 'İş'} fullScreen={isMobile} size="lg" transitionProps={{ transition: 'fade', duration: 120 }}
+    <Modal opened onClose={onClose} title={isNew ? 'Yeni iş' : 'İş'} fullScreen={isMobile} size="lg"
       closeButtonProps={modalCloseProps} styles={{ body: { paddingBottom: 96 } }}>
       <form onSubmit={form.onSubmit(save)} noValidate data-testid="task-detail">
         <Stack gap="sm">
@@ -117,7 +118,7 @@ function TaskDetailBody({ item, onClose }: { item?: Item; onClose: () => void })
               </Group>
             </Chip.Group>
           </div>
-          <NativeSelect label="Durum" data={DURUM.map((d) => ({ value: d, label: TASK_DURUM_LABEL[d] ?? d }))} value={v.durum ?? 'fikir'} onChange={(e) => form.setFieldValue('durum', e.currentTarget.value)} />
+          <FormSelect label="Durum" allowDeselect={false} data={DURUM.map((d) => ({ value: d, label: TASK_DURUM_LABEL[d] ?? d }))} value={v.durum ?? 'fikir'} onChange={(value) => value && form.setFieldValue('durum', value)} />
           <Divider label="Zaman" labelPosition="left" />
           <SimpleGrid cols={{ base: 1, xs: 2 }} spacing="xs">
             <DatePickerInput label="Planlanan tarih" {...dateProps} value={v.planlanan_tarih} onChange={(d) => form.setFieldValue('planlanan_tarih', d)} />

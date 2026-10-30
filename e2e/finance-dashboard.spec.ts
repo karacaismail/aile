@@ -8,6 +8,27 @@ async function openSettings(page: Page) {
   if(await toggle.isVisible() && await toggle.getAttribute('aria-expanded')==='false') await toggle.click();
 }
 
+test('vehicle form adapts to space remaining beside global navigation', async ({ page }) => {
+  await mockLayoutSheets(page);
+  await page.setViewportSize({ width: 1024, height: 800 });
+  await page.goto('/aile/#/arac');
+  const settings = page.getByRole('button', { name: 'Ayarları düzenle', exact: true });
+  await expect(settings).toBeVisible();
+  for (const width of [1023, 1024, 1025, 1279, 1280, 1281, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    const compact = await page.locator('.vehicle-page').evaluate(el => el.clientWidth < 64 * parseFloat(getComputedStyle(el).fontSize));
+    if (compact) await expect(settings).toBeVisible(); else await expect(settings).toBeHidden();
+    await openSettings(page);
+    expect((await page.getByRole('combobox', { name: 'Model', exact: true }).boundingBox())!.width).toBeGreaterThanOrEqual(200);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  }
+  const price = page.getByLabel('Alım fiyatı', { exact: true });
+  await price.fill('900000');
+  await page.setViewportSize({ width: 1024, height: 800 });
+  await expect(price).toBeFocused();
+  await expect(price).toHaveValue('900000');
+});
+
 
 async function mockLayoutSheets(page:Page,unavailable=()=>false) {
   const sheets=syntheticSheets();

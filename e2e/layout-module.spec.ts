@@ -53,7 +53,8 @@ test('oda ölçü formu: kaydet → kart ölçüyü gösterir', async ({ page })
   const form = page.getByTestId('room-dims-form');
   await form.getByLabel('En (cm)').fill('280');
   await form.getByLabel('Boy (cm)').fill('350');
-  await form.getByLabel('Köpek erişimi').selectOption('kapali');
+  await form.getByRole('combobox', { name: 'Köpek erişimi' }).click();
+  await page.getByRole('option', { name: 'Kapalı', exact: true }).click();
   await form.getByRole('button', { name: 'Ölçüleri kaydet' }).click();
   await expect(page.getByTestId('wall-K')).toContainText('kalan 280 cm');
   await expect(page.getByTestId('wall-D')).toContainText('kalan 350 cm');

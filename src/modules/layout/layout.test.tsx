@@ -103,7 +103,8 @@ describe('RoomPage', () => {
     const form = screen.getByTestId('room-dims-form');
     await userEvent.type(within(form).getByLabelText('En (cm)'), '280');
     await userEvent.type(within(form).getByLabelText('Boy (cm)'), '350');
-    await userEvent.selectOptions(within(form).getByLabelText('Köpek erişimi'), 'kapali');
+    await userEvent.click(within(form).getByRole('combobox', { name: 'Köpek erişimi' }));
+    await userEvent.click(screen.getByRole('option', { name: 'Kapalı' }));
     await userEvent.click(within(form).getByRole('button', { name: 'Ölçüleri kaydet' }));
     expect(upsert).toHaveBeenCalledWith('ayarlar', undefined, { tip: 'oda', anahtar: 'cocuk', deger: JSON.stringify({ en_cm: 280, boy_cm: 350, kopek_erisim: 'kapali' }) });
   });

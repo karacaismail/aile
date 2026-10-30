@@ -95,7 +95,7 @@ function VendorDetailBody({ item, onClose }: { item?: Item; onClose: () => void 
     value: v[field] ?? '', onChange: (n: string | number) => form.setFieldValue(field, n === '' ? null : Number(n)), error: form.errors[field],
   });
   return (
-    <Modal opened onClose={onClose} title={isNew ? 'Yeni usta' : 'Usta'} fullScreen={isMobile} size="lg" transitionProps={{ transition: 'fade', duration: 120 }}
+    <Modal opened onClose={onClose} title={isNew ? 'Yeni usta' : 'Usta'} fullScreen={isMobile} size="lg"
       closeButtonProps={modalCloseProps} styles={{ body: { paddingBottom: 96 } }}>
       <form onSubmit={form.onSubmit(save)} noValidate data-testid="vendor-detail">
         <Stack gap="sm">

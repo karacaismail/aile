@@ -1,5 +1,6 @@
+import { FormSelect } from '@/components/FormSelect';
 import { useMemo } from 'react';
-import { ActionIcon, Alert, Button, Group, Modal, NativeSelect, NumberInput, Paper, Stack, Text, TextInput, Textarea } from '@mantine/core';
+import { ActionIcon, Alert, Button, Group, Modal, NumberInput, Paper, Stack, Text, TextInput, Textarea } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { useMediaQuery } from '@mantine/hooks';
 import { modals } from '@mantine/modals';
@@ -98,7 +99,7 @@ function SceneFormBody({ item, onClose }: { item?: Item; onClose: () => void }) 
   const addRow = () => form.insertListItem('seviyeler', { layerId: '', pct: null, cct: null } satisfies SceneLevel);
 
   return (
-    <Modal opened onClose={onClose} title={isNew ? 'Yeni sahne' : 'Sahne'} fullScreen={isMobile} size="lg" transitionProps={{ transition: 'fade', duration: 120 }}
+    <Modal opened onClose={onClose} title={isNew ? 'Yeni sahne' : 'Sahne'} fullScreen={isMobile} size="lg"
       closeButtonProps={modalCloseProps} styles={{ body: { paddingBottom: 96 } }}>
       <form onSubmit={form.onSubmit(save)} noValidate data-testid="scene-form">
         <Stack gap="sm">
@@ -111,8 +112,8 @@ function SceneFormBody({ item, onClose }: { item?: Item; onClose: () => void }) 
               {values.seviyeler.map((row, i) => (
                 <Paper key={i} withBorder p="xs" radius="md" data-testid="scene-level-row">
                   <Stack gap={6}>
-                    <NativeSelect label={`Katman ${i + 1}`} data={layerOptions} value={row.layerId}
-                      onChange={(e) => form.setFieldValue(`seviyeler.${i}.layerId`, e.currentTarget.value)} error={form.errors[`seviyeler.${i}.layerId`]} />
+                    <FormSelect label={`Katman ${i + 1}`} allowDeselect={false} data={layerOptions} value={row.layerId}
+                      onChange={(value) => form.setFieldValue(`seviyeler.${i}.layerId`, value ?? '')} error={form.errors[`seviyeler.${i}.layerId`]} />
                     <Group gap={6} wrap="nowrap" align="flex-start">
                       <NumberInput label="Parlaklık %" hideControls inputMode="numeric" min={0} max={100} className={classes.grow}
                         value={row.pct ?? ''} onChange={(v) => form.setFieldValue(`seviyeler.${i}.pct`, v === '' ? null : Number(v))} error={form.errors[`seviyeler.${i}.pct`]} />

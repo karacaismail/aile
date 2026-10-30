@@ -1,5 +1,5 @@
 /* Vehicle workspace: quarter-width controls and a compact, data-first canvas. */
-.vehicle-page { min-width: 0; padding-top: var(--budget-spaceSmall); }
+.vehicle-page { min-width: 0; padding-top: var(--budget-spaceSmall); container: vehicle / inline-size; }
 .vehicle-page section { min-width: 0; }
 .vehicle-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--budget-spacing); margin-bottom: var(--budget-spaceSmall); }
 .vehicle-heading h1 { font-size: var(--budget-fontPayment); margin-bottom: var(--budget-spaceTight); }
@@ -65,19 +65,19 @@ html[data-keyboard='true'] .budget-app .mantine-Checkbox-body:has(input:focus-vi
 .summary-kicker { font-weight: var(--budget-headingWeight); font-size: var(--budget-fontSection); }
 .summary-mode { color: var(--budget-muted); }
 .decision { min-width: 0; }
-.summary-assessment { display: grid; gap: var(--budget-spaceSmall); padding-block: var(--budget-spaceSmall); border-top: var(--budget-ruleWidth) solid var(--budget-line); }
+.summary-assessment { display: grid; gap: var(--budget-spaceSmall); padding-block: var(--budget-spaceTight); border-top: var(--budget-ruleWidth) solid var(--budget-line); }
 .decision-status { display: flex; flex-wrap: wrap; align-items: center; gap: var(--budget-spaceTight); margin-bottom: var(--budget-spaceSmall); }
 .decision-status > span { color: var(--budget-muted); }
 .decision-status h2 { font-size: var(--budget-fontSmall); padding: var(--budget-spaceTight) var(--budget-spaceSmall); border-radius: var(--budget-radius); }
 .decision-block h2 { background: var(--budget-redSurface); color: var(--budget-red); }
 .decision-unknown h2 { background: var(--budget-amberSurface); color: var(--budget-amber); }
 .approval-note { margin-top: var(--budget-spaceTight) !important; color: var(--budget-muted); }
-.decision-metrics { display: grid; gap: var(--budget-spaceSmall); padding-block: var(--budget-spaceSmall); font-variant-numeric: tabular-nums; }
+.decision-metrics { display: grid; gap: var(--budget-spaceSmall); padding-block: var(--budget-spaceTight); font-variant-numeric: tabular-nums; }
 .decision-metrics > div { min-width: 0; }
 .decision-metrics span { color: var(--budget-muted); }
 .decision-metrics strong { display: block; font-size: var(--budget-fontMetric); color: var(--budget-ink); letter-spacing: var(--budget-metricTracking); }
 .decision-metrics .payment-metric strong { font-size: var(--budget-fontHeroMetric); line-height: var(--budget-lineCompact); margin-top: var(--budget-spaceTight); }
-.finance-breakdown { display: grid; gap: var(--budget-spaceDense); margin: 0; padding-block: var(--budget-spaceTight); font-variant-numeric: tabular-nums; }
+.finance-breakdown { display: grid; gap: var(--budget-spaceDense); margin: 0; padding-block: var(--budget-spaceDense); font-variant-numeric: tabular-nums; }
 .finance-breakdown > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 var(--budget-spacing); }
 .finance-breakdown dt span { color: var(--budget-muted); }
 .finance-breakdown dd { margin: 0; font-weight: var(--budget-headingWeight); }
@@ -106,7 +106,7 @@ html[data-keyboard='true'] .budget-app .mantine-Checkbox-body:has(input:focus-vi
 .source-footnote { margin-top: var(--budget-spaceSection) !important; }
 .vehicle-page table th { background: var(--budget-vehicleSurface); }
 
-.scenario-sidebar { min-width: 0; background: var(--budget-paper); }
+.scenario-sidebar { --vehicle-wide: 0; min-width: 0; background: var(--budget-paper); }
 .settings-toggle, .settings-done { width: 100%; min-height: var(--budget-targetMin); display: flex; align-items: center; justify-content: space-between; gap: var(--budget-spaceSmall); padding: var(--budget-spaceTight) var(--budget-spaceSmall); border: 0; border-radius: var(--budget-radius); background: var(--budget-blueSurface); color: var(--budget-ink); font-weight: var(--budget-labelWeight); transition: background-color var(--budget-duration) var(--budget-ease); }
 .settings-toggle:hover, .settings-done:hover { background: var(--budget-line); }
 .settings-done { justify-content: center; background: var(--budget-navy); color: var(--budget-paper); margin-top: var(--budget-spaceTight); padding-bottom: max(var(--budget-spaceTight), env(safe-area-inset-bottom)); }
@@ -122,24 +122,22 @@ html[data-keyboard='true'] .budget-app .mantine-Checkbox-body:has(input:focus-vi
 .scenario-content .table-footer { padding-block: var(--budget-spaceTight); }
 .scenario-content td { padding-block: var(--budget-spaceTight); }
 .scenario-content th button { min-height: var(--budget-targetMin); padding-block: var(--budget-spaceTight); }
-@media(min-width:36em) {
+@container vehicle (min-width:36em) {
   .form-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .decision-metrics { grid-template-columns: repeat(3,minmax(0,1fr)); }
   .reserve-summary { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .rule { grid-template-columns: minmax(0,.25fr) minmax(0,1fr); gap: var(--budget-spacing); }
 }
-@media(min-width:64em) {
+@container vehicle (min-width:64em) {
   .scenario-workspace { grid-template-columns: var(--budget-editorColumns); }
-  .scenario-sidebar { position: sticky; top: var(--budget-spacing); border-right: var(--budget-ruleWidth) solid var(--budget-line); padding-right: var(--budget-spaceSmall); }
+  .scenario-sidebar { --vehicle-wide: 1; position: sticky; top: var(--budget-spacing); border-right: var(--budget-ruleWidth) solid var(--budget-line); padding-right: var(--budget-spaceSmall); }
   .sidebar-scroll { max-height: calc(100dvh - var(--budget-sidebarViewportInset)); }
   .settings-toggle, .settings-done { display: none; }
   .vehicle-overview { grid-template-columns: var(--budget-overviewColumns); }
   .decision-metrics { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .payment-metric { grid-column: 1 / -1; }
-  .vehicle-photo .view-nav { flex-direction: column; }
-  .vehicle-photo .view-nav button { text-align: left; }
 }
-@media(min-width:80em) {
+@container vehicle (min-width:80em) {
   .decision-metrics { grid-template-columns: repeat(3,minmax(0,1fr)); }
   .payment-metric { grid-column: auto; }
   .decision-metrics .payment-metric strong { font-size: var(--budget-fontPayment); }

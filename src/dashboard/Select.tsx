@@ -11,7 +11,7 @@ export function Select(props: SelectProps) {
     onDropdownOpen={() => { setOpened(true); props.onDropdownOpen?.(); }}
     onDropdownClose={() => { setOpened(false); props.onDropdownClose?.(); }}
     attributes={{ ...props.attributes, dropdown: { ...props.attributes?.dropdown, 'aria-hidden': !opened, inert: !opened ? true : undefined } }}
-    comboboxProps={{ ...props.comboboxProps, withinPortal: false, floatingStrategy: 'fixed', zIndex: tokens.layerDropdown, transitionProps: {
+    comboboxProps={{ ...props.comboboxProps, withinPortal: props.comboboxProps?.withinPortal ?? false, floatingStrategy: 'fixed', zIndex: tokens.layerDropdown, transitionProps: {
       duration: reduced ? 0 : tokens.duration, timingFunction: tokens.ease, transition: dropdownTransition,
     } }} />;
 }

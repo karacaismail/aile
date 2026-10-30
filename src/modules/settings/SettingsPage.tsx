@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, Button, Code, Group, SegmentedControl, Stack, Text, TextInput, Title, useMantineColorScheme, Anchor } from '@mantine/core';
+import { Alert, Button, Code, Group, Stack, Text, TextInput, Title, Anchor } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { PlugsConnectedIcon, TrashIcon } from '@phosphor-icons/react';
 import { callApi } from '@/sync/api';
@@ -16,7 +16,6 @@ export function SettingsPage() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [testing, setTesting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const { colorScheme, setColorScheme } = useMantineColorScheme();
 
   const save = () => {
     setApiUrl(url); setActor(actor); setAppKey(key);
@@ -38,7 +37,7 @@ export function SettingsPage() {
   return (
     <Stack p="sm" gap="md" pb={96}>
       <div>
-        <Title order={2} size="h4">Google Sheets bağlantısı</Title>
+        <Title order={2} size="h4">Kayıt bağlantısı</Title>
         <Text size="sm" c="dimmed">Apps Script web uygulamasının <Code>/exec</Code> adresi. Kurulum: <Anchor href="https://github.com/karacaismail/aile/blob/main/apps-script/README.md" target="_blank" rel="noreferrer" data-inline-link>apps-script/README</Anchor>.</Text>
       </div>
       <TextInput label="API adresi" placeholder="https://script.google.com/macros/s/…/exec" value={url} onChange={(e) => setUrl(e.currentTarget.value)} inputMode="url" autoCapitalize="none" autoCorrect="off" />
@@ -54,11 +53,6 @@ export function SettingsPage() {
         </Alert>
       )}
       {err && <Alert color="red" title="Bağlantı hatası"><Text size="sm">{err}</Text></Alert>}
-      <div>
-        <Title order={2} size="h4">Görünüm</Title>
-        <SegmentedControl mt="xs" fullWidth value={colorScheme} onChange={(v) => setColorScheme(v as 'auto' | 'light' | 'dark')}
-          data={[{ value: 'auto', label: 'Sistem' }, { value: 'light', label: 'Açık' }, { value: 'dark', label: 'Koyu' }]} />
-      </div>
       <div>
         <Title order={2} size="h4">Önbellek</Title>
         <Text size="sm" c="dimmed">Veri Sheets'te durur; bu cihazdaki kopya silinip yeniden çekilir.</Text>

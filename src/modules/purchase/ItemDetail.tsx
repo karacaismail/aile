@@ -96,7 +96,7 @@ export function ItemDetail({ id }: { id: string }) {
     );
   }
   return (
-    <Modal opened onClose={close} title={isNew ? 'Yeni kalem' : 'Kalem'} fullScreen={isMobile} size="lg" transitionProps={{ transition: 'fade', duration: 120 }} closeButtonProps={{ size: 'xl', 'aria-label': 'Kapat' }}
+    <Modal opened onClose={close} title={isNew ? 'Yeni kalem' : 'Kalem'} fullScreen={isMobile} size="lg" closeButtonProps={{ size: 'xl', 'aria-label': 'Kapat' }}
       styles={{ body: { paddingBottom: 96 } }}>
       <form onSubmit={form.onSubmit(save)} noValidate data-testid="item-detail">
         <Stack gap="sm">

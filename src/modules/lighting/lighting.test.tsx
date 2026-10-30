@@ -34,7 +34,8 @@ describe('LightingModule', () => {
     expect(screen.getByTestId('lighting-tabs')).toBeInTheDocument();
     expect(screen.getAllByTestId('room-card')).toHaveLength(ROOMS.length);
     expect(screen.getByTestId('empty-state')).toBeInTheDocument();
-    await userEvent.selectOptions(screen.getByLabelText('Oda'), 'cocuk');
+    await userEvent.click(screen.getByRole('combobox', { name: 'Oda' }));
+    await userEvent.click(screen.getByRole('option', { name: 'Çocuk odası' }));
     await userEvent.click(screen.getByRole('button', { name: 'Oda katmanlarını oluştur' }));
     expect(upsert).toHaveBeenCalledTimes(3);
     expect(vi.mocked(upsert).mock.calls.map((c) => (c[2] as { katman_tur: string }).katman_tur)).toEqual(['ana', 'gorev', 'gece']);
@@ -81,7 +82,8 @@ describe('LightingModule', () => {
     expect(await screen.findByText('Ad gerekli')).toBeInTheDocument();
     expect(await screen.findByText('Katman seçin')).toBeInTheDocument();
     await userEvent.type(screen.getByLabelText(/^Ad/), 'Gece modu');
-    await userEvent.selectOptions(screen.getByLabelText('Katman 1'), 'L2');
+    await userEvent.click(screen.getByRole('combobox', { name: 'Katman 1' }));
+    await userEvent.click(screen.getByRole('option', { name: 'Salon · Salon gece' }));
     await userEvent.type(screen.getByLabelText('Parlaklık %'), '10');
     await userEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
     expect(upsert).toHaveBeenCalledWith('kalemler', undefined, expect.objectContaining({ tip: 'sahne', ad: 'Gece modu', seviyeler: ['L2:10:'] }));

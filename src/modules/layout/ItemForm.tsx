@@ -126,7 +126,7 @@ function ItemFormBody({ oda, item, onClose }: { oda: Oda; item?: Item; onClose: 
 
   return (
     <Modal opened onClose={onClose} title={isNew ? `Yeni kalem · ${label('oda', oda)}` : label('oda', oda)} fullScreen={isMobile} size="lg"
-      closeButtonProps={modalCloseProps} transitionProps={{ transition: 'fade', duration: 120 }} styles={{ body: { paddingBottom: 96 } }}>
+      closeButtonProps={modalCloseProps} styles={{ body: { paddingBottom: 96 } }}>
       <form onSubmit={form.onSubmit(save)} noValidate data-testid="layout-item-form">
         <Stack gap="sm">
           <TextInput label="Ad" required autoFocus={isNew} {...form.getInputProps('ad')} key={form.key('ad')} />

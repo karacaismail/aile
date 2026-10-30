@@ -37,7 +37,8 @@ describe('LayerForm', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
     expect(await screen.findByText('Katman türü gerekli')).toBeInTheDocument();
     expect(upsert).not.toHaveBeenCalled();
-    await userEvent.selectOptions(screen.getByLabelText(/Katman türü/), 'gorev');
+    await userEvent.click(screen.getByRole('combobox', { name: /Katman türü/ }));
+    await userEvent.click(screen.getByRole('option', { name: 'Görev' }));
     await userEvent.type(screen.getByLabelText('CRI min'), '80');
     await userEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
     expect(await screen.findByText(MSG.gorevCri)).toBeInTheDocument();
@@ -56,7 +57,8 @@ describe('LayerForm', () => {
   });
   it('köpek kuralı: açıkta + 30 cm hata; uzun şerit uyarı metni', async () => {
     mount('yeni');
-    await userEvent.selectOptions(screen.getByLabelText(/Katman türü/), 'ana');
+    await userEvent.click(screen.getByRole('combobox', { name: /Katman türü/ }));
+    await userEvent.click(screen.getByRole('option', { name: 'Ana' }));
     await userEvent.click(screen.getByLabelText('Açıkta (şerit/kablo görünür)'));
     await userEvent.type(screen.getByLabelText('Montaj yüksekliği (cm)'), '30');
     await userEvent.type(screen.getByLabelText('Uzunluk (m)'), '6');
@@ -68,7 +70,7 @@ describe('LayerForm', () => {
   it('var olan katman: değerler dolu, bağlı ürün seçili, sil onayı remove çağırır', async () => {
     mount('L1');
     expect(screen.getByLabelText('Katman adı')).toHaveValue('Tavan');
-    expect(screen.getByLabelText(/Katman türü/)).toHaveValue('ana');
+    expect(screen.getByRole('combobox', { name: /Katman türü/ })).toHaveValue('Ana');
     expect(screen.getByRole('checkbox', { name: 'Şerit LED 24V' })).toBeChecked();
     expect(screen.getByRole('checkbox', { name: 'Elektrikçi' })).toBeChecked();
     await userEvent.click(screen.getByRole('button', { name: 'Sil' }));

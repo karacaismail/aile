@@ -14,6 +14,7 @@ let flushing: Promise<void> | null = null;
 let timer: ReturnType<typeof setInterval> | null = null;
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
 let started = false;
+let syncGeneration = 0;
 const listeners: Array<{ type: string; fn: () => void; target: 'document' | 'window' }> = [];
 
 export interface ControllerDeps { fetchImpl?: typeof fetch; now?: () => string }
@@ -59,8 +60,10 @@ export async function refresh(): Promise<void> {
 }
 
 function scheduleRetry(attempts: number) {
+  if (!started) return;
+  const generation = syncGeneration;
   if (retryTimer) clearTimeout(retryTimer);
-  retryTimer = setTimeout(() => { retryTimer = null; void refresh(); }, backoffMs(attempts));
+  retryTimer = setTimeout(() => { retryTimer = null; if (started && generation === syncGeneration) void refresh(); }, backoffMs(attempts));
 }
 
 export async function flush(opts: { keepalive?: boolean } = {}): Promise<void> {
@@ -122,7 +125,8 @@ export function restore(table: Op['table'], id: string): void { enqueue({ op: 'r
 export function startSync(): () => void {
   if (started) return stopSync;
   started = true;
-  void hydrate().then(() => refresh());
+  const generation = ++syncGeneration;
+  void hydrate().then(() => { if (started && generation === syncGeneration) return refresh(); });
   const onVisible = () => { if (document.visibilityState === 'visible') void refresh(); else void flush({ keepalive: true }); };
   const onOnline = () => { void refresh(); };
   const onHide = () => { void flush({ keepalive: true }); };
@@ -136,6 +140,7 @@ export function startSync(): () => void {
 
 export function stopSync(): void {
   started = false;
+  syncGeneration += 1;
   if (timer) clearInterval(timer);
   if (retryTimer) clearTimeout(retryTimer);
   timer = null; retryTimer = null;
