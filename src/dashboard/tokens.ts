@@ -18,9 +18,11 @@ export const tokens = {
   duration: 240, ease: 'cubic-bezier(.65, 0, .35, 1)',
   layerSticky: 20, layerDropdown: 300,
   timelineReadingWidth: '75ch', timelineFilterWidth: '20rem', timelineBalanceWidth: '22rem', timelineMetricWidth: '7.5rem',
-  timelineMaxWidth: '1280px', timelineDateWidth: '7rem', timelineRailInset: '18px', timelineDotSize: '9px',
-  timelineDateFont: '2rem', timelineRowColumns: 'minmax(0, 1fr) minmax(22rem, .85fr) 5.5rem',
+  timelineMaxWidth: '1360px', timelineDateWidth: '6rem', timelineRailInset: '20px', timelineDotSize: '7px',
+  timelineDateFont: '1.75rem', timelineRowColumns: 'minmax(0, 1fr) minmax(17rem, .9fr) 2.75rem',
   timelineIconSize: '20px', timelineSurface: '#F0F5F7', timelineSummaryRadius: '12px',
+  timelineSidebarWidth: '17rem', timelineHeadingGap: '20px', timelineHeroSurface: '#EAF3EF',
+  timelineStickyInset: '16px', timelineDetailSymbol: '1.5rem',
 } as const;
 // ECharts' typed function adapter evaluates exactly the shared CSS curve.
 export function budgetEasing(progress: number) {

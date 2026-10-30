@@ -11,6 +11,7 @@ async function mockTimeline(page: Page, largeAmounts = false) {
   });
   table.rows[2][4] = 'Salon için ölçüye uygun uzun modüler koltuk takımı siparişi';
   table.rows[2][14] = 'Teslimat tarihi satıcı ile teyit edilecek; satın alma ve teslimat ayrı adımlardır.';
+  table.rows[3][14] = 'Kesim + 10 gün. Maaştan önceyse önceki aydan nakit gerekir; aynı günse maaşın yatması beklenir. Özel ödeme notu korunur.';
   let broken = false;
   const feeds: string[] = [], requests: string[] = [];
   page.on('request', request => requests.push(request.url()));
@@ -60,6 +61,37 @@ test('plain Timeline URLs override an obsolete pano hash and open the same canon
     await expect(page.getByRole('article')).toHaveCount(5);
     expect(mock.feeds.every(feed => feed === 'Timeline')).toBe(true);
   }
+});
+
+test('journey filters preserve period totals and original balances while making payment dates explicit', async ({ page }) => {
+  await mockTimeline(page);
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.goto('/aile/#/timeline');
+  const summary = page.getByRole('region', { name: 'Kasım 2098 özeti' });
+  const totals = await summary.innerText();
+  const payments = page.getByRole('button', { name: 'Ödemeler', exact: true });
+  await payments.click();
+  await expect(payments).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('article')).toHaveCount(1);
+  const payment = page.getByRole('article', { name: /4\. adım/ });
+  await expect(payment).toContainText('800 ₺');
+  await expect(summary).toHaveText(totals, { useInnerText: true });
+  await payment.getByRole('button', { name: /^Ayrıntı:/ }).click();
+  await expect(payment.getByRole('group', { name: 'Ödeme ve gelir tarihleri' })).toContainText('27 Kasım 2098');
+  await expect(payment.getByRole('group', { name: 'Ödeme ve gelir tarihleri' })).toContainText('10 Kasım 2098');
+  await expect(payment.getByRole('group', { name: 'Ödeme ve gelir tarihleri' })).toContainText('ödemeden 17 gün önce');
+  await expect(payment).not.toContainText('Maaştan önceyse');
+  await expect(payment).toContainText('Kesim + 10 gün.');
+  await expect(payment).toContainText('Özel ödeme notu korunur.');
+  await page.getByRole('button', { name: 'Sonraki ay' }).click();
+  await expect(payments).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('article')).toHaveCount(1);
+  await expect(page.getByRole('alert')).toContainText('Negatif tutar kullanılabilir para değildir');
+  await page.getByRole('button', { name: 'Alışveriş', exact: true }).click();
+  await expect(page.getByText('Bu dönemde alışveriş adımı yok.')).toBeVisible();
+  await expect(page.getByRole('article')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Tüm adımlar', exact: true }).click();
+  await expect(page.getByRole('article')).toHaveCount(3);
 });
 
 test('scannable ledger keeps balances visible while details expand accessibly', async ({ page, browserName }) => {
@@ -115,6 +147,23 @@ test('six-digit cash and debt stay intact at 320px with 200% text', async ({ pag
   await page.setViewportSize({ width: 320, height: 740 });
   await page.goto('/aile/#/timeline');
   await expect(page.getByRole('article')).toHaveCount(5);
+  const picker = page.getByRole('combobox', { name: 'Gösterilen dönem' });
+  await picker.click();
+  for (const width of [671, 672, 673, 1087, 1088, 1089]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(picker).toBeFocused();
+    await expect(picker).toHaveValue('Kasım 2098');
+    await expect.poll(() => page.locator('.mantine-Select-dropdown').evaluate(el => { const r = el.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth + 1; })).toBe(true);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `large amount overflow at ${width}`).toBe(true);
+    const columns = await page.locator('.timeline-workspace').evaluate(el => getComputedStyle(el).gridTemplateColumns.split(' ').length);
+    expect(columns, `workspace at ${width}`).toBe(width >= 1088 ? 2 : 1);
+    if (width < 1087) {
+      const dayColumns = await page.locator('.timeline-day').first().evaluate(el => getComputedStyle(el).gridTemplateColumns.split(' ').length);
+      expect(dayColumns, `date rail at ${width}`).toBe(width >= 672 ? 2 : 1);
+    }
+  }
+  await picker.press('Escape');
+  await page.setViewportSize({ width: 320, height: 740 });
   await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   const measurements = await page.locator('.timeline-balances dd, .timeline-summary strong').evaluateAll(elements => elements.map(element => {
@@ -171,7 +220,7 @@ test('compact journey preserves readability, focus, dropdown state and responsiv
   await expect(page.getByRole('option', { name: 'Aralık 2098' })).toBeVisible();
   await picker.press('ArrowDown'); await picker.press('Enter');
   await picker.press(browserName === 'webkit' ? 'Alt+Tab' : 'Tab');
-  expect(await page.locator(':focus').evaluate(el => getComputedStyle(el).boxShadow)).toContain('inset');
+  expect(await page.locator(':focus').evaluate(el => getComputedStyle(el, '::after').height)).toBe('3px');
   const focus = await page.evaluate(() => { const style = getComputedStyle(document.activeElement!); return { mode: document.documentElement.dataset.keyboard, outline: style.outlineStyle, decoration: style.textDecorationLine }; });
   expect(focus).toEqual({ mode: 'true', outline: 'none', decoration: 'underline' });
   const previous = page.getByRole('button', { name: 'Önceki ay' });

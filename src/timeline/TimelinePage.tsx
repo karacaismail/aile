@@ -9,7 +9,19 @@ import { useTimeline } from './useTimeline';
 import './timeline.css';
 
 const signedMoney = (value: number) => `${value > 0 ? '+' : ''}${money(value)}`;
+function incomeTiming(income: TimelineEvent, payment: TimelineEvent) {
+  const days = Math.round((Date.parse(income.date) - Date.parse(payment.date)) / 86400000);
+  return days === 0 ? 'ödemeyle aynı gün' : `ödemeden ${Math.abs(days)} gün ${days < 0 ? 'önce' : 'sonra'}`;
+}
 const stepsPerPage = 50;
+const journeyFilters = [
+  { id: 'all', label: 'Tüm adımlar' }, { id: 'payment', label: 'Ödemeler' },
+  { id: 'purchase', label: 'Alışveriş' }, { id: 'income', label: 'Gelir' },
+] as const;
+type JourneyFilter = typeof journeyFilters[number]['id'];
+const matchesFilter = (event: TimelineEvent, filter: JourneyFilter) => filter === 'all' ||
+  (filter === 'payment' && event.cashChange < 0) || (filter === 'purchase' && event.type === 'Alışveriş') ||
+  (filter === 'income' && event.type === 'Gelir');
 function MonthArrow({ next = false }: { next?: boolean }) {
   return <svg className="timeline-arrow" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8"><path d={next ? 'M9 5l7 7-7 7' : 'M15 5l-7 7 7 7'} /></svg>;
 }
@@ -19,10 +31,14 @@ function StepPages({ position, page, count, onChange }: { position: 'üst' | 'al
     <div className="button-row"><button className="quiet-button" disabled={page === 0} onClick={() => onChange(page - 1)}>Önceki adımlar</button><button className="quiet-button" disabled={(page + 1) * stepsPerPage >= count} onClick={() => onChange(page + 1)}>Sonraki adımlar</button></div>
   </nav>;
 }
-function EventStep({ event, number }: { event: TimelineEvent; number: number }) {
+function EventStep({ event, number, incomes }: { event: TimelineEvent; number: number; incomes: TimelineEvent[] }) {
   const [open, setOpen] = useState(false);
   const detailsId = useId();
   const reduced = useReducedMotion();
+  // The legacy conditional hint is superseded by the explicit dates below; retain every other source note.
+  const note = event.type === 'Kart ödemesi'
+    ? event.note.replace('Maaştan önceyse önceki aydan nakit gerekir; aynı günse maaşın yatması beklenir.', '').trim()
+    : event.note;
   const changes = [
     { label: 'Nakit', value: event.cashChange, tone: event.cashChange > 0 ? 'inflow' : 'outflow' },
     { label: 'Denizbank borcu', value: event.denizChange, tone: event.denizChange > 0 ? 'outflow' : 'neutral' },
@@ -44,7 +60,15 @@ function EventStep({ event, number }: { event: TimelineEvent; number: number }) 
       <button className="timeline-detail-toggle" type="button" aria-label={`Ayrıntı: ${event.title}`} aria-expanded={open} aria-controls={detailsId} onClick={() => setOpen(!open)}><span>Ayrıntı</span><span aria-hidden="true">{open ? '−' : '+'}</span></button>
       <Collapse className="timeline-details" id={detailsId} expanded={open} aria-hidden={!open} inert={!open} keepMounted
         transitionDuration={reduced ? 0 : tokens.duration} transitionTimingFunction={tokens.ease} animateOpacity={false}>
-        <div className="timeline-details-body">{event.note && <p>{event.note}</p>}<p className="timeline-source"><strong>Kaynak</strong> {event.source} <span>· {event.certainty}</span></p></div>
+        <div className="timeline-details-body">
+          {event.type === 'Kart ödemesi' && <div className="timeline-payment-dates" role="group" aria-label="Ödeme ve gelir tarihleri">
+            <p><strong>Ödeme günü</strong> {dateLabel(event.date)}</p>
+            <p><strong>Ödeme öncesi nakit</strong> {money(event.cash - event.cashChange)}</p>
+            {incomes.length ? <><p><strong>Bu ayın gelir takvimi</strong></p><ul>{incomes.map(income => <li key={income.id}>{dateLabel(income.date)} · {income.title} · {incomeTiming(income, event)}{income.certainty === 'Tarih varsayımı' ? ' · gün varsayımı' : ''}</li>)}</ul>{incomes.some(income => income.certainty === 'Tarih varsayımı') && <p>Varsayılan gelir günü, kesin maaş günü değildir.</p>}</> : <p>Bu ay için gelir adımı kayıtlı değil.</p>}
+          </div>}
+          {note && <p className="timeline-source-note"><strong>E-tablo notu</strong> {note}</p>}
+          <p className="timeline-source"><strong>Kaynak</strong> {event.source} <span>· {event.certainty}</span></p>
+        </div>
       </Collapse>
     </article>
   </li>;
@@ -54,59 +78,69 @@ function DayHeading({ date, count }: { date: string; count: number }) {
   const value = new Date(`${date}T12:00:00Z`);
   const month = new Intl.DateTimeFormat('tr-TR', { month: 'short', year: 'numeric', timeZone: 'UTC' }).format(value);
   const weekday = new Intl.DateTimeFormat('tr-TR', { weekday: 'long', timeZone: 'UTC' }).format(value);
-  return <div className="timeline-day-heading"><h2 id={`timeline-date-${date}`}><time dateTime={date} aria-label={dateLabel(date)}><span className="timeline-date-number">{date.slice(8)}</span><span className="timeline-date-month">{month}</span><span className="timeline-weekday">{weekday}</span></time></h2><span className="timeline-day-count">{count} adım</span></div>;
+  return <div className="timeline-day-heading"><h2 id={`timeline-date-${date}`}><time dateTime={date} aria-label={dateLabel(date)}><span className="timeline-date-number">{date.slice(8)}</span><span className="timeline-date-month">{month}</span><span className="timeline-weekday">{weekday}</span></time></h2>{count > 1 && <span className="timeline-day-count">{count} adım</span>}</div>;
 }
 
 function TimelineJourney({ data }: { data: Timeline }) {
   const [selection, setSelection] = useState('');
+  const [filter, setFilter] = useState<JourneyFilter>('all');
   const [pageSelection, setPageSelection] = useState({ scope: '', page: 0 });
   const changeSelection = (next: string) => { setSelection(next); setPageSelection({ scope: next, page: 0 }); };
   const selected = selection === 'all' || data.months.includes(selection) ? selection : data.months[0];
   const events = data.events.filter(event => selected === 'all' || event.month === selected);
-  const page = Math.min(pageSelection.scope === selected ? pageSelection.page : 0, Math.floor((events.length - 1) / stepsPerPage));
-  const visibleEvents = events.slice(page * stepsPerPage, (page + 1) * stepsPerPage);
+  const filteredEvents = events.filter(event => matchesFilter(event, filter));
+  const pageScope = `${selected}:${filter}`;
+  const page = Math.max(0, Math.min(pageSelection.scope === pageScope ? pageSelection.page : 0, Math.floor((filteredEvents.length - 1) / stepsPerPage)));
+  const visibleEvents = filteredEvents.slice(page * stepsPerPage, (page + 1) * stepsPerPage);
   const dates = new Map<string, TimelineEvent[]>();
   visibleEvents.forEach(event => { const day = dates.get(event.date) ?? []; day.push(event); dates.set(event.date, day); });
   const eventNumbers = new Map(data.events.map((event, i) => [event.id, i + 1]));
-  const changePage = (next: number) => setPageSelection({ scope: selected, page: next });
+  const changePage = (next: number) => setPageSelection({ scope: pageScope, page: next });
   const first = events[0], last = events.at(-1)!;
   const startingCash = first.type === 'Başlangıç' ? first.cash : first.cash - first.cashChange;
   const minimumCash = Math.min(startingCash, ...events.map(event => event.cash));
   const assumptions = events.filter(event => event.certainty === 'Tarih varsayımı').length;
   const index = data.months.indexOf(selected);
   const scope = selected === 'all' ? 'Tüm dönem' : monthLabel(selected);
-  return <>
+  return <div className="timeline-workspace">
+    <aside className="timeline-overview" aria-label="Dönem kontrolü">
     <div className="timeline-toolbar">
       <div className="timeline-month"><Select label="Dönem" aria-label="Gösterilen dönem" value={selected} onChange={value => value && changeSelection(value)} allowDeselect={false} data={[...data.months.map(month => ({ value: month, label: monthLabel(month) })), { value: 'all', label: 'Tüm dönem' }]} /></div>
       <div className="button-row timeline-period-buttons"><button className="quiet-button timeline-month-arrow" aria-label="Önceki ay" disabled={index <= 0} onClick={() => changeSelection(data.months[index - 1])}><MonthArrow /></button><button className="quiet-button timeline-month-arrow" aria-label="Sonraki ay" disabled={index < 0 || index >= data.months.length - 1} onClick={() => changeSelection(data.months[index + 1])}><MonthArrow next /></button></div>
-      <p className="muted" aria-live="polite">{scope} · {events.length} adım</p>
     </div>
     <section className="timeline-summary" aria-label={`${scope} özeti`}>
-      <div><span>Başlangıç nakdi</span><strong>{money(startingCash)}</strong></div>
       <div className="timeline-summary-cash"><span>Son nakit</span><strong className={last.cash < 0 ? 'negative' : undefined}>{money(last.cash)}</strong></div>
-      <div><span>Son kart borcu</span><strong>{money(last.totalDebt)}</strong></div>
-      <div><span>En düşük nakit</span><strong className={minimumCash < 0 ? 'negative' : undefined}>{money(minimumCash)}</strong></div>
+      <div className="timeline-summary-debt"><span>Kalan kart borcu</span><strong>{money(last.totalDebt)}</strong></div>
+      <div className="timeline-summary-secondary"><span>Başlangıç nakdi</span><strong>{money(startingCash)}</strong></div>
+      <div className="timeline-summary-secondary"><span>En düşük nakit</span><strong className={minimumCash < 0 ? 'negative' : undefined}>{money(minimumCash)}</strong></div>
     </section>
     <aside className="timeline-caveat" aria-label="Tarih ve ödeme varsayımları"><strong>{assumptions > 0 ? `${assumptions} adımın günü varsayımdır.` : 'Tarihler ödeme planıdır.'}</strong></aside>
     {minimumCash < 0 && <p className="timeline-cash-warning" role="alert">Bu dönemde planlanan nakit {money(minimumCash)} seviyesine düşüyor. Negatif tutar kullanılabilir para değildir; ödeme sırası veya finansmanı düzeltilmelidir.</p>}
-    {events.length > stepsPerPage && <StepPages position="üst" page={page} count={events.length} onChange={changePage} />}
+    </aside>
+    <section className="timeline-flow" aria-label="Ödeme akışı">
+    <div className="timeline-flow-heading"><div><h2>{scope}</h2><p className="muted">Ne zaman, ne ödeyeceğiz?</p></div><span className="timeline-step-count">{events.length} adım</span></div>
+    <div className="timeline-filters" role="group" aria-label="Adımları filtrele">{journeyFilters.map(item => <button key={item.id} type="button" aria-pressed={filter === item.id} onClick={() => { setFilter(item.id); setPageSelection({ scope: `${selected}:${item.id}`, page: 0 }); }}>{item.label}</button>)}</div>
+    {filter !== 'all' && <p className="timeline-filter-note" role="status">{filteredEvents.length} / {events.length} adım gösteriliyor. Bakiyeler tüm işlemleri içerir.</p>}
+    {filteredEvents.length === 0 && <div className="timeline-empty"><h3>Bu dönemde {filter === 'purchase' ? 'alışveriş' : filter === 'payment' ? 'ödeme' : 'gelir'} adımı yok.</h3><p>Başka bir ay seçebilir veya tüm adımları görüntüleyebilirsin.</p></div>}
+    {filteredEvents.length > stepsPerPage && <StepPages position="üst" page={page} count={filteredEvents.length} onChange={changePage} />}
     <div className="timeline-journey" aria-label="Kronolojik ödeme adımları">
-      {[...dates].map(([date, day]) => <section className="timeline-day" key={date} aria-labelledby={`timeline-date-${date}`}><DayHeading date={date} count={day.length} /><ol>{day.map(event => <EventStep key={event.id} event={event} number={eventNumbers.get(event.id)!} />)}</ol></section>)}
+      {[...dates].map(([date, day]) => <section className="timeline-day" key={date} aria-labelledby={`timeline-date-${date}`}><DayHeading date={date} count={day.length} /><ol>{day.map(event => <EventStep key={event.id} event={event} number={eventNumbers.get(event.id)!} incomes={data.events.filter(income => income.type === 'Gelir' && income.month === event.month)} />)}</ol></section>)}
     </div>
-    {events.length > stepsPerPage && <StepPages position="alt" page={page} count={events.length} onChange={changePage} />}
-  </>;
+    {filteredEvents.length > stepsPerPage && <StepPages position="alt" page={page} count={filteredEvents.length} onChange={changePage} />}
+    </section>
+  </div>;
 }
 
 export default function TimelinePage() {
   const state = useTimeline();
   return <div className="timeline-page">
     <header className="timeline-heading">
-      <div className="timeline-title"><h1>Timeline</h1><p className="muted">Adım adım nakit ve kart borcu.</p></div>
-      <div className="timeline-heading-tools"><a className="timeline-sheet-link" href={timelineSheetUrl} target="_blank" rel="noreferrer">E-tabloda aç <span aria-hidden="true">↗</span></a><button className="quiet-button" disabled={state.loading} onClick={state.refresh}>Yenile</button></div>
+      <div className="timeline-title"><h1>Timeline</h1><p className="muted">Nakit ve borç takvimi.</p></div>
+      <div className="timeline-heading-tools"><button className="quiet-button" disabled={state.loading} onClick={state.refresh}>Yenile</button></div>
     </header>
-    <p className="timeline-plan-label"><span>Plan görünümü</span> Gerçekleşmiş ödeme değildir.</p>
+    <p className="timeline-plan-label"><span>Plan</span> Gerçekleşmiş ödeme değildir.</p>
     {state.error && <p className="error-message" role="alert">{state.error} {state.data ? 'Son başarılı takvim gösteriliyor.' : 'E-tabloyu kontrol edip yeniden deneyin.'}</p>}
     {state.data ? <TimelineJourney data={state.data} /> : <p className="loading-message">{state.loading ? 'Adımlar ve bakiye kontrolleri yükleniyor…' : 'Doğrulanmış Timeline verisi şu anda alınamıyor.'}</p>}
-    <footer className="timeline-data-note"><span className="timeline-sync" role="status" aria-live="polite">{state.loading ? 'Kontrol ediliyor…' : state.updatedAt ? `Güncellendi ${state.updatedAt.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Istanbul' })}` : 'Google Sheets bağlantısı'}</span><p>Açıkken her dakika yenilenir. Aynı gün maaşın geliş saati ve ödeme sırası ara bakiyeyi değiştirebilir.</p></footer>
+    <footer className="timeline-data-note"><span className="timeline-sync" role="status" aria-live="polite">{state.loading ? 'Kontrol ediliyor…' : state.updatedAt ? `Güncellendi ${state.updatedAt.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Istanbul' })}` : 'Google Sheets bağlantısı'}</span><a className="timeline-sheet-link" href={timelineSheetUrl} target="_blank" rel="noreferrer">E-tabloda aç <span aria-hidden="true">↗</span></a><p>Açıkken her dakika yenilenir. Aynı gün maaşın geliş saati ve ödeme sırası ara bakiyeyi değiştirebilir.</p></footer>
   </div>;
 }
