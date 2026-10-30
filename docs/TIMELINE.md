@@ -4,7 +4,7 @@
 
 ## Veri ve doğrulama
 
-Ayrı tipli metadata/aylık/günlük okumalar ve ikinci metadata kontrolü `FINANSMAN.md` içinde tanımlıdır. `src/finance/data.ts` bütün defteri yayınlamadan önce doğrular. Eksik tutar sıfır değildir; bir kuruş sapma reddedilir. Harcanabilir nakit, işaretli net nakit konumu, KMH anaparası/maliyeti ve kart anaparası/maliyeti ayrı anlamlardır. Gelecek taksit kart borcuna dahildir. Eski Timeline değişim/nakit çiftine bu alanlardan sahte bir dönüştürme yapılmaz.
+`_Finans web` tipli aktarımı, kaynak/gövde SHA-256 bağı ve ikinci metadata kontrolü `FINANSMAN.md` içinde tanımlıdır. `src/finance/data.ts` bütün defteri yayınlamadan önce doğrular. Aktarım değişse de kaynak `finance-v1` modeli ve parasal kontroller korunur. Eksik tutar sıfır değildir; bir kuruş sapma reddedilir. Harcanabilir nakit, işaretli net nakit konumu, KMH anaparası/maliyeti ve kart anaparası/maliyeti ayrı anlamlardır. Gelecek taksit kart borcuna dahildir. Eski Timeline değişim/nakit çiftine bu alanlardan sahte bir dönüştürme yapılmaz.
 
 Eski native Timeline ve `_Timeline web` ile parser testleri finans motorunun eski girdi sözleşmesini korumak için kalır; ana web görünümü bunlara geri dönmez. Eski sözleşme `TIMELINE-LEGACY.md` belgesindedir.
 
@@ -18,7 +18,7 @@ Filtre yalnız görünür olayları daraltır; dönem özetini veya bakiyeleri y
 
 Veri içermeyen HTML/rota iskeleti önce görünür. Seçili Timeline veya Finansman rotası ortak veri isteğini arayüz paketiyle paralel başlatır. Bütün defter doğrulandıktan sonra ilk 8 adım doğrudan, kalanlar requestAnimationFrame ile 16’şar gösterilir; yapay gecikme yoktur.
 
-Doğrulanmış snapshot yalnız bellekte 60 saniyelik tazelikle tutulur. İki rota arasında sıcak geçiş tekrar istek üretmez. İlk okuma metadata kontrolü → iki paralel tutar aralığı → son metadata kontrolü şeklinde üç fazda ve dört istekle yapılır; manuel Yenile yeni tutarlı okuma başlatır. Son abone/rota bekleyicisi ayrılmadan istek iptal edilmez. Kaynak geçersizleşirse veya kontrol başarısızsa tutarlar kaldırılır; eski finans sonucuna fallback yapılmaz. Finans verisi kalıcı depoya veya service worker önbelleğine yazılmaz.
+Doğrulanmış snapshot yalnız bellekte 60 saniyelik tazelikle tutulur. İki rota arasında sıcak geçiş tekrar istek üretmez. İlk okuma tipli gövde + metadata → içerik hash/defter kontrolü → son metadata kontrolü şeklinde iki ağ fazında ve iki istekle yapılır; manuel Yenile yeni tutarlı okuma başlatır. Google yanıt süresi dış bağımlılıktır; bu azaltma sabit bir yüklenme süresi garantisi vermez. Son abone/rota bekleyicisi ayrılmadan istek iptal edilmez. Kaynak geçersizleşirse veya kontrol başarısızsa tutarlar kaldırılır; eski finans sonucuna fallback yapılmaz. Finans verisi kalıcı depoya veya service worker önbelleğine yazılmaz.
 
 ## Doğrulama
 

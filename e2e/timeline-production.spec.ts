@@ -29,7 +29,7 @@ test('a clean production budget visit does not fetch Tabs until Timeline needs i
   const budgetMap = { Pano: 'summary', Plan: 'plan', 'Gerçekleşen': 'actual', 'Düzensiz giderler': 'irregular' } as const;
   await context.route('**/gviz/tq?*', route => {
     const sheet = new URL(route.request().url()).searchParams.get('sheet') ?? '';
-    if (sheet === 'Finansman') {
+    if (sheet === '_Finans web') {
       timelineReads += 1;
       const timeline = syntheticTimeline();
       return route.fulfill({ contentType: 'application/json', body: timelineResponse(route.request().url(), timeline) });
@@ -70,7 +70,7 @@ test('selected Timeline fetches before its UI arrives and revisits reuse verifie
   let feedRequestedAt = 0;
   await context.route('**/gviz/tq?*', route => {
     const sheet = new URL(route.request().url()).searchParams.get('sheet') ?? '';
-    if (sheet === 'Finansman') {
+    if (sheet === '_Finans web') {
       timelineReads += 1;
       if (timelineReads === 1) feedRequestedAt = performance.now();
       return route.fulfill({ contentType: 'application/json', body: timelineResponse(route.request().url(), table) });
@@ -95,7 +95,7 @@ test('selected Timeline fetches before its UI arrives and revisits reuse verifie
     const selectedAt = performance.now();
     await selectPage(page, 'Ödeme takvimi');
     // This assertion only passes if data and UI downloads are independent.
-    await expect.poll(() => timelineReads).toBe(4);
+    await expect.poll(() => timelineReads).toBe(2);
     const uiReleasedAt = performance.now();
     expect(feedRequestedAt).toBeLessThan(uiReleasedAt);
     releaseUi();
@@ -107,11 +107,11 @@ test('selected Timeline fetches before its UI arrives and revisits reuse verifie
     await selectPage(page, 'Ödeme takvimi');
     await expect(page.getByRole('article')).toHaveCount(5);
     const warmShownAt = performance.now();
-    expect(timelineReads, 'a fresh route revisit must not wait for another Google request').toBe(4);
+    expect(timelineReads, 'a fresh route revisit must not wait for another Google request').toBe(2);
     await page.getByRole('button', { name: 'Yenile', exact: true }).click();
-    await expect.poll(() => timelineReads).toBe(8);
+    await expect.poll(() => timelineReads).toBe(4);
     const evidence = testInfo.outputPath('timeline-data-performance.json');
-    await writeFile(evidence, JSON.stringify({ scope: 'synthetic local production; not Google latency', firstRequestBeforeUiMs: uiReleasedAt - feedRequestedAt, coldSelectionToDataMs: coldShownAt - selectedAt, warmSelectionToDataMs: warmShownAt - revisitAt, initialReads: 4, additionalWarmReads: 0, manualRefreshReads: 4 }, null, 2));
+    await writeFile(evidence, JSON.stringify({ scope: 'synthetic local production; not Google latency', firstRequestBeforeUiMs: uiReleasedAt - feedRequestedAt, coldSelectionToDataMs: coldShownAt - selectedAt, warmSelectionToDataMs: warmShownAt - revisitAt, initialReads: 2, additionalWarmReads: 0, manualRefreshReads: 2 }, null, 2));
     await testInfo.attach('timeline-data-performance', { path: evidence, contentType: 'application/json' });
   } finally { releaseUi(); }
 });

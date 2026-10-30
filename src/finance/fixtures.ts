@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { Cell } from '../dashboard/data';
 import { dailyHeaders, monthlyHeaders } from './contract';
 import type { FinanceSource } from './data';
@@ -36,4 +37,24 @@ export function syntheticLongFinance(): FinanceSource {
   source.metadata.rows[3] = [String(source.daily.rows.length)];
   source.metadata.rows[4] = ['6'];
   return source;
+}
+
+/** Test-only transport encoder; its digest is independent of the browser decoder. */
+export function syntheticFinanceWire(source = syntheticFinance()) {
+  const labels = ['kind', 'index', ...Array.from({ length: 18 }, (_, i) => `c${i + 1}`)];
+  const canonical = JSON.stringify(['finance-wire-v1', 'finance-v1', source.metadata.rows.map(row => row[0]), source.monthly.labels, source.monthly.rows, source.daily.labels, source.daily.rows]);
+  const digest = createHash('sha256').update(canonical, 'utf8').digest('hex');
+  const cell = (value: Cell) => value === null ? 'z:' : typeof value === 'number' ? `n:${value}` : `s:${value}`;
+  const row = (kind: string, index: number, values: Cell[]) => [kind, `i:${index}`, ...Array.from({ length: 18 }, (_, i) => cell(i < values.length ? values[i] : null))];
+  return { labels, rows: [row('manifest', 0, ['finance-wire-v1', digest]), ...source.metadata.rows.map((values, i) => row('meta', i, values)), row('monthly-header', 0, source.monthly.labels), ...source.monthly.rows.map((values, i) => row('monthly', i, values)), row('daily-header', 0, source.daily.labels), ...source.daily.rows.map((values, i) => row('daily', i, values))] };
+}
+
+/** The same two-range helper is shared by every browser mock. */
+export function financeWireResponseTable(url: string, source = syntheticFinance()) {
+  const params = new URL(url).searchParams;
+  if (params.get('sheet') !== '_Finans web' || params.get('headers') !== '1') throw new Error('Unexpected finance transport');
+  const table = syntheticFinanceWire(source);
+  if (params.get('range') === 'A1:T6000') return table;
+  if (params.get('range') === 'A1:T11') return { ...table, rows: table.rows.slice(0, 10) };
+  throw new Error('Unexpected finance range');
 }

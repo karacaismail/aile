@@ -1,6 +1,5 @@
 import { syntheticTimeline, syntheticLongTimeline } from '../src/timeline/fixtures';
-import { syntheticFinance } from '../src/finance/fixtures';
-import { financeRanges } from '../src/finance/contract';
+import { syntheticFinance, financeWireResponseTable } from '../src/finance/fixtures';
 import { gviz } from '../src/dashboard/fixtures';
 
 // Preserve the existing synthetic UX scenarios while serving the new native
@@ -20,9 +19,6 @@ export function timelineResponse(url: string, table: ReturnType<typeof synthetic
   });
   source.metadata.rows[3] = [String(source.daily.rows.length)];
   source.metadata.rows[4] = [String(months.length)];
-  const params = new URL(url).searchParams;
-  if (params.get('sheet') !== 'Finansman') throw new Error('Unexpected financial feed');
-  const key = Object.entries(financeRanges).find(([, value]) => value === params.get('range'))?.[0] as keyof typeof source;
-  if (!key) throw new Error('Unexpected finance range');
-  return gviz(source[key].rows, source[key].labels);
+  const wire = financeWireResponseTable(url, source);
+  return gviz(wire.rows, wire.labels);
 }

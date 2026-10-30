@@ -1,10 +1,11 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { webcrypto } from 'node:crypto';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { gviz } from '../dashboard/fixtures';
 import { buildFinance, fetchFinance } from './data';
-import { financeRanges } from './contract';
-import { syntheticFinance } from './fixtures';
+import { syntheticFinance, syntheticFinanceWire } from './fixtures';
 
 vi.mock('../dashboard/data', async original => ({ ...await original<typeof import('../dashboard/data')>(), sheetId: 'synthetic-budget-sheet-2098' }));
+beforeEach(() => vi.stubGlobal('crypto', webcrypto));
 afterEach(() => vi.unstubAllGlobals());
 
 describe('native finance contract', () => {
@@ -46,88 +47,81 @@ describe('native finance contract', () => {
   });
 });
 
-describe('coherent read-only source', () => {
-  function sourceFetch(metadataAfter?: ReturnType<typeof syntheticFinance>['metadata']) {
-    const source = syntheticFinance(); let metadataReads = 0;
+describe('two-phase coherent transport', () => {
+  const sourceFetch = (after?: ReturnType<typeof syntheticFinanceWire>) => {
+    const full = syntheticFinanceWire();
     const fetcher = vi.fn(async (input: URL, options: RequestInit) => {
       expect(options.cache).toBe('no-store'); expect(options.credentials).toBe('omit');
-      expect(input.searchParams.get('sheet')).toBe('Finansman');
+      expect(input.searchParams.get('sheet')).toBe('_Finans web');
+      expect(input.searchParams.get('headers')).toBe('1');
       const range = input.searchParams.get('range');
-      const key = Object.entries(financeRanges).find(([, value]) => value === range)?.[0] as keyof typeof source;
-      if (!key) throw new Error('Unexpected range');
-      const table = key === 'metadata' && ++metadataReads > 1 && metadataAfter ? metadataAfter : source[key];
-      return new Response(gviz(table.rows, table.labels));
+      expect(['A1:T6000', 'A1:T11']).toContain(range);
+      const table = range === 'A1:T6000' ? full : after ?? full;
+      return new Response(gviz(range === 'A1:T11' ? table.rows.slice(0, 10) : table.rows, table.labels));
     });
-    vi.stubGlobal('fetch', fetcher);
-    return fetcher;
-  }
-  it('reads typed ranges and validates the native guard again after all values arrive', async () => {
+    vi.stubGlobal('fetch', fetcher); return fetcher;
+  };
+
+  it('reads the bound payload then one metadata check, with exactly two requests', async () => {
     const fetcher = sourceFetch();
-    const data = await fetchFinance(new AbortController().signal);
-    expect(data.events).toHaveLength(4); expect(fetcher).toHaveBeenCalledTimes(4);
+    expect((await fetchFinance(new AbortController().signal)).events).toHaveLength(4);
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(fetcher.mock.calls.map(([url]) => url.searchParams.get('range'))).toEqual(['A1:T6000', 'A1:T11']);
   });
-  it('does not read amounts before the initial generation is known, then fetches both typed blocks together', async () => {
-    const immediate = sourceFetch();
-    let releaseMetadata!: () => void; let releaseMonthly!: () => void;
-    const metadataReady = new Promise<void>(resolve => { releaseMetadata = resolve; });
-    const monthlyReady = new Promise<void>(resolve => { releaseMonthly = resolve; });
+
+  it('does not start the final check before the complete payload is verified', async () => {
+    const source = sourceFetch();
+    let release!: () => void;
+    const ready = new Promise<void>(resolve => { release = resolve; });
     const ranges: string[] = [];
     vi.stubGlobal('fetch', vi.fn(async (url: URL, options: RequestInit) => {
-      const range = url.searchParams.get('range')!;
-      ranges.push(range);
-      if (range === financeRanges.metadata && ranges.length === 1) await metadataReady;
-      if (range === financeRanges.monthly) await monthlyReady;
-      return immediate(url, options);
+      ranges.push(url.searchParams.get('range')!);
+      if (ranges.length === 1) await ready;
+      return source(url, options);
     }));
     const pending = fetchFinance(new AbortController().signal);
-    await vi.waitFor(() => expect(ranges).toEqual([financeRanges.metadata]));
-    releaseMetadata();
-    await vi.waitFor(() => expect(ranges).toHaveLength(3));
-    expect(ranges.slice(1).sort()).toEqual([financeRanges.monthly, financeRanges.daily].sort());
-    releaseMonthly();
-    await pending;
-    expect(ranges).toEqual([financeRanges.metadata, financeRanges.monthly, financeRanges.daily, financeRanges.metadata]);
+    await vi.waitFor(() => expect(ranges).toEqual(['A1:T6000']));
+    release(); await pending;
+    expect(ranges).toEqual(['A1:T6000', 'A1:T11']);
   });
-  it.each(['FALSE', 'fingerprint'])('rejects a %s change while ranges are in flight', async change => {
-    const after = syntheticFinance().metadata;
-    if (change === 'FALSE') after.rows[2][0] = 'FALSE'; else after.rows[6][0] = 'b'.repeat(64);
+
+  it.each(['guard', 'source hash', 'payload hash', 'count', 'scope', 'title'] as const)('rejects changed final %s', async change => {
+    const after = syntheticFinanceWire();
+    if (change === 'guard') after.rows[3][2] = 's:FALSE';
+    if (change === 'source hash') after.rows[7][2] = `s:${'b'.repeat(64)}`;
+    if (change === 'payload hash') after.rows[0][3] = `s:${'b'.repeat(64)}`;
+    if (change === 'count') after.rows[4][2] = 's:5';
+    if (change === 'scope') after.rows[9][2] = 's:Koşullar değişti.';
+    if (change === 'title') after.rows[1][2] = 's:Başka kaynak';
     sourceFetch(after);
     await expect(fetchFinance(new AbortController().signal)).rejects.toThrow(/değiş|yenilenmeli/i);
   });
-  it('rejects changed calculation conditions even if the source fingerprint is unchanged', async () => {
-    const after = syntheticFinance().metadata; after.rows[8][0] = 'Koşullar değişti.';
-    sourceFetch(after);
-    await expect(fetchFinance(new AbortController().signal)).rejects.toThrow(/değiş/i);
-  });
-});
 
-describe('daily ledger selection within a sheet that also contains a cost report', () => {
-  function reportFetch(change: 'none' | 'missing ID' | 'extra ID') {
-    const source = syntheticFinance();
-    if (change === 'missing ID') source.daily.rows[1][17] = null;
-    if (change === 'extra ID') source.daily.rows.push([...source.daily.rows.at(-1)!.slice(0, 17), 'unexpected-extra-event']);
-    // The real native layout has a separate A:F cost report below the daily
-    // ledger. Its R column is empty; it is not another payment event.
-    source.daily.rows.push([], ['Maliyet ayrıntıları', null, null, null, null, null], ['2098-02', 'Sentetik ücret', 1, 2, 3, 4]);
-    const fetcher = vi.fn(async (input: URL) => {
-      const key = Object.entries(financeRanges).find(([, value]) => value === input.searchParams.get('range'))?.[0] as keyof typeof source;
-      const table = source[key];
-      const rows = key === 'daily' && input.searchParams.get('tq') === 'select * where R is not null' ? table.rows.filter(row => row[17] !== null && row[17] !== undefined && row[17] !== '') : table.rows;
-      return new Response(gviz(rows, table.labels));
-    });
-    vi.stubGlobal('fetch', fetcher); return fetcher;
-  }
-  it('selects ID-bearing daily records without including the trailing cost block', async () => {
-    const fetcher = reportFetch('none');
-    const data = await fetchFinance(new AbortController().signal);
-    expect(data.events).toHaveLength(4);
-    expect(fetcher).toHaveBeenCalledTimes(4);
-    const daily = fetcher.mock.calls.find(([url]) => url.searchParams.get('range') === financeRanges.daily)![0];
-    expect(daily.searchParams.get('tq')).toBe('select * where R is not null');
-    expect(daily.searchParams.get('headers')).toBe('1');
+  it('does not publish or recheck when aborted while the digest is pending', async () => {
+    const fetcher = sourceFetch(), abort = new AbortController();
+    let finish!: (value: ArrayBuffer) => void;
+    let bytes: Uint8Array | undefined;
+    vi.stubGlobal('crypto', { subtle: { digest: vi.fn((_name: string, data: Uint8Array) => { bytes = data; return new Promise<ArrayBuffer>(resolve => { finish = resolve; }); }) } });
+    const pending = fetchFinance(abort.signal);
+    await vi.waitFor(() => expect(bytes).toBeDefined());
+    abort.abort();
+    finish(await webcrypto.subtle.digest('SHA-256', bytes!));
+    await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+    expect(fetcher).toHaveBeenCalledTimes(1);
   });
-  it.each(['missing ID', 'extra ID'] as const)('rejects %s rather than silently truncating the expected event count', async change => {
-    reportFetch(change);
-    await expect(fetchFinance(new AbortController().signal)).rejects.toThrow(/kayıt sayısı tutarsız/);
+
+  it('ignores no trailing data: additional report rows are rejected', async () => {
+    const wire = syntheticFinanceWire(); wire.rows.push(['cost-report', 'i:0', ...Array(18).fill('s:report')]);
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(gviz(wire.rows, wire.labels))));
+    await expect(fetchFinance(new AbortController().signal)).rejects.toThrow(/kayıt|sıra/);
+  });
+
+  it('never starts final validation when the payload was modified in transit', async () => {
+    const wire = syntheticFinanceWire();
+    wire.rows.find(row => row[0] === 'daily')![5] = 'n:0.001';
+    const fetcher = vi.fn().mockResolvedValue(new Response(gviz(wire.rows, wire.labels)));
+    vi.stubGlobal('fetch', fetcher);
+    await expect(fetchFinance(new AbortController().signal)).rejects.toThrow(/içerik özeti/);
+    expect(fetcher).toHaveBeenCalledTimes(1);
   });
 });

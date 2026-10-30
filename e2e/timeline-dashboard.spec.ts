@@ -17,7 +17,7 @@ async function mockTimeline(page: Page, largeAmounts = false) {
   await page.route('**/gviz/tq?*', route => {
     const sheet = new URL(route.request().url()).searchParams.get('sheet') ?? '';
     feeds.push(sheet);
-    if (sheet !== 'Finansman') return route.fulfill({ status: 503, body: 'Unexpected feed' });
+    if (sheet !== '_Finans web') return route.fulfill({ status: 503, body: 'Unexpected feed' });
     const rows = table.rows.map(row => [...row]);
     if (broken) rows[4][0] = rows[0][0];
     return route.fulfill({ contentType: 'application/json', body: timelineResponse(route.request().url(), { rows, labels: table.labels }) });
@@ -106,10 +106,12 @@ test('timeline deep link shows each cash/debt step independently of old budget f
   await expect(purchase).toContainText('1.000 ₺');
   await expect(purchase).toContainText('500 ₺');
   await expect(page.locator('.family-page-navigation a[href="#/timeline"]')).toHaveAttribute('aria-current', 'page');
-  expect(mock.feeds.every(feed => feed === 'Finansman')).toBe(true);
+  expect(mock.feeds.every(feed => feed === '_Finans web')).toBe(true);
   expect(mock.requests.some(url => /(?:VehiclePage|LegacyApp|\/Charts\.tsx)/.test(url))).toBe(false);
+  const payloadReads = () => mock.requests.filter(url => new URL(url).searchParams.get('range') === 'A1:T6000').length;
+  const beforeRefresh = payloadReads();
   await page.getByRole('button', { name: 'Yenile', exact: true }).click();
-  await expect.poll(() => mock.requests.some(url => new URL(url).searchParams.get('range') === 'A43:R6000')).toBe(true);
+  await expect.poll(payloadReads).toBe(beforeRefresh + 1);
   await expect(page.getByRole('article', { name: /1\. adım/ })).toContainText('Adım opening');
   await expect(page.getByRole('alert')).toHaveCount(0);
   mock.breakLedger();
@@ -135,7 +137,7 @@ test('plain Timeline URLs override an obsolete pano hash and open the same canon
     await page.goto(path);
     await expect(page).toHaveURL(/\/aile\/#\/timeline$/);
     await expect(page.getByRole('article')).toHaveCount(5);
-    expect(mock.feeds.every(feed => feed === 'Finansman')).toBe(true);
+    expect(mock.feeds.every(feed => feed === '_Finans web')).toBe(true);
   }
 });
 

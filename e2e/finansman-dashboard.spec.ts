@@ -2,10 +2,9 @@ import { syntheticBridgeResponse } from '../src/dashboard/bridgeFixtures';
 import { readdir } from 'node:fs/promises';
 import { test, expect, type Page } from '@playwright/test';
 import { gviz, syntheticSheets } from '../src/dashboard/fixtures';
-import { syntheticFinance } from '../src/finance/fixtures';
-import { financeRanges } from '../src/finance/contract';
+import { syntheticFinance, financeWireResponseTable } from '../src/finance/fixtures';
 
-async function financeSource(page: Page, waitForDaily?: Promise<void>) {
+async function financeSource(page: Page, waitForPayload?: Promise<void>) {
   const source = syntheticFinance();
   const requests: string[] = [];
   const raw = syntheticSheets();
@@ -13,11 +12,10 @@ async function financeSource(page: Page, waitForDaily?: Promise<void>) {
   await page.context().route('**/gviz/tq?*', async route => {
     const url = new URL(route.request().url()); const sheet = url.searchParams.get('sheet')!;
     requests.push(sheet);
-    if (sheet === 'Finansman') {
-      const key = Object.entries(financeRanges).find(([, value]) => value === url.searchParams.get('range'))?.[0] as keyof typeof source;
-      if (!key) return route.fulfill({ status: 404 });
-      if (key === 'daily' && waitForDaily) await waitForDaily;
-      return route.fulfill({ contentType: 'application/json', body: gviz(source[key].rows, source[key].labels) });
+    if (sheet === '_Finans web') {
+      if (url.searchParams.get('range') === 'A1:T6000' && waitForPayload) await waitForPayload;
+      const wire = financeWireResponseTable(url.href, source);
+      return route.fulfill({ contentType: 'application/json', body: gviz(wire.rows, wire.labels) });
     }
     const bridge = syntheticBridgeResponse(route.request().url());
     if (bridge) return route.fulfill({ contentType: 'application/json', body: bridge });
@@ -41,7 +39,7 @@ test('verified native amounts stay readable from 320px; views and keyboard scrol
   await expect(page.getByRole('region', { name: 'Ocak 2098 ay sonu' })).toContainText('500 ₺');
   const firstAmount = await page.locator('.finance-summary dd').first().boundingBox();
   expect(firstAmount!.y + firstAmount!.height).toBeLessThanOrEqual(740);
-  expect(requests).toEqual(['Finansman', 'Finansman', 'Finansman', 'Finansman']);
+  expect(requests).toEqual(['_Finans web', '_Finans web']);
   await expect(page.getByText('Koşullu hesap; banka oranı ve geçmiş faiz teyitsiz.')).toBeVisible();
   const scroll = page.getByRole('region', { name: 'Günlük finansman tablosu; yatay kaydırılabilir' });
   await page.keyboard.press('Tab'); await scroll.focus();
@@ -126,7 +124,7 @@ test('production navigation and service worker fetch financing only after its pa
   await expect(page.getByRole('region', { name: 'Seçili ay özeti' })).toBeVisible();
   await page.evaluate(async () => { await navigator.serviceWorker.ready; });
   expect(assetRequests.filter(path => paths.has(path))).toEqual([]);
-  expect(requests.filter(sheet => sheet === 'Finansman')).toEqual([]);
+  expect(requests.filter(sheet => sheet === '_Finans web')).toEqual([]);
   await selectPage(page, 'Finansman');
   await expect(page.getByRole('table', { name: 'Günlük finansman adımları' })).toBeVisible();
   expect(assetRequests.filter(path => paths.has(path)).length).toBeGreaterThan(0);
@@ -163,7 +161,7 @@ test('Timeline and Finansman use one verified ledger across hot navigation and s
   await expect(opening).toContainText('KMH anaparası');
   await expect(opening).toContainText('-50 ₺');
   await expect(page.getByRole('region', { name: 'Ocak 2098 özeti' })).toContainText('500 ₺');
-  expect(requests).toHaveLength(4);
+  expect(requests).toHaveLength(2);
   await page.getByRole('tab', { name: 'Tablo', exact: true }).click();
   const row = page.getByRole('row', { name: /Sentetik dönem başlangıcı/ });
   await expect(row.locator('[data-balance="cash"]')).toHaveText('0 ₺');
@@ -171,10 +169,10 @@ test('Timeline and Finansman use one verified ledger across hot navigation and s
   await expect(row.locator('[data-balance="kmhPrincipal"]')).toHaveText('50 ₺');
   await selectPage(page, 'Finansman');
   await expect(page.getByRole('region', { name: 'Ocak 2098 ay sonu' })).toContainText('500 ₺');
-  expect(requests, 'the detailed page reuses the same checked snapshot').toHaveLength(4);
+  expect(requests, 'the detailed page reuses the same checked snapshot').toHaveLength(2);
   await selectPage(page, 'Ödeme takvimi');
   await expect(opening).toBeVisible();
-  expect(requests, 'returning to the flow has no additional source latency').toHaveLength(4);
+  expect(requests, 'returning to the flow has no additional source latency').toHaveLength(2);
   for (const width of [320, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);

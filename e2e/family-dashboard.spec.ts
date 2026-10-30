@@ -15,7 +15,7 @@ async function mockFamily(page: Page) {
   await page.route('**/gviz/tq?*', route => {
     const sheet = new URL(route.request().url()).searchParams.get('sheet')!;
     feeds.push(sheet);
-    if (sheet === 'Finansman') return route.fulfill({ contentType: 'application/json', body: timelineResponse(route.request().url(), timeline) });
+    if (sheet === '_Finans web') return route.fulfill({ contentType: 'application/json', body: timelineResponse(route.request().url(), timeline) });
     const bridge = syntheticBridgeResponse(route.request().url());
     if (bridge) return route.fulfill({ contentType: 'application/json', body: bridge });
     const key = map[sheet as keyof typeof map];
@@ -64,7 +64,7 @@ test('home plan uses budget records and connects to preparation without duplicat
   const table = page.getByRole('table', { name: 'Bütçedeki alım planı' });
   await expect(table).toContainText('Tutar yok');
   await expect(table).toContainText('0 ₺');
-  expect(feeds).not.toContain('Finansman');
+  expect(feeds).not.toContain('_Finans web');
   if (await page.locator('.family-nav-trigger').isVisible()) await page.getByRole('button', { name: 'Sayfalar', exact: true }).click();
   await page.getByRole('navigation', { name: 'Sayfalar' }).getByRole('link', { name: 'Hazırlık listesi' }).click();
   await expect(page).toHaveURL(/#\/satinalma$/);

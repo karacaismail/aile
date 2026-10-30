@@ -1,8 +1,7 @@
 import { syntheticBridgeResponse } from '../src/dashboard/bridgeFixtures';
 import { test, expect, type Page } from '@playwright/test';
 import { gviz, syntheticSheets } from '../src/dashboard/fixtures';
-import { syntheticFinance } from '../src/finance/fixtures';
-import { financeRanges } from '../src/finance/contract';
+import { financeWireResponseTable } from '../src/finance/fixtures';
 import { mockApi } from './helpers';
 
 const destinations = [
@@ -18,11 +17,9 @@ async function mockNavigation(page: Page) {
   const map = { Pano: 'summary', Plan: 'plan', 'Gerçekleşen': 'actual', 'Düzensiz giderler': 'irregular' } as const;
   await page.route('**/gviz/tq?*', route => {
     const sheet = new URL(route.request().url()).searchParams.get('sheet')!;
-    if (sheet === 'Finansman') {
-      const source = syntheticFinance();
-      const range = new URL(route.request().url()).searchParams.get('range');
-      const key = Object.entries(financeRanges).find(([, value]) => value === range)?.[0] as keyof typeof source;
-      return key ? route.fulfill({ contentType: 'application/json', body: gviz(source[key].rows, source[key].labels) }) : route.fulfill({ status: 404 });
+    if (sheet === '_Finans web') {
+      const wire = financeWireResponseTable(route.request().url());
+      return route.fulfill({ contentType: 'application/json', body: gviz(wire.rows, wire.labels) });
     }
     const bridge = syntheticBridgeResponse(route.request().url());
     if (bridge) return route.fulfill({ contentType: 'application/json', body: bridge });

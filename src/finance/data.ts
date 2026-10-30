@@ -1,5 +1,6 @@
 import { parseTable, sheetId, sheetUrl, type Cell } from '../dashboard/data';
-import { dailyHeaders, financeRanges, financeSchemaVersion, monthlyHeaders } from './contract';
+import { decodeFinanceWire, readFinanceWireMetadata } from './wire';
+import { dailyHeaders, financeWire, financeSchemaVersion, monthlyHeaders } from './contract';
 
 type Table = ReturnType<typeof parseTable>;
 export type FinanceSource = { metadata: Table; monthly: Table; daily: Table };
@@ -73,30 +74,22 @@ export function buildFinance(source: FinanceSource): FinanceLedger {
 
 export async function fetchFinance(signal: AbortSignal): Promise<FinanceLedger> {
   if (!sheetId) invalid('e-tablo bağlantısı tanımlı değil');
-  const controller = new AbortController();
-  const abort = () => controller.abort();
-  signal.addEventListener('abort', abort, { once: true });
-  if (signal.aborted) abort();
-  const read = async (range: string, headers: number) => {
+  const read = async (range: string) => {
+    signal.throwIfAborted();
     const url = new URL(`https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq`);
-    url.searchParams.set('sheet', 'Finansman'); url.searchParams.set('range', range);
-    url.searchParams.set('headers', String(headers)); url.searchParams.set('tqx', 'out:json');
-    // The same sheet has an A:F cost report below the daily ledger. Only R
-    // identifies payment events; metadata still rejects missing or extra IDs.
-    if (range === financeRanges.daily) url.searchParams.set('tq', 'select * where R is not null');
-    const response = await fetch(url, { signal: controller.signal, cache: 'no-store', credentials: 'omit' });
+    url.searchParams.set('sheet', financeWire.sheet); url.searchParams.set('range', range);
+    url.searchParams.set('headers', '1'); url.searchParams.set('tqx', 'out:json');
+    const response = await fetch(url, { signal, cache: 'no-store', credentials: 'omit' });
     if (!response.ok) throw new Error(`Finansman bağlantısı alınamadı (${response.status}).`);
     return parseTable(await response.text());
   };
-  try {
-    // Establish the generation before requesting amounts. Otherwise a data
-    // response may predate the first guard while both guard reads see the new
-    // generation. Typed amount blocks then share one parallel network phase.
-    const before = await read(financeRanges.metadata, 0);
-    metadata(before);
-    const [monthly, daily] = await Promise.all([read(financeRanges.monthly, 1), read(financeRanges.daily, 1)]);
-    const after = await read(financeRanges.metadata, 0);
-    if (JSON.stringify(metadata(before)) !== JSON.stringify(metadata(after))) stale();
-    return buildFinance({ metadata: after, monthly, daily });
-  } finally { controller.abort(); signal.removeEventListener('abort', abort); }
+  // Bind every value and condition to the producer's payload digest before a
+  // final freshness check. A single GViz response is not an atomic Sheet snapshot.
+  const decoded = await decodeFinanceWire(await read(financeWire.fullRange));
+  signal.throwIfAborted();
+  const data = buildFinance(decoded.source);
+  const after = readFinanceWireMetadata(await read(financeWire.metadataRange));
+  signal.throwIfAborted();
+  if (JSON.stringify(decoded.metadata) !== JSON.stringify(after)) stale();
+  return data;
 }
