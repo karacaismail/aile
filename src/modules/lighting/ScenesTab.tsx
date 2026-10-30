@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { Button, EmptyState, SimpleGrid, Skeleton, Stack } from '@mantine/core';
-import { PlusIcon, SlidersHorizontalIcon } from '@phosphor-icons/react';
+import { PlusIcon } from '@phosphor-icons/react/dist/csr/Plus';
+import { SlidersHorizontalIcon } from '@phosphor-icons/react/dist/csr/SlidersHorizontal';
 import { useLocation } from 'wouter';
 import { useAppStore } from '@/sync/store';
 import { byId, selectHydration, selectLayers, selectScenes } from './data';

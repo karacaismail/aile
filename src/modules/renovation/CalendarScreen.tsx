@@ -1,6 +1,14 @@
 import { useMemo, useState } from 'react';
 import { Badge, Box, Button, Drawer, Group, Paper, SegmentedControl, Stack, Text, ThemeIcon, Timeline, UnstyledButton } from '@mantine/core';
-import { ArrowSquareOutIcon, CalendarBlankIcon, CircleIcon, FlagIcon, GearSixIcon, HammerIcon, MoonIcon, PackageIcon, SparkleIcon } from '@phosphor-icons/react';
+import { ArrowSquareOutIcon } from '@phosphor-icons/react/dist/csr/ArrowSquareOut';
+import { CalendarBlankIcon } from '@phosphor-icons/react/dist/csr/CalendarBlank';
+import { CircleIcon } from '@phosphor-icons/react/dist/csr/Circle';
+import { FlagIcon } from '@phosphor-icons/react/dist/csr/Flag';
+import { GearSixIcon } from '@phosphor-icons/react/dist/csr/GearSix';
+import { HammerIcon } from '@phosphor-icons/react/dist/csr/Hammer';
+import { MoonIcon } from '@phosphor-icons/react/dist/csr/Moon';
+import { PackageIcon } from '@phosphor-icons/react/dist/csr/Package';
+import { SparkleIcon } from '@phosphor-icons/react/dist/csr/Sparkle';
 import { Link, useLocation } from 'wouter';
 import type { Item } from '@shared/schema';
 import { label } from '@shared/schema';

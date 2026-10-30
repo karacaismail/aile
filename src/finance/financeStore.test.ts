@@ -1,0 +1,56 @@
+import { afterEach, expect, it, vi } from 'vitest';
+import { fetchFinance } from './data';
+import { createFinanceStore } from './financeStore';
+vi.mock('./data', () => ({ fetchFinance: vi.fn() }));
+afterEach(() => { vi.resetAllMocks(); vi.useRealTimers(); });
+const verified = { status: 'Sentetik hesap', notes: [], fingerprint: 'a'.repeat(64), months: [], events: [] };
+const settle = async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); };
+it('shares one validated read and memory snapshot between flow and table routes', async () => {
+  vi.mocked(fetchFinance).mockResolvedValue(verified);
+  const store = createFinanceStore();
+  const release = store.prefetch();
+  const leaveFlow = store.subscribe(vi.fn());
+  await settle();
+  const first = store.getSnapshot();
+  leaveFlow(); release();
+  const leaveTable = store.subscribe(vi.fn());
+  expect(store.getSnapshot()).toBe(first);
+  expect(store.getSnapshot().data).toBe(verified);
+  expect(fetchFinance).toHaveBeenCalledTimes(1);
+  leaveTable();
+});
+it('clears stale amounts for every subscriber and permits immediate recovery', async () => {
+  vi.mocked(fetchFinance).mockResolvedValueOnce(verified).mockRejectedValueOnce(new Error('Kaynak değişti')).mockResolvedValueOnce(verified);
+  const store = createFinanceStore(); const flow = vi.fn(); const table = vi.fn();
+  const leaveFlow = store.subscribe(flow); const leaveTable = store.subscribe(table);
+  await settle(); store.refresh(); await settle();
+  expect(store.getSnapshot().data).toBeNull();
+  expect(store.getSnapshot().error).toBe('Kaynak değişti');
+  expect(flow).toHaveBeenCalled(); expect(table).toHaveBeenCalled();
+  store.refresh(); await settle();
+  expect(store.getSnapshot().data).toBe(verified);
+  expect(fetchFinance).toHaveBeenCalledTimes(3);
+  leaveFlow(); leaveTable();
+});
+it('aborts unused requests, but a route lease survives a subscriber handoff', async () => {
+  const signals: AbortSignal[] = [];
+  vi.mocked(fetchFinance).mockImplementation(signal => { signals.push(signal!); return new Promise(() => {}); });
+  const store = createFinanceStore(); const release = store.prefetch();
+  const leave = store.subscribe(vi.fn()); leave();
+  expect(signals[0].aborted).toBe(false); release();
+  expect(signals[0].aborted).toBe(true);
+  const leaveNext = store.subscribe(vi.fn()); expect(fetchFinance).toHaveBeenCalledTimes(2); leaveNext();
+});
+it('refreshes stale memory on a revisit and keeps visible refreshes single-flight', async () => {
+  vi.useFakeTimers();
+  vi.mocked(fetchFinance).mockResolvedValueOnce(verified).mockImplementation(() => new Promise(() => {}));
+  const store = createFinanceStore(); const leave = store.subscribe(vi.fn());
+  await settle(); leave();
+  await vi.advanceTimersByTimeAsync(60_000);
+  const leaveNext = store.subscribe(vi.fn());
+  expect(fetchFinance).toHaveBeenCalledTimes(2);
+  store.refresh(); expect(fetchFinance).toHaveBeenCalledTimes(2);
+  await vi.advanceTimersByTimeAsync(20_000);
+  expect(store.getSnapshot().data).toBeNull();
+  expect(store.getSnapshot().error).toMatch(/zaman aşımı/); leaveNext();
+});

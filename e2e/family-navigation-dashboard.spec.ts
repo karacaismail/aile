@@ -1,10 +1,12 @@
+import { syntheticBridgeResponse } from '../src/dashboard/bridgeFixtures';
 import { test, expect, type Page } from '@playwright/test';
 import { gviz, syntheticSheets } from '../src/dashboard/fixtures';
-import { syntheticTimeline } from '../src/timeline/fixtures';
+import { syntheticFinance } from '../src/finance/fixtures';
+import { financeRanges } from '../src/finance/contract';
 import { mockApi } from './helpers';
 
 const destinations = [
-  ['/pano', 'Genel bütçe'], ['/timeline', 'Ödeme takvimi'], ['/butce', 'Harcama kayıtları'],
+  ['/pano', 'Genel bütçe'], ['/timeline', 'Ödeme takvimi'], ['/finansman', 'Finansman'], ['/butce', 'Harcama kayıtları'],
   ['/ev', 'Alım planı'], ['/satinalma', 'Hazırlık listesi'], ['/aydinlatma', 'Aydınlatma'], ['/yerlesim', 'Yerleşim'],
   ['/tadilat', 'Tadilat takvimi'], ['/tadilat/isler', 'Yapılacak işler'], ['/tadilat/ustalar', 'Ustalar'], ['/tadilat/kontrol', 'Kontrol listesi'],
   ['/arac', 'Araç ve finansman'], ['/ayarlar', 'Ayarlar'],
@@ -13,11 +15,17 @@ const destinations = [
 async function mockNavigation(page: Page) {
   await mockApi(page);
   const raw = syntheticSheets();
-  const timeline = syntheticTimeline();
   const map = { Pano: 'summary', Plan: 'plan', 'Gerçekleşen': 'actual', 'Düzensiz giderler': 'irregular' } as const;
   await page.route('**/gviz/tq?*', route => {
     const sheet = new URL(route.request().url()).searchParams.get('sheet')!;
-    if (sheet === '_Timeline web') return route.fulfill({ contentType: 'application/json', body: gviz(timeline.rows, timeline.labels) });
+    if (sheet === 'Finansman') {
+      const source = syntheticFinance();
+      const range = new URL(route.request().url()).searchParams.get('range');
+      const key = Object.entries(financeRanges).find(([, value]) => value === range)?.[0] as keyof typeof source;
+      return key ? route.fulfill({ contentType: 'application/json', body: gviz(source[key].rows, source[key].labels) }) : route.fulfill({ status: 404 });
+    }
+    const bridge = syntheticBridgeResponse(route.request().url());
+    if (bridge) return route.fulfill({ contentType: 'application/json', body: bridge });
     const key = map[sheet as keyof typeof map];
     if (!key) return route.fulfill({ status: 404, body: 'Unknown sheet' });
     const rows = key === 'plan' || key === 'actual' ? raw[key].map(row => row.slice(0, 4)) : raw[key];

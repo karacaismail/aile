@@ -1,13 +1,14 @@
 import type { Budget, Category, Cell, Grid, Irregular, Month } from './data';
+import { BudgetIntegrityError } from './integrity';
 
 const monthNames = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
 const aliases = [['oc', 'oca'], ['şub'], ['mar'], ['nis'], ['may'], ['haz'], ['tem'], ['ağu'], ['eyl'], ['eki'], ['kas'], ['ar', 'ara']];
 const text = (value: Cell | undefined) => value == null ? '' : String(value).trim();
 const lower = (value: Cell | undefined) => text(value).toLocaleLowerCase('tr');
 const number = (value: Cell | undefined) => typeof value === 'number' && Number.isFinite(value) ? value : null;
-const required = (value: Cell | undefined) => { const result = number(value); if (result === null) throw new Error('Zorunlu bütçe tutarı eksik veya hatalı; son tutarlı veriler korunuyor.'); return result; };
+const required = (value: Cell | undefined) => { const result = number(value); if (result === null) throw new BudgetIntegrityError('Zorunlu bütçe tutarı eksik veya hatalı; tutarlar gösterilmiyor.'); return result; };
 const optionalMoney = (value: Cell | undefined) => value == null || value === '' ? null : required(value);
-const mismatch = () => { throw new Error('Bütçe sekmeleri henüz tutarlı değil. Son başarılı veriler korunuyor.'); };
+const mismatch = () => { throw new BudgetIntegrityError('Bütçe sekmeleri henüz tutarlı değil. Tutarlar gösterilmiyor.'); };
 
 export function sheetMonthKey(value: Cell | undefined): string {
   let date: Date | undefined;
@@ -28,13 +29,13 @@ export function sheetMonthKey(value: Cell | undefined): string {
       }
     }
   }
-  if (!date || !Number.isFinite(date.getTime())) throw new Error('Ay başlıkları veya gider tarihleri doğrulanamadı.');
+  if (!date || !Number.isFinite(date.getTime())) throw new BudgetIntegrityError('Ay başlıkları veya gider tarihleri doğrulanamadı.');
   return date.toISOString().slice(0, 7);
 }
 const labelFor = (key: string) => `${monthNames[Number(key.slice(5)) - 1]} ${key.slice(0, 4)}`;
 const oneRow = (rows: Grid, pattern: RegExp) => {
   const found = rows.filter(row => pattern.test(lower(row[0])));
-  if (found.length !== 1) throw new Error('E-tablo şeması değişmiş; bütçe satırı doğrulanamadı.');
+  if (found.length !== 1) throw new BudgetIntegrityError('E-tablo şeması değişmiş; bütçe satırı doğrulanamadı.');
   return found[0];
 };
 export const isCurrentBudget = (rows: Grid) => rows.some(row => /^kasadan çıkan\s*·\s*brüt$/.test(lower(row[0])));
@@ -44,7 +45,7 @@ export function buildCurrentBudget(raw: CurrentBudgetRaw): Budget {
   const header = oneRow(raw.plan, /^kalem$/);
   const activeHeaders = header.slice(1);
   while (activeHeaders.length && (activeHeaders.at(-1) == null || activeHeaders.at(-1) === '')) activeHeaders.pop();
-  if (!activeHeaders.length) throw new Error('Bütçe ayları eksik.');
+  if (!activeHeaders.length) throw new BudgetIntegrityError('Bütçe ayları eksik.');
   const keys = activeHeaders.map(sheetMonthKey);
   keys.forEach((key, i) => {
     if (i > 0 && new Date(Date.UTC(Number(keys[i - 1].slice(0, 4)), Number(keys[i - 1].slice(5)), 1)).toISOString().slice(0, 7) !== key) mismatch();
@@ -60,16 +61,16 @@ export function buildCurrentBudget(raw: CurrentBudgetRaw): Budget {
   });
   const pairRows = (pattern: RegExp) => {
     const rows = raw.cash.filter(row => pattern.test(lower(row[0])));
-    if (rows.length !== 2) throw new Error('Kasa plan/güncel satırları doğrulanamadı.');
+    if (rows.length !== 2) throw new BudgetIntegrityError('Kasa plan/güncel satırları doğrulanamadı.');
     return rows;
   };
   for (const [field, pattern] of [['income', /^gelir$/], ['expense', /^brüt nakit çıkışı$/], ['saving', /^birikim alımları\s*·\s*tl$/], ['free', /^aylık net nakit$/], ['balance', /^ay sonu nakit$/]] as const) {
     const rows = pairRows(pattern);
-    months.forEach((month, i) => { if (Math.abs(month[field].plan - required(rows[0][i + 1])) > .05 || Math.abs(month[field].current - required(rows[1][i + 1])) > .05) mismatch(); });
+    months.forEach((month, i) => { if (Math.abs(month[field].plan - required(rows[0][i + 1])) > .000001 || Math.abs(month[field].current - required(rows[1][i + 1])) > .000001) mismatch(); });
   }
   for (const [field, pattern] of [['income', /^toplam gelir$/], ['expense', /^kasadan çıkan\s*·\s*brüt$/], ['free', /^kasa\s*·\s*aylık net hareket$/], ['balance', /^nakitte kalan\s*·\s*ay sonu$/]] as const) {
     const plan = oneRow(raw.plan, pattern), actual = oneRow(raw.actual, pattern);
-    months.forEach((month, i) => { if (Math.abs(month[field].plan - required(plan[i + 1])) > .05 || Math.abs(month[field].current - required(actual[i + 1])) > .05) mismatch(); });
+    months.forEach((month, i) => { if (Math.abs(month[field].plan - required(plan[i + 1])) > .000001 || Math.abs(month[field].current - required(actual[i + 1])) > .000001) mismatch(); });
   }
   const definitions = [
     { label: 'Gelir', start: /^gelir$/, end: /^toplam gelir$/, kind: 'income' },
@@ -97,12 +98,12 @@ export function buildCurrentBudget(raw: CurrentBudgetRaw): Budget {
   groups.push(savingTotal); categories.push({ ...savingTotal, label: 'Birikim alımları · TL' });
   const irregularHeader = raw.irregular.find(row => text(row[0]) === 'Gider / açıklama');
   const expected = ['Gider / açıklama', 'Kategori', 'Durum', 'Planlanan tarih', 'Ödeme tarihi', 'Plan', 'Gerçekleşen', 'Fark', 'Yer / Bölüm', 'Plan girdisi', 'Not', 'Kaynak / ürün', 'Kayıt kimliği', 'Elle değişti', 'Kasa kimliği'];
-  if (!irregularHeader || expected.some((label, i) => text(irregularHeader[i]) !== label)) throw new Error('Arızi Giderler sütunları doğrulanamadı.');
+  if (!irregularHeader || expected.some((label, i) => text(irregularHeader[i]) !== label)) throw new BudgetIntegrityError('Arızi Giderler sütunları doğrulanamadı.');
   const seen = new Set<string>();
   const monthValue = (value: Cell | undefined) => value == null || value === '' ? '' : labelFor(sheetMonthKey(value));
   const irregular = raw.irregular.slice(raw.irregular.indexOf(irregularHeader) + 1).filter(row => text(row[0])).map((row): Irregular => {
     const id = text(row[14]);
-    if (!id || seen.has(id)) throw new Error('Arızi Giderler kayıt kimliği eksik veya yinelenmiş.');
+    if (!id || seen.has(id)) throw new BudgetIntegrityError('Arızi Giderler kayıt kimliği eksik veya yinelenmiş.');
     seen.add(id);
     return { id, label: text(row[0]), type: text(row[1]), status: text(row[2]), planMonth: monthValue(row[3]), month: monthValue(row[4]), plan: optionalMoney(row[5]), current: optionalMoney(row[6]), room: text(row[8]), note: text(row[10]), manual: required(row[13]) > 0 };
   });
@@ -112,7 +113,7 @@ export function buildCurrentBudget(raw: CurrentBudgetRaw): Budget {
       const monthField = field === 'plan' ? 'planMonth' : 'month';
       const total = irregular.filter(item => item[monthField] === month.label).reduce((sum, item) => sum + (item[field] ?? 0), 0);
       const expectedTotal = irregularTotal[field][i];
-      if (expectedTotal === null || Math.abs(total - expectedTotal) > .05) mismatch();
+      if (expectedTotal === null || Math.abs(total - expectedTotal) > .000001) mismatch();
     }
   });
   return { months, categories, groups, irregular, schema: 'cashflow' };

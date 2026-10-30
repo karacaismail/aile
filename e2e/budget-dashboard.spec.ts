@@ -1,18 +1,22 @@
+import { syntheticBridgeResponse } from '../src/dashboard/bridgeFixtures';
 import { test, expect, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { syntheticSheets, gviz } from '../src/dashboard/fixtures';
 async function mockSheet(page: Page) {
-  let fail=false;
+  let fail=false; let fresh=true;
   const raw=syntheticSheets();
   const map={Pano:'summary',Plan:'plan','Gerçekleşen':'actual','Düzensiz giderler':'irregular'} as const;
   await page.route('**/gviz/tq?*',async route=>{
     if(fail)return route.fulfill({status:503,body:'Unavailable'});
     const sheet=new URL(route.request().url()).searchParams.get('sheet') as keyof typeof map;
+    const bridge = syntheticBridgeResponse(route.request().url(), fresh);
+    if (bridge) return route.fulfill({ contentType: 'application/json', body: bridge });
     const key=map[sheet];
+    if (!key) return route.fulfill({ status: 404, body: 'Unknown schema' });
     const rows=(key==='plan'||key==='actual')?raw[key].map(r=>r.slice(0,4)):raw[key];
     return route.fulfill({contentType:'application/json',body:gviz(rows,key==='plan'||key==='actual'?['Kalem',...raw.summary.map(r=>String(r[0]))]:undefined)});
   });
-  return {fail:()=>{fail=true;},restore:()=>{fail=false;},change:()=>{raw.summary[0][3]=12000;raw.summary[0][9]=6000;raw.actual[0][1]=12000;raw.actual[4][1]=12000;}};
+  return {invalidate:()=>{fresh=false;},fail:()=>{fail=true;},restore:()=>{fail=false;},change:()=>{raw.summary[0][3]=12000;raw.summary[0][9]=6000;raw.actual[0][1]=12000;raw.actual[4][1]=12000;}};
 }
 
 test('live read, manual refresh, failure retention and recovery',async({page})=>{
@@ -64,6 +68,7 @@ test('custom selects, visible keyboard focus, motion and responsive table stay a
 });
 
 test('current cashflow sheet reads real dates, renamed irregular columns and Kasa totals', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 740 });
   const { syntheticCurrentSheets } = await import('../src/dashboard/currentFixtures');
   const raw = syntheticCurrentSheets();
   raw.actual.splice(3, 0, [null]);
@@ -72,6 +77,8 @@ test('current cashflow sheet reads real dates, renamed irregular columns and Kas
   await page.route('**/gviz/tq?*', async route => {
     const params = new URL(route.request().url()).searchParams;
     requests.push({ sheet: params.get('sheet'), range: params.get('range'), headers: params.get('headers') });
+    const bridge = syntheticBridgeResponse(route.request().url());
+    if (bridge) return route.fulfill({ contentType: 'application/json', body: bridge });
     const key = map[params.get('sheet') as keyof typeof map];
     if (!key) return route.fulfill({ status: 404, body: 'Unknown schema' });
     if (key === 'irregular') {
@@ -85,6 +92,8 @@ test('current cashflow sheet reads real dates, renamed irregular columns and Kas
   const metrics = page.getByRole('region', { name: 'Seçili ay özeti' });
   await expect(metrics).toContainText('10.000 ₺');
   await expect(metrics).toContainText('Aylık net nakit');
+  const firstAmount = await metrics.locator('.metric-value').first().boundingBox();
+  expect(firstAmount!.y + firstAmount!.height).toBeLessThanOrEqual(740);
   await expect(page.getByRole('alert')).toHaveCount(0);
   expect(requests).toEqual(expect.arrayContaining([
     { sheet: 'Plan', range: 'B2:P79', headers: '0' },
@@ -100,6 +109,20 @@ test('current cashflow sheet reads real dates, renamed irregular columns and Kas
   await expect(table).toContainText('0 ₺');
   raw.summary[0][2] = 20000;
   await page.getByRole('button', { name: 'Yenile', exact: true }).click();
-  await expect(page.getByRole('alert')).toContainText('Son başarılı veriler');
-  await expect(metrics).toContainText('10.000 ₺');
+  await expect(page.getByRole('alert')).toContainText('Tutarlar gösterilmiyor');
+  await expect(metrics).toHaveCount(0);
+  await expect(page.locator('.budget-app')).not.toContainText('10.000 ₺');
+});
+
+
+test('stale native bridge removes previously displayed amounts instead of retaining a successful snapshot', async ({ page }) => {
+  const source = await mockSheet(page);
+  await page.goto('/aile/#/pano');
+  await expect(page.getByRole('region', { name: 'Seçili ay özeti' })).toContainText('10.000 ₺');
+  source.invalidate();
+  await page.getByRole('button', { name: 'Yenile', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('Plan veya Güncel kaynağı değişti');
+  await expect(page.getByRole('region', { name: 'Seçili ay özeti' })).toHaveCount(0);
+  await expect(page.locator('.budget-app')).not.toContainText('₺');
+  await expect(page.getByRole('alert')).not.toContainText('Son başarılı veriler');
 });

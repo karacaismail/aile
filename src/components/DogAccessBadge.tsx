@@ -1,5 +1,5 @@
 import { Badge, type BadgeProps } from '@mantine/core';
-import { DogIcon } from '@phosphor-icons/react';
+import { DogIcon } from '@phosphor-icons/react/dist/csr/Dog';
 import { label } from '@shared/schema';
 import { WarnBadge } from './badges';
 

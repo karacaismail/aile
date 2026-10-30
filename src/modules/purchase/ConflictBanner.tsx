@@ -1,5 +1,5 @@
 import { Alert, Button, Group, Stack, Text } from '@mantine/core';
-import { WarningCircleIcon } from '@phosphor-icons/react';
+import { WarningCircleIcon } from '@phosphor-icons/react/dist/csr/WarningCircle';
 import { label } from '@shared/schema';
 import { useAppStore, dismissConflict } from '@/sync/store';
 import { upsert } from '@/sync/controller';

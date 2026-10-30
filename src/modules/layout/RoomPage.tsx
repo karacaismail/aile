@@ -1,7 +1,14 @@
 import { useMemo, useState } from 'react';
 import { ActionIcon, Alert, Badge, Box, Button, Card, Group, NumberInput, Paper, SimpleGrid, Stack, Table, Text, Title } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { ArrowLeftIcon, FloppyDiskIcon, HouseIcon, LightbulbIcon, PlugIcon, RulerIcon, ShoppingCartIcon, WallIcon } from '@phosphor-icons/react';
+import { ArrowLeftIcon } from '@phosphor-icons/react/dist/csr/ArrowLeft';
+import { FloppyDiskIcon } from '@phosphor-icons/react/dist/csr/FloppyDisk';
+import { HouseIcon } from '@phosphor-icons/react/dist/csr/House';
+import { LightbulbIcon } from '@phosphor-icons/react/dist/csr/Lightbulb';
+import { PlugIcon } from '@phosphor-icons/react/dist/csr/Plug';
+import { RulerIcon } from '@phosphor-icons/react/dist/csr/Ruler';
+import { ShoppingCartIcon } from '@phosphor-icons/react/dist/csr/ShoppingCart';
+import { WallIcon } from '@phosphor-icons/react/dist/csr/Wall';
 import { Link, Route, useLocation } from 'wouter';
 import type { Item, Oda, Setting } from '@shared/schema';
 import { KOPEK_ERISIM, label } from '@shared/schema';

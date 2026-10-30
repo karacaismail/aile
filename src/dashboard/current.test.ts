@@ -51,3 +51,8 @@ it('rejects misaligned cash months and formula errors inside category or irregul
   const brokenItem = syntheticCurrentSheets(); brokenItem.irregular[2][5] = '#N/A';
   expect(() => buildCurrentBudget(brokenItem)).toThrow(/hatalı/);
 });
+it('rejects a one-cent bridge mismatch rather than presenting inconsistent native balances', () => {
+  const raw = syntheticCurrentSheets();
+  raw.summary[0][10] = Number(raw.summary[0][10]) + .01;
+  expect(() => buildCurrentBudget(raw)).toThrow(/tutarlı/);
+});

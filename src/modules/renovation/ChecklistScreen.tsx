@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Accordion, Box, Button, Checkbox, CopyButton, Group, NumberInput, Progress, Stack, Text } from '@mantine/core';
-import { CheckIcon, CopyIcon } from '@phosphor-icons/react';
+import { CheckIcon } from '@phosphor-icons/react/dist/csr/Check';
+import { CopyIcon } from '@phosphor-icons/react/dist/csr/Copy';
 import type { Item } from '@shared/schema';
 import { label } from '@shared/schema';
 import { useAppStore, type AppState } from '@/sync/store';

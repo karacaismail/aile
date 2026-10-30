@@ -1,6 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { gviz } from '../src/dashboard/fixtures';
-import { syntheticTimeline } from '../src/timeline/fixtures';
+import { syntheticTimeline, timelineResponse } from './timelineFinanceFixture';
 
 test('initial HTML stays readable while application JavaScript and CSS are delayed', async ({ page, context, browserName }, testInfo) => {
   let releaseAssets!: () => void;
@@ -10,7 +9,7 @@ test('initial HTML stays readable while application JavaScript and CSS are delay
     await route.continue();
   });
   const table = syntheticTimeline();
-  await context.route('**/gviz/tq?*', route => route.fulfill({ contentType: 'application/json', body: gviz(table.rows, table.labels) }));
+  await context.route('**/gviz/tq?*', route => route.fulfill({ contentType: 'application/json', body: timelineResponse(route.request().url(), table) }));
   try {
     await page.setViewportSize({ width: 320, height: 740 });
     await page.goto('/aile/#/timeline', { waitUntil: 'commit' });
@@ -67,7 +66,7 @@ test('application waits for its styles before mounting', async ({ page, context 
     await route.continue();
   });
   const table = syntheticTimeline();
-  await context.route('**/gviz/tq?*', route => route.fulfill({ contentType: 'application/json', body: gviz(table.rows, table.labels) }));
+  await context.route('**/gviz/tq?*', route => route.fulfill({ contentType: 'application/json', body: timelineResponse(route.request().url(), table) }));
   try {
     await page.goto('/aile/#/timeline', { waitUntil: 'commit' });
     await expect.poll(() => styleRequested).toBe(true);

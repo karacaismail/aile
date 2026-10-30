@@ -30,6 +30,7 @@ export const directoryGroups: readonly { title: string; links: readonly PageLink
   { title: 'Bütçe ve ödemeler', links: [
     { path: '/pano', label: 'Genel bütçe' },
     { path: '/timeline', label: 'Ödeme takvimi' },
+    { path: '/finansman', label: 'Finansman' },
     { path: '/butce', label: 'Harcama kayıtları' },
   ] },
   { title: 'Ev ve taşınma', links: [

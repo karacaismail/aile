@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Alert, Button, Code, Group, Stack, Text, TextInput, Title, Anchor } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { PlugsConnectedIcon, TrashIcon } from '@phosphor-icons/react';
+import { PlugsConnectedIcon } from '@phosphor-icons/react/dist/csr/PlugsConnected';
+import { TrashIcon } from '@phosphor-icons/react/dist/csr/Trash';
 import { callApi } from '@/sync/api';
 import { getActor, getApiUrl, getAppKey, isApiConfigured, setActor, setApiUrl, setAppKey } from '@/sync/config';
 import { refresh } from '@/sync/controller';

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ActionIcon, Button, Drawer, Group, Indicator, Popover, Radio, Stack, Text } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
-import { ArrowsDownUpIcon } from '@phosphor-icons/react';
+import { ArrowsDownUpIcon } from '@phosphor-icons/react/dist/csr/ArrowsDownUp';
 import classes from './filter.module.css';
 
 export interface SortOption<K extends string> { value: K; label: string; description?: string }

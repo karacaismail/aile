@@ -1,7 +1,12 @@
 import { useCallback, useMemo, useState } from 'react';
 import { ActionIcon, Box, Button, CloseButton, Divider, EmptyState, Group, Indicator, Paper, SimpleGrid, TextInput, Skeleton } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { ArrowCounterClockwiseIcon, FunnelSimpleIcon, GearSixIcon, MagnifyingGlassIcon, PlusIcon, ShoppingCartIcon } from '@phosphor-icons/react';
+import { ArrowCounterClockwiseIcon } from '@phosphor-icons/react/dist/csr/ArrowCounterClockwise';
+import { FunnelSimpleIcon } from '@phosphor-icons/react/dist/csr/FunnelSimple';
+import { GearSixIcon } from '@phosphor-icons/react/dist/csr/GearSix';
+import { MagnifyingGlassIcon } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
+import { PlusIcon } from '@phosphor-icons/react/dist/csr/Plus';
+import { ShoppingCartIcon } from '@phosphor-icons/react/dist/csr/ShoppingCart';
 import { useDebouncedValue, useLocalStorage } from '@mantine/hooks';
 import { Link, Route, useLocation } from 'wouter';
 import type { Item } from '@shared/schema';

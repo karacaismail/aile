@@ -1,5 +1,6 @@
 import { Badge, Card, Group, Stack, Text } from '@mantine/core';
-import { CaretRightIcon, LightningIcon } from '@phosphor-icons/react';
+import { CaretRightIcon } from '@phosphor-icons/react/dist/csr/CaretRight';
+import { LightningIcon } from '@phosphor-icons/react/dist/csr/Lightning';
 import { useLocation } from 'wouter';
 import type { Item } from '@shared/schema';
 import { label } from '@shared/schema';

@@ -2,11 +2,11 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { MantineProvider } from '@mantine/core';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import TimelinePage from './TimelinePage';
-import { buildTimeline } from './data';
-import { syntheticLongTimeline } from './fixtures';
-import { useTimeline } from './useTimeline';
+import { buildFinance } from '../finance/data';
+import { syntheticFinance, syntheticLongFinance } from '../finance/fixtures';
+import { useFinance } from '../finance/useFinance';
 
-vi.mock('./useTimeline', () => ({ useTimeline: vi.fn() }));
+vi.mock('../finance/useFinance', () => ({ useFinance: vi.fn() }));
 // The branded Select is covered in browser tests; use its value/onChange contract here.
 vi.mock('../dashboard/Select', () => ({ Select: (props: { value: string; onChange: (value: string) => void; data: { value: string; label: string }[] }) => <select aria-label="Gösterilen dönem" value={props.value} onChange={event => props.onChange(event.target.value)}>{props.data.map(option => <option value={option.value} key={option.value}>{option.label}</option>)}</select> }));
 const frames = new Map<number, FrameRequestCallback>();
@@ -23,7 +23,7 @@ beforeEach(() => {
   frames.clear(); nextFrame = 0;
   vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => { frames.set(++nextFrame, callback); return nextFrame; });
   vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(id => { frames.delete(id); });
-  vi.mocked(useTimeline).mockReturnValue({ data: buildTimeline(syntheticLongTimeline()), loading: false, error: null, updatedAt: null, refresh: vi.fn() });
+  vi.mocked(useFinance).mockReturnValue({ data: buildFinance(syntheticLongFinance()), loading: false, error: null, updatedAt: null, refresh: vi.fn() });
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
@@ -31,7 +31,7 @@ it('renders the first eight verified steps immediately, then sixteen per frame w
   mount();
   expect(rows()).toBe(8);
   expect(panel()).toHaveAttribute('aria-busy', 'true');
-  const summary = screen.getByRole('region', { name: 'Kasım 2098 özeti' });
+  const summary = screen.getByRole('region', { name: 'Ocak 2098 özeti' });
   const totals = summary.textContent;
   expect(totals).toContain('654.321 ₺');
   advanceFrame(); expect(rows()).toBe(24);
@@ -64,7 +64,7 @@ it('shares progressive source rows with table and cancels obsolete work on view,
   expect(panel()).toHaveAttribute('aria-busy', 'false');
   expect(frames.size).toBe(0);
   fireEvent.click(screen.getByRole('button', { name: 'Tüm adımlar' }));
-  selectPeriod('2098-12');
+  selectPeriod('2098-02');
   expect(rows()).toBe(8);
   expect(screen.getAllByRole('row')[1]).toHaveTextContent('Örnek adım 29');
   selectPeriod('all');
@@ -87,9 +87,39 @@ it('keeps a complete visible page during a verified refresh with the same event 
   const view = mount();
   advanceFrame(); advanceFrame();
   expect(rows()).toBe(28);
-  vi.mocked(useTimeline).mockReturnValue({ data: buildTimeline(syntheticLongTimeline()), loading: false, error: null, updatedAt: new Date(), refresh: vi.fn() });
+  vi.mocked(useFinance).mockReturnValue({ data: buildFinance(syntheticLongFinance()), loading: false, error: null, updatedAt: new Date(), refresh: vi.fn() });
   view.rerender(<MantineProvider><TimelinePage /></MantineProvider>);
   expect(rows()).toBe(28);
   expect(panel()).toHaveAttribute('aria-busy', 'false');
   expect(frames.size).toBe(0);
+});
+
+ it('shows finance cash and KMH independently, without treating net position as spendable cash', () => {
+  vi.mocked(useFinance).mockReturnValue({ data: buildFinance(syntheticFinance()), loading: false, error: null, updatedAt: null, refresh: vi.fn() });
+  mount();
+  const step = screen.getByRole('article', { name: '1. adım · Sentetik dönem başlangıcı' });
+  expect(within(step).getByText('Harcanabilir nakit').nextElementSibling).toHaveTextContent('0 ₺');
+  expect(within(step).getByText('Net nakit konumu').nextElementSibling).toHaveTextContent('-50 ₺');
+  expect(within(step).getByText('KMH anaparası').nextElementSibling).toHaveTextContent('50 ₺');
+  expect(within(step).getByText('KMH faiz + vergi').nextElementSibling).toHaveTextContent('2 ₺');
+  expect(within(step).getByText('Toplam kart borcu').nextElementSibling).toHaveTextContent('512 ₺');
+  expect(within(step).getByText(/banka oranı teyitsiz/)).toBeVisible();
+  expect(screen.queryByText(/nakit modeli KMH.*içermez/)).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('tab', { name: 'Tablo' }));
+  const row = screen.getAllByRole('row')[1];
+  expect(row.querySelector('[data-balance="cash"]')).toHaveTextContent('0 ₺');
+  expect(row.querySelector('[data-balance="requiredBalance"]')).toHaveTextContent('-50 ₺');
+  expect(row.querySelector('[data-balance="kmhPrincipal"]')).toHaveTextContent('50 ₺');
+});
+
+it('preserves source cents and excludes internal transfers from the income filter', () => {
+  const data = buildFinance(syntheticFinance());
+  data.events[0].cardDebt = 512.49;
+  vi.mocked(useFinance).mockReturnValue({ data, loading: false, error: null, updatedAt: null, refresh: vi.fn() });
+  mount();
+  expect(screen.getByRole('article', { name: /1. adım/ })).toHaveTextContent('512,49 ₺');
+  selectPeriod('2098-02');
+  fireEvent.click(screen.getByRole('button', { name: 'Gelir' }));
+  expect(screen.queryByRole('article')).not.toBeInTheDocument();
+  expect(screen.getByText(/gelir adımı yok/)).toBeVisible();
 });

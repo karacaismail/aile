@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { Box, Button, EmptyState, SimpleGrid, Skeleton } from '@mantine/core';
-import { HammerIcon, PlusIcon } from '@phosphor-icons/react';
+import { HammerIcon } from '@phosphor-icons/react/dist/csr/Hammer';
+import { PlusIcon } from '@phosphor-icons/react/dist/csr/Plus';
 import { Route, useLocation } from 'wouter';
 import type { Item } from '@shared/schema';
 import { useAppStore, type AppState } from '@/sync/store';

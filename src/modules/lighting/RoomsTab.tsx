@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Button, EmptyState, SimpleGrid, Skeleton, Stack } from '@mantine/core';
-import { LightbulbIcon, StackIcon } from '@phosphor-icons/react';
+import { LightbulbIcon } from '@phosphor-icons/react/dist/csr/Lightbulb';
+import { StackIcon } from '@phosphor-icons/react/dist/csr/Stack';
 import type { Item, Oda } from '@shared/schema';
 import { useAppStore } from '@/sync/store';
 import { EnumSelect } from '@/components/EnumSelect';

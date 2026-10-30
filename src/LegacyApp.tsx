@@ -13,7 +13,7 @@ import { startSync } from './sync/controller';
 import { SyncStatus } from './app/shell/SyncStatus';
 import { ExpenseHost } from './modules/budget/ExpenseForm';
 import { openExpense } from './modules/budget/quick';
-import { ReceiptIcon } from '@phosphor-icons/react';
+import { ReceiptIcon } from '@phosphor-icons/react/dist/csr/Receipt';
 import { isRoute, plannerPages } from './app/family/navigation';
 
 export function App() {

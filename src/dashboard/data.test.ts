@@ -43,3 +43,9 @@ it('rejects a newer irregular feed mixed with older monthly totals',()=>{
  const raw=syntheticSheets();raw.irregular[0][3]=900;
  expect(()=>buildBudget(raw)).toThrow(/tutarlı/);
 });
+it('preserves cents in budget values and small obligations', () => {
+  expect(money(12345.67)).toBe('12.345,67 ₺');
+  expect(money(.49)).toBe('0,49 ₺');
+  expect(money(-.01)).toBe('-0,01 ₺');
+  expect(money(100)).toBe('100 ₺');
+});

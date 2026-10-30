@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import { ActionIcon, Box, Group, Paper, Progress, Stack, Text, Title, UnstyledButton, EmptyState } from '@mantine/core';
-import { CaretLeftIcon, CaretRightIcon, ReceiptIcon } from '@phosphor-icons/react';
+import { CaretLeftIcon } from '@phosphor-icons/react/dist/csr/CaretLeft';
+import { CaretRightIcon } from '@phosphor-icons/react/dist/csr/CaretRight';
+import { ReceiptIcon } from '@phosphor-icons/react/dist/csr/Receipt';
 import { useAppStore } from '@/sync/store';
 import { Fab } from '@/app/shell/Fab';
 import { formatTl } from '@/lib/price';

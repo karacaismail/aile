@@ -11,6 +11,7 @@ import { DataTable, type Column } from './DataTable';
 import './dashboard.css';
 const VehiclePage = lazy(() => import('../vehicle/VehiclePage'));
 const TimelinePage = lazy(() => import('../timeline/TimelinePage'));
+const FinancePage = lazy(() => import('../finance/FinancePage'));
 const Charts = lazy(() => import('./Charts'));
 const HomePlanPage = lazy(() => import('../home/HomePlanPage'));
 
@@ -57,9 +58,11 @@ function BudgetContent({ data }: { data: Budget }) {
   const irregular = data.irregular.filter(r => (type === 'Tümü' || (type === 'Tutar eksik' ? r.current === null : r.type === type)) && `${r.label} ${r.room} ${r.status} ${r.note}`.toLocaleLowerCase('tr').includes(q));
   return <>
     <div className="page-heading"><div><p className="eyebrow">AİLE BÜTÇESİ</p><h1>Aile bütçesi</h1><p className="muted">{data.months[0].label} — {data.months.at(-1)!.label}</p></div><div className="month-picker"><Select label="Gösterilen ay" value={current.key} onChange={v => v && setMonth(v)} data={data.months.map(m => ({ value: m.key, label: m.label }))} {...selectProps} /></div></div>
-    <div className="provenance"><span className="source-label">{current.source}</span><span>Güncel değerler Gerçekleşen sayfasından gelir. Planı izleyen tutarlar, yapılmış ödeme anlamına gelmez.</span></div>
+    <div className="provenance"><span className="source-label">{current.source}</span>{data.bridge && <span>Koşullu hesap</span>}</div>
     <section className="metrics" aria-label="Seçili ay özeti">{(['income','expense','saving','free'] as const).map((key,i) => <article className={`metric ${key === 'free' ? 'metric-emphasis' : ''}`} key={key}><h2>{['Gelir','Ödemeler','Birikime ayrılan','Aylık net nakit'][i]}</h2><p className="metric-value"><Amount value={current[key].current} /></p><p>Plan <Amount value={current[key].plan} /></p><p className="muted">Önceki aya göre {previous ? key === 'free' ? money(current[key].current - previous[key].current) : percent(percentChange(current[key].current, previous[key].current)) : '—'}</p></article>)}</section>
     <div className="balance-strip"><span>Seçili ay sonunda nakit <strong><Amount value={current.balance.current} /></strong></span><span>Dönem sonunda nakit <strong><Amount value={data.months.at(-1)!.balance.current} /></strong></span></div>
+    <p className="muted">Güncel değerler Gerçekleşen sayfasından gelir. Planı izleyen tutarlar, yapılmış ödeme anlamına gelmez.</p>
+    {data.bridge && <p className="muted">{data.bridge.status} · {data.bridge.scope}</p>}
     <nav className="view-nav" aria-label="Bütçe görünümleri">{[['overview','Genel bakış'],['months','Aylık tablo'],['categories','Kalemler ve fark'],['irregular','Düzensiz giderler']].map(([key, label]) => <button key={key} aria-pressed={view === key} onClick={() => { setView(key); setQuery(''); }}>{label}</button>)}</nav>
     {view === 'overview' && <DeferredCharts data={data} selected={index} />}
     {view === 'months' && <section><h2>Aydan aya bütün bütçe</h2><p className="muted">Tüm dönem. Başlıklara dokunarak sıralayın; ayrıntılar için tabloyu yatay kaydırın.</p><DataTable rows={data.months} columns={deltaColumns} rowKey={m => m.key} caption="Aylık plan ve güncel karşılaştırması" /></section>}
@@ -70,24 +73,25 @@ function BudgetContent({ data }: { data: Budget }) {
 export default function Dashboard() {
   const [location] = useHashLocation();
   const timeline = location === '/timeline';
+  const finance = location === '/finansman';
   useEffect(() => {
-    if (!timeline) return;
+    if (!timeline && !finance) return;
     let active = true;
     let release: (() => void) | undefined;
     // Fetch the ledger while the selected route's larger UI chunk is loading.
     // Other routes neither import the store nor request financial Timeline data.
-    void import('../timeline/timelineStore').then(({ timelineStore }) => {
-      if (active) release = timelineStore.prefetch();
+    void import('../finance/financeStore').then(({ financeStore }) => {
+      if (active) release = financeStore.prefetch();
     });
     return () => { active = false; release?.(); };
-  }, [timeline]);
-  const state = useBudget(!timeline);
+  }, [timeline, finance]);
+  const state = useBudget(!timeline && !finance);
   const vehicle = location.startsWith('/arac');
   const home = location === '/ev';
   return <div className={`budget-app${vehicle ? ' vehicle-shell' : timeline ? ' timeline-shell' : ''}`}>
-      {!vehicle && !timeline && <div className="sync-strip"><span role="status" aria-live="polite">{state.loading ? 'Google Sheets kontrol ediliyor…' : state.updatedAt ? `Son okuma ${state.updatedAt.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })} · Açıkken her dakika yenilenir` : 'Google Sheets bağlantısı'}</span><button className="quiet-button" disabled={state.loading} onClick={state.refresh}>Yenile</button></div>}
-      {!timeline && state.error && <div role="alert" className="error-message">{state.error} {state.data ? 'Son başarılı veriler gösteriliyor.' : 'E-tablo erişimini kontrol edip yeniden deneyin.'}</div>}
-      {timeline ? <Suspense fallback={<TimelineRouteLoading />}><TimelinePage /></Suspense> : vehicle ? <Suspense fallback={<p>Araç kataloğu yükleniyor…</p>}><VehiclePage budget={state.data} /></Suspense> : home ? <Suspense fallback={<p role="status">Alım planı yükleniyor…</p>}><HomePlanPage data={state.data} loading={state.loading} /></Suspense> : state.data ? <BudgetContent data={state.data} /> : <div className="loading-message"><h1>Aile bütçesi</h1><p>{state.loading ? 'Aylık plan ve güncel tutarlar yükleniyor…' : 'Veriler şu anda alınamıyor.'}</p></div>}
+      {!vehicle && !timeline && !finance && <div className="sync-strip"><span role="status" aria-live="polite">{state.loading ? 'Google Sheets kontrol ediliyor…' : state.updatedAt ? `Son okuma ${state.updatedAt.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })} · Açıkken her dakika yenilenir` : 'Google Sheets bağlantısı'}</span><button className="quiet-button" disabled={state.loading} onClick={state.refresh}>Yenile</button></div>}
+      {!timeline && !finance && state.error && <div role="alert" className="error-message">{state.error} {state.data ? 'Son başarılı veriler gösteriliyor.' : 'E-tablo erişimini kontrol edip yeniden deneyin.'}</div>}
+      {finance ? <Suspense fallback={<div aria-busy="true"><h1>Finansman</h1><p role="status">Finansman çalışma alanı hazırlanıyor…</p></div>}><FinancePage /></Suspense> : timeline ? <Suspense fallback={<TimelineRouteLoading />}><TimelinePage /></Suspense> : vehicle ? <Suspense fallback={<p>Araç kataloğu yükleniyor…</p>}><VehiclePage budget={state.data} /></Suspense> : home ? <Suspense fallback={<p role="status">Alım planı yükleniyor…</p>}><HomePlanPage data={state.data} loading={state.loading} /></Suspense> : state.data ? <BudgetContent data={state.data} /> : <div className="loading-message"><h1>Aile bütçesi</h1><p>{state.loading ? 'Aylık plan ve güncel tutarlar yükleniyor…' : 'Veriler şu anda alınamıyor.'}</p></div>}
       {vehicle && <div className="sync-strip"><span role="status" aria-live="polite">{state.loading ? 'Google Sheets kontrol ediliyor…' : state.updatedAt ? `Son okuma ${state.updatedAt.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })} · Açıkken her dakika yenilenir` : 'Google Sheets bağlantısı'}</span><button className="quiet-button" disabled={state.loading} onClick={state.refresh}>Yenile</button></div>}
   </div>;
 }

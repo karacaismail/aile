@@ -1,3 +1,4 @@
+import { syntheticBridgeResponse } from '../src/dashboard/bridgeFixtures';
 import AxeBuilder from '@axe-core/playwright';
 import { test, expect, type Page } from '@playwright/test';
 import { syntheticSheets, gviz } from '../src/dashboard/fixtures';
@@ -36,11 +37,25 @@ async function mockLayoutSheets(page:Page,unavailable=()=>false) {
   await page.route('**/gviz/tq?*',async route=>{
     if(unavailable())return route.fulfill({status:503,body:'Unavailable'});
     const sheet=new URL(route.request().url()).searchParams.get('sheet') as keyof typeof map;
+    const bridge = syntheticBridgeResponse(route.request().url());
+    if (bridge) return route.fulfill({ contentType: 'application/json', body: bridge });
     const key=map[sheet];
+    if (!key) return route.fulfill({ status: 404, body: 'Unknown schema' });
     const grid=key==='plan'||key==='actual';
     return route.fulfill({contentType:'application/json',body:gviz(grid?sheets[key].map(r=>r.slice(0,4)):sheets[key],grid?['Kalem',...sheets.summary.map(r=>String(r[0]))]:undefined)});
   });
 }
+
+test('vehicle budget impact excludes financing and reserve transfers from payment capacity', async ({ page }) => {
+  await mockLayoutSheets(page);
+  await page.goto('/aile/#/arac');
+  await expect(page.locator('.sync-strip')).toContainText('Son okuma');
+  await page.getByRole('tab', { name: 'Bütçeye etkisi', exact: true }).click();
+  const table = page.getByRole('table', { name: 'E-tablo dönemi içindeki ek araç yükü' });
+  await expect(table.locator('tbody tr').first().locator('td').nth(1)).toHaveText('3.300 ₺');
+  await expect(table.getByRole('columnheader', { name: 'Borç ve aktarım hariç akış' })).toBeVisible();
+  await expect(page.locator('.vehicle-page')).toContainText('KMH anapara kapaması ve ödenen maliyetler giderde kalır.');
+});
 
 test('vehicle selection and borrowed-down-payment rules stay usable at 320px', async ({ page }) => {
   await page.setViewportSize({width:320,height:740});
@@ -111,7 +126,9 @@ test('eligibility switch filters models, years and catalog without treating appr
 });
 
 test('vehicle gallery switches front, rear and cabin and resets with the model',async({page})=>{
+ await mockLayoutSheets(page);
  await page.goto('/aile/#/arac');
+ await expect(page.locator('.sync-strip')).toContainText('Son okuma');
   await openSettings(page);
  await expect(page.getByRole('button',{name:'Arka görünüm',exact:true})).toBeVisible();
  await page.getByRole('button',{name:'Arka görünüm',exact:true}).click();

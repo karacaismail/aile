@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Badge, Box, Card, Group, SimpleGrid, Skeleton, Stack, Text } from '@mantine/core';
-import { CaretRightIcon } from '@phosphor-icons/react';
+import { CaretRightIcon } from '@phosphor-icons/react/dist/csr/CaretRight';
 import { Link } from 'wouter';
 import type { Item, Oda, Setting } from '@shared/schema';
 import { label } from '@shared/schema';

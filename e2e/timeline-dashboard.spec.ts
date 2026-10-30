@@ -1,16 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { writeFile } from 'node:fs/promises';
 import AxeBuilder from '@axe-core/playwright';
-import { syntheticLongTimeline, syntheticTimeline } from '../src/timeline/fixtures';
-import { gviz } from '../src/dashboard/fixtures';
-
-function timelineResponse(url: string, table: ReturnType<typeof syntheticTimeline>) {
-  const params = new URL(url).searchParams;
-  expect(params.get('sheet')).toBe('_Timeline web');
-  expect(params.get('range')).toBe('A1:Q1600');
-  return gviz(table.rows, table.labels);
-}
-
+import { syntheticLongTimeline, syntheticTimeline, timelineResponse } from './timelineFinanceFixture';
 async function mockTimeline(page: Page, largeAmounts = false) {
   const table = syntheticTimeline();
   if (largeAmounts) table.rows.forEach(row => {
@@ -26,9 +17,9 @@ async function mockTimeline(page: Page, largeAmounts = false) {
   await page.route('**/gviz/tq?*', route => {
     const sheet = new URL(route.request().url()).searchParams.get('sheet') ?? '';
     feeds.push(sheet);
-    if (sheet !== '_Timeline web') return route.fulfill({ status: 503, body: 'Unexpected feed' });
+    if (sheet !== 'Finansman') return route.fulfill({ status: 503, body: 'Unexpected feed' });
     const rows = table.rows.map(row => [...row]);
-    if (broken) rows[4][15] = 5;
+    if (broken) rows[4][0] = rows[0][0];
     return route.fulfill({ contentType: 'application/json', body: timelineResponse(route.request().url(), { rows, labels: table.labels }) });
   });
   return { feeds, requests, breakLedger: () => { broken = true; }, restore: () => { broken = false; } };
@@ -115,23 +106,23 @@ test('timeline deep link shows each cash/debt step independently of old budget f
   await expect(purchase).toContainText('1.000 ₺');
   await expect(purchase).toContainText('500 ₺');
   await expect(page.locator('.family-page-navigation a[href="#/timeline"]')).toHaveAttribute('aria-current', 'page');
-  expect(mock.feeds.every(feed => feed === '_Timeline web')).toBe(true);
+  expect(mock.feeds.every(feed => feed === 'Finansman')).toBe(true);
   expect(mock.requests.some(url => /(?:VehiclePage|LegacyApp|\/Charts\.tsx)/.test(url))).toBe(false);
   await page.getByRole('button', { name: 'Yenile', exact: true }).click();
-  await expect.poll(() => mock.requests.some(url => new URL(url).searchParams.get('range') === 'A1:Q1600')).toBe(true);
+  await expect.poll(() => mock.requests.some(url => new URL(url).searchParams.get('range') === 'A43:R6000')).toBe(true);
   await expect(page.getByRole('article', { name: /1\. adım/ })).toContainText('Adım opening');
   await expect(page.getByRole('alert')).toHaveCount(0);
   mock.breakLedger();
   await page.getByRole('button', { name: 'Yenile', exact: true }).click();
-  await expect(page.getByRole('alert')).toContainText('Son başarılı takvim');
-  await expect(purchase).toContainText('500 ₺');
+  await expect(page.getByRole('alert')).toContainText('işlem kimliği yinelenmiş');
+  await expect(page.getByRole('article')).toHaveCount(0);
   mock.restore();
   await page.getByRole('button', { name: 'Yenile', exact: true }).click();
   await expect(page.getByRole('alert')).toHaveCount(0);
   await page.getByRole('button', { name: 'Sonraki ay' }).click();
   await expect(page.getByRole('article', { name: /6\. adım/ })).toContainText('-100 ₺');
-  await expect(page.getByRole('alert')).toContainText('Negatif tutar kullanılabilir para değildir');
-  await expect(page.getByRole('complementary', { name: 'Tarih ve ödeme varsayımları' })).toContainText('varsayımdır');
+  await expect(page.getByRole('alert')).toContainText('Bu tutar kullanılabilir para değildir');
+  await expect(page.getByRole('complementary', { name: 'Hesap kapsamı' })).toContainText('Tarih ve maliyet koşulları');
   const picker = page.getByRole('textbox', { name: 'Gösterilen dönem' }).or(page.getByRole('combobox', { name: 'Gösterilen dönem' }));
   await picker.click();
   await page.getByRole('option', { name: 'Tüm dönem' }).click();
@@ -144,11 +135,11 @@ test('plain Timeline URLs override an obsolete pano hash and open the same canon
     await page.goto(path);
     await expect(page).toHaveURL(/\/aile\/#\/timeline$/);
     await expect(page.getByRole('article')).toHaveCount(5);
-    expect(mock.feeds.every(feed => feed === '_Timeline web')).toBe(true);
+    expect(mock.feeds.every(feed => feed === 'Finansman')).toBe(true);
   }
 });
 
-test('journey filters preserve period totals and original balances while making payment dates explicit', async ({ page }) => {
+test('journey filters preserve period totals and original balances while preserving source dates and conditions', async ({ page }) => {
   await mockTimeline(page);
   await page.setViewportSize({ width: 320, height: 740 });
   await page.goto('/aile/#/timeline');
@@ -161,17 +152,13 @@ test('journey filters preserve period totals and original balances while making 
   const payment = page.getByRole('article', { name: /4\. adım/ });
   await expect(payment).toContainText('800 ₺');
   await expect(summary).toHaveText(totals, { useInnerText: true });
-  await expect(payment.getByRole('group', { name: 'Ödeme ve gelir tarihleri' })).toBeVisible();
-  await expect(payment.getByRole('group', { name: 'Ödeme ve gelir tarihleri' })).toContainText('27 Kasım 2098');
-  await expect(payment.getByRole('group', { name: 'Ödeme ve gelir tarihleri' })).toContainText('10 Kasım 2098');
-  await expect(payment.getByRole('group', { name: 'Ödeme ve gelir tarihleri' })).toContainText('ödemeden 17 gün önce');
-  await expect(payment).not.toContainText('Maaştan önceyse');
+  await expect(payment.locator('.timeline-source')).toBeVisible();
   await expect(payment).toContainText('Kesim + 10 gün.');
   await expect(payment).toContainText('Özel ödeme notu korunur.');
   await page.getByRole('button', { name: 'Sonraki ay' }).click();
   await expect(payments).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByRole('article')).toHaveCount(1);
-  await expect(page.getByRole('alert')).toContainText('Negatif tutar kullanılabilir para değildir');
+  await expect(page.getByRole('alert')).toContainText('Bu tutar kullanılabilir para değildir');
   await page.getByRole('button', { name: 'Alışveriş', exact: true }).click();
   await expect(page.getByText('Bu dönemde alışveriş adımı yok.')).toBeVisible();
   await expect(page.getByRole('article')).toHaveCount(0);
@@ -239,13 +226,11 @@ test('timeline and table views share exact balances, notes and period/filter sta
   await expect(table.locator('tbody tr')).toHaveCount(1);
   const payment = table.getByRole('row', { name: /Adım payment/ });
   await expect(payment.locator('[data-balance="cash"]')).toHaveText('800 ₺');
-  await expect(payment.locator('[data-balance="denizDebt"]')).toHaveText('300 ₺');
-  await expect(payment.locator('[data-balance="isDebt"]')).toHaveText('0 ₺');
-  await expect(payment.locator('[data-balance="totalDebt"]')).toHaveText('300 ₺');
+  await expect(payment.locator('[data-balance="denizPrincipal"]')).toHaveText('300 ₺');
+  await expect(payment.locator('[data-balance="isPrincipal"]')).toHaveText('0 ₺');
+  await expect(payment.locator('[data-balance="cardDebt"]')).toHaveText('300 ₺');
   await expect(payment).toContainText('27 Kasım 2098');
-  await expect(payment).toContainText('Nakit -200 ₺');
-  await expect(payment).toContainText('Denizbank borcu -200 ₺');
-  await expect(payment.getByRole('group', { name: 'Ödeme ve gelir tarihleri' })).toContainText('ödemeden 17 gün önce');
+  await expect(payment).toContainText('Net nakit etkisi -200 ₺');
   await expect(payment).toContainText('Özel ödeme notu korunur.');
   await expect(payment).toContainText('Örnek kaynak');
   await expect(summary).toHaveText(totals, { useInnerText: true });
@@ -253,8 +238,9 @@ test('timeline and table views share exact balances, notes and period/filter sta
   await expect(tableTab).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByRole('button', { name: 'Ödemeler', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(table.locator('tbody tr')).toHaveCount(1);
-  await expect(table.locator('[data-balance="cash"]')).toHaveText('-100 ₺');
-  await expect(page.getByRole('alert')).toContainText('Negatif tutar kullanılabilir para değildir');
+  await expect(table.locator('[data-balance="cash"]')).toHaveText('0 ₺');
+  await expect(table.locator('[data-balance="requiredBalance"]')).toHaveText('-100 ₺');
+  await expect(page.getByRole('alert')).toContainText('Bu tutar kullanılabilir para değildir');
   await timeline.click();
   await expect(page.getByRole('article')).toHaveCount(1);
   await expect(page.getByRole('article', { name: /6\. adım/ })).toContainText('-100 ₺');
@@ -417,18 +403,20 @@ test('view tab text retains contrast throughout normal and interrupted selection
   expect(worst, `minimum computed text/background contrast across ${result.length} frames`).toBeGreaterThanOrEqual(4.5);
 });
 
-test('compact steps show every explanation immediately without a disclosure button', async ({ page }) => {
+test('compact steps show every explanation immediately without a disclosure button', async ({ page }, testInfo) => {
   await mockTimeline(page);
   await page.setViewportSize({ width: 320, height: 740 });
   await page.goto('/aile/#/timeline');
   await expect(page.getByRole('article')).toHaveCount(5);
   await page.evaluate(() => document.fonts.ready);
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+  await page.screenshot({ path: testInfo.outputPath('first-content-320.png'), animations: 'disabled' });
   expect((await page.getByRole('article').first().boundingBox())!.y, 'first step begins in the narrow viewport').toBeLessThan(740);
   const purchase = page.getByRole('article', { name: /3\. adım/ });
   const note = purchase.getByText(/Teslimat tarihi satıcı ile teyit edilecek; satın alma ve teslimat ayrı adımlardır\./);
   await expect(note).toBeVisible();
   await expect(page.getByRole('button', { name: /^Ayrıntı/ })).toHaveCount(0);
-  for (const label of ['Kalan nakit', 'Toplam kart borcu', 'Denizbank', 'İşbank']) await expect(purchase.getByText(label, { exact: true })).toBeVisible();
+  for (const label of ['Harcanabilir nakit', 'Toplam kart borcu', 'KMH anaparası', 'Denizbank anapara', 'İşbank anapara']) await expect(purchase.getByText(label, { exact: true })).toBeVisible();
   await expect(purchase.locator('.timeline-source')).toBeVisible();
   await expect(purchase.locator('.timeline-source')).toContainText('Örnek kaynak');
   for (const size of [{ width: 740, height: 360 }, { width: 1440, height: 900 }, { width: 320, height: 740 }]) {
@@ -442,7 +430,8 @@ test('compact steps show every explanation immediately without a disclosure butt
       const bounds = details.getBoundingClientRect();
       return { gap: bounds.top - Math.max(context.bottom, balances.bottom), padding: getComputedStyle(details).paddingTop, hidden: !!details.closest('[inert], [aria-hidden="true"]'), aligned: Math.abs(context.top - balances.top) < 1 };
     });
-    expect(layout.gap, 'notes follow the content without a large empty panel').toBeLessThanOrEqual(8);
+    // DOMRect subtraction can differ by sub-pixel floating-point noise in Firefox.
+    expect(Math.round(layout.gap * 64) / 64, 'notes follow the content without a large empty panel').toBeLessThanOrEqual(8);
     expect(layout.gap).toBeGreaterThanOrEqual(0);
     expect(layout.padding).toBe('0px');
     expect(layout.hidden).toBe(false);
@@ -451,6 +440,7 @@ test('compact steps show every explanation immediately without a disclosure butt
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.evaluate(() => window.scrollTo(0, 0));
   const first = await page.getByRole('article').first().boundingBox();
+  await page.screenshot({ path: testInfo.outputPath('first-content-1440.png'), animations: 'disabled' });
   expect(first!.y + first!.height, 'first complete step is above the fold').toBeLessThan(900);
   await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
   await expect(note).toBeVisible();
@@ -489,13 +479,13 @@ test('overview and steps have distinct contrasting surfaces with readable summar
   await mockTimeline(page);
   await page.goto('/aile/#/timeline');
   const overview = page.getByRole('complementary', { name: 'Dönem kontrolü' });
-  await expect(overview.getByRole('heading', { name: 'Dönem özeti' })).toBeVisible();
+  await expect(overview.getByRole('heading', { name: 'Dönem sonu' })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Ödeme akışı' }).getByText('Ödeme akışı', { exact: true })).toBeVisible();
   const surface = await overview.evaluate(el => getComputedStyle(el).backgroundColor);
   expect(surface).not.toBe('rgba(0, 0, 0, 0)');
   expect(surface).not.toBe(await page.locator('.timeline-step').first().evaluate(el => getComputedStyle(el).backgroundColor));
   await page.getByRole('button', { name: 'Sonraki ay' }).click();
-  await expect(overview).toContainText('-100 ₺');
+  await expect(overview.getByRole('alert')).toContainText('fon eksiği 100 ₺');
   for (const width of [320, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);

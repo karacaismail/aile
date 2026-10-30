@@ -1,5 +1,6 @@
 import { Group, Title, ActionIcon, Box } from '@mantine/core';
-import { GearSixIcon, ReceiptIcon } from '@phosphor-icons/react';
+import { GearSixIcon } from '@phosphor-icons/react/dist/csr/GearSix';
+import { ReceiptIcon } from '@phosphor-icons/react/dist/csr/Receipt';
 import { openExpense } from '../../modules/budget/quick';
 import { Link, useLocation } from 'wouter';
 import { MODULES } from '../../routes';

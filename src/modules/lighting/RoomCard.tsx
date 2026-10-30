@@ -1,5 +1,6 @@
 import { Badge, Box, Card, Group, RingProgress, Stack, Text } from '@mantine/core';
-import { CaretRightIcon, MoonIcon } from '@phosphor-icons/react';
+import { CaretRightIcon } from '@phosphor-icons/react/dist/csr/CaretRight';
+import { MoonIcon } from '@phosphor-icons/react/dist/csr/Moon';
 import { useLocation } from 'wouter';
 import type { Item, Oda } from '@shared/schema';
 import { label } from '@shared/schema';

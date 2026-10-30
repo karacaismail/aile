@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { fetchBudget, type Budget } from './data';
+import { BudgetIntegrityError } from './integrity';
 
 export function useBudget(enabled = true) {
   const [state, setState] = useState<{ data: Budget | null; error: string | null; loading: boolean; updatedAt: Date | null }>({ data: null, error: null, loading: true, updatedAt: null });
@@ -18,7 +19,7 @@ export function useBudget(enabled = true) {
         const data = await fetchBudget(controller.signal);
         if (active) setState({ data, error: null, loading: false, updatedAt: new Date() });
       } catch (error) {
-        if (active) setState(s => ({ ...s, loading: false, error: error instanceof Error && error.name !== 'AbortError' ? error.message : 'Bağlantı zaman aşımına uğradı.' }));
+        if (active) setState(s => ({ ...s, ...(error instanceof BudgetIntegrityError ? { data: null, updatedAt: null } : {}), loading: false, error: error instanceof Error && error.name !== 'AbortError' ? error.message : 'Bağlantı zaman aşımına uğradı.' }));
       } finally { window.clearTimeout(timeout); busy = false; }
     };
     const visibleRefresh = () => { if (document.visibilityState === 'visible') void refresh(); };

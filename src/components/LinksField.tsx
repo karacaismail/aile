@@ -1,5 +1,7 @@
 import { ActionIcon, Anchor, Group, Stack, Text, TextInput } from '@mantine/core';
-import { ArrowSquareOutIcon, PlusIcon, TrashIcon } from '@phosphor-icons/react';
+import { ArrowSquareOutIcon } from '@phosphor-icons/react/dist/csr/ArrowSquareOut';
+import { PlusIcon } from '@phosphor-icons/react/dist/csr/Plus';
+import { TrashIcon } from '@phosphor-icons/react/dist/csr/Trash';
 import { useState } from 'react';
 
 export function LinksField({ value, onChange, label = 'Linkler' }: { value: string[]; onChange: (v: string[]) => void; label?: string }) {

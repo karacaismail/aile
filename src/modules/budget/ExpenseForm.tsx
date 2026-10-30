@@ -4,7 +4,8 @@ import { Modal, Stack, TextInput, Button, Group, Chip, Alert, Text, Box } from '
 import { DatePickerInput } from '@mantine/dates';
 import { useMediaQuery } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
-import { FloppyDiskIcon, TrashIcon } from '@phosphor-icons/react';
+import { FloppyDiskIcon } from '@phosphor-icons/react/dist/csr/FloppyDisk';
+import { TrashIcon } from '@phosphor-icons/react/dist/csr/Trash';
 import { useAppStore } from '@/sync/store';
 import { upsert, remove } from '@/sync/controller';
 import { PriceInput } from '@/components/PriceInput';

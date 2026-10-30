@@ -30,6 +30,12 @@ jobs:
           VITE_BUDGET_SHEET_ID: synthetic-budget-sheet-2098
       - run: pnpm build
         env:
+          VITE_BUDGET_SHEET_ID: synthetic-budget-sheet-2098
+      - run: pnpm exec playwright test --config playwright.finansman.config.ts
+        env:
+          CI: 1
+      - run: pnpm build
+        env:
           VITE_BUDGET_SHEET_ID: ${{ vars.VITE_BUDGET_SHEET_ID }}
           VITE_API_URL: ${{ vars.VITE_API_URL }}
       - run: pnpm exec playwright test --config playwright.timeline-production.config.ts

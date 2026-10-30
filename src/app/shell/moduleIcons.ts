@@ -1,4 +1,8 @@
-import { ShoppingCartIcon, LightbulbIcon, PaintRollerIcon, BlueprintIcon, WalletIcon } from '@phosphor-icons/react';
+import { ShoppingCartIcon } from '@phosphor-icons/react/dist/csr/ShoppingCart';
+import { LightbulbIcon } from '@phosphor-icons/react/dist/csr/Lightbulb';
+import { PaintRollerIcon } from '@phosphor-icons/react/dist/csr/PaintRoller';
+import { BlueprintIcon } from '@phosphor-icons/react/dist/csr/Blueprint';
+import { WalletIcon } from '@phosphor-icons/react/dist/csr/Wallet';
 
 export const MODULE_ICONS = {
   satinalma: ShoppingCartIcon,

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Box, Button, EmptyState, Paper, SegmentedControl, SimpleGrid, Skeleton, Text } from '@mantine/core';
-import { PlusIcon, UsersThreeIcon } from '@phosphor-icons/react';
+import { PlusIcon } from '@phosphor-icons/react/dist/csr/Plus';
+import { UsersThreeIcon } from '@phosphor-icons/react/dist/csr/UsersThree';
 import { Route, useLocation } from 'wouter';
 import type { Item } from '@shared/schema';
 import { MESLEK, label } from '@shared/schema';

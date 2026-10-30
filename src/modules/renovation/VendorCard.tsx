@@ -1,5 +1,6 @@
 import { ActionIcon, Anchor, Badge, Card, Group, Progress, Stack, Text } from '@mantine/core';
-import { PhoneIcon, WhatsappLogoIcon } from '@phosphor-icons/react';
+import { PhoneIcon } from '@phosphor-icons/react/dist/csr/Phone';
+import { WhatsappLogoIcon } from '@phosphor-icons/react/dist/csr/WhatsappLogo';
 import { useLocation } from 'wouter';
 import type { Item } from '@shared/schema';
 import { label } from '@shared/schema';

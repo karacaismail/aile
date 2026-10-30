@@ -1,5 +1,7 @@
 import { Card, Checkbox, Group, Stack, Text, Badge, Box } from '@mantine/core';
-import { ClockCountdownIcon, QuestionIcon, HouseIcon } from '@phosphor-icons/react';
+import { ClockCountdownIcon } from '@phosphor-icons/react/dist/csr/ClockCountdown';
+import { QuestionIcon } from '@phosphor-icons/react/dist/csr/Question';
+import { HouseIcon } from '@phosphor-icons/react/dist/csr/House';
 import { useLocation } from 'wouter';
 import type { Item } from '@shared/schema';
 import { DurumBadge, FazBadge, OdaBadge, WarnBadge } from '@/components/badges';

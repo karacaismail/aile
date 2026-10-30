@@ -1,6 +1,9 @@
 import { useMemo } from 'react';
 import { ActionIcon, Alert, Box, Button, EmptyState, Group, Paper, SimpleGrid, Skeleton, Stack, Text, Title } from '@mantine/core';
-import { ArrowLeftIcon, LightbulbIcon, PlusIcon, StackIcon } from '@phosphor-icons/react';
+import { ArrowLeftIcon } from '@phosphor-icons/react/dist/csr/ArrowLeft';
+import { LightbulbIcon } from '@phosphor-icons/react/dist/csr/Lightbulb';
+import { PlusIcon } from '@phosphor-icons/react/dist/csr/Plus';
+import { StackIcon } from '@phosphor-icons/react/dist/csr/Stack';
 import { Link, useLocation } from 'wouter';
 import { label } from '@shared/schema';
 import { useAppStore } from '@/sync/store';

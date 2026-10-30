@@ -1,4 +1,5 @@
 import { tokens } from '../dashboard/tokens.ts';
+import { installKeyboardMode } from '../dashboard/keyboard.ts';
 
 // Build-time HTML only: no React, financial values, route fetches or persistence.
 // The existing application replaces this root when its code and styles are ready.
@@ -21,6 +22,7 @@ const criticalTokens = {
 // Inline before the entry module: even a failed entry download must end loading.
 // Resource errors from later UI are ignored once React has replaced this shell.
 export const startupFailureScript = `(() => {
+  (${installKeyboardMode.toString()})();
   const fail = () => {
     const shell = document.querySelector('.app-startup');
     const status = shell?.querySelector('[role="status"]');

@@ -1,5 +1,5 @@
 import { ActionIcon, Affix } from '@mantine/core';
-import { PlusIcon } from '@phosphor-icons/react';
+import { PlusIcon } from '@phosphor-icons/react/dist/csr/Plus';
 
 export function Fab({ onClick, label = 'Ekle' }: { onClick: () => void; label?: string }) {
   return (

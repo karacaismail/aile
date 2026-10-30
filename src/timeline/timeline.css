@@ -17,7 +17,7 @@ html[data-keyboard='true'] .timeline-month-arrow:focus-visible::after { content:
 .timeline-summary .timeline-summary-secondary { padding: var(--budget-spaceDense) 0; }
 .timeline-summary-secondary span { color: var(--budget-timelineOverviewMuted); }
 .timeline-summary-secondary strong.negative { color: var(--budget-timelineOverviewNegative); }
-.timeline-caveat { color: var(--budget-timelineOverviewMuted); margin-top: var(--budget-spaceSmall); }
+.timeline-caveat { color: var(--budget-muted); margin-top: var(--budget-spaceSmall); }
 .timeline-caveat strong { font-weight: var(--budget-labelWeight); }
 .timeline-cash-warning { color: var(--budget-red); background: var(--budget-redSurface); padding: var(--budget-spaceSmall); border-radius: var(--budget-radius); margin-top: var(--budget-spaceSmall) !important; }
 .timeline-flow { min-width: 0; container-type: inline-size; }
@@ -112,3 +112,10 @@ html[data-keyboard='true'] .budget-app .timeline-table-scroll:focus-visible { te
   .timeline-step article { grid-template-columns: var(--budget-timelineRowColumns); gap: var(--budget-spaceTight) var(--budget-spacing); align-items: start; }
   .timeline-balances { grid-column: 2; grid-row: 1; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+.timeline-model-note { margin-block: var(--budget-spaceSmall); color: var(--budget-muted); }
+.timeline-model-notes { display: grid; gap: var(--budget-spaceDense); padding: var(--budget-spaceSmall); margin-block: var(--budget-spaceSmall); background: var(--budget-blueSurface); border-radius: var(--budget-radius); color: var(--budget-muted); }
+.timeline-model-notes strong { color: var(--budget-ink); }
+.timeline-caveat p + p { margin-top: var(--budget-spaceSmall); }
+.timeline-secondary-balances { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--budget-timelineMetricWidth)), 1fr)); gap: var(--budget-spaceTight); margin: 0; }
+.timeline-secondary-balances > div { min-width: 0; }
+.timeline-secondary-balances dd { margin: 0; color: var(--budget-ink); font-variant-numeric: tabular-nums; font-weight: var(--budget-labelWeight); }

@@ -1,5 +1,5 @@
 import { NavLink, Stack, Text, Divider } from '@mantine/core';
-import { GearSixIcon } from '@phosphor-icons/react';
+import { GearSixIcon } from '@phosphor-icons/react/dist/csr/GearSix';
 import { Link, useLocation } from 'wouter';
 import { MODULES } from '../../routes';
 import { MODULE_ICONS } from './moduleIcons';

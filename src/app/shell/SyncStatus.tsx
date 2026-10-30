@@ -1,5 +1,10 @@
 import { ActionIcon, Badge, Button, Drawer, Group, Indicator, Stack, Text, Alert, Code } from '@mantine/core';
-import { CloudCheckIcon, CloudArrowUpIcon, CloudSlashIcon, WarningCircleIcon, PlugsIcon, ArrowsClockwiseIcon } from '@phosphor-icons/react';
+import { CloudCheckIcon } from '@phosphor-icons/react/dist/csr/CloudCheck';
+import { CloudArrowUpIcon } from '@phosphor-icons/react/dist/csr/CloudArrowUp';
+import { CloudSlashIcon } from '@phosphor-icons/react/dist/csr/CloudSlash';
+import { WarningCircleIcon } from '@phosphor-icons/react/dist/csr/WarningCircle';
+import { PlugsIcon } from '@phosphor-icons/react/dist/csr/Plugs';
+import { ArrowsClockwiseIcon } from '@phosphor-icons/react/dist/csr/ArrowsClockwise';
 import { useDisclosure } from '@mantine/hooks';
 import { Link } from 'wouter';
 import { useAppStore } from '@/sync/store';
