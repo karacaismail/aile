@@ -537,7 +537,10 @@ test('six-digit cash and debt stay intact at 320px with 200% text', async ({ pag
     expect(measurement.width, measurement.amount).toBeLessThanOrEqual(measurement.available + 1);
     expect(measurement.font).toBeGreaterThanOrEqual(14);
   }
-  await page.screenshot({ path: `test-results/timeline-${browserName}-320-large-200.png`, fullPage: true });
+  // Zoomed financial detail can exceed WebKit's 32767px screenshot limit.
+  // All balances above are measured; capture the reading viewport as evidence.
+  await page.getByRole('article').first().scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `test-results/timeline-${browserName}-320-large-200.png`, fullPage: false });
 });
 
 test('all-period view bounds rendering and preserves balances through 716 chronological steps', async ({ page }) => {

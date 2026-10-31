@@ -158,7 +158,9 @@ test('Timeline and Finansman use one verified ledger across hot navigation and s
   const { source, requests } = await financeSource(page);
   await page.goto('/aile/#/timeline');
   const opening = page.getByRole('article', { name: '1. adım · Sentetik dönem başlangıcı' });
-  await expect(opening).toContainText('KMH anaparası');
+  const kmh = opening.getByRole('group', { name: 'KMH', exact: true });
+  await expect(kmh.locator('div').filter({ has: page.getByText('Anapara', { exact: true }) }).locator('dd')).toHaveText('50 ₺');
+  await expect(kmh.locator('div').filter({ has: page.getByText('Faiz + vergi', { exact: true }) }).locator('dd')).toHaveText('2 ₺');
   await expect(opening).toContainText('-50 ₺');
   await expect(page.getByRole('region', { name: 'Ocak 2098 özeti' })).toContainText('500 ₺');
   expect(requests).toHaveLength(2);
