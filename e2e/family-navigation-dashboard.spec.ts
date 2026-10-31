@@ -49,6 +49,9 @@ test('desktop pages share one persistent sidebar instead of stacked route tabs',
     for (const [destination, label] of destinations) await expect(directory.getByRole('link', { name: label, exact: true })).toHaveAttribute('href', `#${destination}`);
     await expect(directory.locator('[aria-current="page"]')).toHaveCount(1);
     await expect(directory.getByRole('link', { name: destinations[index][1], exact: true })).toHaveAttribute('aria-current', 'page');
+    // Location continuity: the link just used, the page heading and the document title agree.
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(destinations[index][1]);
+    await expect(page).toHaveTitle(`${destinations[index][1]} · aile`);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
     if (index === 0) await page.screenshot({ path: testInfo.outputPath('sidebar-1440.png'), fullPage: false });
     const next = destinations[(index + 1) % destinations.length];

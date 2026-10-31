@@ -19,7 +19,7 @@ export function VendorCard({ vendor }: { vendor: Item }) {
       <Group gap="xs" wrap="nowrap" align="flex-start">
         <Stack gap={4} className={classes.linkArea} role="link" tabIndex={0} aria-label={`${vendor.ad} detayı`} onClick={go} onKeyDown={(e) => { if (e.key === 'Enter') go(); }}>
           <Group justify="space-between" wrap="nowrap" align="flex-start" gap="xs">
-            <Text fw={600} lineClamp={2} className={classes.title} data-allow-clamp>{vendor.ad}</Text>
+            <Text fw={600} className={classes.title}>{vendor.ad}</Text>
             <Text fw={700} className="tabular" style={{ whiteSpace: 'nowrap', flexShrink: 0 }} c={vendor.teklif_tl == null ? 'dimmed' : undefined}>
               {vendor.teklif_tl != null ? formatTl(vendor.teklif_tl) : 'teklif yok'}
             </Text>

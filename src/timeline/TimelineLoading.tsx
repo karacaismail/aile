@@ -1,3 +1,4 @@
+import { PageHeader } from '../app/family/PageHeader';
 import './timeline-shell.css';
 
 /** Only layout placeholders are shared with the route shell; no finance data or route logic. */
@@ -27,11 +28,9 @@ export function TimelineLoading() {
 
 export function TimelineRouteLoading() {
   return <div className="timeline-page">
-    <header className="timeline-heading">
-      <div className="timeline-title"><h1>Timeline</h1><p className="muted">Nakit ve borç takvimi.</p></div>
-      <div className="timeline-heading-tools"><button className="quiet-button" disabled>Yenile</button></div>
-    </header>
-    <p className="timeline-plan-label"><span>Plan</span> Gerçekleşmiş ödeme değildir.</p>
+    <PageHeader location="/timeline" lead="Nakit ve borç takvimi." actions={<button className="quiet-button" disabled>Yenile</button>}>
+      <p className="timeline-plan-label"><span>Plan</span> Gerçekleşmiş ödeme değildir.</p>
+    </PageHeader>
     <TimelineLoading />
   </div>;
 }

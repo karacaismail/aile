@@ -24,6 +24,8 @@ export function FamilyFrame({ location, children }: { location: string; children
   const current = currentDirectoryLink(location);
 
   useEffect(() => { setExpandedAt(null); }, [location]);
+  // The document title names the current page first, then the service (WCAG 2.4.2 for single-page views).
+  useEffect(() => { document.title = `${current.label} · aile`; }, [current.label]);
   useLayoutEffect(() => {
     const wasDesktop = previousDesktop.current;
     previousDesktop.current = desktop;

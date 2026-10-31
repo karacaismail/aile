@@ -31,7 +31,7 @@ test('live read, manual refresh, failure retention and recovery',async({page})=>
 
 test('custom selects, visible keyboard focus, motion and responsive table stay accessible',async({page,browserName})=>{
   await mockSheet(page);await page.setViewportSize({width:320,height:740});await page.goto('/aile/#/pano');
-  await expect(page.getByRole('heading',{name:'Aile bütçesi',exact:true})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Genel bütçe',exact:true})).toBeVisible();
   const picker=page.getByRole('textbox',{name:'Gösterilen ay'}).or(page.getByRole('combobox',{name:'Gösterilen ay'}));
   await picker.click();await expect(page.getByRole('option',{name:'Aralık 2098'})).toBeVisible();
   await picker.press('ArrowDown');await picker.press('Enter');
@@ -65,6 +65,40 @@ test('custom selects, visible keyboard focus, motion and responsive table stay a
   await page.screenshot({path:'test-results/budget-320.png',fullPage:true});
   await page.emulateMedia({reducedMotion:'reduce'});
   expect(await button.evaluate(e=>getComputedStyle(e).transitionDuration)).toBe('0s');
+});
+
+test('narrow budget summary keeps related figures close and puts long explanations after the results', async ({ page }, testInfo) => {
+  await mockSheet(page);
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.goto('/aile/#/pano');
+  const summary = page.getByRole('region', { name: 'Seçili ay özeti' });
+  await expect(summary).toContainText('10.000 ₺');
+  const box = async (locator: ReturnType<typeof page.locator>) => (await locator.boundingBox())!;
+  const metrics = await box(summary), strip = await box(page.locator('.balance-strip')), views = await box(page.getByRole('navigation', { name: 'Bütçe görünümleri' }));
+  expect(metrics.height, 'four metrics stay compact at 320').toBeLessThanOrEqual(560);
+  expect(strip.y - (metrics.y + metrics.height), 'month-end balances stay next to the metrics (proximity)').toBeLessThanOrEqual(24);
+  expect(views.y - (strip.y + strip.height), 'the view switch follows the balances without a long explanation in between').toBeLessThanOrEqual(24);
+  expect(views.y - metrics.y, 'summary block from first metric to view switch').toBeLessThanOrEqual(680);
+  const note = page.getByText(/Güncel değerler Gerçekleşen sayfasından gelir/);
+  await expect(note).toBeVisible();
+  expect((await box(note)).y, 'full explanations stay open but follow the results').toBeGreaterThan(views.y);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath('budget-summary-320.png') });
+  // The selected view is marked by surface and weight only: no coloured accent edge on a rounded button.
+  const selected = page.getByRole('button', { name: 'Genel bakış', exact: true });
+  const edge = await selected.evaluate(el => { const style = getComputedStyle(el); return { bottom: style.borderBottomWidth, color: style.borderBottomColor, radius: parseFloat(style.borderRadius), weight: style.fontWeight }; });
+  expect(edge.bottom).toBe('0px');
+  expect(edge.radius).toBeGreaterThan(0);
+  expect(edge.weight).toBe('700');
+  // Balance strip changes layout at 48em: one column below, two columns from 768.
+  for (const [width, columns] of [[767, 1], [768, 2], [769, 2]] as const) {
+    await page.setViewportSize({ width, height: 900 });
+    expect(await page.locator('.balance-strip').evaluate(el => getComputedStyle(el).gridTemplateColumns.split(' ').length), `balance strip columns at ${width}`).toBe(columns);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  }
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
 });
 
 test('current cashflow sheet reads real dates, renamed irregular columns and Kasa totals', async ({ page }) => {

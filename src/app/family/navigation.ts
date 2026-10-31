@@ -14,13 +14,14 @@ export function familySection(location: string) {
   if (isRoute(location, '/ayarlar')) return 'settings';
   return 'budget';
 }
+/** Planner page leads; the heading itself is always the navigation label of the current location. */
 export const plannerPages = [
-  { path: '/satinalma', title: 'Hazırlık listesi', description: 'Ölçüleri, teklifleri, siparişleri ve teslimatları takip edin.' },
-  { path: '/aydinlatma', title: 'Aydınlatma', description: 'Odaları, ışık katmanlarını ve uygulama sırasını birlikte planlayın.' },
-  { path: '/tadilat', title: 'Tadilat', description: 'Yapılacak işleri, ustaları ve kontrol listesini tek yerde izleyin.' },
-  { path: '/yerlesim', title: 'Yerleşim', description: 'Oda ölçülerini, eşyaları ve yerleşim ihtiyaçlarını düzenleyin.' },
-  { path: '/butce', title: 'Harcama kayıtları', description: 'Gerçekleşen ödemeleri kaydedin ve aylık kayıtları inceleyin.' },
-  { path: '/ayarlar', title: 'Ayarlar', description: 'Ev planı ve harcama kayıtlarının bağlantısını yönetin.' },
+  { path: '/satinalma', description: 'Ölçüleri, teklifleri, siparişleri ve teslimatları takip edin.' },
+  { path: '/aydinlatma', description: 'Odaları, ışık katmanlarını ve uygulama sırasını birlikte planlayın.' },
+  { path: '/tadilat', description: 'Yapılacak işleri, ustaları ve kontrol listesini tek yerde izleyin.' },
+  { path: '/yerlesim', description: 'Oda ölçülerini, eşyaları ve yerleşim ihtiyaçlarını düzenleyin.' },
+  { path: '/butce', description: 'Gerçekleşen ödemeleri kaydedin ve aylık kayıtları inceleyin.' },
+  { path: '/ayarlar', description: 'Ev planı ve harcama kayıtlarının bağlantısını yönetin.' },
 ] as const;
 
 /** Task-oriented entry points only; individual records keep their contextual links. */

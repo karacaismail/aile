@@ -34,6 +34,13 @@ describe('ItemCard', () => {
     await userEvent.click(screen.getByRole('checkbox', { name: /alındı/ }));
     expect(onToggle).toHaveBeenCalledWith(item, true);
   });
+  it('uzun adı kırpmaz: başlık satır sınırı olmadan tam görünür', () => {
+    render(withRouter(<ItemCard item={item} onToggleDone={vi.fn()} />));
+    const title = screen.getByText(item.ad);
+    expect(title).not.toHaveAttribute('data-allow-clamp');
+    expect(title).not.toHaveAttribute('data-line-clamp');
+    expect(title.style.getPropertyValue('--text-line-clamp')).toBe('');
+  });
   it('mevcut eşya fiyat yerine "mevcut" gösterir', () => {
     render(withRouter(<ItemCard item={{ ...item, mevcut: true }} onToggleDone={vi.fn()} />));
     expect(screen.getByText('mevcut')).toBeInTheDocument();

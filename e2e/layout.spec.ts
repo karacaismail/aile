@@ -6,7 +6,7 @@ for (const route of ROUTES) {
     await mockApi(page);
     await page.goto(`/${route}`);
     await page.waitForLoadState('networkidle');
-    await expect(page.getByTestId('topbar-title')).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
     expect(await horizontalOverflow(page)).toEqual([]);
     expect(await smallTargets(page)).toEqual([]);
     expect(await smallText(page), 'metin < 1rem').toEqual([]);

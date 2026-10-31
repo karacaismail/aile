@@ -36,7 +36,7 @@ test('initial loading presents an immediate accessible skeleton without invented
   try {
     await page.setViewportSize({ width: 320, height: 740 });
     await page.goto('/aile/#/timeline');
-    await expect(page.getByRole('heading', { name: 'Timeline', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Ödeme takvimi', exact: true })).toBeVisible();
     await page.screenshot({ path: `test-results/timeline-loading-${browserName}-320.png`, fullPage: true });
     const skeleton = page.getByRole('region', { name: 'Ödeme takvimi yükleniyor' });
     await expect(skeleton).toBeVisible();
@@ -101,7 +101,7 @@ test('retry replaces an initial error with loading state and keeps verified cont
 test('timeline deep link shows each cash/debt step independently of old budget feeds', async ({ page }) => {
   const mock = await mockTimeline(page);
   await page.goto('/aile/#/timeline');
-  await expect(page.getByRole('heading', { name: 'Timeline', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Ödeme takvimi', exact: true })).toBeVisible();
   const purchase = page.getByRole('article', { name: /3\. adım/ });
   await expect(purchase).toContainText('1.000 ₺');
   await expect(purchase).toContainText('500 ₺');

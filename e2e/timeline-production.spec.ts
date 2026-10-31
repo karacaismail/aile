@@ -10,7 +10,9 @@ async function selectPage(page: Page, name: string) {
   await page.getByRole('navigation', { name: 'Sayfalar', exact: true }).getByRole('link', { name, exact: true }).click();
 }
 
-test('a clean production budget visit does not fetch Tabs until Timeline needs it', async ({ page, context }, testInfo) => {
+test('a clean production budget visit does not fetch Tabs until Timeline needs it', async ({ page, context, baseURL }, testInfo) => {
+  // Observe the preview origin actually under test, whichever port the config chose.
+  const origin = new URL(baseURL!).origin;
   const tabsFiles = (await readdir('dist/assets')).filter(name => /^Tabs-.*\.js$/.test(name));
   expect(tabsFiles.length, 'the build must expose the deferred shared Tabs chunk').toBeGreaterThan(0);
   const tabsPaths = new Set(tabsFiles.map(name => `/aile/assets/${name}`));
@@ -23,7 +25,7 @@ test('a clean production budget visit does not fetch Tabs until Timeline needs i
   let timelineReads = 0;
   context.on('request', request => {
     const url = new URL(request.url());
-    if (url.origin === 'http://127.0.0.1:5177') requests.push(url.pathname);
+    if (url.origin === origin) requests.push(url.pathname);
   });
   const raw = syntheticSheets();
   const budgetMap = { Pano: 'summary', Plan: 'plan', 'Gerçekleşen': 'actual', 'Düzensiz giderler': 'irregular' } as const;

@@ -1,4 +1,5 @@
 import { Card, Checkbox, Group, Stack, Text, Badge, Box } from '@mantine/core';
+// Group is still used for the checkbox row and the badge row.
 import { ClockCountdownIcon } from '@phosphor-icons/react/dist/csr/ClockCountdown';
 import { QuestionIcon } from '@phosphor-icons/react/dist/csr/Question';
 import { HouseIcon } from '@phosphor-icons/react/dist/csr/House';
@@ -32,12 +33,11 @@ export function ItemCard({ item, onToggleDone }: { item: Item; onToggleDone: (it
         </Box>
         <Stack gap={4} className={classes.linkArea} onClick={() => navigate(`~/satinalma/${item.id}`)} role="link" tabIndex={0}
           onKeyDown={(e) => { if (e.key === 'Enter') navigate(`~/satinalma/${item.id}`); }} aria-label={`${item.ad} detayı`}>
-          <Group justify="space-between" wrap="nowrap" align="flex-start" gap="xs">
-            <Text fw={600} lineClamp={2} className={classes.title} data-allow-clamp>{item.ad}</Text>
-            <Text fw={700} className={`tabular ${classes.price}`} c={est == null ? 'dimmed' : undefined}>
-              {item.mevcut ? 'mevcut' : priceText}
-            </Text>
-          </Group>
+          {/* The item name is the identifier: it wraps fully and is never clamped; the price follows it in the same text flow. */}
+          <Text component="p" className={classes.heading}>
+            <span className={classes.title}>{item.ad}</span>{' '}
+            <Text component="span" fw={700} className={`tabular ${classes.price}`} c={est == null ? 'dimmed' : undefined}>{item.mevcut ? 'mevcut' : priceText}</Text>
+          </Text>
           <Group gap={4} wrap="wrap">
             <FazBadge value={item.faz} />
             <DurumBadge value={item.durum} />

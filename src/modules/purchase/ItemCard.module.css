@@ -10,6 +10,8 @@
   min-height: 44px;
   margin: -6px 0 -6px -6px;
 }
-.title { line-height: 1.3; }
-.price { white-space: nowrap; flex-shrink: 0; }
+/* Names wrap at word boundaries; a single unbreakable token breaks only when it cannot fit, instead of being clipped by the card. */
+.heading { margin: 0; line-height: 1.3; overflow-wrap: break-word; }
+.title { font-weight: 600; }
+.price { white-space: nowrap; }
 .linkArea { flex: 1; min-width: 0; min-height: 44px; justify-content: center; }
