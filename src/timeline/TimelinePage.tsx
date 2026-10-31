@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Tabs } from '@mantine/core';
 import { Select } from '../dashboard/Select';
 import { financeMoney as money } from '../finance/format';
@@ -86,9 +86,13 @@ function TimelineJourney({ data }: { data: FinanceLedger }) {
   const monthEnd = data.months.find(month => month.month === last.date.slice(0, 7))!;
   const index = months.indexOf(selected);
   const scope = selected === 'all' ? 'Tüm dönem' : monthLabel(selected);
+  // In-page signposts between the period control and the always-open details: no route change, no hidden data.
+  const detailsRef = useRef<HTMLElement>(null);
+  const jumpRef = useRef<HTMLButtonElement>(null);
+  const reveal = (target: HTMLElement | null, block: ScrollLogicalPosition) => { target?.scrollIntoView({ block }); target?.focus({ preventScroll: true }); };
   return <div className="timeline-workspace">
     <aside className="timeline-overview" aria-label="Dönem kontrolü">
-    <h2 className="timeline-overview-heading">Dönem sonu</h2>
+    <div className="timeline-overview-heading-row"><h2 className="timeline-overview-heading">Dönem sonu</h2><button type="button" ref={jumpRef} className="timeline-jump" onClick={() => reveal(detailsRef.current, 'start')}>Dönem ayrıntıları</button></div>
     <div className="timeline-toolbar">
       <div className="timeline-month"><Select aria-label="Gösterilen dönem" value={selected} onChange={value => value && changeSelection(value)} allowDeselect={false} data={[...months.map(month => ({ value: month, label: monthLabel(month) })), { value: 'all', label: 'Tüm dönem' }]} /></div>
       <div className="button-row timeline-period-buttons"><button className="quiet-button timeline-month-arrow" aria-label="Önceki ay" disabled={index <= 0} onClick={() => changeSelection(months[index - 1])}><MonthArrow /></button><button className="quiet-button timeline-month-arrow" aria-label="Sonraki ay" disabled={index < 0 || index >= months.length - 1} onClick={() => changeSelection(months[index + 1])}><MonthArrow next /></button></div>
@@ -119,7 +123,7 @@ function TimelineJourney({ data }: { data: FinanceLedger }) {
     </Tabs>
     </section>
     {/* Period details follow the steps at every width (same DOM, no hidden data); the period control stays sticky beside them on wide screens. */}
-    <aside className="timeline-details-panel" aria-label={`Dönem ayrıntıları · ${scope}`}>
+    <aside ref={detailsRef} tabIndex={-1} className="timeline-details-panel" aria-label={`Dönem ayrıntıları · ${scope}`}>
       <h2>Dönem ayrıntıları</h2>
       <dl>
         <div><dt>Başlangıç nakdi</dt><dd>{money(startingCash)}</dd></div>
@@ -127,6 +131,7 @@ function TimelineJourney({ data }: { data: FinanceLedger }) {
         <div><dt>KMH faiz + vergi</dt><dd>{money(last.kmhCost)}</dd></div>
         <div><dt>Net nakit ve borç</dt><dd className={monthEnd.knownNetAssets < 0 ? 'negative' : undefined}>{money(monthEnd.knownNetAssets)}</dd></div>
       </dl>
+      <button type="button" className="quiet-button" onClick={() => reveal(jumpRef.current, 'center')}>Dönem kontrolüne dön</button>
     </aside>
   </div>;
 }

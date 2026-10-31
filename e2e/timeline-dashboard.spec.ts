@@ -2,6 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { writeFile } from 'node:fs/promises';
 import AxeBuilder from '@axe-core/playwright';
 import { syntheticLongTimeline, syntheticTimeline, timelineResponse } from './timelineFinanceFixture';
+import { tokens } from '../src/dashboard/tokens';
 async function mockTimeline(page: Page, largeAmounts = false) {
   const table = syntheticTimeline();
   if (largeAmounts) table.rows.forEach(row => {
@@ -766,6 +767,89 @@ test('the first step shows its title and amount inside the first 320 screen', as
   await expect(page.getByRole('region', { name: 'Ödeme akışı' }).getByRole('heading', { level: 2 }).first()).toHaveText('Ödeme akışı');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath('first-screen-320.png') });
+});
+
+test('period details stay reachable from the top of a 28-step month by keyboard without leaving the route', async ({ page, browserName }, testInfo) => {
+  const table = syntheticLongTimeline();
+  await page.route('**/gviz/tq?*', route => route.fulfill({ contentType: 'application/json', body: timelineResponse(route.request().url(), table) }));
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.goto('/aile/#/timeline');
+  await expect(page.getByRole('article')).toHaveCount(28);
+  await page.getByRole('button', { name: 'Ödemeler', exact: true }).click();
+  const control = page.getByRole('complementary', { name: 'Dönem kontrolü' });
+  const jump = control.getByRole('button', { name: 'Dönem ayrıntıları', exact: true });
+  await expect(jump).toBeVisible();
+  expect((await jump.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  // Keyboard: the signpost is the first control of the period panel, right after the page's refresh action.
+  await page.getByRole('button', { name: 'Yenile', exact: true }).focus();
+  // The jump is always underlined; the keyboard indicator is the thicker underline, so the thickness must change with focus.
+  const jumpStyle = () => jump.evaluate(el => ({ outline: getComputedStyle(el).outlineStyle, decoration: getComputedStyle(el).textDecorationLine, thickness: getComputedStyle(el).textDecorationThickness }));
+  expect((await jumpStyle()).thickness).not.toBe(tokens.focusThickness);
+  await page.keyboard.press(browserName === 'webkit' ? 'Alt+Tab' : 'Tab');
+  await expect(jump).toBeFocused();
+  expect(await jumpStyle()).toEqual({ outline: 'none', decoration: 'underline', thickness: tokens.focusThickness });
+  await page.keyboard.press('Enter');
+  const details = page.getByRole('complementary', { name: 'Dönem ayrıntıları · Kasım 2098' });
+  await expect(details).toBeFocused();
+  await expect(details).toBeInViewport();
+  for (const label of ['Başlangıç nakdi', 'KMH anaparası', 'KMH faiz + vergi', 'Net nakit ve borç']) await expect(details.getByText(label, { exact: true })).toBeVisible();
+  // Focus marker policy: the rounded panel gets no ring, shadow or edge line and no propagated underline (panelDecoration guards dt/dd); only its heading carries the single keyboard underline.
+  const focus = await details.evaluate(el => {
+    const panel = getComputedStyle(el), heading = getComputedStyle(el.querySelector('h2')!);
+    return { outline: panel.outlineStyle, shadow: panel.boxShadow, radius: panel.borderTopLeftRadius, panelDecoration: panel.textDecorationLine, heading: heading.textDecorationLine, headingThickness: heading.textDecorationThickness };
+  });
+  expect(focus).toEqual({ outline: 'none', shadow: 'none', radius: tokens.timelineSummaryRadius, panelDecoration: 'none', heading: 'underline', headingThickness: tokens.focusThickness });
+  expect(page.url()).toMatch(/#\/timeline$/);
+  await expect(page.getByRole('button', { name: 'Ödemeler', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('combobox', { name: 'Gösterilen dönem' })).toHaveValue('Kasım 2098');
+  await page.screenshot({ path: testInfo.outputPath('period-details-320.png') });
+  await details.getByRole('button', { name: 'Dönem kontrolüne dön', exact: true }).press('Enter');
+  await expect(jump).toBeFocused();
+  await expect(jump).toBeInViewport();
+  // Wide: the sticky control's jump works beside the long flow and the details grid row does not overlap the control.
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await jump.click();
+  await expect(details).toBeInViewport();
+  const [controlBox, detailsBox] = await Promise.all([control.boundingBox(), details.boundingBox()]);
+  expect(detailsBox!.x).toBeGreaterThan(controlBox!.x + controlBox!.width);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+});
+
+test('the period details jump keeps the whole-period 50-step table page in place', async ({ page }) => {
+  const table = syntheticLongTimeline();
+  await page.route('**/gviz/tq?*', route => route.fulfill({ contentType: 'application/json', body: timelineResponse(route.request().url(), table) }));
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.goto('/aile/#/timeline');
+  await page.getByRole('combobox', { name: 'Gösterilen dönem' }).click();
+  await page.getByRole('option', { name: 'Tüm dönem' }).click();
+  const pages = page.getByRole('navigation', { name: 'Adım sayfaları üst' });
+  await pages.getByRole('button', { name: 'Sonraki adımlar' }).click();
+  await expect(pages).toContainText('51–100 / 716 adım');
+  const tableTab = page.getByRole('tab', { name: 'Tablo', exact: true });
+  await tableTab.click();
+  const rows = page.getByRole('table').locator('tbody tr');
+  await expect(rows).toHaveCount(50);
+  await expect(rows.first()).toContainText('Örnek adım 51');
+  const jump = page.getByRole('complementary', { name: 'Dönem kontrolü' }).getByRole('button', { name: 'Dönem ayrıntıları', exact: true });
+  await jump.click();
+  const details = page.getByRole('complementary', { name: 'Dönem ayrıntıları · Tüm dönem' });
+  await expect(details).toBeFocused();
+  await expect(details).toBeInViewport();
+  // Nothing was collapsed or re-paged to reach the details: the same 50-row second page still precedes them in DOM and on screen.
+  expect(await details.evaluate(el => Boolean(el.compareDocumentPosition(document.querySelector('table')!) & Node.DOCUMENT_POSITION_PRECEDING))).toBe(true);
+  const [lastRow, detailsBox] = await Promise.all([rows.last().boundingBox(), details.boundingBox()]);
+  expect(detailsBox!.y).toBeGreaterThanOrEqual(lastRow!.y + lastRow!.height);
+  await expect(rows).toHaveCount(50);
+  await expect(rows.first()).toContainText('Örnek adım 51');
+  await expect(pages).toContainText('51–100 / 716 adım');
+  await expect(tableTab).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('combobox', { name: 'Gösterilen dönem' })).toHaveValue('Tüm dönem');
+  expect(page.url()).toMatch(/#\/timeline$/);
+  await details.getByRole('button', { name: 'Dönem kontrolüne dön', exact: true }).click();
+  await expect(jump).toBeFocused();
+  await expect(rows).toHaveCount(50);
+  await expect(pages).toContainText('51–100 / 716 adım');
+  await expect(tableTab).toHaveAttribute('aria-selected', 'true');
 });
 
 test('every step leads with its amount and date at a larger scale than the balances after it', async ({ page, browserName }, testInfo) => {

@@ -210,6 +210,29 @@ it('exposes one reading order for every step and states a plain payment amount a
   expect(within(screen.getByRole('row', { name: /Sentetik ay sonu/ })).getByRole('group', { name: 'Adım bilgileri' })).toHaveTextContent('Net nakit etkisi +550 ₺');
 });
 
+it('offers an in-page jump between the period control and the always-open period details without changing route or filters', () => {
+  const data = buildFinance(syntheticLongFinance());
+  // Non-zero overdraft at the month end must be reachable from the top of a 28-step month.
+  Object.assign(data.events[27], { kmhPrincipal: 125, kmhCost: 4 });
+  vi.mocked(useFinance).mockReturnValue({ data, loading: false, error: null, updatedAt: null, refresh: vi.fn() });
+  const scrolled: Element[] = [];
+  vi.spyOn(HTMLElement.prototype, 'scrollIntoView').mockImplementation(function (this: Element) { scrolled.push(this); });
+  mount();
+  fireEvent.click(screen.getByRole('button', { name: 'Ödemeler' }));
+  const control = screen.getByRole('complementary', { name: 'Dönem kontrolü' });
+  const jump = within(control).getByRole('button', { name: 'Dönem ayrıntıları' });
+  fireEvent.click(jump);
+  const details = screen.getByRole('complementary', { name: 'Dönem ayrıntıları · Ocak 2098' });
+  expect(details).toHaveFocus();
+  expect(scrolled.at(-1)).toBe(details);
+  expect(within(details).getByText('KMH anaparası').nextElementSibling).toHaveTextContent('125 ₺');
+  expect(within(details).getByText('KMH faiz + vergi').nextElementSibling).toHaveTextContent('4 ₺');
+  expect(screen.getByRole('button', { name: 'Ödemeler' })).toHaveAttribute('aria-pressed', 'true');
+  expect(screen.getByRole('combobox', { name: 'Gösterilen dönem' })).toHaveValue('2098-01');
+  fireEvent.click(within(details).getByRole('button', { name: 'Dönem kontrolüne dön' }));
+  expect(jump).toHaveFocus();
+});
+
 it('gives purchase and cash steps the same reading order and pairs principal with costs by account', () => {
   const data = buildFinance(syntheticLongFinance());
   Object.assign(data.events[2], { type: 'Alışveriş · Taşınma öncesi', title: 'Örnek alım', denizPrincipal: 700, source: 'Kredi kartı · Denizbank · Taksit: 6' });

@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { MantineProvider } from '@mantine/core';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { FamilyFrame } from './FamilyFrame';
@@ -30,6 +30,19 @@ it('gives the purchase plan page the same refresh control and freshness line as 
   expect(within(header).getByRole('button', { name: 'Yenile' })).toBeInTheDocument();
   expect(screen.getAllByRole('status').filter(node => /Son okuma/.test(node.textContent ?? ''))).toHaveLength(1);
   expect(screen.queryByText(/Yukarıdaki Yenile/)).not.toBeInTheDocument();
+});
+
+it('keeps a working retry on the purchase plan page when the budget source fails without data', async () => {
+  route.value = '/ev';
+  const refresh = vi.fn();
+  vi.mocked(useBudget).mockReturnValue({ data: null, error: 'Google Sheets bağlantısı başarısız (503).', loading: false, updatedAt: null, refresh });
+  render(<MantineProvider><Dashboard /></MantineProvider>);
+  await screen.findByText(/Alım planı şu anda alınamıyor/);
+  expect(screen.getByRole('alert')).toHaveTextContent('503');
+  const retry = within(screen.getByRole('heading', { level: 1, name: 'Alım planı' }).closest('header')!).getByRole('button', { name: 'Yenile' });
+  expect(retry).toBeEnabled();
+  fireEvent.click(retry);
+  expect(refresh).toHaveBeenCalledTimes(1);
 });
 
 it('names the document after the selected page so the tab title and the navigation label agree', () => {
