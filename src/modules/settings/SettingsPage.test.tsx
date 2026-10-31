@@ -15,7 +15,7 @@ vi.mock('@/sync/cache', () => ({
   saveCache: vi.fn(async () => undefined),
   clearCache: vi.fn(async () => true),
   loadOutbox: vi.fn(async () => []),
-  saveOutbox: vi.fn(async () => undefined),
+  saveOutbox: vi.fn(async () => true),
 }));
 
 const API = 'https://script.google.com/macros/s/test/exec';
@@ -218,6 +218,38 @@ describe('Ayarlar · Önbelleği temizle', () => {
     const section = screen.getByRole('heading', { name: 'Önbellek' }).parentElement!;
     expect(within(section).getByText(/1 bekleyen değişiklik/)).toBeInTheDocument();
     expect(within(section).getByText(/çevrimdışı/i)).toBeInTheDocument();
+  });
+
+  it('Ev planı: taşınma tarihi burada ayarlanır ve Takvim sayacının okuduğu `tarih/tasinma` ayarına yazılır', async () => {
+    const api = fakeApi();
+    configureController({ fetchImpl: api.fetchImpl });
+    mount([], 'synced');
+    // Mantine DatePickerInput görünür değeri düğme metninde taşır (input değil).
+    const input = screen.getByLabelText('Taşınma tarihi');
+    expect(input).toHaveTextContent('Tarih seçin');
+    await userEvent.click(input);
+    await userEvent.click(await screen.findByRole('button', { name: /^15 / }));
+    await vi.waitFor(() => expect(getState().settings.find((s) => s.tip === 'tarih' && s.anahtar === 'tasinma')?.deger).toMatch(/^\d{4}-\d{2}-15$/));
+    expect(screen.getByLabelText('Taşınma tarihi')).toHaveTextContent(/^15 /);
+  });
+
+  it('kayıtlı taşınma tarihi Ev planı alanında okunur gösterilir', () => {
+    configureController({ fetchImpl: fakeApi().fetchImpl });
+    applyRead({ ok: true, fingerprint: 'srv-1', serverTime: 't', schemaVersion: 2, items: [], settings: [{ id: 'S-t', tip: 'tarih', anahtar: 'tasinma', deger: '2099-02-19' }], cash: [] });
+    setState({ status: 'synced' });
+    render(<SettingsPage />);
+    expect(screen.getByLabelText('Taşınma tarihi')).toHaveTextContent('19 Şub 2099');
+  });
+
+  it('taşınma tarihi temizlenebilir: aynı kayıt boş değerle yazılır, sayaç "ayarlanmadı"ya döner', async () => {
+    const api = fakeApi();
+    configureController({ fetchImpl: api.fetchImpl });
+    applyRead({ ok: true, fingerprint: 'srv-1', serverTime: 't', schemaVersion: 2, items: [], settings: [{ id: 'S-t', tip: 'tarih', anahtar: 'tasinma', deger: '2099-02-19' }], cash: [] });
+    setState({ status: 'synced' });
+    render(<SettingsPage />);
+    await userEvent.click(screen.getByRole('button', { name: 'Tarihi temizle' }));
+    await vi.waitFor(() => expect(getState().settings.find((s) => s.anahtar === 'tasinma')?.deger).toBeUndefined());
+    expect(screen.getByLabelText('Taşınma tarihi')).toHaveTextContent('Tarih seçin');
   });
 
   it('bu sayfadaki kaydedilmemiş girdi temizleme sonrası durur (regresyon kalkanı)', async () => {

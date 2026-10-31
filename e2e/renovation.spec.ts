@@ -10,6 +10,21 @@ const SCREENS: Array<{ path: string; ready: string; title: string }> = [
   { path: '#/tadilat/kontrol', ready: 'group-sartname', title: 'Kontrol listesi' },
 ];
 
+test('taşınma tarihi Ayarlar › Ev planı alanından seçilir ve Takvim sayacı hemen onu okur', async ({ page }) => {
+  await mockApi(page, { items: [], settings: [] });
+  await page.goto('/#/tadilat');
+  await expect(page.getByTestId('countdown')).toContainText('ayarlanmadı');
+  await page.getByTestId('countdown').getByRole('link', { name: 'Ayarlar' }).click();
+  await expect(page).toHaveURL(/#\/ayarlar$/);
+  const input = page.getByLabel('Taşınma tarihi');
+  await input.click();
+  await page.getByRole('button', { name: /^20 / }).first().click();
+  await expect(input).toHaveText(/^20 /);
+  await page.goto('/#/tadilat');
+  await expect(page.getByTestId('countdown')).not.toContainText('ayarlanmadı');
+  await expect(page.getByTestId('countdown-days')).toBeVisible();
+});
+
 for (const s of SCREENS) {
   test(`yatay taşma yok ve dokunma hedefleri ≥44px: ${s.path}`, async ({ page }) => {
     await mockApi(page, data);

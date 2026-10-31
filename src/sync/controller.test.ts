@@ -65,12 +65,27 @@ beforeEach(() => {
   resetStore();
   setApiUrl('https://script.google.com/macros/s/test/exec');
   setState({ hydrated: true, status: 'synced' });
-  vi.spyOn(cache, 'saveOutbox').mockResolvedValue(undefined);
+  vi.spyOn(cache, 'saveOutbox').mockResolvedValue(true);
   vi.spyOn(cache, 'saveCache').mockResolvedValue(undefined);
   vi.spyOn(cache, 'loadCache').mockResolvedValue(undefined);
   vi.spyOn(cache, 'loadOutbox').mockResolvedValue([]);
 });
 afterEach(() => { stopSync(); vi.restoreAllMocks(); });
+
+describe('kuyruk bu cihazda saklanamazsa', () => {
+  it('bekleyen yazım bellekte kalır ve durum saklanamadığını söyler; saklama yeniden başarılı olunca uyarı kalkar', async () => {
+    const api = rejectingApi({ offline: true });
+    configureController({ fetchImpl: api.fetchImpl });
+    vi.mocked(cache.saveOutbox).mockResolvedValue(false);
+    upsert('kalemler', 'A', { tip: 'satinalma', ad: 'Perde' });
+    await vi.waitFor(() => expect(getState().queueStored).toBe(false));
+    expect(getState().outbox.map((q) => q.op.id)).toEqual(['A']); // kuyruk düşmez, yalnız kalıcılığı yok
+    vi.mocked(cache.saveOutbox).mockResolvedValue(true);
+    upsert('kalemler', 'B', { tip: 'satinalma', ad: 'Koltuk' });
+    await vi.waitFor(() => expect(getState().queueStored).toBe(true));
+    expect(getState().outbox.map((q) => q.op.id)).toEqual(['A', 'B']);
+  });
+});
 
 describe('flush', () => {
   it('gönderim sürerken kuyruğa giren işlem kaybolmaz; ikinci turda gönderilir', async () => {

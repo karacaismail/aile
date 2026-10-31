@@ -144,8 +144,9 @@ export function PurchaseList() {
       id: nid, autoClose: 8000, color: 'teal', withCloseButton: true, closeButtonProps: { size: 'xl', 'aria-label': 'Kapat' },
       message: (
         <Group justify="space-between" wrap="nowrap" gap="xs">
-          <span>{base} · bu filtrede görünmüyor</span>
-          <Button size="sm" h={tokens.targetMin} variant="subtle" color="ember" onClick={show}>Göster</Button>
+          {/* Dar bildirimde eylem etiketi küçülmez (kırpılmaz); mesaj metni sarılır. */}
+          <span style={{ minWidth: 0 }}>{base} · bu filtrede görünmüyor</span>
+          <Button size="sm" h={tokens.targetMin} variant="subtle" color="ember" style={{ flexShrink: 0 }} onClick={show}>Göster</Button>
         </Group>
       ),
     });

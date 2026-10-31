@@ -16,4 +16,5 @@ export const saveCache = (d: CachedData) => safe(() => set(DATA_KEY, d), undefin
 /** Veri kopyasını siler; kuyruk anahtarına dokunmaz. Silme gerçekten oldu mu diye `true/false` döner (IndexedDB reddi yutulmaz, fırlatılmaz). */
 export const clearCache = () => safe(async () => { await del(DATA_KEY); return true; }, false);
 export const loadOutbox = () => safe<QueuedOp[]>(async () => (await get<QueuedOp[]>(OUTBOX_KEY)) ?? [], []);
-export const saveOutbox = (ops: QueuedOp[]) => safe(() => set(OUTBOX_KEY, ops), undefined);
+/** Kuyruk yazımı gerçekten oldu mu diye `true/false` döner: IndexedDB reddi (kota, özel mod, kilit) yutulmaz ama fırlatılmaz; arayüz dürüstçe söyler. */
+export const saveOutbox = (ops: QueuedOp[]) => safe(async () => { await set(OUTBOX_KEY, ops); return true; }, false);

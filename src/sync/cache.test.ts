@@ -31,6 +31,13 @@ describe('clearCache', () => {
     expect(set).toHaveBeenCalledWith('aile:outbox:v1', []);
   });
 
+  it('kuyruk yazımı gerçekten olup olmadığını söyler: başarıda true, IndexedDB reddinde false; fırlatmaz', async () => {
+    vi.mocked(set).mockResolvedValue(undefined);
+    await expect(saveOutbox([])).resolves.toBe(true);
+    vi.mocked(set).mockRejectedValue(new DOMException('Depolama dolu', 'QuotaExceededError'));
+    await expect(saveOutbox([])).resolves.toBe(false);
+  });
+
   it('okuma hatası eskisi gibi sessizce undefined/boş döner (mevcut sözleşme korunur)', async () => {
     vi.mocked(get).mockRejectedValue(new Error('kapalı'));
     await expect(loadCache()).resolves.toBeUndefined();

@@ -21,7 +21,7 @@ type ConflictRow = PendingConflict & { label: string };
 const NO_CONFLICTS: ConflictRow[] = [];
 // Seçici sığ eşitlikle önbelleklenir; çakışma yokken sabit dizi döner ki her store değişimi düğmeyi yeniden çizmesin.
 const selectSync = (s: AppState) => ({
-  status: s.status, pending: s.outbox.length, lastSync: s.lastSync, lastError: s.lastError,
+  status: s.status, pending: s.outbox.length, lastSync: s.lastSync, lastError: s.lastError, queueStored: s.queueStored,
   rejected: s.rejected, conflicts: s.conflicts.length ? s.conflicts.map((c): ConflictRow => ({ ...c, label: recordLabel(s, c.table, c.id) })) : NO_CONFLICTS,
 });
 
@@ -42,6 +42,7 @@ const patchEntries = (op: Op): Array<[string, string]> => (op.op === 'upsert'
 const describePatch = (op: Op) => patchEntries(op).map(([k, v]) => `${k}: ${v}`).join(' · ');
 const rejectedText = (n: number) => `${n} değişiklik gönderilemedi`;
 const conflictText = (n: number) => `${n} kayıtta çakışma`;
+const UNSTORED_TEXT = 'bekleyenler bu cihazda saklanamadı';
 
 /**
  * Onay modalı kapanınca Mantine odağı açan "Vazgeç" düğmesine döndürmeye çalışır; onaylanan silmede o satır DOM'dan
@@ -67,24 +68,27 @@ export function SyncStatus() {
   const [opened, { open, close }] = useDisclosure(false);
   const nRejected = st.rejected.length;
   const nConflicts = st.conflicts.length;
-  const attention = nRejected > 0 || nConflicts > 0;
+  // Kuyruk bellekte ama diske yazılamadı: yalnız kaybedilecek bir şey (bekleyen/red) varken kullanıcıyı ilgilendirir.
+  const unstored = st.queueStored === false && (st.pending > 0 || nRejected > 0);
+  const attention = nRejected > 0 || nConflicts > 0 || unstored;
   const icon = st.status === 'unconfigured' ? <PlugsIcon size={22} aria-hidden />
-    : st.status === 'offline' ? <CloudSlashIcon size={22} aria-hidden />
-    : st.status === 'error' || nRejected > 0 ? <WarningCircleIcon size={22} aria-hidden />
+    : st.status === 'offline' && !unstored ? <CloudSlashIcon size={22} aria-hidden />
+    : st.status === 'error' || nRejected > 0 || unstored ? <WarningCircleIcon size={22} aria-hidden />
     : st.status === 'syncing' || st.status === 'loading' || st.pending > 0 ? <CloudArrowUpIcon size={22} aria-hidden />
     : <CloudCheckIcon size={22} aria-hidden />;
-  const color = st.status === 'error' || nRejected > 0 ? 'red' : st.status === 'offline' || st.status === 'unconfigured' ? 'yellow' : 'gray';
+  const color = st.status === 'error' || nRejected > 0 || unstored ? 'red' : st.status === 'offline' || st.status === 'unconfigured' ? 'yellow' : 'gray';
   // Taşıma durumu kullanıcının eylemini engelliyorsa (çevrimdışı/ayarsız/hata) red varken de söylenir; rutin eşitlendi/eşitleniyor yalnız redsizken başlık olur.
   const blocked = st.status === 'offline' || st.status === 'unconfigured' || st.status === 'error';
   // Başlık dürüsttür: reddedilen değişiklik varken kuyruk boş olsa da "Eşitlendi" tek başına yazılmaz.
   const headline = nRejected > 0 ? rejectedText(nRejected) : (STATUS_TEXT[st.status] ?? st.status);
-  const tail = [nRejected > 0 && blocked ? STATUS_TEXT[st.status] : '', st.pending > 0 ? `${st.pending} bekleyen` : '', nConflicts > 0 ? conflictText(nConflicts) : ''].filter(Boolean);
+  const tail = [nRejected > 0 && blocked ? STATUS_TEXT[st.status] : '', st.pending > 0 ? `${st.pending} bekleyen` : '', unstored ? UNSTORED_TEXT : '', nConflicts > 0 ? conflictText(nConflicts) : ''].filter(Boolean);
   const ariaLabel = `Senkron: ${[headline, ...tail].join(' · ')}`;
   // Programatik durum (WCAG 4.1.3): yalnız kullanıcıyı ilgilendiren durumlar metin taşır. Rutin yükleniyor↔eşitlendi döngüsü ve
   // çevrimiçi kaydetmedeki anlık "1 bekleyen" boş kalır; bekleyen sayısı yalnız gönderim engelliyken duyurulur.
   const live = [
     blocked ? STATUS_TEXT[st.status] : '',
     blocked && st.pending > 0 ? `${st.pending} bekleyen` : '',
+    unstored ? UNSTORED_TEXT : '',
     nRejected > 0 ? rejectedText(nRejected) : '',
     nConflicts > 0 ? conflictText(nConflicts) : '',
   ].filter(Boolean).join(' · ');
@@ -121,6 +125,11 @@ export function SyncStatus() {
             </Group>
             <Text c="dimmed">Son eşitleme: {st.lastSync ? formatTrDateTime(st.lastSync) : 'henüz yok'}</Text>
             {st.pending > OUTBOX_WARN && <Text c="dimmed">Kuyruk olağandan uzun ({st.pending} bekleyen). Hiçbir değişiklik atılmaz; bağlantı gelince sırayla gönderilir.</Text>}
+            {unstored && (
+              <Text c="var(--mantine-color-error)" data-testid="sync-storage-warning">
+                Bekleyen değişiklikler bu cihazın depolamasına yazılamadı (tarayıcı reddetti). Sayfa kapanırsa ya da yenilenirse son başarılı yazımdan sonraki değişiklikler (en fazla {st.pending + nRejected}) kaybolur: bağlantı dönene kadar bu sekmeyi açık tutun, bağlantı varsa Şimdi eşitle ile gönderin.
+              </Text>
+            )}
             {st.lastError && <Text><Text span fw={600}>Son hata:</Text> {st.lastError}</Text>}
           </div>
 

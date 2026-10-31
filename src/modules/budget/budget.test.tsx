@@ -3,11 +3,13 @@ import { render, screen, userEvent, within } from '@/test-utils/render';
 import { Router, Route } from 'wouter';
 import { memoryLocation } from 'wouter/memory-location';
 import type { BudgetPlan, CashEntry } from '@shared/schema';
+import { notifications } from '@mantine/notifications';
 import { applyRead, resetStore, setState } from '@/sync/store';
-import { upsert, remove } from '@/sync/controller';
+import { upsert, remove, restore } from '@/sync/controller';
 import { BudgetModule, ExpenseHost } from './index';
 
 vi.mock('@/sync/controller', () => ({ upsert: vi.fn(() => 'NEWID'), remove: vi.fn(), restore: vi.fn() }));
+vi.mock('@mantine/notifications', () => ({ notifications: { show: vi.fn(), hide: vi.fn() } }));
 
 const m = (n: number) => Array(12).fill(n) as number[];
 const plan: BudgetPlan = {
@@ -36,6 +38,8 @@ beforeEach(() => {
   vi.setSystemTime(new Date('2099-03-15T12:00:00'));
   vi.mocked(upsert).mockClear();
   vi.mocked(remove).mockClear();
+  vi.mocked(restore).mockClear();
+  vi.mocked(notifications.show).mockClear();
 });
 afterEach(() => vi.useRealTimers());
 
@@ -96,6 +100,19 @@ describe('Bütçe ekranı', () => {
     expect(within(form).getByLabelText(/Not/)).toHaveValue('haftalık');
     await userEvent.click(within(form).getByTestId('expense-delete'));
     expect(remove).toHaveBeenCalledWith('nakit', 'C1');
+  });
+
+  it('silme tek dokunuşta kalıcı değildir: bildirim tutar ve kalemi söyler, Geri al kaydı geri getirir', async () => {
+    mount();
+    await userEvent.click(screen.getByTestId('entry-C1'));
+    await userEvent.click(within(await screen.findByTestId('expense-form')).getByTestId('expense-delete'));
+    expect(remove).toHaveBeenCalledWith('nakit', 'C1');
+    const shown = vi.mocked(notifications.show).mock.calls.at(-1)![0];
+    render(<>{shown.message}</>);
+    expect(screen.getByText(/Harcama silindi · ₺120 Market/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Geri al' }));
+    expect(restore).toHaveBeenCalledWith('nakit', 'C1');
+    expect(notifications.hide).toHaveBeenCalledWith(shown.id);
   });
 
   it('sunucu günlüğü desteklemiyorsa uyarır; /butce/yeni formu doğrudan açar', async () => {

@@ -41,6 +41,13 @@ describe('LightingModule', () => {
     expect(vi.mocked(upsert).mock.calls.map((c) => (c[2] as { katman_tur: string }).katman_tur)).toEqual(['ana', 'gorev', 'gece']);
     expect(vi.mocked(upsert).mock.calls[0][2]).toMatchObject({ tip: 'aydinlatma', oda: 'cocuk', ad: 'Çocuk odası Ana', adim: 'kesif' });
   });
+  it('köpek erişimi ayarlanmamış odada bağlantı, ayarın gerçekten düzenlendiği Yerleşim oda sayfasına gider (Ayarlar çıkmaz sokak değil)', () => {
+    mount('/aydinlatma/mutfak');
+    const header = screen.getByTestId('room-header');
+    expect(header).toHaveTextContent(/Köpek erişimi ayarlanmadı/);
+    expect(within(header).getByRole('link', { name: /Yerleşim/ })).toHaveAttribute('href', expect.stringContaining('/yerlesim/mutfak'));
+    expect(within(header).queryByRole('link', { name: 'Ayarlar' })).toBeNull();
+  });
   it('veri varken EmptyState yok; salon kartı 2 katman, gece rozeti ve görev eksik', () => {
     mount('/aydinlatma');
     expect(screen.queryByTestId('empty-state')).not.toBeInTheDocument();

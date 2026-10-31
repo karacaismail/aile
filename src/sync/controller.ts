@@ -24,8 +24,15 @@ let deps: ControllerDeps = {};
 export function configureController(d: ControllerDeps) { deps = d; }
 const now = () => (deps.now ? deps.now() : new Date().toISOString());
 
-/** Kuyruk dosyası bekleyenlerle birlikte reddedilenleri de taşır; red kaydı yeniden yüklemede ve okumada kaybolmaz. */
-async function persistOutbox() { const s = getState(); await saveOutbox([...s.outbox, ...s.rejected]); }
+/**
+ * Kuyruk dosyası bekleyenlerle birlikte reddedilenleri de taşır; red kaydı yeniden yüklemede ve okumada kaybolmaz.
+ * Yazım sonucu store'a işlenir: depolama reddederse kuyruk bellekte kalır, arayüz "bu cihazda saklanamadı" der; bir sonraki yazım başarılıysa uyarı kalkar.
+ */
+async function persistOutbox() {
+  const s = getState();
+  const stored = await saveOutbox([...s.outbox, ...s.rejected]);
+  if (getState().queueStored !== stored) setState({ queueStored: stored });
+}
 async function persistCache() {
   const s = getState();
   await saveCache({ items: s.items, settings: s.settings, cash: s.cashSupported ? s.cash : undefined, plan: s.plan, fingerprint: s.fingerprint, savedAt: now(), schemaVersion: SCHEMA_VERSION });

@@ -88,6 +88,24 @@ test('başka modülden de açılır; kayıt düzenlenip silinir', async ({ page 
   await expect(page.getByTestId('month-actual')).toContainText('1.900');
 });
 
+test('silinen harcama bildirimden Geri al ile döner; toplam ve liste eski haline gelir', async ({ page }) => {
+  await open(page);
+  await page.getByTestId('entry-E2ECASH03').click();
+  await page.getByTestId('expense-delete').click();
+  await expect(page.getByTestId('entry-E2ECASH03')).toHaveCount(0);
+  await expect(page.getByTestId('month-actual')).toContainText('1.900');
+  const toast = page.getByRole('alert').filter({ hasText: 'Harcama silindi' });
+  await expect(toast).toContainText('₺400 Hediye');
+  const undo = toast.getByRole('button', { name: 'Geri al' });
+  expect((await undo.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  // Eylem etiketi dar bildirimde kırpılmaz; mesaj metni gerekirse sarılır.
+  expect(await undo.locator('.mantine-Button-label').evaluate((el) => ({ clipped: el.scrollWidth > el.clientWidth, text: el.textContent }))).toEqual({ clipped: false, text: 'Geri al' });
+  await undo.click();
+  await expect(page.getByTestId('entry-E2ECASH03')).toBeVisible();
+  await expect(page.getByTestId('month-actual')).toContainText('2.300');
+  await expect(toast).toBeHidden();
+});
+
 test('ana ekran kısayolu formu açar', async ({ page }) => {
   await open(page, '/#/butce/yeni');
   await expect(page.getByTestId('expense-form')).toBeVisible();

@@ -1,16 +1,21 @@
 import { useRef, useState } from 'react';
 import { Alert, Button, Code, Group, Stack, Text, TextInput, Title, Anchor } from '@mantine/core';
+import { DatePickerInput } from '@mantine/dates';
 import { notifications } from '@mantine/notifications';
 import { PlugsConnectedIcon } from '@phosphor-icons/react/dist/csr/PlugsConnected';
 import { TrashIcon } from '@phosphor-icons/react/dist/csr/Trash';
 import { callApi } from '@/sync/api';
 import { getActor, getApiUrl, getAppKey, isApiConfigured, setActor, setApiUrl, setAppKey } from '@/sync/config';
-import { refresh } from '@/sync/controller';
+import { refresh, upsert } from '@/sync/controller';
 import { clearCache } from '@/sync/cache';
-import { getState, setState, useAppStore, type AppState } from '@/sync/store';
+import { getState, selectSetting, setState, useAppStore, type AppState } from '@/sync/store';
 import type { HealthResponse } from '@shared/api';
 
 const selectCacheMeta = (s: AppState) => ({ pending: s.outbox.length, status: s.status, hasFreshCopy: Boolean(s.fingerprint) });
+// Takvim sayacının okuduğu ayar (`tarih/tasinma`); buradaki alan aynı kaydı yazar. Seçici modül düzeyinde sabit.
+const selectMoveDate = selectSetting('tarih', 'tasinma');
+// Temizle düğmesi de dokunma hedefi (≥44); sağ bölüm ona göre genişler (ItemDetail ile aynı kalıp).
+const clearButtonProps = { size: 'xl' as const, 'aria-label': 'Tarihi temizle' };
 
 /**
  * `deleted`: IndexedDB silmeyi kabul etti (false ise hiçbir şey değişmedi). `reloaded`: tam okuma gerçekten geldi (parmak izi
@@ -43,6 +48,7 @@ export function SettingsPage() {
   const [clearResult, setClearResult] = useState<ClearResult | null>(null);
   const clearingRef = useRef(false);
   const { pending, status, hasFreshCopy } = useAppStore(selectCacheMeta);
+  const move = useAppStore(selectMoveDate);
   // Başarısız temizlemeden sonra bağlantı dönüp tam okuma gelirse eski "yüklenemedi" satırı bayat kalmasın.
   const shownResult = clearResult && clearResult.deleted && !clearResult.reloaded && hasFreshCopy ? { ...clearResult, reloaded: true, pending } : clearResult;
 
@@ -105,6 +111,14 @@ export function SettingsPage() {
         </Alert>
       )}
       {err && <Alert color="red" title="Bağlantı hatası"><Text size="sm">{err}</Text></Alert>}
+      <div>
+        <Title order={2} size="h4">Ev planı</Title>
+        <Text size="sm" c="dimmed">Tadilat takvimindeki taşınma sayacı bu tarihi okur; Sheets'te saklanır ve bütün cihazlarda ortaktır.</Text>
+        {/* Temizleme de aynı kaydı yazar (`deger: null` → alan silinir, sayaç "ayarlanmadı"a döner); temizle düğmesi 44 px hedef. */}
+        <DatePickerInput mt="xs" label="Taşınma tarihi" placeholder="Tarih seçin" valueFormat="D MMM YYYY" dropdownType="modal"
+          clearable clearButtonProps={clearButtonProps} rightSectionWidth={44}
+          value={move?.deger ?? null} onChange={(v) => upsert('ayarlar', move?.id, { tip: 'tarih', anahtar: 'tasinma', deger: v ? String(v).slice(0, 10) : null })} />
+      </div>
       <div>
         <Title order={2} size="h4">Önbellek</Title>
         <Text size="sm" c="dimmed">Veri Sheets'te durur; bu cihazdaki kopya silinir ve Sheets'ten yeniden çekilmeye çalışılır. Bağlantı ayarları ve bu sayfadaki girdiler korunur.</Text>

@@ -132,3 +132,31 @@ silme başarısızsa parmak izi değiştirilmez ve yenileme başlatılmaz. Sonu�
 sunulmaz. Kapılar: `src/sync/cache.test.ts`, `src/modules/settings/SettingsPage.test.tsx`
 ve `e2e/settings-cache.spec.ts`. Sonuncusu PR testlerinde ve Pages yayını öncesinde
 Chromium 320 px / WebKit ile kuyruk koruması, gerçek IndexedDB reddi ve yeniden denemeyi doğrular.
+
+Senkron kurtarma sözleşmesi (`src/sync/controller.ts`, `queue.ts`, `store.ts`, `src/app/shell/SyncStatus.tsx`): sunucunun kalıcı
+reddettiği yazım (`busy`/`internal` dışındaki işlem kodları, ör. `not_found`, `invalid_enum`, `bad_request`) kuyruğu tıkamaz ve atılmaz — `AppState.rejected` içinde kayıt adı,
+kod, neden ve zamanla saklanır, kuyruk dosyasında bekleyenlerle birlikte yazılır, okuma/yenileme/reload silmez; arkasındaki işlemler
+aynı turda gönderilir. Çekmece "Gönderilemeyen değişiklikler" bölümünde neden → eylem → kaydedilen değerler sırasıyla listeler;
+"Yeniden dene" aynı opId'yi geri kuyruklar (otomatik döngü yok), "Vazgeç" yalnız silinecek değerleri yazan onaydan sonra siler.
+Kuyruk sınırsızdır (`OUTBOX_WARN` yalnız uyarı); sessiz kırpma yoktur. `hydrate` yalnız soğuk açılışta diski okur; sıcak yeniden
+girişte bellek diskten günceldir. Başarılı uzlaştırma okuması bekleyen bir gönderimin hata/çevrimdışı durumunu "Eşitlendi"ye
+çevirmez; durum bir sonraki gönderim sonucuyla güncellenir. Çıkış sonrası (`stopSync`) hydrate'in devam yenilemesi, retry ve
+uzlaştırma okuması başlatılamaz (uçuştaki disk okuması tamamlanır). Depolama yazım hatası sınırı: `saveOutbox` IndexedDB reddini
+`false` olarak döner, `AppState.queueStored=false` olur ve SyncStatus bekleyen/red varken etiket, `role="status"` ve çekmecede
+"bekleyenler bu cihazda saklanamadı" + kayıp riskini ("son başarılı yazımdan sonrakiler, en fazla N") söyler; kuyruk bellekte kalır,
+bir sonraki başarılı yazımda uyarı kalkar. Bilinen sınırlar: kalıcılık garanti değildir (sekme kapanırsa saklanamayan bekleyenler
+kaybolur); kuyruğu boşaltan yazım (son gönderim ya da Vazgeç) reddedilirse bekleyen/red olmadığı için uyarı gösterilmez — eski
+kayıt yenilemede geri görünebilir (gönderim için zararsız: sunucu `son_op_id` ile yineleneni eler; Vazgeç için tekrar vazgeçilir);
+`saveCache` reddi sessizdir (veri Sheets'ten yeniden okunur, yalnız soğuk açılış kopyası eskir). Kapılar: `controller.test.ts`, `queue.test.ts`,
+`SyncStatus.test.tsx`, `cache.test.ts`, `e2e/sync-recovery.spec.ts`, `e2e/flows.spec.ts` (gerçek IndexedDB `put` reddi).
+
+Geri alınabilir silme ve çıkmaz sokak yok: harcama silme (`ExpenseForm`) iyimser uygulanır ve bildirim "Harcama silindi · tutar
+kalem" + "Geri al" (`restore('nakit', id)`, `targetMin`, 8 sn — Mantine odak/hover'da sayacı durdurur —, kapatılabilir; eylem
+etiketi dar bildirimde küçülmez, mesaj sarılır) verir; onay modalı yoktur. Uygulamanın kendi yönlendirmeleri var olan bir ayara
+gider: Ayarlar › Ev planı "Taşınma tarihi" (`tarih/tasinma`, Takvim sayacının okuduğu kayıt; temizlenebilir, `deger: null`);
+aydınlatma oda sayfasındaki "Köpek erişimi ayarlanmadı" bağlantısı Yerleşim oda ölçülerine (`~/yerlesim/<oda>`) gider. Kapılar:
+`budget.test.tsx`/`budget.spec.ts` (Geri al), `SettingsPage.test.tsx`/`renovation.spec.ts` (taşınma tarihi → sayaç), `lighting.test.tsx`.
+
+Pages yayın kapısı (`deploy.yml`, main): tam altı projeli legacy matrisi yalnız PR/CI'da (`ci.yml` `pnpm e2e`); yayın öncesi
+hedefli tarayıcı kapısı `e2e/flows.spec.ts`, `e2e/budget.spec.ts`, `e2e/settings-cache.spec.ts`, `e2e/sync-recovery.spec.ts`'yi
+Chromium 320 (`iphone4`) + WebKit (`iphone12-webkit`) ile koşar; `src/browser-matrix.test.ts` bu satırı ve Firefox yokluğunu denetler.

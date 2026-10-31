@@ -34,6 +34,8 @@ export interface AppState {
   rejected: QueuedOp[];
   conflicts: PendingConflict[];
   hydrated: boolean;
+  /** Son kuyruk yazımı bu cihazın depolamasına gerçekten yazıldı mı. `false` iken bekleyenler yalnız bellektedir (sayfa kapanırsa kaybolur); henüz denenmediyse undefined. */
+  queueStored?: boolean;
 }
 
 const initial: AppState = { items: [], settings: [], cash: [], status: 'idle', outbox: [], rejected: [], conflicts: [], hydrated: false };

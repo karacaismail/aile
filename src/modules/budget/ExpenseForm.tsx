@@ -7,7 +7,8 @@ import { notifications } from '@mantine/notifications';
 import { FloppyDiskIcon } from '@phosphor-icons/react/dist/csr/FloppyDisk';
 import { TrashIcon } from '@phosphor-icons/react/dist/csr/Trash';
 import { useAppStore } from '@/sync/store';
-import { upsert, remove } from '@/sync/controller';
+import { upsert, remove, restore } from '@/sync/controller';
+import { tokens } from '@/dashboard/tokens';
 import { PriceInput } from '@/components/PriceInput';
 import { formatTl } from '@/lib/price';
 import { todayIso } from '@/lib/dates';
@@ -65,10 +66,21 @@ function ExpenseForm({ target }: { target: ExpenseTarget }) {
     notifyExpenseSaved({ id, tarih });
     closeExpense();
   };
+  // Hızlı giriş ekranında yanlış dokunuş kalıcı olmasın: silme iyimser uygulanır, bildirim ne silindiğini söyler ve Geri al kaydı geri getirir (restore).
   const del = () => {
     if (!entry) return;
     remove('nakit', entry.id);
-    notifications.show({ message: 'Harcama silindi', color: 'gray', autoClose: 1500 });
+    const nid = `cash-undo-${entry.id}`;
+    notifications.show({
+      id: nid, autoClose: 8000, color: 'gray', withCloseButton: true, closeButtonProps: { size: 'xl', 'aria-label': 'Kapat' },
+      message: (
+        <Group justify="space-between" wrap="nowrap" gap="xs">
+          {/* Dar bildirimde eylem etiketi küçülmez (kırpılmaz); mesaj metni sarılır. */}
+          <span style={{ minWidth: 0 }}>Harcama silindi · {formatTl(entry.tutar)} {entry.kalem}</span>
+          <Button size="sm" h={tokens.targetMin} variant="subtle" color="ember" style={{ flexShrink: 0 }} onClick={() => { restore('nakit', entry.id); notifications.hide(nid); }}>Geri al</Button>
+        </Group>
+      ),
+    });
     closeExpense();
   };
 
