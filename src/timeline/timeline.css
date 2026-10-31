@@ -6,7 +6,7 @@
 .timeline-month-arrow { padding: 0; width: var(--budget-targetMin); display: inline-flex; align-items: center; justify-content: center; position: relative; }
 .timeline-arrow { width: var(--budget-timelineIconSize); height: var(--budget-timelineIconSize); }
 html[data-keyboard='true'] .timeline-month-arrow:focus-visible::after { content: ''; position: absolute; width: var(--budget-timelineIconSize); height: var(--budget-focusThickness); background: var(--budget-blue); bottom: var(--budget-spaceDense); }
-.timeline-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--budget-timelineMetricWidth)), 1fr)); gap: var(--budget-spaceTight); margin-top: var(--budget-spaceTight); }
+.timeline-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--budget-timelineMetricWidth)), 1fr)); gap: var(--budget-spaceTight); margin-top: var(--budget-spaceDense); }
 .timeline-summary > div { min-width: 0; padding: var(--budget-spaceSmall); }
 .timeline-summary-cash { background: var(--budget-timelineHeroSurface); color: var(--budget-ink); border-radius: var(--budget-timelineSummaryRadius); }
 .timeline-summary-debt { background: var(--budget-timelineSurface); color: var(--budget-ink); border-radius: var(--budget-timelineSummaryRadius); }
@@ -20,6 +20,16 @@ html[data-keyboard='true'] .timeline-month-arrow:focus-visible::after { content:
 .timeline-details-panel dl > div { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 0 var(--budget-spaceSmall); }
 .timeline-details-panel dt { color: var(--budget-muted); }
 .timeline-details-panel dd { margin: 0; font-weight: var(--budget-headingWeight); font-variant-numeric: tabular-nums; }
+.timeline-details-panel .quiet-button { margin-top: var(--budget-spaceSmall); }
+/* Signpost from the period control to the details. Programmatic keyboard focus on the rounded panel marks only its heading with the single underline; no ring, shadow or line on the curved edge, values stay plain. */
+.timeline-overview-heading-row { display: flex; align-items: center; justify-content: space-between; gap: var(--budget-spaceTight); }
+.timeline-overview-heading-row .timeline-overview-heading { margin: 0; }
+.timeline-jump { display: inline-flex; align-items: center; min-height: var(--budget-targetMin); padding: 0 var(--budget-spaceTight); border: 0; background: transparent; color: var(--budget-paper); font: inherit; font-weight: var(--budget-labelWeight); text-decoration: underline; text-underline-offset: var(--budget-focusOffset); cursor: pointer; transition: color var(--budget-duration) var(--budget-ease); }
+.timeline-jump:hover { color: var(--budget-timelineOverviewMuted); }
+.timeline-page .timeline-details-panel:focus { outline: none; }
+/* [tabindex] breaks the specificity tie with the global .budget-app [tabindex]:focus-visible underline regardless of stylesheet order. */
+html[data-keyboard='true'] .timeline-page .timeline-details-panel[tabindex]:focus-visible { text-decoration: none; box-shadow: none; }
+html[data-keyboard='true'] .timeline-page .timeline-details-panel[tabindex]:focus-visible > h2 { text-decoration: underline; text-decoration-thickness: var(--budget-focusThickness); text-underline-offset: var(--budget-focusOffset); }
 .timeline-caveat { color: var(--budget-muted); margin-top: var(--budget-spaceSmall); }
 .timeline-caveat strong { font-weight: var(--budget-labelWeight); }
 .timeline-cash-warning { color: var(--budget-red); background: var(--budget-redSurface); padding: var(--budget-spaceSmall); border-radius: var(--budget-radius); margin-top: var(--budget-spaceSmall) !important; }
