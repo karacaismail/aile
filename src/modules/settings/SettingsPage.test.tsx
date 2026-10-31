@@ -13,7 +13,7 @@ import { SettingsPage } from './SettingsPage';
 vi.mock('@/sync/cache', () => ({
   loadCache: vi.fn(async () => undefined),
   saveCache: vi.fn(async () => undefined),
-  clearCache: vi.fn(async () => undefined),
+  clearCache: vi.fn(async () => true),
   loadOutbox: vi.fn(async () => []),
   saveOutbox: vi.fn(async () => undefined),
 }));
@@ -65,7 +65,7 @@ beforeEach(() => {
   localStorage.clear();
   resetStore();
   setApiUrl(API);
-  vi.mocked(cache.clearCache).mockReset().mockResolvedValue(undefined);
+  vi.mocked(cache.clearCache).mockReset().mockResolvedValue(true);
   vi.mocked(cache.saveCache).mockClear();
 });
 afterEach(() => { resetStore(); vi.restoreAllMocks(); });
@@ -92,7 +92,7 @@ describe('Ayarlar · Önbelleği temizle', () => {
     const api = fakeApi();
     configureController({ fetchImpl: api.fetchImpl });
     let release!: () => void;
-    vi.mocked(cache.clearCache).mockImplementation(() => new Promise<undefined>((resolve) => { release = () => resolve(undefined); }));
+    vi.mocked(cache.clearCache).mockImplementation(() => new Promise<boolean>((resolve) => { release = () => resolve(true); }));
     mount();
     await userEvent.click(clearButton());
     await vi.waitFor(() => expect(cache.clearCache).toHaveBeenCalledTimes(1));
@@ -133,8 +133,34 @@ describe('Ayarlar · Önbelleği temizle', () => {
     const status = await resultLine();
     await vi.waitFor(() => expect(status).toHaveTextContent(/çevrimdışı olduğundan yeniden yüklenemedi/i));
     expect(status).not.toHaveTextContent(/yeniden yüklendi/i);
+    // Silme ile tam okuma arasına giren persistCache kopyayı geri yazabilir: kalıcı "silindi" iddiası yok, yalnız yenileme sonucu.
+    expect(status).not.toHaveTextContent(/silindi/i);
     expect(status).toHaveTextContent('1 bekleyen değişiklik korundu');
     expect(getState().outbox).toHaveLength(1);
+  });
+
+  it('IndexedDB silmeyi reddederse silindi/yüklendi demez, okuma başlatmaz; kuyruk ve girdi durur, yeniden denenebilir', async () => {
+    const api = fakeApi();
+    configureController({ fetchImpl: api.fetchImpl });
+    vi.mocked(cache.clearCache).mockResolvedValueOnce(false);
+    mount();
+    const keyInput = screen.getByLabelText('Anahtar (opsiyonel, APP_KEY)');
+    await userEvent.type(keyInput, 'gizli');
+    await userEvent.click(clearButton());
+    const status = await resultLine();
+    await vi.waitFor(() => expect(status).toHaveTextContent(/silinemedi/i));
+    expect(status).not.toHaveTextContent(/silindi\b/i);
+    expect(status).not.toHaveTextContent(/yeniden yüklendi/i);
+    expect(status).toHaveTextContent('1 bekleyen değişiklik korundu');
+    expect(api.reads).toHaveLength(0);
+    expect(getState().fingerprint).toBe('srv-1');
+    expect(getState().outbox).toHaveLength(1);
+    expect(screen.getByLabelText('Anahtar (opsiyonel, APP_KEY)')).toHaveValue('gizli');
+    // Yeniden deneme: bu kez silme başarılı → tam okuma gelir.
+    expect(clearButton()).not.toHaveAttribute('aria-disabled');
+    await userEvent.click(clearButton());
+    await vi.waitFor(() => expect(status).toHaveTextContent(/yeniden yüklendi/i));
+    expect(api.reads).toEqual([{ fingerprint: undefined }]);
   });
 
   it('sunucu hata dönerse mesajı ile birlikte yüklenemediğini söyler', async () => {
@@ -143,7 +169,8 @@ describe('Ayarlar · Önbelleği temizle', () => {
     mount();
     await userEvent.click(clearButton());
     const status = await resultLine();
-    await vi.waitFor(() => expect(status).toHaveTextContent(/yeniden yüklenemedi \(Sunucu meşgul\)/));
+    await vi.waitFor(() => expect(status).toHaveTextContent(/yeniden yüklenemedi \(Sunucu meşgul\)/i));
+    expect(status).not.toHaveTextContent(/silindi/i);
     expect(getState().status).toBe('error');
     expect(getState().outbox).toHaveLength(1);
   });

@@ -12,18 +12,23 @@ import type { HealthResponse } from '@shared/api';
 
 const selectCacheMeta = (s: AppState) => ({ pending: s.outbox.length, status: s.status, hasFreshCopy: Boolean(s.fingerprint) });
 
-/** `reloaded`: tam okuma gerçekten geldi (parmak izi yeniden kuruldu); `status` ardından gelen gönderimin sonucunu da taşıyabilir. */
-interface ClearResult { reloaded: boolean; status: AppState['status']; pending: number; lastError?: string }
+/**
+ * `deleted`: IndexedDB silmeyi kabul etti (false ise hiçbir şey değişmedi). `reloaded`: tam okuma gerçekten geldi (parmak izi
+ * yeniden kuruldu); `status` ardından gelen gönderimin sonucunu da taşıyabilir. Metin yenileme sonucunu anlatır; silme ile okuma
+ * arasına giren bir `persistCache` kopyayı geri yazabileceğinden "kopya kalıcı olarak silindi" iddiası kurulmaz.
+ */
+interface ClearResult { deleted: boolean; reloaded: boolean; status: AppState['status']; pending: number; lastError?: string }
 
 const pendingText = (n: number) => `${n} bekleyen değişiklik`;
 
 function clearResultText(r: ClearResult): string {
   const kept = r.pending > 0 ? `${pendingText(r.pending)} korundu.` : 'Bekleyen değişiklik yok.';
+  if (!r.deleted) return `Yerel kopya silinemedi (tarayıcı depolaması reddetti); hiçbir şey değişmedi, yeniden deneyebilirsiniz. ${kept}`;
   if (r.reloaded) return `Yeniden yüklendi. ${kept}`;
   switch (r.status) {
-    case 'offline': return `Kopya silindi; çevrimdışı olduğundan yeniden yüklenemedi, bağlantı gelince otomatik denenir. ${kept}`;
-    case 'unconfigured': return `Kopya silindi; Sheets bağlantısı ayarlanmadığından yeniden yüklenemedi. ${kept}`;
-    default: return `Kopya silindi; yeniden yüklenemedi${r.lastError ? ` (${r.lastError})` : ''}. ${kept}`;
+    case 'offline': return `Çevrimdışı olduğundan yeniden yüklenemedi; bağlantı gelince otomatik denenir. ${kept}`;
+    case 'unconfigured': return `Sheets bağlantısı ayarlanmadığından yeniden yüklenemedi. ${kept}`;
+    default: return `Yeniden yüklenemedi${r.lastError ? ` (${r.lastError})` : ''}. ${kept}`;
   }
 }
 
@@ -39,7 +44,7 @@ export function SettingsPage() {
   const clearingRef = useRef(false);
   const { pending, status, hasFreshCopy } = useAppStore(selectCacheMeta);
   // Başarısız temizlemeden sonra bağlantı dönüp tam okuma gelirse eski "yüklenemedi" satırı bayat kalmasın.
-  const shownResult = clearResult && !clearResult.reloaded && hasFreshCopy ? { ...clearResult, reloaded: true, pending } : clearResult;
+  const shownResult = clearResult && clearResult.deleted && !clearResult.reloaded && hasFreshCopy ? { ...clearResult, reloaded: true, pending } : clearResult;
 
   const save = () => {
     setApiUrl(url); setActor(actor); setAppKey(key);
@@ -64,15 +69,18 @@ export function SettingsPage() {
     if (clearingRef.current) return;
     clearingRef.current = true;
     setClearing(true); setClearResult(null);
+    let deleted = false;
     try {
-      await clearCache();
-      setState({ fingerprint: undefined });
-      await refresh();
-      // Uçuştaki eski parmak izli okuma `notModified` dönmüşse kopya yeniden yazılmamıştır; bir kez daha tam okuma iste.
-      if (getState().status === 'synced' && !getState().fingerprint) await refresh();
+      deleted = await clearCache();
+      if (deleted) {
+        setState({ fingerprint: undefined });
+        await refresh();
+        // Uçuştaki eski parmak izli okuma `notModified` dönmüşse kopya yeniden yazılmamıştır; bir kez daha tam okuma iste.
+        if (getState().status === 'synced' && !getState().fingerprint) await refresh();
+      }
     } finally {
       const s = getState();
-      setClearResult({ reloaded: Boolean(s.fingerprint), status: s.status, pending: s.outbox.length, lastError: s.lastError });
+      setClearResult({ deleted, reloaded: deleted && Boolean(s.fingerprint), status: s.status, pending: s.outbox.length, lastError: s.lastError });
       setClearing(false);
       clearingRef.current = false;
     }
@@ -99,7 +107,7 @@ export function SettingsPage() {
       {err && <Alert color="red" title="Bağlantı hatası"><Text size="sm">{err}</Text></Alert>}
       <div>
         <Title order={2} size="h4">Önbellek</Title>
-        <Text size="sm" c="dimmed">Veri Sheets'te durur; bu cihazdaki kopya silinip yeniden çekilir. Bağlantı ayarları ve bu sayfadaki girdiler korunur.</Text>
+        <Text size="sm" c="dimmed">Veri Sheets'te durur; bu cihazdaki kopya silinir ve Sheets'ten yeniden çekilmeye çalışılır. Bağlantı ayarları ve bu sayfadaki girdiler korunur.</Text>
         {pending > 0 && <Text size="sm" c="dimmed">{pendingText(pending)} gönderilmeyi bekliyor; temizleme bunları silmez, bağlantı gelince gönderilir.</Text>}
         {status === 'offline' && <Text size="sm" c="dimmed">Şu an çevrimdışı: kopya, bağlantı gelene kadar yeniden yüklenemez.</Text>}
         {/* Mantine `loading` gerçek `disabled` basıp odağı düşürür; sürerken yalnız görünüm ve ARIA devre dışı, odak düğmede kalır. */}
