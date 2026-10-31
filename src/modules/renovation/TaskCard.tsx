@@ -38,7 +38,7 @@ export function TaskCard({ task, tasks }: { task: Item; tasks: readonly Item[] }
       <Stack gap={4} className={classes.linkArea} role="link" tabIndex={0} aria-label={`${task.ad} detayı`} onClick={go} onKeyDown={(e) => { if (e.key === 'Enter') go(); }}>
         <Group gap={6} wrap="nowrap" align="flex-start" style={{ minWidth: 0 }}>
           <Badge size="sm" variant="filled" color="sand.8" className="tabular" style={{ flexShrink: 0 }} data-testid="task-kod">{task.kod ?? '—'}</Badge>
-          <Text fw={600} lineClamp={2} className={classes.title} data-allow-clamp>{task.ad}</Text>
+          <Text fw={600} className={classes.title}>{task.ad}</Text>
         </Group>
         <Group gap={4} wrap="wrap">
           <TaskDurumBadge value={task.durum} />

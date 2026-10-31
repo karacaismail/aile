@@ -2,11 +2,12 @@ import { test, expect } from '@playwright/test';
 import { mockApi, horizontalOverflow, smallTargets, smallText } from './helpers';
 import data from './fixtures/renovation.json' with { type: 'json' };
 
-const SCREENS: Array<{ path: string; ready: string }> = [
-  { path: '#/tadilat', ready: 'timeline' },
-  { path: '#/tadilat/isler', ready: 'task-list' },
-  { path: '#/tadilat/ustalar', ready: 'vendor-list' },
-  { path: '#/tadilat/kontrol', ready: 'group-sartname' },
+// Each screen's heading is its navigation label (Sayfalar menu), not a shared module name.
+const SCREENS: Array<{ path: string; ready: string; title: string }> = [
+  { path: '#/tadilat', ready: 'timeline', title: 'Tadilat takvimi' },
+  { path: '#/tadilat/isler', ready: 'task-list', title: 'Yapılacak işler' },
+  { path: '#/tadilat/ustalar', ready: 'vendor-list', title: 'Ustalar' },
+  { path: '#/tadilat/kontrol', ready: 'group-sartname', title: 'Kontrol listesi' },
 ];
 
 for (const s of SCREENS) {
@@ -14,7 +15,7 @@ for (const s of SCREENS) {
     await mockApi(page, data);
     await page.goto(`/${s.path}`);
     await page.waitForLoadState('networkidle');
-    await expect(page.getByTestId('topbar-title')).toHaveText('Tadilat');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(s.title);
     await expect(page.getByTestId(s.ready)).toBeVisible();
     expect(await horizontalOverflow(page)).toEqual([]);
     expect(await smallTargets(page)).toEqual([]);

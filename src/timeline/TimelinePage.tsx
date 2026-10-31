@@ -9,6 +9,7 @@ import { TimelineLoading } from './TimelineLoading';
 import { isPurchase, purchaseDetails } from './purchase';
 import { StepCard } from './StepCard';
 import { StepTable } from './StepTable';
+import { PageHeader } from '../app/family/PageHeader';
 import './timeline.css';
 
 const stepsPerPage = 50;
@@ -126,11 +127,9 @@ function TimelineJourney({ data }: { data: FinanceLedger }) {
 export default function TimelinePage() {
   const state = useFinance();
   return <div className="timeline-page">
-    <header className="timeline-heading">
-      <div className="timeline-title"><h1>Timeline</h1><p className="muted">Nakit ve borç takvimi.</p></div>
-      <div className="timeline-heading-tools"><button className="quiet-button" disabled={state.loading} onClick={state.refresh}>Yenile</button></div>
-    </header>
-    <p className="timeline-plan-label"><span>Plan</span> Gerçekleşmiş ödeme değildir.</p>
+    <PageHeader location="/timeline" lead="Nakit ve borç takvimi." actions={<button className="quiet-button" disabled={state.loading} onClick={state.refresh}>Yenile</button>}>
+      <p className="timeline-plan-label"><span>Plan</span> Gerçekleşmiş ödeme değildir.</p>
+    </PageHeader>
     {state.error && !state.loading && <p className="error-message" role="alert">{state.error} E-tabloyu kontrol edip yeniden deneyin.</p>}
     {state.data ? <TimelineJourney data={state.data} /> : state.loading ? <TimelineLoading /> : <p className="loading-message">Doğrulanmış Timeline verisi şu anda alınamıyor.</p>}
     <p className="timeline-model-note">Nakit, kartlar ve KMH aynı finansman hesabından gelir. <a href="#/finansman">Aylık özet ve ayrıntılı tablo</a></p>

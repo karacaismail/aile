@@ -5,7 +5,7 @@ import fixture from './fixtures/layout.json' with { type: 'json' };
 test('oda listesi: genel hariç odalar, ölçü/kalem/duvar özeti; taşma yok, hedefler ≥44', async ({ page }) => {
   await mockApi(page, fixture);
   await page.goto('/#/yerlesim');
-  await expect(page.getByTestId('topbar-title')).toHaveText('Yerleşim');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Yerleşim');
   const cards = page.getByTestId('room-card');
   await expect(cards).toHaveCount(10);
   await expect(page.getByTestId('room-list')).not.toContainText('Genel');

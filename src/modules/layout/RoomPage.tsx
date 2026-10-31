@@ -67,7 +67,7 @@ function LayoutItemCard({ oda, item }: { oda: Oda; item: Item }) {
     <Card component={Link} href={`~/yerlesim/${oda}/${item.id}`} withBorder radius="md" p="sm" className={classes.card} data-testid="layout-item-card">
       <Stack gap={4}>
         <Group justify="space-between" wrap="nowrap" gap="xs" align="flex-start">
-          <Text fw={600} lineClamp={2} className={classes.title} data-allow-clamp>{item.ad}</Text>
+          <Text fw={600} className={classes.title}>{item.ad}</Text>
           {dims && <Text size="sm" c="dimmed" className="tabular" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>{dims}</Text>}
         </Group>
         <Group gap={4} wrap="wrap">

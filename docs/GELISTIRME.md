@@ -66,7 +66,7 @@ Görünmez native input'lu çipler Playwright'ta sarmalayıcıya tıklanır: `pa
 
 ## 320×480 kuralları (ölçülür)
 Yatay taşma yok; her etkileşimli öğe ≥44×44 (ActionIcon varsayılanı xl, Button/Input minHeight 44; tıklanabilir kart alanlarına `min-height: 44px`);
-`Tooltip` yok (hover yok); uzun metin `lineClamp` + `data-allow-clamp`; satır içi metin bağlantısına `data-inline-link`; liste altına `pb={96}` (FAB);
+`Tooltip` yok (hover yok); kayıt adı/kimlik metni (`ad`) kırpılmaz, tam sarılır ve fiyat aynı metin akışında adı izler; yalnız ikincil metinde `lineClamp` + `data-allow-clamp`; satır içi metin bağlantısına `data-inline-link`; liste altına `pb={96}` (FAB);
 iç içe dolgu birikmez (sayfa `p="sm"`, kart `p="sm"`); yapışkan başlık şeridi için `Paper` + `position: sticky; top: 0`.
 
 ## Testler

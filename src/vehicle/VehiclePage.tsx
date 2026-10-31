@@ -13,6 +13,7 @@ import { generationsFor, resolveGeneration } from './generations';
 import { Disclosure } from './Disclosure';
 import { FinanceSummary } from './FinanceSummary';
 import { ScenarioSidebar } from './ScenarioSidebar';
+import { PageHeader } from '../app/family/PageHeader';
 const PaymentChart = lazy(() => import('./PaymentChart'));
 type Vehicle = typeof catalog[number];
 type Variant = Vehicle['years'][number];
@@ -84,10 +85,8 @@ export default function VehiclePage({ budget }: { budget: Budget | null }) {
   const alternatives=result&&alternativesValid?(['koc','garanti'] as const).flatMap(autoProvider=>(['enpara','garanti-digital'] as const).map(personalProvider=>({name:`${autoProvider==='koc'?'Koçfinans':'Garanti BBVA'} + ${personalProvider==='enpara'?'Enpara':'Garanti BBVA dijital'}`,result:simulate({...effective,autoProvider,personalProvider,autoRate:autoProvider===input.autoProvider?input.autoRate:otherAutoRate,personalRate:personalProvider===input.personalProvider?input.personalRate:otherPersonalRate})}))):[];
   const impact=result&&budget?budget.months.filter(m=>m.key>=startMonth).map(m=>{const offset=(+m.key.slice(0,4)-+startMonth.slice(0,4))*12+(+m.key.slice(5)-+startMonth.slice(5));const payment=result.schedule[offset-1]?.payment??0;return {label:m.label,source:m.source,before:m.selfFundedCashFlow?.current??null,loan:payment,after:m.selfFundedCashFlow===undefined?null:m.selfFundedCashFlow.current-payment-input.runningCost-(offset===0?(result.upfront-result.contingencyUsed):0)};}):[];
   return <div className="vehicle-page">
-    <header className="vehicle-heading">
-      <div><h1>Araç ve finansman</h1><div className="selected-scenario" data-testid="selected-scenario"><span>{car.name} · {variant.year}</span><span>{money(input.price)} · {dateLabel(startMonth,0)}</span></div></div>
-      {result&&<button className="context-result" onClick={()=>document.getElementById('finance-conclusion')?.focus()}><span>En yüksek taksit <strong>{money(result.peakPayment)}</strong></span><span className="context-action">Sonuca git <span aria-hidden="true">↗</span></span></button>}
-    </header>
+    <PageHeader location="/arac" lead={<span className="selected-scenario" data-testid="selected-scenario"><span>{car.name} · {variant.year}</span><span>{money(input.price)} · {dateLabel(startMonth,0)}</span></span>}
+      actions={result&&<button className="context-result" onClick={()=>document.getElementById('finance-conclusion')?.focus()}><span>En yüksek taksit <strong>{money(result.peakPayment)}</strong></span><span className="context-action">Sonuca git <span aria-hidden="true">↗</span></span></button>} />
     <div className="scenario-workspace">
       <ScenarioSidebar open={settingsOpen} onOpenChange={setSettingsOpen} onResult={()=>document.getElementById('finance-conclusion')?.focus()}>
       <Tabs value={editor} onChange={setEditor} keepMounted keepMountedMode="display-none" unstyled className="workspace-tabs scenario-editor" data-testid="scenario-editor">

@@ -127,7 +127,7 @@ test('Yol haritası: toplam tahmini, adımlar ve bağlı kalemler', async ({ pag
 test('emoji yok (aydınlatma ekranları)', async ({ page }) => {
   for (const route of ['#/aydinlatma', '#/aydinlatma/salon', '#/aydinlatma/salon/yeni', '#/aydinlatma/sahne/yeni']) {
     await page.goto(`/${route}`);
-    await expect(page.getByTestId('topbar-title')).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
     const text = await page.evaluate(() => document.body.innerText);
     expect(text, route).not.toMatch(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u);
   }

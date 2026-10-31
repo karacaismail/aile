@@ -6,9 +6,7 @@
 }
 .tabular { font-variant-numeric: tabular-nums; }
 .aile-planner { min-width: 0; color: var(--budget-ink); }
-.aile-planner .family-page-heading { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--budget-spaceDense) var(--budget-spaceTight); margin-bottom: var(--budget-spaceSmall); }
-.aile-planner .family-page-heading h1 { font-size: var(--budget-fontMetric); }
-.aile-planner .family-page-heading > p { grid-column: 1 / -1; margin: 0; }
+.aile-planner .page-header { align-items: center; }
 .family-expense { display: inline-flex; align-items: center; justify-content: center; gap: var(--budget-spaceTight); min-width: var(--budget-targetMin); padding: var(--budget-spaceTight); }
 .family-expense span { display: none; }
 @media (min-width: 48em) { .family-expense span { display: inline; } }
@@ -32,7 +30,9 @@
 .mantine-Select-options { max-height: var(--budget-dropdownMaxHeight); overflow-y: auto; overscroll-behavior: contain; }
 :where(.aile-planner, .mantine-Modal-root, .mantine-Drawer-root) :is(button, a, .mantine-Chip-label, .mantine-SegmentedControl-label, .mantine-Combobox-option) { transition: background-color var(--budget-duration) var(--budget-ease); }
 @media (max-width: 47.999em) {
-  .aile-planner .family-page-heading { margin-bottom: var(--budget-spaceDense); }
-  .aile-planner .family-page-heading > p { display: none; }
+  /* The mobile header already names the page; on narrow screens the planner heading drops one step and the section caption and lead yield the first 480 px to the task. */
+  .aile-planner .page-header { margin-bottom: 0; }
+  .aile-planner .page-header h1 { font-size: var(--budget-fontMetric); }
+  .aile-planner .page-header-caption, .aile-planner .page-header-lead { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { .mantine-SegmentedControl-indicator, .mantine-Modal-root *, .mantine-Drawer-root *, .mantine-Combobox-dropdown * { transition-duration: 0s !important; animation-duration: 0s !important; } }

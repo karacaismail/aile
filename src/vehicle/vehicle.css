@@ -1,8 +1,6 @@
 /* Vehicle workspace: quarter-width controls and a compact, data-first canvas. */
-.vehicle-page { min-width: 0; padding-top: var(--budget-spaceSmall); container: vehicle / inline-size; }
+.vehicle-page { min-width: 0; container: vehicle / inline-size; }
 .vehicle-page section { min-width: 0; }
-.vehicle-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--budget-spacing); margin-bottom: var(--budget-spaceSmall); }
-.vehicle-heading h1 { font-size: var(--budget-fontPayment); margin-bottom: var(--budget-spaceTight); }
 .selected-scenario { display: flex; flex-wrap: wrap; gap: 0 var(--budget-spacing); color: var(--budget-muted); }
 .context-result { display: flex; flex-wrap: wrap; gap: var(--budget-spaceTight) var(--budget-spacing); align-items: center; min-height: var(--budget-targetMin); padding: var(--budget-spaceTight) 0; border: 0; background: transparent; color: var(--budget-muted); text-align: left; transition: color var(--budget-duration) var(--budget-ease); }
 .context-result strong { color: var(--budget-ink); }

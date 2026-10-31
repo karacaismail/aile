@@ -4,7 +4,9 @@ import { test, expect, type Page } from '@playwright/test';
 import { syntheticSheets, gviz } from '../src/dashboard/fixtures';
 
 async function openSettings(page: Page) {
+  // The route shell shows the same heading while the vehicle module loads; wait for the module itself.
   await expect(page.getByRole('heading',{name:'Araç ve finansman',exact:true})).toBeVisible();
+  await expect(page.locator('.vehicle-page')).toBeVisible();
   const toggle=page.getByRole('button',{name:'Ayarları düzenle',exact:true});
   if(await toggle.isVisible() && await toggle.getAttribute('aria-expanded')==='false') await toggle.click();
 }

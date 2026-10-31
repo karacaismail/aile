@@ -4,6 +4,7 @@ import { Select } from '../dashboard/Select';
 import { financeMoney as money } from './format';
 import { financeSheetUrl, type FinanceEvent, type FinanceLedger } from './data';
 import { useFinance } from './useFinance';
+import { PageHeader } from '../app/family/PageHeader';
 import './finance.css';
 
 const monthLabel = (value: string) => new Intl.DateTimeFormat('tr-TR', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${value}-01T00:00:00Z`));
@@ -83,8 +84,9 @@ function FinanceSkeleton() {
 export default function FinancePage() {
   const state = useFinance();
   return <div className="finance-page">
-    <header className="finance-heading"><div><h1>Finansman</h1><p className="muted">Nakit, kredi kartları, KMH ve finansman maliyetleri.</p></div><button className="quiet-button" disabled={state.loading} onClick={state.refresh}>Yenile</button></header>
-    <p className="finance-plan-note"><strong>Hesap</strong> · Gerçekleşmiş ödeme değildir. Banka ekstresi yerine geçmez.</p>
+    <PageHeader location="/finansman" lead="Nakit, kredi kartları, KMH ve finansman maliyetleri." actions={<button className="quiet-button" disabled={state.loading} onClick={state.refresh}>Yenile</button>}>
+      <p className="finance-plan-note"><strong>Hesap</strong> · Gerçekleşmiş ödeme değildir. Banka ekstresi yerine geçmez.</p>
+    </PageHeader>
     <p className="finance-sync muted" role="status" aria-live="polite">{state.loading ? 'Finansman kaynağı ve bakiyeler kontrol ediliyor…' : state.updatedAt ? `Son kontrol ${state.updatedAt.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Istanbul' })} · Açıkken her dakika yenilenir.` : 'Kaynak doğrulaması tamamlanmadı.'}</p>
     {state.error && <p role="alert" className="error-message">{state.error}</p>}
     {state.data ? <><FinanceContent data={state.data} /><p className="finance-native-status"><strong>Kaynak durumu</strong> {state.data.status}</p>{state.data.notes.map((note, index) => <p className="finance-explanation" key={index}>{note}</p>)}</> : state.loading ? <FinanceSkeleton /> : <p>Güncel hesap doğrulandığında ay sonu özeti ve bütün ödeme adımları burada görünür.</p>}

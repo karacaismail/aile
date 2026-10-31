@@ -37,15 +37,21 @@
   .family-sidebar-heading { padding: var(--budget-spaceSection) var(--budget-spacing) var(--budget-spaceSmall); }
   .family-main { padding-top: var(--budget-spaceTight); padding-inline: var(--budget-spaceWide); }
 }
-.family-page-heading { display: flex; flex-wrap: wrap; gap: var(--budget-spaceSmall); align-items: flex-start; justify-content: space-between; margin-bottom: var(--budget-spacing); }
-.family-page-heading h1 { font-size: var(--budget-fontPayment); letter-spacing: var(--budget-metricTracking); line-height: var(--budget-lineCompact); margin: 0; }
-.family-page-heading p, .family-hint { color: var(--budget-muted); margin: var(--budget-spaceDense) 0 0; }
-.family-page-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--budget-spaceTight); }
+/* One page heading: section caption, navigation label as h1, one-line lead, page actions. */
+.page-header { display: flex; flex-wrap: wrap; gap: var(--budget-spaceTight) var(--budget-spacing); align-items: flex-start; justify-content: space-between; margin-bottom: var(--budget-spaceTight); }
+/* Title text keeps a small action (Yenile) on its own row even at 320; wide controls wrap below. */
+.page-header-text { min-width: 0; flex: 1 1 var(--budget-timelineMetricWidth); }
+.page-header-caption { margin: 0; color: var(--budget-muted); font-weight: var(--budget-labelWeight); line-height: var(--budget-lineCompact); }
+.page-header h1 { font-size: var(--budget-fontPayment); letter-spacing: var(--budget-metricTracking); line-height: var(--budget-lineCompact); margin: 0; }
+.page-header-lead { color: var(--budget-muted); margin: var(--budget-spaceDense) 0 0; max-width: var(--budget-timelineReadingWidth); }
+.page-header-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--budget-spaceTight); }
+.family-hint { color: var(--budget-muted); margin: var(--budget-spaceDense) 0 0; }
 .family-footer { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--budget-spacing); padding: var(--budget-spaceSection) var(--budget-spacing); background: var(--budget-canvas); color: var(--budget-muted); }
 .family-loading { padding-block: var(--budget-spaceSection); color: var(--budget-muted); }
 .aile-app .budget-app { min-height: 0; }
-.home-plan-intro { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--budget-spacing); padding: var(--budget-spacing); margin-block: var(--budget-spaceSection); border-radius: var(--budget-timelineStepRadius); background: var(--budget-blueSurface); }
-.home-plan-intro p { color: var(--budget-muted); max-width: var(--budget-timelineReadingWidth); }
+/* Plain text and links: no decorative inset box around explanations. */
+.home-plan-intro { display: flex; flex-wrap: wrap; align-items: center; gap: var(--budget-spaceDense) var(--budget-spacing); margin-block: var(--budget-spaceSmall) var(--budget-spacing); }
+.home-plan-intro p { flex-basis: 100%; color: var(--budget-muted); max-width: var(--budget-timelineReadingWidth); margin: 0; }
 .home-plan-intro a { color: var(--budget-ink); min-height: var(--budget-targetMin); display: inline-flex; align-items: center; text-underline-offset: var(--budget-focusOffset); }
 .home-plan-search { max-width: var(--budget-timelineFilterWidth); margin-bottom: var(--budget-spacing); }
 

@@ -1,9 +1,10 @@
 .finance-page { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--budget-spacing); }
 .finance-page > *, .finance-views { min-width: 0; }
 .finance-page p, .finance-page h1, .finance-page h2, .finance-page dl { margin: 0; }
-.finance-heading, .finance-controls, .finance-pagination { display: flex; gap: var(--budget-spacing); align-items: center; justify-content: space-between; flex-wrap: wrap; }
-.finance-heading > div { min-width: 0; flex: 1 1 var(--budget-timelineFilterWidth); }
+.finance-controls, .finance-pagination { display: flex; gap: var(--budget-spacing); align-items: center; justify-content: space-between; flex-wrap: wrap; }
 .finance-controls > :first-child { flex: 0 1 var(--budget-timelineFilterWidth); min-width: 0; width: 100%; }
+.finance-plan-note { flex-basis: 100%; color: var(--budget-muted); }
+.finance-plan-note strong { color: var(--budget-ink); font-weight: var(--budget-labelWeight); }
 .finance-plan-note, .finance-native-status, .finance-explanation, .finance-footer p { max-width: var(--budget-timelineReadingWidth); }
 .finance-native-status { color: var(--budget-muted); }
 .finance-native-status strong { color: var(--budget-ink); }
