@@ -202,6 +202,49 @@ describe('kalıcı red: kuyruğun başını tıkamaz', () => {
   });
 });
 
+describe('okuma başarısı yazım hatasını silmez', () => {
+  const BUSY: Rejection = { code: 'busy', message: 'Sunucu meşgul' };
+  it('aynı turda A kalıcı red + B geçici hata: uzlaştırma okuması başarılı olsa da durum "error", lastError B\'nin nedeni, B kuyrukta, A redde; B sonra başarınca hata temizlenir', async () => {
+    const api = rejectingApi({ reject: { A: NOT_FOUND, B: BUSY } });
+    configureController({ fetchImpl: api.fetchImpl });
+    setState({ outbox: ['A', 'B'].map((id) => ({ op: { op: 'upsert' as const, table: 'kalemler' as const, id, opId: `op-${id}`, patch: { adet: 2 } }, ts: 't', attempts: 0 })) });
+    startSync(); // okuma → kendi flush'ı (A düşer, B busy) → red nedeniyle ikinci (uzlaştırma) okuması
+    await vi.waitFor(() => expect(api.reads).toHaveLength(2));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(getState().outbox.map((q) => q.op.id)).toEqual(['B']);
+    expect(getState().rejected.map((q) => q.op.id)).toEqual(['A']);
+    expect(getState().status).toBe('error');
+    expect(getState().lastError).toBe('Sunucu meşgul');
+    expect(getState().lastSync).toBe('t'); // okuma gerçekten başarılıydı
+    // Sunucu rahatlar: bir sonraki yenileme B'yi gönderir, yazım hatası biter.
+    delete api.state.reject.B;
+    await refresh();
+    expect(getState().outbox).toEqual([]);
+    expect(getState().status).toBe('synced');
+    expect(getState().lastError).toBeUndefined();
+    expect(getState().rejected.map((q) => q.op.id)).toEqual(['A']); // red okuma/başarılı yazımla silinmez
+  });
+
+  it('A kalıcı red + B ağ hatası: okuma başarılı olsa da gönderim durumu "offline" ve nedeni korunur', async () => {
+    const api = rejectingApi({ reject: { A: NOT_FOUND } });
+    const fetchImpl = api.fetchImpl;
+    let batches = 0;
+    configureController({ fetchImpl: (async (url: string | URL | Request, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as { action: string };
+      if (body.action === 'batch' && ++batches === 2) throw new TypeError('Failed to fetch'); // A düştükten sonra B'nin gönderimi ağda kopar
+      return fetchImpl(url, init);
+    }) as typeof fetch });
+    setState({ outbox: ['A', 'B'].map((id) => ({ op: { op: 'upsert' as const, table: 'kalemler' as const, id, opId: `op-${id}`, patch: { adet: 2 } }, ts: 't', attempts: 0 })) });
+    startSync();
+    await vi.waitFor(() => expect(api.reads).toHaveLength(2));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(getState().outbox.map((q) => q.op.id)).toEqual(['B']);
+    expect(getState().rejected.map((q) => q.op.id)).toEqual(['A']);
+    expect(getState().status).toBe('offline');
+    expect(getState().lastError).toMatch(/Ağ hatası/);
+  });
+});
+
 describe('kuyruk sınırı', () => {
   it('201 bekleyen işlemde en eski işlem sessizce atılmaz', () => {
     const api = rejectingApi({ offline: true });

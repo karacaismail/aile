@@ -49,7 +49,11 @@ export async function hydrate(): Promise<void> {
 async function readOnce(): Promise<void> {
   const res = await callApi<ReadResponse>(getApiUrl(), { action: 'read', key: getAppKey(), fingerprint: getState().fingerprint }, { fetchImpl: deps.fetchImpl });
   if (!res.notModified) { applyRead(res); await persistCache(); }
-  setState({ status: 'synced', lastSync: res.serverTime, lastError: undefined });
+  // Başarılı okuma okuma hatasını temizler; bekleyen bir gönderimin hatasını (busy/ağ, kuyruk hâlâ dolu) silmez — bu bir
+  // uzlaştırma okumasıdır, "Eşitlendi" demek yazımın da gittiğini söylerdi. Gönderim durumu bir sonraki flush sonucuyla güncellenir.
+  setState((s) => (s.outbox.length && (s.status === 'error' || s.status === 'offline')
+    ? { lastSync: res.serverTime }
+    : { status: 'synced', lastSync: res.serverTime, lastError: undefined }));
 }
 
 export async function refresh(): Promise<void> {
