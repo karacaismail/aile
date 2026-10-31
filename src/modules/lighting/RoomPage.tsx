@@ -43,8 +43,9 @@ export function RoomPage({ oda, layerId }: { oda: string; layerId?: string }) {
           <Title order={2} size="h4" lineClamp={1} className={classes.grow} data-allow-clamp>{name}</Title>
           <DogAccessBadge value={room.kopek_erisim} prefix unsetLabel="ayarlanmadı" data-testid="dog-badge" />
         </Group>
+        {/* Köpek erişimi Yerleşim'deki oda ölçü formunun alanıdır (`tip='oda'`); bağlantı ayarın gerçekten düzenlendiği yere gider. */}
         {!room.kopek_erisim && (
-          <Text size="xs" c="dimmed" mt={2}>Köpek erişimi ayarlanmadı · <Link href="~/ayarlar" data-inline-link>Ayarlar</Link></Text>
+          <Text size="xs" c="dimmed" mt={2}>Köpek erişimi ayarlanmadı · <Link href={`~/yerlesim/${oda}`} data-inline-link>Yerleşim · oda ölçüleri</Link></Text>
         )}
       </Paper>
       <SimpleGrid cols={{ base: 1, md: 2 }} spacing="xs" p="sm" data-testid="layer-list">
