@@ -7,13 +7,14 @@ import { useKeyboardMode } from './dashboard/keyboard';
 import './app/family/family.css';
 import { useHashLocation } from 'wouter/use-hash-location';
 import Dashboard from './dashboard/Dashboard';
+import { UpdateNotice } from './app/UpdateNotice';
 const LegacyApp = lazy(() => import('./LegacyApp').then(m => ({ default: m.App })));
 
 export function App() {
   const [location] = useHashLocation();
   useKeyboardMode();
   return <MantineProvider theme={theme} cssVariablesResolver={cssVariablesResolver} forceColorScheme="light">
-    <FamilyFrame location={location}>{isPlannerRoute(location)
+    <FamilyFrame location={location}><UpdateNotice />{isPlannerRoute(location)
       ? <Suspense fallback={<p className="family-loading" role="status">Ev planı ve kayıtlar yükleniyor…</p>}><LegacyApp /></Suspense>
       : <Dashboard />}</FamilyFrame>
   </MantineProvider>;

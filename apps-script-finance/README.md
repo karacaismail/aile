@@ -19,10 +19,11 @@ ayrıca etkinleştirilmelidir ([Google kurulum sözleşmesi](https://developers.
 Dış istekler yalnız sabit `sheets.googleapis.com` adresine gider; kimlik
 bilgileri bellekte kalır, yönlendirmeler kapalıdır.
 
-Edit/change tetikleyicileri kullanıcı düzenlemelerini; 15 dakikalık kontrol, API ile
-gelen düzenlemeleri yakalar. API yazımları edit tetikleyicisini çalıştırmadığından
-bu ikinci yol gereklidir. Apps Script zamanlama/kota koşulları nedeniyle kesin
-milisaniye yenileme sözü verilmez. Aynı kaynak ve geçerli native guard yazım üretmez.
+Yalnız edit/change tetikleyicileri kullanıcı düzenlemelerini izler. Zaman
+tetikleyicisi kurulmaz; yeniden kurulum eski `financeTimer` tetikleyicilerini kaldırır.
+API yazımları edit tetikleyicisini çalıştırmaz; bu yazımlardan sonra yetkili
+operatörün `financeTimer` işlevini elle çalıştırması gerekir. İşlev adı korunmuş
+olsa da zamanlanmış çalışması yoktur. Aynı kaynak ve geçerli native guard yazım üretmez.
 
 Her koşu ScriptLock altında kaynak sahipliğini kontrol eder, Plan ve Güncel modeli
 yeniden hesaplar, kaynak girdilerini yazımdan hemen önce tekrar doğrular. Guard
@@ -31,7 +32,7 @@ açılır. Native tutar, tarih, tüketici ve wire özeti doğrulanmadan nesil ta
 Süre aşımı veya eşzamanlı düzenleme sonraki koşu için kurtarma kaydı bırakır.
 
 `financeStatus` kurulumun durumunu ve son hatasını yürütme günlüğünde gösterir.
-Tetikleyiciler yalnız bu projenin üç finans işlevi için düzenlenir; başka işlevlerin
+Tetikleyiciler yalnız bu projenin iki düzenleme işlevi için kurulur; başka işlevlerin
 tetikleyicileri korunur. Test projesi canlı dosyadan ayrı tutulur.
 
 Model saf finans kurallarıdır (`finance-engine`); controller yayın sırasını yönetir

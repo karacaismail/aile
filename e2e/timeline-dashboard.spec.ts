@@ -418,7 +418,12 @@ test('compact steps show every explanation immediately without a disclosure butt
   const note = purchase.getByText(/Teslimat tarihi satıcı ile teyit edilecek; satın alma ve teslimat ayrı adımlardır\./);
   await expect(note).toBeVisible();
   await expect(page.getByRole('button', { name: /^Ayrıntı/ })).toHaveCount(0);
-  for (const label of ['Harcanabilir nakit', 'Toplam kart borcu', 'KMH anaparası', 'Denizbank anapara', 'İşbank anapara']) await expect(purchase.getByText(label, { exact: true })).toBeVisible();
+  for (const label of ['Harcanabilir nakit', 'Toplam kart borcu']) await expect(purchase.getByText(label, { exact: true })).toBeVisible();
+  for (const name of ['Denizbank kredi kartı', 'İşbank kredi kartı', 'KMH']) {
+    const account = purchase.getByRole('group', { name, exact: true });
+    await expect(account.getByText('Anapara', { exact: true })).toBeVisible();
+    await expect(account.getByText('Faiz + vergi', { exact: true })).toBeVisible();
+  }
   await expect(purchase.locator('.timeline-source')).toBeVisible();
   await expect(purchase.locator('.timeline-source')).toContainText('Örnek kaynak');
   for (const size of [{ width: 740, height: 360 }, { width: 1440, height: 900 }, { width: 320, height: 740 }]) {
@@ -437,7 +442,7 @@ test('compact steps show every explanation immediately without a disclosure butt
     expect(layout.gap).toBeGreaterThanOrEqual(0);
     expect(layout.padding).toBe('0px');
     expect(layout.hidden).toBe(false);
-    expect(layout.factsFirst, 'purchase facts precede the separate all-account section').toBe(true);
+    expect(layout.factsFirst, 'purchase facts precede the all-account section').toBe(true);
   }
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.evaluate(() => window.scrollTo(0, 0));
@@ -687,6 +692,25 @@ test('purchase cards answer amount, date and payment before account balances in 
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
     const factBox=(await facts.boundingBox())!,accountBox=(await accounts.boundingBox())!;
     expect(factBox.y+factBox.height).toBeLessThanOrEqual(accountBox.y+1);
+    const readingOrder=await card.evaluate(el=>{
+      const amount=el.querySelector('.timeline-purchase-amount')!.getBoundingClientRect();
+      const date=el.querySelector('.timeline-purchase-facts time')!.getBoundingClientRect();
+      const impact=el.querySelector('.timeline-immediate-effect')!.getBoundingClientRect();
+      const state=el.querySelector('.timeline-account-state')!;
+      const balances=el.querySelector('.timeline-balances')!.getBoundingClientRect();
+      const breakdown=el.querySelector('.timeline-account-breakdown')!.getBoundingClientRect();
+      return {amountBeforeDate:amount.bottom<=date.top,impactBeforeBalances:impact.bottom<=balances.top,balancesBeforeBreakdown:balances.bottom<=breakdown.top,accountSurface:getComputedStyle(state).backgroundColor,accountPadding:getComputedStyle(state).paddingInlineStart};
+    });
+    expect(readingOrder.amountBeforeDate).toBe(true);
+    expect(readingOrder.impactBeforeBalances).toBe(true);
+    expect(readingOrder.balancesBeforeBreakdown).toBe(true);
+    expect(readingOrder.accountSurface,'account figures have no nested white dashboard').toBe('rgba(0, 0, 0, 0)');
+    expect(readingOrder.accountPadding).toBe('0px');
+    for(const name of ['Denizbank kredi kartı','İşbank kredi kartı','KMH']){
+      const account=accounts.getByRole('group',{name,exact:true});
+      await expect(account.getByText('Anapara',{exact:true})).toBeVisible();
+      await expect(account.getByText('Faiz + vergi',{exact:true})).toBeVisible();
+    }
     expect(await card.locator('*').evaluateAll(els=>els.filter(el=>el.textContent?.trim()&&el.getBoundingClientRect().width>0&&parseFloat(getComputedStyle(el).fontSize)<14).length)).toBe(0);
     if(width===320||width===1440){await card.screenshot({path:testInfo.outputPath(`purchase-card-${browserName}-${width}.png`)});}
   }
@@ -719,6 +743,14 @@ test('weekly cash tutoring states cash in hand and shows zero new overdraft with
   await expect(step.getByRole('group',{name:'Adım sonrası · tüm hesaplar'})).toContainText('100 ₺');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
   await step.screenshot({path:testInfo.outputPath('weekly-cash-320.png')});
+  for(const width of [320,360,375,390,667,768,1440]){
+    await page.setViewportSize({width,height:width===667?375:900});
+    const facts=(await step.getByRole('group',{name:'Planlanan nakit ödeme bilgileri'}).boundingBox())!;
+    const balances=(await step.getByRole('group',{name:'Adım sonrası · tüm hesaplar'}).boundingBox())!;
+    expect(facts.y+facts.height,'cash payments use the same vertical reading order as purchases').toBeLessThanOrEqual(balances.y+1);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+    if(width===1440)await step.screenshot({path:testInfo.outputPath('weekly-cash-1440.png')});
+  }
   await page.getByRole('tab',{name:'Tablo',exact:true}).click();
   await expect(page.getByRole('row',{name:/Etüt/})).toContainText('Elden nakit · Her cuma akşamı');
   await expect(page.getByRole('row',{name:/Etüt/})).toContainText('Bu adımda yeni KMH kullanımı: 0 ₺');

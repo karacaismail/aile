@@ -14,6 +14,7 @@ e2e/__screenshots__/**/*-darwin.png
 seed/private/
 apps-script/.clasprc.json
 .clasprc.json
+.clasp.json
 .tmp-shots/
 .tmp-live/
 apps-script-finance/.clasp.json

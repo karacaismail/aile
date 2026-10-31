@@ -2163,24 +2163,21 @@ var __finance = (() => {
   };
 
   // gas/finance/triggers.mjs
-  var HANDLERS = ["financeEdited", "financeChanged", "financeTimer"];
-  var TIMER_ID = "FINANCE_TIMER_15_MINUTES_ID";
+  var HANDLERS = ["financeEdited", "financeChanged"];
   function ensureTriggers(targetId, { scriptApp, properties: properties2 }) {
     const triggers = scriptApp.getProjectTriggers();
-    const timerId = properties2.getProperty(TIMER_ID);
+    for (const trigger of triggers.filter((t) => t.getHandlerFunction() === "financeTimer")) scriptApp.deleteTrigger(trigger);
+    properties2.deleteProperty("FINANCE_TIMER_15_MINUTES_ID");
     for (const handler of HANDLERS) {
-      const type = handler === "financeTimer" ? scriptApp.EventType.CLOCK : handler === "financeEdited" ? scriptApp.EventType.ON_EDIT : scriptApp.EventType.ON_CHANGE;
+      const type = handler === "financeEdited" ? scriptApp.EventType.ON_EDIT : scriptApp.EventType.ON_CHANGE;
       let kept = false;
       for (const trigger of triggers.filter((t) => t.getHandlerFunction() === handler)) {
-        const valid = trigger.getEventType() === type && (handler === "financeTimer" ? trigger.getUniqueId() === timerId : trigger.getTriggerSourceId() === targetId);
+        const valid = trigger.getEventType() === type && trigger.getTriggerSourceId() === targetId;
         if (valid && !kept) kept = true;
         else scriptApp.deleteTrigger(trigger);
       }
       if (kept) continue;
-      if (handler === "financeTimer") {
-        const timer = scriptApp.newTrigger(handler).timeBased().everyMinutes(15).create();
-        properties2.setProperty(TIMER_ID, timer.getUniqueId());
-      } else if (handler === "financeEdited") scriptApp.newTrigger(handler).forSpreadsheet(targetId).onEdit().create();
+      if (handler === "financeEdited") scriptApp.newTrigger(handler).forSpreadsheet(targetId).onEdit().create();
       else scriptApp.newTrigger(handler).forSpreadsheet(targetId).onChange().create();
     }
   }
@@ -2278,7 +2275,7 @@ var __finance = (() => {
   }
 
   // gas/finance/main.mjs
-  var ENGINE_REV = true ? "ce87406117843f68024487236ca5cbddfb49ff9c01b99b37661b6ce441f2ce5e" : "development";
+  var ENGINE_REV = true ? "40d83503b320677ebf55db5bbf07df96737f84a8fedf14519546bf1a998e857d" : "development";
   var properties = () => PropertiesService.getScriptProperties();
   var stateStore = () => new DurableStateStore({ properties: properties(), utilities: Utilities });
   var sheetRepository = () => new FinanceSheetRepository({

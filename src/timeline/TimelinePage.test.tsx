@@ -100,8 +100,9 @@ it('keeps a complete visible page during a verified refresh with the same event 
   const step = screen.getByRole('article', { name: '1. adım · Sentetik dönem başlangıcı' });
   expect(within(step).getByText('Harcanabilir nakit').nextElementSibling).toHaveTextContent('0 ₺');
   expect(within(step).getByText('Net nakit konumu').nextElementSibling).toHaveTextContent('-50 ₺');
-  expect(within(step).getByText('KMH anaparası').nextElementSibling).toHaveTextContent('50 ₺');
-  expect(within(step).getByText('KMH faiz + vergi').nextElementSibling).toHaveTextContent('2 ₺');
+  const overdraft = within(step).getByRole('group', { name: 'KMH' });
+  expect(within(overdraft).getByText('Anapara').nextElementSibling).toHaveTextContent('50 ₺');
+  expect(within(overdraft).getByText('Faiz + vergi').nextElementSibling).toHaveTextContent('2 ₺');
   expect(within(step).getByText('Toplam kart borcu').nextElementSibling).toHaveTextContent('512 ₺');
   expect(within(step).getByText(/banka oranı teyitsiz/)).toBeVisible();
   expect(screen.queryByText(/nakit modeli KMH.*içermez/)).not.toBeInTheDocument();
@@ -171,7 +172,7 @@ it('puts purchase amount, date and payment before all-account balances in flow a
   const facts=within(cardStep).getByRole('group', { name: 'Planlanan alım bilgileri' });
   const balances=within(cardStep).getByRole('group',{name:'Alım sonrası · tüm hesaplar'});
   expect(facts.compareDocumentPosition(balances)&Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  expect(balances).toHaveTextContent('İki kartın gelecek ekstrelerdeki taksit toplamı');
+  expect(balances).toHaveTextContent('İki kartın gelecek taksitleri');
   assertFacts(screen.getByRole('article',{name:'3. adım · Örnek abonelik'}),'375 ₺','3 Ocak 2098','Nakit');
   fireEvent.click(screen.getByRole('tab',{name:'Tablo'}));
   const tableRows=screen.getAllByRole('row');
@@ -191,4 +192,28 @@ it('explains weekly tutoring as cash in hand and separates any incremental overd
   expect(within(card).queryByText('Net nakit etkisi')).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('tab',{name:'Tablo'}));
   expect(screen.getByRole('row',{name:/Etüt/})).toHaveTextContent('Elden nakit · Her cuma akşamı');
+});
+
+it('gives purchase and cash steps the same reading order and pairs principal with costs by account', () => {
+  const data = buildFinance(syntheticLongFinance());
+  Object.assign(data.events[2], { type: 'Alışveriş · Taşınma öncesi', title: 'Örnek alım', denizPrincipal: 700, source: 'Kredi kartı · Denizbank · Taksit: 6' });
+  Object.assign(data.events[5], { id: 'week-0-etut-1', type: 'Nakit hareketi', title: 'Etüt (Abla)', cashChange: -420, source: 'Kullanıcı teyidi · her cuma akşamı' });
+  vi.mocked(useFinance).mockReturnValue({ data, loading: false, error: null, updatedAt: null, refresh: vi.fn() });
+  mount();
+  for (const [number, title] of [[3, 'Örnek alım'], [6, 'Etüt (Abla)']] as const) {
+    const step = screen.getByRole('article', { name: `${number}. adım · ${title}` });
+    const headings = within(step).getAllByRole('heading').map(heading => heading.textContent);
+    expect(headings).toEqual([title, 'Adım sonrası', 'Borç dağılımı', 'Denizbank kredi kartı', 'İşbank kredi kartı', 'KMH']);
+    const facts = within(step).getByRole('group', { name: title === 'Örnek alım' ? 'Planlanan alım bilgileri' : 'Planlanan nakit ödeme bilgileri' });
+    const balances = within(step).getByRole('group', { name: title === 'Örnek alım' ? 'Alım sonrası · tüm hesaplar' : 'Adım sonrası · tüm hesaplar' });
+    expect(facts.compareDocumentPosition(balances) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const values = data.events[number - 1];
+    for (const [name, principal, cost] of [['Denizbank kredi kartı', values.denizPrincipal, values.denizCost], ['İşbank kredi kartı', values.isPrincipal, values.isCost], ['KMH', values.kmhPrincipal, values.kmhCost]] as const) {
+      const account = within(balances).getByRole('group', { name });
+      expect(within(account).getByText('Anapara').nextElementSibling).toHaveTextContent(`${principal} ₺`);
+      expect(within(account).getByText('Faiz + vergi').nextElementSibling).toHaveTextContent(`${cost} ₺`);
+    }
+    expect(within(step).getByText('Kaynak ve koşullar')).toBeVisible();
+    expect(step.querySelector('details')).toBeNull();
+  }
 });

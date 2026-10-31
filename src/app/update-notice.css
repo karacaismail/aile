@@ -1,0 +1,2 @@
+.app-update { display: flex; flex-wrap: wrap; align-items: center; gap: var(--budget-spaceSmall); padding: var(--budget-spacing); margin-bottom: var(--budget-spacing); background: var(--budget-canvas); color: var(--budget-ink); border-radius: var(--budget-radius); font-size: var(--budget-fontSmall); }
+.app-update p { flex: 1 1 var(--budget-familySidebarWidth); margin: 0; }

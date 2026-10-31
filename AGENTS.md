@@ -3,6 +3,7 @@
 Bu Git deposu `site/` klasörüdür. Üst klasördeki e-tablo yedekleri, kullanıcı gelirleri, kişisel senaryolar ve `.env.local` public Git'e eklenmez. Git author/committer `karacaismail <35493655+karacaismail@users.noreply.github.com>`; kişisel author guard korunur. Lisans kararı kullanıcıya aittir. Üçüncü taraf font/fotoğraf lisansları kendi dosyalarındadır.
 
 ## Mimari
+- Finans otomasyonunda yalnız düzenleme/değişiklik tetikleyicileri kurulur. `financeTimer` adı elle çağrılan yenileme girişi olarak kalır; zaman tetikleyicisi yeniden kurulmaz. API yazımları bu olayları üretmediğinden yetkili açık yenileme gerektirir.
 - `finance-engine`, `finance-sync`, `gas/finance`: Node bağımsız otomatik hesap ve ayrı Apps Script runtime. Kişisel yapılandırma ve native sahiplik kaydı Git dışında kalır. Kaynak değişikliği ile hesap üretimi burada; web Yenile yalnız doğrulanmış nesli okur. `pnpm finance:test`, `pnpm finance:build` ve `gas/src/finance-*.test.ts` kapıları korunur. Canlı trigger çalışması yerel test sonucu sayılmaz. DurableStateStore kalıcı durumun, FinanceSheetRepository toplu Sheet erişiminin tek sahibidir; saf model servis çağırmaz. `Engine.generated.js` elle düzenlenmez; Google girişleri `Controller.js` içindedir. Ayrıntılar `apps-script-finance/README.md`.
 - Finans yayını son `userEnteredValue` farklarını yazar; tam alan sil/yaz veya tüm request paketini JSON ile kopyalama yolunu geri getirmeyin. Tam aday, kullanıcı girdi koruması, sahiplik, kaynak yarışı ve native readback kontrolleri korunur. Yeni yapısal request tipi hücre planner'ına açıkça eklenip test edilmelidir; native array sonuçlarının daralma/büyümesi ayrıca doğrulanır.
 - `src/app/family`: tüm aile uygulamasının tek kabuğu, gezinmesi ve görsel kimliği. `App.tsx` tek kök MantineProvider sahibidir; klavye modu `keyboard.ts` içindeki tek installer ile ilk HTML’den başlar.
@@ -17,6 +18,7 @@ Bu Git deposu `site/` klasörüdür. Üst klasördeki e-tablo yedekleri, kullan�
 - React 19, Mantine 9.7, TypeScript, Vite 8 korunur. ECharts 6 kullanımı kullanıcının açık talebidir. Modül yazarları için eski bağımlılık/mimari kısıtları bu kapsam dışındaki değişikliklerde geçerlidir.
 
 ## UI sözleşmesi
+- Uygulama sürümü değiştiğinde `UpdateNotice` yeni sürümü açma eylemini gösterir; kaydedilmemiş girdiyi otomatik sayfa yenilemesiyle silmez. Service worker kaydı bir kez kurulur; pencereye dönüşte güncelleme kontrol edilir. Gerçek worker geçişi `e2e/update-production.spec.ts` ile üç motorda denetlenir. Yeni bildirimi içermeyen eski açık JS, bildirimin ilk yayını için bir kez yeniden açılmalıdır.
 - Outfit, en az 14 CSS px; kullanıcı kök boyutu korunur. Renk, tipografi, boşluk, yüzey ve hareket için `src/dashboard/tokens.ts` ve ortak CSS kullanılır.
 - 320 px önce gelir. Tablonun okunabilir sütun minimumu korunur, yalnız kendi kapsayıcısı kayar. Kelime ortası bölünmez.
 - Mantine custom Select; açık/kapalı/hover/seçili durumlar markalı ve kontrastlıdır. Native select kullanılmaz. Panel viewporta göre fixed konumlanır; dropdown ve sticky katmanları ortak tokenlardan gelir. Alt bölümlerden modele dönüp seçim yapma akışı CI regresyonudur.
@@ -48,7 +50,7 @@ Araç görseli sözleşmesi: `src/vehicle/generations.json` model kimliği + mod
 
 - Bütçe güncel şeması `Kasadan çıkan · brüt` imzasıyla seçilir. `current.ts` Plan/Gerçekleşen tarih başlıklarını normalize eder, Kasa/Pano ve arızi aylık toplamları doğrular. Arızi başlıkları GViz metadata (`headers=1`) üzerinden alınır. Eski adaptör testleri korunur. Kaynak finansal değerleri `currentFixtures.ts` içine kopyalamayın; yalnız sentetik değer kullanın. Nakit çıkışı ile harcama kategorisi ve birikim alım tutarı ile piyasa değeri ayrı anlamlardır.
 
-Timeline sunumu: her adım 12px iç boşluklu, hafif nötr yüzeyli ve yuvarlatılmış kendi kapsayıcısındadır; aynı günün adımları da 12px aralıkla ayrılır. Sıraları yalnız ince çizgiyle ayırmaya dönmeyin. Dar ekranda tek akış, masaüstünde tarih sütunu + aynı üst sıraya hizalı işlem/bakiye düzeni. Harcanabilir nakit, net nakit konumu, kart ve KMH kırılımı, açıklama ve kaynak her zaman görünürdür; Ayrıntı düğmesi veya açılır panel yoktur. Açıklama işlem ve bakiyelerin hemen altında, ayrı kutu/iç padding olmadan yer alır; aradaki boşluk en fazla 8px. Kaynakta kesin olmayan bilgiler ve fon eksiği uyarısı saklanmaz. Ay oklarının klavye odağı tek alt çizgiyle görünürdür. Tarih sütunu container genişliği ve yazı ölçeğine göre açılır; 200% metin büyütmede yatay sayfa taşması kabul edilmez. Esas finansman hesapları ve Sheet formülleri görsel değişikliklerde korunur.
+Timeline sunumu: her adım 12px iç boşluklu, hafif nötr yüzeyli ve yuvarlatılmış kendi kapsayıcısındadır; aynı günün adımları da 12px aralıkla ayrılır. Sıraları yalnız ince çizgiyle ayırmaya dönmeyin. Tüm genişliklerde kart içi tek okuma akışı korunur; geniş alanda yalnız tarih sütunu ayrılır. İşlem ve bakiye yan yana iki rakip panele bölünmez. Harcanabilir nakit, net nakit konumu, kart ve KMH kırılımı, açıklama ve kaynak her zaman görünürdür; Ayrıntı düğmesi veya açılır panel yoktur. Açıklama işlem ve bakiyelerin hemen altında, ayrı kutu/iç padding olmadan yer alır; aradaki boşluk en fazla 8px. Kaynakta kesin olmayan bilgiler ve fon eksiği uyarısı saklanmaz. Ay oklarının klavye odağı tek alt çizgiyle görünürdür. Tarih sütunu container genişliği ve yazı ölçeğine göre açılır; 200% metin büyütmede yatay sayfa taşması kabul edilmez. Esas finansman hesapları ve Sheet formülleri görsel değişikliklerde korunur.
 
 Timeline yolculuğu: koyu lacivert Dönem sonu paneli, orta açıklıktaki işlem kapsayıcıları ve açık sayfa zemini işlevleri ayırır. Koyu yüzeyde ikincil metin/açık kırmızı negatif bakiye tokenları kullanılır; açık uyarı ve özet alanları kendi kontrastlarını korur. Dönem kontrolü geniş görünümde sol sütun, Ödeme akışı sağ sütundur; dar görünüm aynı DOM ile üstten alta ilerler. Ödeme filtresi nakit çıkışı olan adımları gösterir. Filtre yalnız görünür adımları değiştirir: dönem özeti, fon eksiği uyarısı ve kaynak adım bakiyeleri tüm işlemleri içermeye devam eder. Filtre korunarak ay değiştirilebilir, filtre/ay değişince sayfalama sıfırlanır. Her adımın tarihi, işlemden sonraki nakit/borç durumu ve kaynağı ortak defterden gelir. Kaynak koşulları her zaman açık bölümde tutulur; banka ekstresiyle doğrulanmamış gelecek ödeme kesin gerçekleşme gibi sunulmaz. Bu davranışların kapısı `e2e/timeline-dashboard.spec.ts` içindedir.
 
@@ -90,9 +92,14 @@ SHA kapsamını koruyun. Alım filtresi ek ağ isteği oluşturmaz; bakiyeler ta
 Üç alım grubu dar ekranda sarılarak görünür kalır. Sözleşme docs/TIMELINE.md;
 Node purchase-groups.test.mjs ve E2E `purchase groups` kapıları zorunludur.
 
-Timeline alım kartları: ürünün tutarı/tarihi/ödeme yöntemi önce, tüm hesapların
-bakiyeleri sonra ayrı açık yüzeyde görünür. Alım kartında masaüstünde de bu sıra
-korunur; eski işlem–bakiye yan yana düzeni bu kartlar için geçerli değildir.
+Timeline işlem kartları: alım ve elden ödeme aynı okuma sırasını kullanır: başlık ve
+tutar → kesin tarih / ödeme yöntemi → bu adımın nakit ve borç etkisi → adım sonrası
+harcanabilir nakit / toplam kart borcu → banka bazında borç dağılımı → kaynak ve koşullar.
+İçte ikinci beyaz hesap kartı yoktur. Denizbank, İşbank ve KMH anaparası kendi faiz/vergi
+tutarıyla aynı semantik gruptadır; sıfır değerler ve gelecek taksit tutarı görünürdür.
+Bu sıra 320 px ve masaüstünde korunur. `TimelinePage.test.tsx` sıra/grup anlamını;
+`timeline-dashboard.spec.ts` alım ve elden ödeme akışını, 320–1440 px, yüzde 200 metin
+ve Akış–Tablo bilgi eşliğini doğrular.
 `purchase.ts` yalnız doğrulanmış tam defterin ardışık olaylarını ve açık ödeme
 kaynağını kullanır; filtrelenmiş komşuyu, toplam borcu veya toplam gelecek taksiti
 ürün fiyatı saymaz. Bilinmeyen bilgiye sıfır veya tahmini kart atama. Şema ve

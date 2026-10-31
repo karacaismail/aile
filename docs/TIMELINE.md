@@ -54,7 +54,9 @@ Dar ekranda üç grup seçeneği sarılarak görünür kalır. Boş durum seçil
 ## Alım kartı bilgileri
 
 Alım kartında sıralama: eşya adı → planlanan alım tutarı, tarihi, ödeme yöntemi →
-kasaya/karta etkisi → ayrı açık yüzeyde bütün hesapların adım sonrası bakiyeleri.
+kasaya/karta etkisi → aynı kartta adım sonrası nakit ve toplam kart borcu →
+banka bazında eşlenmiş anapara ve faiz/vergi → kaynak ve koşullar.
+İç içe ikinci bir hesap kutusu yoktur; bütün açıklamalar açık kalır.
 Akış ve Tablo aynı `PurchaseSummary` bileşenini kullanır. Planlanan tarih,
 gerçekleşme veya teslim tarihi olarak etiketlenmez. Gelecek taksit alanı açıkça
 iki kartın bütün taksitli alımlarının toplamıdır; ürüne ait taksit tutarı değildir.

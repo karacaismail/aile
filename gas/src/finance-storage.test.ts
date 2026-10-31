@@ -82,10 +82,10 @@ describe('durable Apps Script finance state',()=>{
    let target='',type='';const builder={forSpreadsheet:(id:string)=>{target=id;return builder;},onEdit:()=>{type='ON_EDIT';return builder;},onChange:()=>{type='ON_CHANGE';return builder;},timeBased:()=>{type='CLOCK';return builder;},everyMinutes:(n:number)=>{intervals.push(n);return builder;},create:()=>{const created=trigger(handler,type,target);all.push(created);return created;}};return builder;
   }});
   ensureFinanceTriggers('test');ensureFinanceTriggers('test');
-  expect(all.map(t=>[t.getHandlerFunction(),t.getEventType(),t.getTriggerSourceId()])).toEqual([['other','ON_EDIT','test'],['financeEdited','ON_EDIT','test'],['financeChanged','ON_CHANGE','test'],['financeTimer','CLOCK','']]);
-  expect(intervals).toEqual([15]);
+  expect(all.map(t=>[t.getHandlerFunction(),t.getEventType(),t.getTriggerSourceId()])).toEqual([['other','ON_EDIT','test'],['financeEdited','ON_EDIT','test'],['financeChanged','ON_CHANGE','test']]);
+  expect(intervals).toEqual([]);
   save({generation:'one'});ensureFinanceTriggers('test');
-  expect(intervals).toEqual([15]);
+  expect(intervals).toEqual([]);
   expect(h.data.size).toBeGreaterThan(0);
  });
 });
