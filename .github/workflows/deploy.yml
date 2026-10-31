@@ -30,7 +30,7 @@ jobs:
         env:
           CI: 1
           VITE_BUDGET_SHEET_ID: synthetic-budget-sheet-2098
-      - run: pnpm exec playwright test e2e/settings-cache.spec.ts --project=iphone4 --project=iphone12-webkit
+      - run: pnpm exec playwright test e2e/settings-cache.spec.ts e2e/sync-recovery.spec.ts --project=iphone4 --project=iphone12-webkit
         env:
           CI: 1
       - run: pnpm build

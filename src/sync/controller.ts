@@ -32,6 +32,9 @@ async function persistCache() {
 }
 
 export async function hydrate(): Promise<void> {
+  // Sıcak yeniden giriş (aynı JS ömründe stopSync → startSync): store sıfırlanmaz ve bellek, diskteki kopyadan daha günceldir;
+  // uçuştaki bir gönderimin red kaydı/düşürülmüş parmak izi eski kuyruk ve önbellek kopyasıyla ezilmez. Yalnız soğuk açılış disk okur.
+  if (getState().hydrated) { if (!isApiConfigured()) setState({ status: 'unconfigured' }); return; }
   const [cache, saved] = await Promise.all([loadCache(), loadOutbox()]);
   setState({ outbox: saved.filter((q) => !q.rejection), rejected: saved.filter((q) => Boolean(q.rejection)) });
   if (cache && cache.schemaVersion === SCHEMA_VERSION) {

@@ -65,10 +65,11 @@ test('reddedilen kayıt sessizce kaybolmaz: rozet ve etiket söyler, yenilemede 
   const details = item.getByRole('group', { name: 'Kaydedilen değerler' });
   await expect(details.getByRole('term').filter({ hasText: /^Ad$/ })).toBeVisible();
   await expect(details.getByRole('definition').filter({ hasText: REJECT_NAME })).toBeVisible();
+  // Konum ölçümleri çekmecenin açılış geçişi bittikten sonra alınır (geçiş sırasında öğeler birlikte kayar).
+  await page.waitForFunction(() => [...document.querySelectorAll<HTMLElement>('.mantine-Drawer-content')].every((el) => getComputedStyle(el).opacity === '1' && el.getAnimations({ subtree: true }).every((a) => a.playState !== 'running')));
   const y = async (l: ReturnType<Page['getByText']>) => (await l.boundingBox())!.y;
   expect(await y(item.getByText(REASON))).toBeLessThan(await y(item.getByRole('button', { name: 'Yeniden dene' })));
   expect(await y(item.getByRole('button', { name: 'Yeniden dene' }))).toBeLessThan(await y(details));
-  await page.waitForFunction(() => [...document.querySelectorAll<HTMLElement>('.mantine-Drawer-content')].every((el) => getComputedStyle(el).opacity === '1'));
   await page.screenshot({ path: testInfo.outputPath('sync-rejected-drawer.png'), fullPage: false });
   expect(await horizontalOverflow(page)).toEqual([]);
   expect(await smallTargets(page)).toEqual([]);

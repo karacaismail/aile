@@ -136,6 +136,7 @@ describe('kalıcı red: sessiz kayıp yok', () => {
     vi.mocked(cache.loadOutbox).mockResolvedValue([pending, rejected]);
     const api = rejectingApi({ offline: true });
     configureController({ fetchImpl: api.fetchImpl });
+    setState({ hydrated: false }); // sayfa yeniden yüklendi: soğuk açılış, store boş
     await hydrate();
     expect(getState().outbox.map((q) => q.op.opId)).toEqual(['op-b']);
     expect(getState().rejected.map((q) => q.op.opId)).toEqual(['op-a']);
