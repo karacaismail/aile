@@ -10,7 +10,7 @@ import { clearCache } from '@/sync/cache';
 import { getState, setState, useAppStore, type AppState } from '@/sync/store';
 import type { HealthResponse } from '@shared/api';
 
-const selectCacheMeta = (s: AppState) => ({ pending: s.outbox.length, status: s.status });
+const selectCacheMeta = (s: AppState) => ({ pending: s.outbox.length, status: s.status, hasFreshCopy: Boolean(s.fingerprint) });
 
 /** `reloaded`: tam okuma gerçekten geldi (parmak izi yeniden kuruldu); `status` ardından gelen gönderimin sonucunu da taşıyabilir. */
 interface ClearResult { reloaded: boolean; status: AppState['status']; pending: number; lastError?: string }
@@ -37,7 +37,9 @@ export function SettingsPage() {
   const [clearing, setClearing] = useState(false);
   const [clearResult, setClearResult] = useState<ClearResult | null>(null);
   const clearingRef = useRef(false);
-  const { pending, status } = useAppStore(selectCacheMeta);
+  const { pending, status, hasFreshCopy } = useAppStore(selectCacheMeta);
+  // Başarısız temizlemeden sonra bağlantı dönüp tam okuma gelirse eski "yüklenemedi" satırı bayat kalmasın.
+  const shownResult = clearResult && !clearResult.reloaded && hasFreshCopy ? { ...clearResult, reloaded: true, pending } : clearResult;
 
   const save = () => {
     setApiUrl(url); setActor(actor); setAppKey(key);
@@ -107,7 +109,7 @@ export function SettingsPage() {
         </Button>
         {/* Durum bölgesi mesajdan önce DOM'da durur (ARIA22); odak almaz, kaybolmaz; ilerleme ve sonuç burada. */}
         <Text size="sm" mt="xs" role="status" aria-atomic="true" aria-label="Önbellek sonucu" data-testid="cache-result">
-          {clearing ? 'Temizleniyor…' : clearResult ? clearResultText(clearResult) : ''}
+          {clearing ? 'Temizleniyor…' : shownResult ? clearResultText(shownResult) : ''}
         </Text>
       </div>
     </Stack>

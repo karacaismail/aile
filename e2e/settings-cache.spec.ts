@@ -44,6 +44,10 @@ test('çevrimdışı bekleyen kayıt önbellek temizlemede korunur; sonuç dür�
   await page.getByTestId('sync-status').click();
   await page.getByRole('button', { name: 'Şimdi eşitle' }).click();
   await expect(page.getByTestId('sync-status')).toHaveAttribute('aria-label', /Eşitlendi/);
+  await page.keyboard.press('Escape');
+  // Tam okuma geldiği için eski "yüklenemedi" satırı bayat kalmaz.
+  await expect(result).toContainText('Yeniden yüklendi');
+  await expect(result).not.toContainText('yüklenemedi');
   await page.goto('/#/satinalma');
   await page.reload();
   await expect(page.getByText('Çevrimdışı kalem')).toBeVisible();
