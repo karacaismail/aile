@@ -192,9 +192,19 @@ describe('ItemForm', () => {
     expect(within(form).getByLabelText('En (cm)')).toHaveValue('220');
     expect(within(form).getByRole('radio', { name: 'K' })).toBeChecked();
   });
-  it('değişiklik yoksa kaydet yalnız tip gönderir (boş alanlar null ile silinmez)', async () => {
-    mount('/yerlesim/salon/L2');
+  it('değişiklik yoksa Kaydet Sheets\'e yazmaz ve formu kapatır (boş alanlar null ile silinmez: toItemPatch testi)', async () => {
+    const { history } = mount('/yerlesim/salon/L2');
     await userEvent.click(within(screen.getByTestId('layout-item-form')).getByRole('button', { name: 'Kaydet' }));
-    expect(upsert).toHaveBeenCalledWith('kalemler', 'L2', { tip: 'yerlesim' });
+    expect(upsert).not.toHaveBeenCalled();
+    expect(history.at(-1)).toBe('/yerlesim/salon');
+  });
+  it('yeni kalemde boş Ad ile Kaydet: yazmaz, odak Ad alanına döner, hata sayısı duyurulur', async () => {
+    mount('/yerlesim/salon/yeni');
+    const form = await screen.findByTestId('layout-item-form');
+    await userEvent.click(within(form).getByLabelText('Not'));
+    await userEvent.click(within(form).getByRole('button', { name: 'Kaydet' }));
+    expect(upsert).not.toHaveBeenCalled();
+    expect(within(form).getByLabelText(/^Ad\b/)).toHaveFocus();
+    expect(within(form).getByRole('status')).toHaveTextContent('1 alan düzeltilmeli');
   });
 });

@@ -25,7 +25,7 @@ export function CctSlider({ value, onChange, error }: { value: [number, number];
       />
       </Box>
       <Text size="xs" c="dimmed">{value[0] === value[1] ? cctLabel(value[0]) : `${cctLabel(value[0])} → ${cctLabel(value[1])}`}</Text>
-      {error ? <Text size="xs" c="red.8">{error}</Text> : null}
+      {error ? <Text size="xs" c="var(--mantine-color-error)">{error}</Text> : null}
     </Stack>
   );
 }

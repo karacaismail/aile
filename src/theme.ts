@@ -11,6 +11,8 @@ export const cssVariablesResolver: CSSVariablesResolver = () => ({
   light: {
     '--mantine-color-body': tokens.paper, '--mantine-color-text': tokens.ink,
     '--mantine-color-dimmed': tokens.muted, '--mantine-color-placeholder': tokens.muted,
+    // One semantic error colour for field errors (Input.Error) and form error summaries; Mantine's light red.6 default is 3.3:1 on paper.
+    '--mantine-color-error': tokens.red,
     '--mantine-color-default': tokens.paper, '--mantine-color-default-hover': tokens.blueSurface,
     '--mantine-color-default-border': tokens.line,
     ...Object.fromEntries(['aile', 'ember', 'sand', 'teal', 'yellow', 'green', 'blue', 'red', 'orange', 'gray', 'cyan', 'grape', 'pink', 'lime', 'indigo', 'violet'].flatMap(color => [[`--mantine-color-${color}-light-color`, `var(--mantine-color-${color}-8)`], [`--mantine-color-${color}-outline`, `var(--mantine-color-${color}-8)`]])),

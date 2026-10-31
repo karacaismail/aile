@@ -1,11 +1,9 @@
-import { useMemo } from 'react';
-import { Alert, Button, Divider, Group, Modal, NumberInput, SimpleGrid, Stack, Switch, Text, TextInput, Textarea } from '@mantine/core';
+import { useMemo, useRef } from 'react';
+import { Alert, Divider, Modal, NumberInput, SimpleGrid, Stack, Switch, Text, TextInput, Textarea } from '@mantine/core';
 import { useForm, schemaResolver } from '@mantine/form';
 import { useMediaQuery } from '@mantine/hooks';
 import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
-import { FloppyDiskIcon } from '@phosphor-icons/react/dist/csr/FloppyDisk';
-import { TrashIcon } from '@phosphor-icons/react/dist/csr/Trash';
 import { z } from 'zod';
 import { useLocation } from 'wouter';
 import type { Item } from '@shared/schema';
@@ -17,6 +15,7 @@ import { EnumSelect } from '@/components/EnumSelect';
 import { PriceInput } from '@/components/PriceInput';
 import { LinksField } from '@/components/LinksField';
 import { DetailSkeleton } from '@/components/DetailSkeleton';
+import { FormFooter, focusFirstError } from '@/components/FormFooter';
 
 const schema = z.object({
   ad: z.string().trim().min(1, 'Ad gerekli'),
@@ -77,10 +76,12 @@ function VendorDetailBody({ item, onClose }: { item?: Item; onClose: () => void 
   const isMobile = useMediaQuery('(max-width: 48em)', true);
   // initialValues yalnız mount'ta okunur; bileşen kayıt kimliğiyle anahtarlandığından sunucu güncellemesi düzenlemeyi ezmez.
   const form = useForm<VendorFormValues>({ mode: 'controlled', initialValues: toForm(item), validate: schemaResolver(schema, { sync: true }) });
+  const formRef = useRef<HTMLFormElement>(null);
 
   const save = (values: VendorFormValues) => {
     const patch = toVendorPatch(values, item);
-    if (!isNew && Object.keys(patch).length <= 1) { onClose(); return; }
+    // Kullanıcı hiçbir alanı değiştirmediyse (ya da fark kırpmayla kayboluyorsa) Sheets'e yazılmaz.
+    if (!isNew && (!form.isDirty() || Object.keys(patch).length <= 1)) { onClose(); return; }
     upsert('kalemler', item?.id, patch);
     notifications.show({ message: isNew ? 'Usta eklendi' : 'Kaydedildi', color: 'green', autoClose: 1500 });
     onClose();
@@ -93,14 +94,15 @@ function VendorDetailBody({ item, onClose }: { item?: Item; onClose: () => void 
 
   const v = form.getValues();
   const num = (field: 'teklif_sure_gun' | 'garanti_ay' | 'uyum_pct') => ({
-    value: v[field] ?? '', onChange: (n: string | number) => form.setFieldValue(field, n === '' ? null : Number(n)), error: form.errors[field],
+    value: v[field] ?? '', onChange: (n: string | number) => form.setFieldValue(field, n === '' ? null : Number(n)), error: form.errors[field], 'data-path': field,
   });
   return (
     <Modal opened onClose={onClose} title={isNew ? 'Yeni usta' : 'Usta'} fullScreen={isMobile} size="lg"
       closeButtonProps={modalCloseProps} styles={{ body: { paddingBottom: 96 } }}>
-      <form onSubmit={form.onSubmit(save)} noValidate data-testid="vendor-detail">
+      <form ref={formRef} onSubmit={form.onSubmit(save, (errors) => focusFirstError(formRef.current, errors))} noValidate data-testid="vendor-detail">
         <Stack gap="sm">
-          <TextInput label="Ad" required autoFocus={isNew} {...form.getInputProps('ad')} key={form.key('ad')} />
+          {/* Yeni ustada zorunlu ilk alan odaklanır (Mantine FocusTrap `data-autofocus`); düzenlemede odak modal başlığında kalır. */}
+          <TextInput label="Ad" required data-autofocus={isNew || undefined} {...form.getInputProps('ad')} key={form.key('ad')} />
           <SimpleGrid cols={2} spacing="xs">
             <EnumSelect label="Meslek" field="meslek" options={MESLEK} value={v.meslek} onChange={(x) => form.setFieldValue('meslek', x)} />
             <TextInput label="Telefon" inputMode="tel" autoComplete="off" placeholder="05xx xxx xx xx" {...form.getInputProps('telefon')} key={form.key('telefon')} />
@@ -118,13 +120,7 @@ function VendorDetailBody({ item, onClose }: { item?: Item; onClose: () => void 
           <LinksField value={v.linkler} onChange={(x) => form.setFieldValue('linkler', x)} />
           <Textarea label="Not" autosize minRows={2} {...form.getInputProps('not')} key={form.key('not')} />
           {item?.updated_by && <Text size="xs" c="dimmed">Son güncelleme: {item.updated_by}</Text>}
-          <Group justify="space-between" mt="sm" style={{ position: 'sticky', bottom: 0, background: 'var(--mantine-color-body)', paddingTop: 8 }}>
-            {!isNew ? <Button variant="subtle" color="red" leftSection={<TrashIcon size={18} aria-hidden />} onClick={del}>Sil</Button> : <span />}
-            <Group gap="xs">
-              <Button variant="default" onClick={onClose}>Vazgeç</Button>
-              <Button type="submit" leftSection={<FloppyDiskIcon size={18} aria-hidden />}>Kaydet</Button>
-            </Group>
-          </Group>
+          <FormFooter errors={form.errors} onCancel={onClose} onDelete={isNew ? undefined : del} />
         </Stack>
       </form>
     </Modal>

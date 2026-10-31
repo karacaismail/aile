@@ -1,12 +1,10 @@
-import { useMemo } from 'react';
-import { Modal, Stack, TextInput, Group, Button, SegmentedControl, Switch, NumberInput, Textarea, Text, Alert, Divider, SimpleGrid } from '@mantine/core';
+import { useMemo, useRef } from 'react';
+import { Modal, Stack, TextInput, SegmentedControl, Switch, NumberInput, Textarea, Text, Alert, Divider, SimpleGrid } from '@mantine/core';
 import { DatePickerInput } from '@mantine/dates';
 import { useForm, schemaResolver } from '@mantine/form';
 import { useMediaQuery } from '@mantine/hooks';
 import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
-import { TrashIcon } from '@phosphor-icons/react/dist/csr/Trash';
-import { FloppyDiskIcon } from '@phosphor-icons/react/dist/csr/FloppyDisk';
 import { z } from 'zod';
 import { useLocation } from 'wouter';
 import type { Item } from '@shared/schema';
@@ -16,6 +14,7 @@ import { upsert, remove } from '@/sync/controller';
 import { PriceInput } from '@/components/PriceInput';
 import { LinksField } from '@/components/LinksField';
 import { EnumSelect } from '@/components/EnumSelect';
+import { FormFooter, focusFirstError } from '@/components/FormFooter';
 import { ConflictBanner } from './ConflictBanner';
 import { DetailSkeleton } from '@/components/DetailSkeleton';
 import { selectFirstLoad } from '@/data/selectors';
@@ -34,9 +33,12 @@ type FormValues = {
   siparis_son_tarih: string | null; teslim_suresi_gun: number | null; teslim_tarihi: string | null; linkler: string[]; not: string; mevcut: boolean;
 };
 
-function toForm(i?: Item): FormValues {
+/** Yeni kalemin ön değerleri: kullanıcının o an baktığı faz / tek seçili oda ve kategori (liste sahibi verir). */
+export interface NewItemDefaults { faz?: '1' | '2' | '3'; oda?: string; kategori?: string }
+
+function toForm(i?: Item, d?: NewItemDefaults): FormValues {
   return {
-    ad: i?.ad ?? '', oda: i?.oda, kategori: i?.kategori, faz: i?.faz ?? '1', durum: i?.durum ?? (i ? undefined : 'fikir'), karar_bekliyor: !!i?.karar_bekliyor,
+    ad: i?.ad ?? '', oda: i ? i.oda : d?.oda, kategori: i ? i.kategori : d?.kategori, faz: i?.faz ?? d?.faz ?? '1', durum: i?.durum ?? (i ? undefined : 'fikir'), karar_bekliyor: !!i?.karar_bekliyor,
     oncelik: i?.oncelik ?? 2, adet: i?.adet ?? 1, birim: i?.birim ?? 'adet', tahmini_tl_min: i?.tahmini_tl_min ?? null, tahmini_tl_max: i?.tahmini_tl_max ?? null,
     gercek_tl: i?.gercek_tl ?? null, fiyat_guven: i?.fiyat_guven, nereden: i?.nereden ?? '', siparis_son_tarih: i?.siparis_son_tarih ?? null,
     teslim_suresi_gun: i?.teslim_suresi_gun ?? null, teslim_tarihi: i?.teslim_tarihi ?? null, linkler: i?.linkler ?? [], not: i?.not ?? '', mevcut: !!i?.mevcut,
@@ -66,21 +68,25 @@ export function toPatch(v: FormValues, prev?: Item): Record<string, unknown> {
 // Temizle düğmesi de dokunma hedefi (≥44); sağ bölüm ona göre genişler.
 const dateProps = { valueFormat: 'D MMM YYYY', dropdownType: 'modal' as const, clearable: true, clearButtonProps: { size: 'xl' as const, 'aria-label': 'Tarihi temizle' }, rightSectionWidth: 44 };
 
-export function ItemDetail({ id }: { id: string }) {
+export function ItemDetail({ id, defaults, onSaved }: { id: string; defaults?: NewItemDefaults; onSaved?: (saved: Item, isNew: boolean) => void }) {
   const [, navigate] = useLocation();
   const isNew = id === 'yeni';
   const item = useAppStore((s) => (isNew ? undefined : s.items.find((i) => i.id === id)));
   const firstLoad = useAppStore(selectFirstLoad);
   const isMobile = useMediaQuery('(max-width: 48em)', true);
-  const initial = useMemo(() => toForm(item), [item]);
+  const initial = useMemo(() => toForm(item, defaults), [item, defaults]);
   // Not: bileşen `key={id}` ile yeniden kurulur; sunucudan gelen güncellemeler düzenleme sırasında formu ezmez (çakışma bandı gösterir).
   const form = useForm<FormValues>({ mode: 'controlled', initialValues: initial, validate: schemaResolver(schema, { sync: true }) });
+  const formRef = useRef<HTMLFormElement>(null);
 
   const close = () => navigate('~/satinalma');
   const save = (values: FormValues) => {
     const patch = toPatch(values, item);
-    upsert('kalemler', isNew ? undefined : id, patch);
-    notifications.show({ message: isNew ? 'Kalem eklendi' : 'Kaydedildi', color: 'green', autoClose: 1500 });
+    // Kullanıcı hiçbir alanı değiştirmediyse (ya da fark kırpmayla kayboluyorsa) Sheets'e yazılmaz: sürüm/son güncelleyen/sıralama bozulmaz.
+    if (item && (!form.isDirty() || Object.keys(patch).length <= 1)) { close(); return; }
+    const savedId = upsert('kalemler', isNew ? undefined : id, patch);
+    if (onSaved) onSaved({ ...(item ?? { id: savedId, tip: 'satinalma', ad: values.ad.trim() }), ...patch } as Item, isNew);
+    else notifications.show({ message: isNew ? 'Kalem eklendi' : 'Kaydedildi', color: 'green', autoClose: 1500 });
     close();
   };
   const del = () => modals.openConfirmModal({
@@ -99,10 +105,11 @@ export function ItemDetail({ id }: { id: string }) {
   return (
     <Modal opened onClose={close} title={isNew ? 'Yeni kalem' : 'Kalem'} fullScreen={isMobile} size="lg" closeButtonProps={{ size: 'xl', 'aria-label': 'Kapat' }}
       styles={{ body: { paddingBottom: 96 } }}>
-      <form onSubmit={form.onSubmit(save)} noValidate data-testid="item-detail">
+      <form ref={formRef} onSubmit={form.onSubmit(save, (errors) => focusFirstError(formRef.current, errors))} noValidate data-testid="item-detail">
         <Stack gap="sm">
           {item && <ConflictBanner id={item.id} />}
-          <TextInput label="Ad" required autoFocus={isNew} {...form.getInputProps('ad')} key={form.key('ad')} />
+          {/* Yeni kayıtta ilk alan odaklanır (Mantine FocusTrap `data-autofocus`); düzenlemede odak modal başlığında kalır. */}
+          <TextInput label="Ad" required data-autofocus={isNew || undefined} {...form.getInputProps('ad')} key={form.key('ad')} />
           <SegmentedControl fullWidth data={[{ value: '1', label: 'Önce' }, { value: '2', label: 'Yerleşme' }, { value: '3', label: 'Bebek' }]} {...form.getInputProps('faz')} key={form.key('faz')} />
           <SimpleGrid cols={2} spacing="xs">
             <EnumSelect label="Durum" field="durum" options={DURUM} value={form.getValues().durum} onChange={(v) => form.setFieldValue('durum', v)} />
@@ -112,9 +119,9 @@ export function ItemDetail({ id }: { id: string }) {
           </SimpleGrid>
           <Divider label="Fiyat" labelPosition="left" />
           <SimpleGrid cols={2} spacing="xs">
-            <PriceInput label="Tahmini (min)" value={form.getValues().tahmini_tl_min} onChange={(v) => form.setFieldValue('tahmini_tl_min', v)} error={form.errors.tahmini_tl_min} />
-            <PriceInput label="Tahmini (max)" value={form.getValues().tahmini_tl_max} onChange={(v) => form.setFieldValue('tahmini_tl_max', v)} error={form.errors.tahmini_tl_max} />
-            <PriceInput label="Gerçek" value={form.getValues().gercek_tl} onChange={(v) => form.setFieldValue('gercek_tl', v)} />
+            <PriceInput label="Tahmini (min)" data-path="tahmini_tl_min" value={form.getValues().tahmini_tl_min} onChange={(v) => form.setFieldValue('tahmini_tl_min', v)} error={form.errors.tahmini_tl_min} />
+            <PriceInput label="Tahmini (max)" data-path="tahmini_tl_max" value={form.getValues().tahmini_tl_max} onChange={(v) => form.setFieldValue('tahmini_tl_max', v)} error={form.errors.tahmini_tl_max} />
+            <PriceInput label="Gerçek" data-path="gercek_tl" value={form.getValues().gercek_tl} onChange={(v) => form.setFieldValue('gercek_tl', v)} error={form.errors.gercek_tl} />
             <EnumSelect label="Güven" field="fiyat_guven" options={FIYAT_GUVEN} value={form.getValues().fiyat_guven} onChange={(v) => form.setFieldValue('fiyat_guven', v)} />
             <NumberInput label="Adet" min={1} inputMode="numeric" hideControls {...form.getInputProps('adet')} key={form.key('adet')} />
             <EnumSelect label="Birim" field="birim" options={BIRIM} value={form.getValues().birim} onChange={(v) => form.setFieldValue('birim', v)} allowEmpty={false} />
@@ -133,15 +140,7 @@ export function ItemDetail({ id }: { id: string }) {
             <Switch label="Elimizde var (satın alınmayacak)" {...form.getInputProps('mevcut', { type: 'checkbox' })} key={form.key('mevcut')} />
           </Stack>
           {item?.updated_by && <Text size="xs" c="dimmed">Son güncelleme: {item.updated_by} · {label('durum', item.durum)}</Text>}
-          <Group justify="space-between" mt="sm" style={{ position: 'sticky', bottom: 0, background: 'var(--mantine-color-body)', paddingTop: 8 }}>
-            {!isNew ? (
-              <Button variant="subtle" color="red" leftSection={<TrashIcon size={18} aria-hidden />} onClick={del}>Sil</Button>
-            ) : <span />}
-            <Group gap="xs">
-              <Button variant="default" onClick={close}>Vazgeç</Button>
-              <Button type="submit" leftSection={<FloppyDiskIcon size={18} aria-hidden />}>Kaydet</Button>
-            </Group>
-          </Group>
+          <FormFooter errors={form.errors} onCancel={close} onDelete={isNew ? undefined : del} />
         </Stack>
       </form>
     </Modal>

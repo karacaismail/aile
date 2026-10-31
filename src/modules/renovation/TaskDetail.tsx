@@ -1,13 +1,11 @@
 import { FormSelect } from '@/components/FormSelect';
-import { useMemo } from 'react';
-import { Alert, Button, Chip, Divider, Group, Modal, NumberInput, SimpleGrid, Stack, Switch, Text, TextInput, Textarea } from '@mantine/core';
+import { useMemo, useRef } from 'react';
+import { Alert, Chip, Divider, Group, Modal, NumberInput, SimpleGrid, Stack, Switch, Text, TextInput, Textarea } from '@mantine/core';
 import { DatePickerInput } from '@mantine/dates';
 import { useForm, schemaResolver } from '@mantine/form';
 import { useMediaQuery } from '@mantine/hooks';
 import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
-import { FloppyDiskIcon } from '@phosphor-icons/react/dist/csr/FloppyDisk';
-import { TrashIcon } from '@phosphor-icons/react/dist/csr/Trash';
 import { z } from 'zod';
 import { useLocation } from 'wouter';
 import type { Item } from '@shared/schema';
@@ -17,6 +15,7 @@ import { upsert, remove } from '@/sync/controller';
 import { selectFirstLoad } from '@/data/selectors';
 import { EnumSelect } from '@/components/EnumSelect';
 import { DetailSkeleton } from '@/components/DetailSkeleton';
+import { FormFooter, focusFirstError } from '@/components/FormFooter';
 import { TASK_DURUM_LABEL } from './rules';
 
 const schema = z.object({
@@ -86,10 +85,12 @@ function TaskDetailBody({ item, onClose }: { item?: Item; onClose: () => void })
   const isMobile = useMediaQuery('(max-width: 48em)', true);
   // initialValues yalnız mount'ta okunur; bileşen kayıt kimliğiyle anahtarlandığından sunucu güncellemesi düzenlemeyi ezmez.
   const form = useForm<TaskFormValues>({ mode: 'controlled', initialValues: toForm(item), validate: schemaResolver(schema, { sync: true }) });
+  const formRef = useRef<HTMLFormElement>(null);
 
   const save = (values: TaskFormValues) => {
     const patch = toTaskPatch(values, item);
-    if (!isNew && Object.keys(patch).length <= 1) { onClose(); return; }
+    // Kullanıcı hiçbir alanı değiştirmediyse (ya da fark kırpmayla kayboluyorsa) Sheets'e yazılmaz.
+    if (!isNew && (!form.isDirty() || Object.keys(patch).length <= 1)) { onClose(); return; }
     upsert('kalemler', item?.id, patch);
     notifications.show({ message: isNew ? 'İş eklendi' : 'Kaydedildi', color: 'green', autoClose: 1500 });
     onClose();
@@ -105,11 +106,12 @@ function TaskDetailBody({ item, onClose }: { item?: Item; onClose: () => void })
   return (
     <Modal opened onClose={onClose} title={isNew ? 'Yeni iş' : 'İş'} fullScreen={isMobile} size="lg"
       closeButtonProps={modalCloseProps} styles={{ body: { paddingBottom: 96 } }}>
-      <form onSubmit={form.onSubmit(save)} noValidate data-testid="task-detail">
+      <form ref={formRef} onSubmit={form.onSubmit(save, (errors) => focusFirstError(formRef.current, errors))} noValidate data-testid="task-detail">
         <Stack gap="sm">
           <Group gap="xs" wrap="nowrap" align="flex-start">
             <TextInput label="Kod" placeholder="T1" w={88} style={{ flexShrink: 0 }} {...form.getInputProps('kod')} key={form.key('kod')} />
-            <TextInput label="Ad" required autoFocus={isNew} style={{ flex: 1 }} {...form.getInputProps('ad')} key={form.key('ad')} />
+            {/* Yeni işte zorunlu ilk alan odaklanır (Mantine FocusTrap `data-autofocus`); düzenlemede odak modal başlığında kalır. */}
+            <TextInput label="Ad" required data-autofocus={isNew || undefined} style={{ flex: 1 }} {...form.getInputProps('ad')} key={form.key('ad')} />
           </Group>
           <div>
             <Text size="sm" fw={500} mb={4}>İşi yapan</Text>
@@ -125,7 +127,7 @@ function TaskDetailBody({ item, onClose }: { item?: Item; onClose: () => void })
             <DatePickerInput label="Planlanan tarih" {...dateProps} value={v.planlanan_tarih} onChange={(d) => form.setFieldValue('planlanan_tarih', d)} />
             <DatePickerInput label="Bitiş tarihi" {...dateProps} value={v.bitis_tarihi} onChange={(d) => form.setFieldValue('bitis_tarihi', d)} />
           </SimpleGrid>
-          <NumberInput label="Süre (gün)" min={0} inputMode="numeric" hideControls value={v.sure_gun ?? ''} onChange={(n) => form.setFieldValue('sure_gun', n === '' ? null : Number(n))} error={form.errors.sure_gun} />
+          <NumberInput label="Süre (gün)" min={0} inputMode="numeric" hideControls data-path="sure_gun" value={v.sure_gun ?? ''} onChange={(n) => form.setFieldValue('sure_gun', n === '' ? null : Number(n))} error={form.errors.sure_gun} />
           <TextInput label="Bağımlılık (kodlar, virgülle)" placeholder="T1, T2" {...depsInput} key={form.key('bagimlilik')}
             onBlur={(e) => { depsInput.onBlur?.(e); form.setFieldValue('bagimlilik', splitDeps(e.currentTarget.value).join(', ')); }} />
           <Divider label="İzin" labelPosition="left" />
@@ -134,13 +136,7 @@ function TaskDetailBody({ item, onClose }: { item?: Item; onClose: () => void })
           <Textarea label="Şartname" autosize minRows={2} {...form.getInputProps('sartname')} key={form.key('sartname')} />
           <Textarea label="Not" autosize minRows={2} {...form.getInputProps('not')} key={form.key('not')} />
           {item?.updated_by && <Text size="xs" c="dimmed">Son güncelleme: {item.updated_by}</Text>}
-          <Group justify="space-between" mt="sm" style={{ position: 'sticky', bottom: 0, background: 'var(--mantine-color-body)', paddingTop: 8 }}>
-            {!isNew ? <Button variant="subtle" color="red" leftSection={<TrashIcon size={18} aria-hidden />} onClick={del}>Sil</Button> : <span />}
-            <Group gap="xs">
-              <Button variant="default" onClick={onClose}>Vazgeç</Button>
-              <Button type="submit" leftSection={<FloppyDiskIcon size={18} aria-hidden />}>Kaydet</Button>
-            </Group>
-          </Group>
+          <FormFooter errors={form.errors} onCancel={onClose} onDelete={isNew ? undefined : del} />
         </Stack>
       </form>
     </Modal>

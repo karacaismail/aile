@@ -12,3 +12,9 @@ export function closeExpense(): void { current = null; emit(); }
 export function useExpenseTarget(): ExpenseTarget | null {
   return useSyncExternalStore((l) => { listeners.add(l); return () => listeners.delete(l); }, () => current, () => current);
 }
+
+/** Kaydedilen harcama: bütçe ekranı açıksa görünüm kaydın ayına döner (kayıt "kayboldu" sanılmasın). */
+export interface SavedExpense { id?: string; tarih: string }
+const savedListeners = new Set<(e: SavedExpense) => void>();
+export function notifyExpenseSaved(e: SavedExpense): void { for (const l of savedListeners) l(e); }
+export function onExpenseSaved(listener: (e: SavedExpense) => void): () => void { savedListeners.add(listener); return () => { savedListeners.delete(listener); }; }

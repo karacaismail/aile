@@ -21,6 +21,33 @@ function mount(id: string) {
 
 beforeEach(() => { resetStore(); vi.mocked(upsert).mockClear(); });
 
+describe('SceneForm: hata odağı ve değişiklik koruması', () => {
+  it('boş Ad ve katmansız seviye: yazmaz, odak sırayla ilk hatalı alana gider, hata sayısı duyurulur', async () => {
+    setState({ hydrated: true, status: 'synced' });
+    read([layer]);
+    mount('yeni');
+    await userEvent.click(screen.getByRole('button', { name: 'Seviye ekle' }));
+    await userEvent.click(screen.getByLabelText('Not'));
+    await userEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
+    expect(upsert).not.toHaveBeenCalled();
+    expect(screen.getByRole('status')).toHaveTextContent('2 alan düzeltilmeli');
+    expect(screen.getByLabelText(/^Ad\b/)).toHaveFocus();
+    await userEvent.type(screen.getByLabelText(/^Ad\b/), 'Akşam');
+    await userEvent.click(screen.getByLabelText('Not'));
+    await userEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
+    expect(screen.getByRole('status')).toHaveTextContent('1 alan düzeltilmeli');
+    expect(screen.getByRole('combobox', { name: 'Katman 1' })).toHaveFocus();
+  });
+  it('var olan sahnede değişiklik yoksa Kaydet Sheets\'e yazmaz ve form kapanır', async () => {
+    setState({ hydrated: true, status: 'synced' });
+    read([layer, scene]);
+    const loc = mount('S1');
+    await userEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
+    expect(upsert).not.toHaveBeenCalled();
+    expect(loc.history.at(-1)).toBe('/aydinlatma');
+  });
+});
+
 describe('SceneForm: kayıt zamanlaması', () => {
   it('derin bağlantıda kayıt sonradan gelince form dolu açılır (önce iskelet, form kurulmaz)', async () => {
     setState({ hydrated: false, status: 'loading' });
