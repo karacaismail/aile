@@ -120,3 +120,11 @@ ve Akış–Tablo bilgi eşliğini doğrular.
 kaynağını kullanır; filtrelenmiş komşuyu, toplam borcu veya toplam gelecek taksiti
 ürün fiyatı saymaz. Bilinmeyen bilgiye sıfır veya tahmini kart atama. Şema ve
 finansman planı UI değişikliğinde korunur; kaynak açıklaması sürekli açıktır.
+
+Ayarlar → Önbelleği temizle store'u sıfırlamaz: bekleyen kuyruk, çakışmalar ve sayfadaki
+girdiler korunur; tam okuma zorlanır. `clearCache()` sonucu `Promise<boolean>` olur;
+silme başarısızsa parmak izi değiştirilmez ve yenileme başlatılmaz. Sonuç sürekli açık
+`role="status"` satırında bildirilir; çevrimdışı veya başarısız yenileme başarılı diye
+sunulmaz. Kapılar: `src/sync/cache.test.ts`, `src/modules/settings/SettingsPage.test.tsx`
+ve `e2e/settings-cache.spec.ts`. Sonuncusu PR testlerinde ve Pages yayını öncesinde
+Chromium 320 px / WebKit ile kuyruk koruması, gerçek IndexedDB reddi ve yeniden denemeyi doğrular.
