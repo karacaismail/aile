@@ -118,7 +118,8 @@ test('narrow budget summary answers the spending decision first and puts long ex
   for (const [width, columns] of [[767, 1], [768, 2], [769, 2]] as const) {
     await page.setViewportSize({ width, height: 900 });
     expect(await page.locator('.balance-strip').evaluate(el => getComputedStyle(el).gridTemplateColumns.split(' ').length), `balance strip columns at ${width}`).toBe(columns);
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    // Charts resize asynchronously after the viewport change; wait for the settled layout before judging overflow.
+    await expect.poll(() => horizontalOverflow(page), { message: `no page overflow at ${width}` }).toEqual([]);
   }
   await page.setViewportSize({ width: 320, height: 740 });
   await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
