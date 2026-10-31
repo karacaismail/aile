@@ -41,6 +41,25 @@ describe('flushOutbox', () => {
     expect(out.remaining).toEqual([]);
     expect(out.sent).toBe(2);
   });
+  it('callApi\'nin fırlattığı ok:false batch gövdesi taşıma hatası sayılmaz: işlem bazında ele alınır, sonrakiler gönderilir', async () => {
+    let call = 0;
+    const send = vi.fn(async (req: BatchRequest): Promise<BatchResponse> => {
+      call++;
+      if (call === 1) {
+        const body = { ok: false, doneCount: 0, fingerprint: 'f', serverTime: 't', error: 'not_found', message: 'Kayıt bulunamadı', results: [{ ok: false, id: req.ops[0].id, error: 'not_found', message: 'Kayıt bulunamadı' }] };
+        throw new ApiError('not_found', 'Kayıt bulunamadı', false, body);
+      }
+      return { ok: true, doneCount: req.ops.length, fingerprint: 'f', serverTime: 't', results: req.ops.map((o) => ({ ok: true, id: o.id, row: { id: o.id } })) };
+    });
+    const onDrop = vi.fn(); const onResult = vi.fn();
+    const out = await flushOutbox([q('A', { adet: 1 }), q('B', { adet: 2 })], { send, actor: 'a', onResult, onDrop });
+    expect(onDrop).toHaveBeenCalledTimes(1);
+    expect(onDrop.mock.calls[0][0]).toMatchObject({ id: 'A' });
+    expect(onDrop.mock.calls[0][1]).toMatchObject({ code: 'not_found', message: 'Kayıt bulunamadı', retryable: false });
+    expect(onResult).toHaveBeenCalledTimes(1);
+    expect(out.remaining).toEqual([]);
+    expect(out.error).toBeUndefined();
+  });
   it('ağ hatası: kuyruk korunur, attempts artar', async () => {
     const send = vi.fn(async () => { throw new ApiError('network', 'x', true); });
     const out = await flushOutbox([q('A', { adet: 1 })], { send, actor: 'a', onResult: vi.fn(), onDrop: vi.fn() });

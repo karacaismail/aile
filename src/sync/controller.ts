@@ -6,8 +6,8 @@ import { SCHEMA_VERSION } from '@shared/schema';
 import { ApiError, callApi } from './api';
 import { getActor, getApiUrl, getAppKey, isApiConfigured } from './config';
 import { loadCache, loadOutbox, saveCache, saveOutbox } from './cache';
-import { backoffMs, flushOutbox, MAX_OUTBOX } from './queue';
-import { applyLocalOp, applyRead, applyServerResult, getState, setState } from './store';
+import { backoffMs, flushOutbox, type QueuedOp } from './queue';
+import { applyLocalOp, applyRead, applyServerResult, getState, recordLabel, setState } from './store';
 
 let refreshing: Promise<void> | null = null;
 let flushing: Promise<void> | null = null;
@@ -15,6 +15,8 @@ let timer: ReturnType<typeof setInterval> | null = null;
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
 let started = false;
 let syncGeneration = 0;
+/** Her kalıcı redde artar; yenileme bunu görürse iyimser etkiyi sunucu gerçeğine döndürmek için bir tam okuma daha yapar. */
+let rejectionGeneration = 0;
 const listeners: Array<{ type: string; fn: () => void; target: 'document' | 'window' }> = [];
 
 export interface ControllerDeps { fetchImpl?: typeof fetch; now?: () => string }
@@ -22,15 +24,16 @@ let deps: ControllerDeps = {};
 export function configureController(d: ControllerDeps) { deps = d; }
 const now = () => (deps.now ? deps.now() : new Date().toISOString());
 
-async function persistOutbox() { await saveOutbox(getState().outbox); }
+/** Kuyruk dosyası bekleyenlerle birlikte reddedilenleri de taşır; red kaydı yeniden yüklemede ve okumada kaybolmaz. */
+async function persistOutbox() { const s = getState(); await saveOutbox([...s.outbox, ...s.rejected]); }
 async function persistCache() {
   const s = getState();
   await saveCache({ items: s.items, settings: s.settings, cash: s.cashSupported ? s.cash : undefined, plan: s.plan, fingerprint: s.fingerprint, savedAt: now(), schemaVersion: SCHEMA_VERSION });
 }
 
 export async function hydrate(): Promise<void> {
-  const [cache, outbox] = await Promise.all([loadCache(), loadOutbox()]);
-  setState({ outbox });
+  const [cache, saved] = await Promise.all([loadCache(), loadOutbox()]);
+  setState({ outbox: saved.filter((q) => !q.rejection), rejected: saved.filter((q) => Boolean(q.rejection)) });
   if (cache && cache.schemaVersion === SCHEMA_VERSION) {
     applyRead({ ok: true, fingerprint: cache.fingerprint ?? '', serverTime: cache.savedAt, schemaVersion: cache.schemaVersion, items: cache.items, settings: cache.settings, cash: cache.cash, plan: cache.plan });
     setState({ lastSync: cache.savedAt });
@@ -40,16 +43,23 @@ export async function hydrate(): Promise<void> {
   if (!isApiConfigured()) setState({ status: 'unconfigured' });
 }
 
+async function readOnce(): Promise<void> {
+  const res = await callApi<ReadResponse>(getApiUrl(), { action: 'read', key: getAppKey(), fingerprint: getState().fingerprint }, { fetchImpl: deps.fetchImpl });
+  if (!res.notModified) { applyRead(res); await persistCache(); }
+  setState({ status: 'synced', lastSync: res.serverTime, lastError: undefined });
+}
+
 export async function refresh(): Promise<void> {
   if (refreshing) return refreshing;
   refreshing = (async () => {
     if (!isApiConfigured()) { setState({ status: 'unconfigured' }); return; }
     setState((s) => ({ status: s.outbox.length ? 'syncing' : 'loading' }));
+    const generation = rejectionGeneration;
     try {
-      const res = await callApi<ReadResponse>(getApiUrl(), { action: 'read', key: getAppKey(), fingerprint: getState().fingerprint }, { fetchImpl: deps.fetchImpl });
-      if (!res.notModified) { applyRead(res); await persistCache(); }
-      setState({ status: 'synced', lastSync: res.serverTime, lastError: undefined });
+      await readOnce();
       await flush();
+      // Bu yenileme sırasında bir işlem kalıcı reddedildiyse iyimser değer listede kalmasın: parmak izi düşürüldü, tam oku.
+      if (rejectionGeneration !== generation) await readOnce();
     } catch (e) {
       const err = e instanceof ApiError ? e : new ApiError('network', String(e), true);
       setState({ status: err.code === 'network' ? 'offline' : err.code === 'config' ? 'unconfigured' : 'error', lastError: err.message });
@@ -68,6 +78,7 @@ function scheduleRetry(attempts: number) {
 
 export async function flush(opts: { keepalive?: boolean } = {}): Promise<void> {
   if (flushing) return flushing;
+  const generation = rejectionGeneration;
   flushing = (async () => {
     // Gönderim sürerken kuyruğa yeni işlem girebilir (ör. art arda iki upsert). Anlık görüntü dışında kalanlar
     // korunur ve aynı turda gönderilir; aksi halde `outbox: remaining` onları sessizce düşürürdü.
@@ -76,39 +87,72 @@ export async function flush(opts: { keepalive?: boolean } = {}): Promise<void> {
       if (!s.outbox.length || !isApiConfigured()) return;
       setState({ status: 'syncing' });
       const url = getApiUrl();
+      const dropped: QueuedOp[] = [];
       const outcome = await flushOutbox(s.outbox, {
         actor: getActor(),
         key: getAppKey(),
         send: (req: BatchRequest) => callApi<BatchResponse>(url, req, { fetchImpl: deps.fetchImpl, keepalive: opts.keepalive }),
         onResult: (op, r) => applyServerResult(op, r),
-        onDrop: (op, err) => { setState({ lastError: `${op.op} ${op.id}: ${err.message}` }); },
+        // Sunucu bu işlemi kalıcı reddetti: kuyruktan çıkar ama atma. Kayıt adı red anında (iyimser satır hâlâ yerelde) alınır.
+        onDrop: (op, err) => {
+          const cur = getState();
+          const source = s.outbox.find((q) => q.op.opId === op.opId);
+          const label = recordLabel(cur, op.table, op.id, op.op === 'upsert' ? op.patch : undefined);
+          dropped.push({ op, ts: source?.ts ?? now(), attempts: source?.attempts ?? 0, rejection: { at: now(), code: err.code, message: err.message, label } });
+        },
       });
+      if (dropped.length) rejectionGeneration += 1;
       const sent = new Set(s.outbox.map((q) => q.op.opId));
-      const added = getState().outbox.filter((q) => !sent.has(q.op.opId));
-      setState({ outbox: [...outcome.remaining, ...added], status: outcome.error ? (outcome.error.code === 'network' ? 'offline' : 'error') : 'synced', lastError: outcome.error?.message });
+      setState((cur) => ({
+        outbox: [...outcome.remaining, ...cur.outbox.filter((q) => !sent.has(q.op.opId))],
+        rejected: [...cur.rejected, ...dropped],
+        status: outcome.error ? (outcome.error.code === 'network' ? 'offline' : 'error') : 'synced',
+        lastError: outcome.error?.message,
+        // Reddedilen işlemin iyimser etkisi listede "kaydedilmiş" gibi kalmasın: bir sonraki okuma tam okuma olur.
+        ...(dropped.length ? { fingerprint: undefined } : {}),
+      }));
       await persistOutbox();
       await persistCache();
       if (outcome.error) {
         if (outcome.error.retryable) scheduleRetry(Math.max(1, ...outcome.remaining.map((q) => q.attempts)));
         return;
       }
-      if (!added.length) return;
+      if (getState().outbox.length === outcome.remaining.length) return;
     }
-  })().finally(() => { flushing = null; });
+  })().finally(() => {
+    flushing = null;
+    // Kendi başına çağrılan gönderimde (enqueue/yeniden dene) red olduysa listeyi sunucu gerçeğine döndür; yenileme içindeysek o yapar.
+    if (rejectionGeneration !== generation && !refreshing) void refresh();
+  });
   return flushing;
 }
 
 export function enqueue(op: Op): void {
   const ts = now();
   applyLocalOp(op, ts);
-  setState((s) => {
-    const outbox = [...s.outbox, { op, ts, attempts: 0 }];
-    if (outbox.length > MAX_OUTBOX) outbox.splice(0, outbox.length - MAX_OUTBOX);
-    return { outbox };
-  });
+  // Kuyruk sınırsızdır: hiçbir bekleyen işlem atılmaz. Olağandan uzun kuyruğu arayüz `OUTBOX_WARN` ile bildirir.
+  setState((s) => ({ outbox: [...s.outbox, { op, ts, attempts: 0 }] }));
   void persistOutbox();
   void persistCache();
   void flush();
+}
+
+/** Reddedilen işlemi aynı opId ile kuyruğa geri koyar ve gönderir; yeniden reddedilirse yine listelenir (otomatik döngü yok). */
+export async function retryRejected(opId: string): Promise<void> {
+  const entry = getState().rejected.find((q) => q.op.opId === opId);
+  if (!entry) return;
+  const { rejection: _rejection, ...queued } = entry;
+  setState((s) => ({ rejected: s.rejected.filter((q) => q.op.opId !== opId), outbox: [...s.outbox, { ...queued, attempts: 0 }] }));
+  applyLocalOp(entry.op, entry.ts);
+  await persistOutbox();
+  await persistCache();
+  await flush();
+}
+
+/** Kullanıcının bilerek vazgeçtiği reddi siler; yalnız onaylı arayüz eyleminden çağrılır. */
+export async function discardRejected(opId: string): Promise<void> {
+  setState((s) => ({ rejected: s.rejected.filter((q) => q.op.opId !== opId) }));
+  await persistOutbox();
 }
 
 export function upsert(table: Op['table'], id: string | undefined, patch: Rec): string {
