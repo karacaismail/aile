@@ -427,17 +427,17 @@ test('compact steps show every explanation immediately without a disclosure butt
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
     const layout = await purchase.evaluate(el => {
       const context = el.querySelector('.timeline-step-context')!.getBoundingClientRect();
-      const balances = el.querySelector('.timeline-balances')!.getBoundingClientRect();
+      const balances = el.querySelector('.timeline-account-state')!.getBoundingClientRect();
       const details = el.querySelector('.timeline-details')!;
       const bounds = details.getBoundingClientRect();
-      return { gap: bounds.top - Math.max(context.bottom, balances.bottom), padding: getComputedStyle(details).paddingTop, hidden: !!details.closest('[inert], [aria-hidden="true"]'), aligned: Math.abs(context.top - balances.top) < 1 };
+      return { gap: bounds.top - Math.max(context.bottom, balances.bottom), padding: getComputedStyle(details).paddingTop, hidden: !!details.closest('[inert], [aria-hidden="true"]'), factsFirst: context.bottom <= balances.top };
     });
     // DOMRect subtraction can differ by sub-pixel floating-point noise in Firefox.
     expect(Math.round(layout.gap * 64) / 64, 'notes follow the content without a large empty panel').toBeLessThanOrEqual(8);
     expect(layout.gap).toBeGreaterThanOrEqual(0);
     expect(layout.padding).toBe('0px');
     expect(layout.hidden).toBe(false);
-    if (size.width === 1440) expect(layout.aligned, 'event and balances share the top row').toBe(true);
+    expect(layout.factsFirst, 'purchase facts precede the separate all-account section').toBe(true);
   }
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.evaluate(() => window.scrollTo(0, 0));
@@ -652,11 +652,74 @@ test('purchase groups keep Sheet categories, chronological dates and balances in
   expect(await after.evaluate(el=>({outline:getComputedStyle(el).outlineStyle,decoration:getComputedStyle(el).textDecorationLine}))).toEqual({outline:'none',decoration:'underline'});
   await expect(page.getByRole('article')).toHaveCount(1);
   await page.getByRole('tab',{name:'Tablo',exact:true}).click();
-  await expect(page.getByRole('row',{name:/Yatak/}).locator('time')).toHaveAttribute('datetime','2098-12-01');
+  await expect(page.getByRole('row',{name:/Yatak/}).locator('td').first().locator('time')).toHaveAttribute('datetime','2098-12-01');
   await expect(summary).toHaveText(totals,{useInnerText:true});
   await page.setViewportSize({width:320,height:740});
   await page.evaluate(()=>document.documentElement.style.fontSize='200%');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
   expect((await new AxeBuilder({page}).include('.timeline-page').analyze()).violations.map(v=>v.id)).toEqual([]);
   expect(feeds).toEqual(['_Finans web','_Finans web']);
+});
+
+test('purchase cards answer amount, date and payment before account balances in both views', async ({ page, browserName }, testInfo) => {
+  const table=syntheticTimeline();
+  table.rows[2][5]='Kredi kartı · Denizbank';
+  table.rows[2][4]='Ölçüye uygun modüler koltuk takımı ve uzun açıklamalı berjer';
+  table.rows[2][14]='Alışverişin tamamı borca eklenir; ödeme ekstre adımlarında. Taksit: 6';
+  table.rows[5][3]='Alışveriş · Taşınma öncesi'; table.rows[5][4]='Abonelik açma ve taşıma'; table.rows[5][5]='Nakit · Nakit';
+  const requests:string[]=[];
+  await page.route('**/gviz/tq?*',route=>{requests.push(route.request().url());return route.fulfill({contentType:'application/json',body:timelineResponse(route.request().url(),table)});});
+  await page.setViewportSize({width:320,height:740});
+  await page.goto('/aile/#/timeline');
+  await page.getByRole('button',{name:'Alışveriş',exact:true}).click();
+  await page.getByRole('button',{name:'Tüm dönemde göster',exact:true}).click();
+  const card=page.getByRole('article',{name:/3\. adım/}), cash=page.getByRole('article',{name:/6\. adım/});
+  const facts=card.getByRole('group', { name: 'Planlanan alım bilgileri' });
+  await expect(facts).toContainText('400 ₺'); await expect(facts).toContainText('11 Kasım 2098'); await expect(facts).toContainText('Denizbank kredi kartı'); await expect(facts).toContainText('6 taksit');
+  await expect(facts).toContainText('Gerçekleşmiş harcama değildir');
+  await expect(facts).not.toContainText('Net nakit etkisi');
+  await expect(cash.getByRole('group', { name: 'Planlanan alım bilgileri' })).toContainText('900 ₺');
+  await expect(cash.getByRole('group', { name: 'Planlanan alım bilgileri' })).toContainText('1 Aralık 2098');
+  await expect(cash.getByRole('group', { name: 'Planlanan alım bilgileri' })).toContainText('Nakit');
+  const accounts=card.getByRole('group',{name:'Alım sonrası · tüm hesaplar'});
+  for(const width of [320,360,375,390,667,768,1440]){
+    await page.setViewportSize({width,height:width===667?375:900});
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+    const factBox=(await facts.boundingBox())!,accountBox=(await accounts.boundingBox())!;
+    expect(factBox.y+factBox.height).toBeLessThanOrEqual(accountBox.y+1);
+    expect(await card.locator('*').evaluateAll(els=>els.filter(el=>el.textContent?.trim()&&el.getBoundingClientRect().width>0&&parseFloat(getComputedStyle(el).fontSize)<14).length)).toBe(0);
+    if(width===320||width===1440){await card.screenshot({path:testInfo.outputPath(`purchase-card-${browserName}-${width}.png`)});}
+  }
+  expect((await new AxeBuilder({page}).include('.timeline-page').analyze()).violations.map(v=>v.id)).toEqual([]);
+  const expected=await facts.innerText();
+  const tab=page.getByRole('tab',{name:'Tablo',exact:true});
+  await page.getByRole('tab',{name:'Zaman akışı',exact:true}).focus();
+  await page.keyboard.press('ArrowRight'); await expect(tab).toBeFocused(); await expect(tab).toHaveAttribute('aria-selected','true');
+  const row=page.getByRole('row',{name:/Ölçüye uygun modüler/});
+  await expect(row.getByRole('group', { name: 'Planlanan alım bilgileri' })).toHaveText(expected,{useInnerText:true});
+  await expect(row.locator('[data-balance="cardDebt"]')).toHaveText('500 ₺');
+  await page.setViewportSize({width:320,height:740});
+  await page.emulateMedia({reducedMotion:'reduce'});
+  await page.evaluate(()=>document.documentElement.style.fontSize='200%');
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+  expect(requests).toHaveLength(2);
+});
+
+test('weekly cash tutoring states cash in hand and shows zero new overdraft without hiding account debt', async ({page},testInfo)=>{
+  const table=syntheticTimeline();
+  Object.assign(table.rows[2],{0:'week-0-etut-1',3:'Nakit hareketi',4:'Etüt (Abla)',5:'Kullanıcı teyidi · her cuma akşamı',6:-420,9:580,10:100});
+  await page.route('**/gviz/tq?*',route=>route.fulfill({contentType:'application/json',body:timelineResponse(route.request().url(),table)}));
+  await page.setViewportSize({width:320,height:740});await page.goto('/aile/#/timeline');
+  await page.getByRole('button',{name:'Ödemeler',exact:true}).click();
+  const step=page.getByRole('article',{name:'3. adım · Etüt (Abla)'});
+  await expect(step).toContainText('Elden nakit · Her cuma akşamı');
+  await expect(step.getByRole('group', { name: 'Planlanan nakit ödeme bilgileri' })).toContainText('420 ₺');
+  await expect(step).toContainText('Bu adımda yeni KMH kullanımı: 0 ₺');
+  await expect(step).not.toContainText('Net nakit etkisi');
+  await expect(step.getByRole('group',{name:'Adım sonrası · tüm hesaplar'})).toContainText('100 ₺');
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+  await step.screenshot({path:testInfo.outputPath('weekly-cash-320.png')});
+  await page.getByRole('tab',{name:'Tablo',exact:true}).click();
+  await expect(page.getByRole('row',{name:/Etüt/})).toContainText('Elden nakit · Her cuma akşamı');
+  await expect(page.getByRole('row',{name:/Etüt/})).toContainText('Bu adımda yeni KMH kullanımı: 0 ₺');
 });

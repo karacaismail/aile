@@ -152,3 +152,43 @@ it('filters before/after moving purchases chronologically in both views without 
   expect(screen.getAllByRole('row')[1]).toHaveTextContent('Yatak');
   expect(within(groups).getByRole('button',{name:'Taşınma sonrası'})).toHaveAttribute('aria-pressed','true');
 });
+
+it('puts purchase amount, date and payment before all-account balances in flow and table, using unfiltered predecessors', () => {
+  const data = buildFinance(syntheticLongFinance());
+  const cash = data.events[2], card = data.events[5];
+  Object.assign(cash, {type:'Alışveriş · Taşınma öncesi',title:'Örnek abonelik',cashChange:-375,source:'Nakit · Nakit · Planlanan alım.'});
+  Object.assign(card, {type:'Alışveriş · Taşınma öncesi',title:'Örnek mobilya',denizPrincipal:4920.5,cashChange:0,source:'Kredi kartı · Denizbank · Planlanan alım. Taksit: 6'});
+  vi.mocked(useFinance).mockReturnValue({data,loading:false,error:null,updatedAt:null,refresh:vi.fn()});
+  mount(); fireEvent.click(screen.getByRole('button',{name:'Alışveriş'}));
+  const assertFacts = (container: HTMLElement, amount: string, date: string, method: string) => {
+    const facts=within(container).getByRole('group', { name: 'Planlanan alım bilgileri' });
+    expect(facts).toHaveTextContent(amount);expect(facts).toHaveTextContent(date);expect(facts).toHaveTextContent(method);
+    expect(within(container).queryByText('Net nakit etkisi')).not.toBeInTheDocument();
+  };
+  const cardStep=screen.getByRole('article',{name:'6. adım · Örnek mobilya'});
+  assertFacts(cardStep,'4.720,5 ₺','6 Ocak 2098','Denizbank kredi kartı');
+  expect(cardStep).toHaveTextContent('6 taksit');
+  const facts=within(cardStep).getByRole('group', { name: 'Planlanan alım bilgileri' });
+  const balances=within(cardStep).getByRole('group',{name:'Alım sonrası · tüm hesaplar'});
+  expect(facts.compareDocumentPosition(balances)&Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(balances).toHaveTextContent('İki kartın gelecek ekstrelerdeki taksit toplamı');
+  assertFacts(screen.getByRole('article',{name:'3. adım · Örnek abonelik'}),'375 ₺','3 Ocak 2098','Nakit');
+  fireEvent.click(screen.getByRole('tab',{name:'Tablo'}));
+  const tableRows=screen.getAllByRole('row');
+  assertFacts(tableRows[1],'375 ₺','3 Ocak 2098','Nakit');
+  assertFacts(tableRows[2],'4.720,5 ₺','6 Ocak 2098','Denizbank kredi kartı');
+});
+
+it('explains weekly tutoring as cash in hand and separates any incremental overdraft from the expense', () => {
+  const data = buildFinance(syntheticFinance());
+  Object.assign(data.events[1],{id:'week-0-etut-1',date:'2098-01-03',type:'Nakit hareketi',title:'Etüt (Abla)',cashChange:-420,source:'Kullanıcı teyidi · her cuma akşamı',kmhPrincipal:125});
+  vi.mocked(useFinance).mockReturnValue({data,loading:false,error:null,updatedAt:null,refresh:vi.fn()});
+  mount();
+  const card=screen.getByRole('article',{name:'2. adım · Etüt (Abla)'});
+  expect(card).toHaveTextContent('Elden nakit · Her cuma akşamı');
+  expect(card).toHaveTextContent('Planlanan ödeme420 ₺');
+  expect(card).toHaveTextContent('Bu adımda yeni KMH kullanımı: 75 ₺');
+  expect(within(card).queryByText('Net nakit etkisi')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('tab',{name:'Tablo'}));
+  expect(screen.getByRole('row',{name:/Etüt/})).toHaveTextContent('Elden nakit · Her cuma akşamı');
+});

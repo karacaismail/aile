@@ -50,3 +50,32 @@ Tüm dönemde göster mevcut alım grubunu ve Akış/Tablo görünümünü koruy
 kronolojiyi açar. Filtreler parasal hesap yapmaz. Ek veri isteği yoktur.
 Dar ekranda üç grup seçeneği sarılarak görünür kalır. Boş durum seçili grubu adlandırır.
 `purchase groups` tarayıcı testi bu yolu ve iki finans isteği sınırını denetler.
+
+## Alım kartı bilgileri
+
+Alım kartında sıralama: eşya adı → planlanan alım tutarı, tarihi, ödeme yöntemi →
+kasaya/karta etkisi → ayrı açık yüzeyde bütün hesapların adım sonrası bakiyeleri.
+Akış ve Tablo aynı `PurchaseSummary` bileşenini kullanır. Planlanan tarih,
+gerçekleşme veya teslim tarihi olarak etiketlenmez. Gelecek taksit alanı açıkça
+iki kartın bütün taksitli alımlarının toplamıdır; ürüne ait taksit tutarı değildir.
+
+`purchase.ts`, doğrulanmış tam defterde birbirini izleyen kayıtları karşılaştırır.
+Native motor tek alım olayında alım bedelinin tamamını seçili kartın anaparasına
+ekler; faiz/vergi ayrı alandadır. Kart alım bedeli yalnız bu anapara farkıdır;
+nakit alımda bedel negatif nakit hareketinin mutlak değeridir. Kaynak alanının
+`Kredi kartı · {banka}` veya `Nakit · Nakit` etiketiyle hareketin uyuşması gerekir.
+Taksit sayısı yalnız kaynakta açık `Taksit: N` alanı varsa gösterilir. Yöntem,
+karşılaştırma veya tek işlem hareketi belirsizse bedel sıfır diye gösterilmez.
+Karşılaştırma filtrelenmiş görünümdeki önceki kartla yapılmaz; tam defterdeki
+hemen önceki olay kullanılır. Hesaplar, şema, Sheet formülleri ve iki istekli
+SHA doğrulaması değişmez; ek okuma ve finansman hesabı yapılmaz.
+
+Regresyon: `purchase.test.ts`, `TimelinePage.test.tsx` ve `purchase cards answer`
+E2E; kuruş, nakit/kart ayrımı, yanlış banka, karışık hareket, eksik bilgi,
+filtreleme, iki görünümde eşit içerik, 320–1440 px ve metin büyütme.
+
+Haftalık etüt: native `week-N-etut-N` kimliği, nakit hareketi ve açık cuma
+kaynağı birlikte bulunursa kartta “Elden nakit · Her cuma akşamı” gösterilir.
+Ödeme tutarı defterdeki nakit çıkışıdır. Yeni KMH kullanımı, önceki tam defter
+kaydıyla anapara artışı kadardır; mevcut borç veya eksi nakit etiketi yeni kaynak
+sayılmaz. Her zaman görünen hesap bakiyeleri ve koşullu plan niteliği korunur.

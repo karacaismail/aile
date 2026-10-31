@@ -89,3 +89,11 @@ başlıktan tahmin etmeyin. Kategori hücrelerinin native güncellik korumasın�
 SHA kapsamını koruyun. Alım filtresi ek ağ isteği oluşturmaz; bakiyeler tam defterindir.
 Üç alım grubu dar ekranda sarılarak görünür kalır. Sözleşme docs/TIMELINE.md;
 Node purchase-groups.test.mjs ve E2E `purchase groups` kapıları zorunludur.
+
+Timeline alım kartları: ürünün tutarı/tarihi/ödeme yöntemi önce, tüm hesapların
+bakiyeleri sonra ayrı açık yüzeyde görünür. Alım kartında masaüstünde de bu sıra
+korunur; eski işlem–bakiye yan yana düzeni bu kartlar için geçerli değildir.
+`purchase.ts` yalnız doğrulanmış tam defterin ardışık olaylarını ve açık ödeme
+kaynağını kullanır; filtrelenmiş komşuyu, toplam borcu veya toplam gelecek taksiti
+ürün fiyatı saymaz. Bilinmeyen bilgiye sıfır veya tahmini kart atama. Şema ve
+finansman planı UI değişikliğinde korunur; kaynak açıklaması sürekli açıktır.

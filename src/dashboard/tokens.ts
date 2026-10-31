@@ -27,6 +27,7 @@ export const tokens = {
   timelineIconSize: '20px', timelineSurface: '#F0F5F7', timelineSummaryRadius: '12px',
   timelineSidebarWidth: '18rem', timelineHeadingGap: '12px', timelineHeroSurface: '#EAF3EF',
   timelineStickyInset: '16px', timelineStepSurface: '#F0F4F7', timelineStepRadius: '12px',
+  timelinePurchaseFactWidth: '11rem', timelineAccountSurface: '#FFFFFF',
   timelineOverviewSurface: '#1B3E55', timelineOverviewMuted: '#C9DBE7', timelineOverviewNegative: '#FFC4BB',
   timelinePanelRadius: '16px',
   timelineTableDateWidth: '9rem', timelineTableEventWidth: '20rem', timelineTableAmountWidth: '10rem',

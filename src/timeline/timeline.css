@@ -112,7 +112,8 @@ html[data-keyboard='true'] .budget-app .timeline-table-scroll:focus-visible { te
   .timeline-day ol { border-left: var(--budget-ruleWidth) solid var(--budget-line); padding-left: var(--budget-timelineRailInset); position: relative; }
   .timeline-day ol::before { content: ''; position: absolute; width: var(--budget-timelineDotSize); height: var(--budget-timelineDotSize); background: var(--budget-blue); left: calc(var(--budget-timelineDotSize) / -2); top: var(--budget-spacing); border-radius: 50%; }
   .timeline-step article { grid-template-columns: var(--budget-timelineRowColumns); gap: var(--budget-spaceTight) var(--budget-spacing); align-items: start; }
-  .timeline-balances { grid-column: 2; grid-row: 1; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .timeline-account-state { grid-column: 2; grid-row: 1; }
+  .timeline-purchase-step :is(.timeline-step-context, .timeline-account-state) { grid-column: 1 / -1; grid-row: auto; }
 }
 .timeline-model-note { margin-block: var(--budget-spaceSmall); color: var(--budget-muted); }
 .timeline-model-notes { display: grid; gap: var(--budget-spaceDense); padding: var(--budget-spaceSmall); margin-block: var(--budget-spaceSmall); background: var(--budget-blueSurface); border-radius: var(--budget-radius); color: var(--budget-muted); }
@@ -121,3 +122,23 @@ html[data-keyboard='true'] .budget-app .timeline-table-scroll:focus-visible { te
 .timeline-secondary-balances { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--budget-timelineMetricWidth)), 1fr)); gap: var(--budget-spaceTight); margin: 0; }
 .timeline-secondary-balances > div { min-width: 0; }
 .timeline-secondary-balances dd { margin: 0; color: var(--budget-ink); font-variant-numeric: tabular-nums; font-weight: var(--budget-labelWeight); }
+
+/* Item facts lead; the separate account surface always describes the full ledger. */
+.timeline-purchase-step h3 { font-size: var(--budget-fontMetric); line-height: var(--budget-lineCompact); margin-block: var(--budget-spaceSmall); }
+.timeline-purchase-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--budget-timelinePurchaseFactWidth)), 1fr)); gap: var(--budget-spaceSmall) var(--budget-spacing); margin: var(--budget-spaceSmall) 0; align-items: start; }
+.timeline-purchase-facts > div { min-width: 0; }
+.timeline-purchase-facts dt { color: var(--budget-muted); }
+.timeline-purchase-facts dd { margin: var(--budget-spaceDense) 0 0; color: var(--budget-ink); font-size: var(--budget-fontSection); font-weight: var(--budget-headingWeight); font-variant-numeric: tabular-nums; }
+.timeline-purchase-amount dd { font-size: var(--budget-fontPayment); line-height: var(--budget-lineCompact); letter-spacing: var(--budget-metricTracking); }
+.timeline-purchase-terms { display: block; font-size: var(--budget-fontSmall); font-weight: var(--budget-labelWeight); margin-top: var(--budget-spaceDense); }
+.timeline-purchase-impact { color: var(--budget-ink); }
+.timeline-purchase-status { color: var(--budget-muted); margin-top: var(--budget-spaceDense) !important; }
+.timeline-account-state { min-width: 0; padding: var(--budget-spaceSmall); background: var(--budget-timelineAccountSurface); border-radius: var(--budget-radius); display: grid; gap: var(--budget-spaceSmall); }
+.timeline-account-state h4 { margin: 0; font-size: var(--budget-fontSmall); line-height: var(--budget-lineBody); font-weight: var(--budget-headingWeight); color: var(--budget-ink); }
+.timeline-account-state .timeline-balances { grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--budget-timelineMetricWidth)), 1fr)); }
+.timeline-future-instalments { color: var(--budget-muted); font-size: var(--budget-fontSmall); }
+.timeline-future-instalments strong { font-weight: var(--budget-labelWeight); }
+.timeline-table-event .timeline-purchase-facts { grid-template-columns: minmax(0, 1fr); }
+.timeline-table-note .timeline-future-instalments { margin-bottom: var(--budget-spaceSmall); }
+
+.timeline-purchase-amount .timeline-missing { font-size: var(--budget-fontSmall); font-weight: var(--budget-labelWeight); letter-spacing: normal; }
