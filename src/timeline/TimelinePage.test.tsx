@@ -123,3 +123,32 @@ it('preserves source cents and excludes internal transfers from the income filte
   expect(screen.queryByRole('article')).not.toBeInTheDocument();
   expect(screen.getByText(/gelir adımı yok/)).toBeVisible();
 });
+
+it('filters before/after moving purchases chronologically in both views without changing balances', () => {
+  const data = buildFinance(syntheticLongFinance());
+  data.events[2].type = 'Alışveriş · Taşınma öncesi'; data.events[2].title = 'Koltuk siparişi';
+  data.events[4].type = 'Kart alışverişi'; data.events[4].title = 'Elektrik faturası';
+  data.events[28].type = 'Alışveriş · Taşınma sonrası'; data.events[28].title = 'Yatak';
+  // A before-moving category can be scheduled later: never infer the group from its date.
+  data.events[30].type = 'Alışveriş · Taşınma öncesi'; data.events[30].title = 'Perde';
+  vi.mocked(useFinance).mockReturnValue({ data, loading:false, error:null, updatedAt:null, refresh:vi.fn() });
+  mount(); selectPeriod('all');
+  const summary = screen.getByRole('region', {name:'Tüm dönem özeti'}).textContent;
+  fireEvent.click(screen.getByRole('button', {name:'Alışveriş'}));
+  expect(screen.getAllByRole('article')).toHaveLength(3);
+  const groups=screen.getByRole('group',{name:'Alım grubu'});
+  fireEvent.click(within(groups).getByRole('button',{name:'Taşınma öncesi'}));
+  expect(screen.getAllByRole('article').map(el=>el.getAttribute('aria-label'))).toEqual(['3. adım · Koltuk siparişi','31. adım · Perde']);
+  expect(screen.getByRole('region',{name:'Tüm dönem özeti'}).textContent).toBe(summary);
+  fireEvent.click(screen.getByRole('tab',{name:'Tablo'}));
+  expect(screen.getAllByRole('row').slice(1).map(el=>el.querySelector('time')?.dateTime)).toEqual(['2098-01-03','2098-02-03']);
+  fireEvent.click(within(groups).getByRole('button',{name:'Taşınma sonrası'}));
+  expect(screen.getAllByRole('row')).toHaveLength(2);
+  expect(screen.getAllByRole('row')[1]).toHaveTextContent('Yatak');
+  selectPeriod('2098-01');
+  expect(screen.queryByRole('table')).not.toBeInTheDocument();
+  expect(screen.getByText('Bu dönemde taşınma sonrası alımı yok.')).toBeVisible();
+  fireEvent.click(screen.getByRole('button',{name:'Tüm dönemde göster'}));
+  expect(screen.getAllByRole('row')[1]).toHaveTextContent('Yatak');
+  expect(within(groups).getByRole('button',{name:'Taşınma sonrası'})).toHaveAttribute('aria-pressed','true');
+});

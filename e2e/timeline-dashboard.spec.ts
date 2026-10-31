@@ -608,3 +608,55 @@ test('compact journey preserves readability, focus, dropdown state and responsiv
   await page.emulateMedia({ reducedMotion: 'reduce' });
   expect(await previous.evaluate(element => getComputedStyle(element).transitionDuration)).toBe('0s');
 });
+
+test('purchase groups keep Sheet categories, chronological dates and balances in flow and table', async ({ page, browserName }, testInfo) => {
+  const table = syntheticTimeline();
+  table.rows[2][3] = 'Alışveriş · Taşınma öncesi'; table.rows[2][4] = 'Ölçüye uygun modüler koltuk takımı';
+  table.rows[5][3] = 'Alışveriş · Taşınma sonrası'; table.rows[5][4] = 'Yatak';
+  table.rows[6][3] = 'Alışveriş · Taşınma öncesi'; table.rows[6][4] = 'İleri tarihe planlanan perde';
+  const feeds: string[] = [];
+  await page.route('**/gviz/tq?*', route => {
+    feeds.push(new URL(route.request().url()).searchParams.get('sheet')!);
+    return route.fulfill({contentType:'application/json',body:timelineResponse(route.request().url(),table)});
+  });
+  await page.setViewportSize({width:320,height:740});
+  await page.goto('/aile/#/timeline');
+  await page.getByRole('button',{name:'Alışveriş',exact:true}).click();
+  const groups=page.getByRole('group',{name:'Alım grubu'});
+  await expect(groups).toBeVisible();
+  await page.getByRole('button',{name:'Tüm dönemde göster',exact:true}).click();
+  const summary=page.getByRole('region',{name:'Tüm dönem özeti'}),totals=await summary.innerText();
+  await groups.getByRole('button',{name:'Taşınma öncesi',exact:true}).click();
+  await expect(page.getByRole('article')).toHaveCount(2);
+  expect(await page.locator('.timeline-day-heading time').evaluateAll(els=>els.map(el=>el.getAttribute('datetime')))).toEqual(['2098-11-11','2098-12-10']);
+  await expect(summary).toHaveText(totals,{useInnerText:true});
+  await expect(page.getByText(/Sıra planlanan alım tarihidir/)).toBeVisible();
+  for(const width of [320,360,375,390,667,768,1440]){
+    await page.setViewportSize({width,height:900});
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+    for(const button of await groups.getByRole('button').all()){
+      const box=(await button.boundingBox())!, groupBox=(await groups.boundingBox())!;
+      // Firefox reports fractional layout coordinates a few millionths below 44.
+      expect(Math.round(box.height * 1000) / 1000).toBeGreaterThanOrEqual(44);
+      expect(box.x+box.width).toBeLessThanOrEqual(groupBox.x+groupBox.width+1);
+      expect(await button.evaluate(el=>parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(14);
+    }
+    if(width===320||width===1440)await page.screenshot({path:testInfo.outputPath(`purchase-groups-${width}.png`),fullPage:true});
+  }
+  await groups.getByRole('button',{name:'Taşınma öncesi',exact:true}).focus();
+  await page.keyboard.press(browserName==='webkit'?'Alt+Tab':'Tab');
+  const after=groups.getByRole('button',{name:'Taşınma sonrası',exact:true});
+  await expect(after).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(after).toHaveAttribute('aria-pressed','true');
+  expect(await after.evaluate(el=>({outline:getComputedStyle(el).outlineStyle,decoration:getComputedStyle(el).textDecorationLine}))).toEqual({outline:'none',decoration:'underline'});
+  await expect(page.getByRole('article')).toHaveCount(1);
+  await page.getByRole('tab',{name:'Tablo',exact:true}).click();
+  await expect(page.getByRole('row',{name:/Yatak/}).locator('time')).toHaveAttribute('datetime','2098-12-01');
+  await expect(summary).toHaveText(totals,{useInnerText:true});
+  await page.setViewportSize({width:320,height:740});
+  await page.evaluate(()=>document.documentElement.style.fontSize='200%');
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+  expect((await new AxeBuilder({page}).include('.timeline-page').analyze()).violations.map(v=>v.id)).toEqual([]);
+  expect(feeds).toEqual(['_Finans web','_Finans web']);
+});

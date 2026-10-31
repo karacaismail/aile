@@ -82,3 +82,10 @@ Phosphor ikonları kurulu 2.1.10 sürümünün desteklediği `@phosphor-icons/re
 Bütçe bütünlük kapısı: native metadata → seçili şemanın zorunlu verileri → aynı metadata. İki kaynak guard'ı ve üretim parmak izi doğrulanmadan rakam yayınlanmaz. Aynı fazda ağ ve bütünlük hatası gelirse bilinen bütünlük hatası önceliklidir; kullanılmayan başka şema aralıkları bu karara katılmaz. Typed bütünlük hatasında eski tutarlar ve güncelleme zamanı kaldırılır. Tutarlar en fazla iki ondalıkla gösterilir; bir kuruş mutabakat hatası reddedilir. `fetchBudget.test.ts`, `useBudget.test.tsx`, `VehiclePage.test.tsx` ve bütçe/araç E2E kapıları bunu korur.
 
 İlk veri önceliği: 320×740 görünümünde Pano ve Finansman'ın ilk tutarı ilk ekranda kalır. Kısa plan/koşullu hesap niteliği sonuçların önünde, tam kaynak ve kapsam açıklamaları sonuçların ardından sürekli açık tutulur. Araç bütçe etkisinde de tablo tam açıklamadan önce gelir. Açıklamaları silmeyin veya yeni Ayrıntı düğmesi arkasına taşımayın. Bütçe/Finansman E2E ilk tutarın görünüm sınırını denetler.
+
+Timeline alım grupları: Arızi Giderler C/P kaynağı native Tür alanına taşınır;
+nakit ve kart alımları aynı kimlikle eşleşir. Alım kategorisini tarihten veya
+başlıktan tahmin etmeyin. Kategori hücrelerinin native güncellik korumasını ve
+SHA kapsamını koruyun. Alım filtresi ek ağ isteği oluşturmaz; bakiyeler tam defterindir.
+Üç alım grubu dar ekranda sarılarak görünür kalır. Sözleşme docs/TIMELINE.md;
+Node purchase-groups.test.mjs ve E2E `purchase groups` kapıları zorunludur.

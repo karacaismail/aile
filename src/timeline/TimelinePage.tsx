@@ -31,8 +31,10 @@ const journeyFilters = [
 ] as const;
 type JourneyFilter = typeof journeyFilters[number]['id'];
 const matchesFilter = (event: FinanceEvent, filter: JourneyFilter) => filter === 'all' ||
-  (filter === 'payment' && event.cashChange < 0) || (filter === 'purchase' && ['Alışveriş', 'Kart alışverişi'].includes(event.type)) ||
+  (filter === 'payment' && event.cashChange < 0) || (filter === 'purchase' && (event.type === 'Alışveriş' || event.type.startsWith('Alışveriş · '))) ||
   (filter === 'income' && event.type === 'Gelir');
+const purchaseGroups = [{ id: 'all', label: 'Tüm alımlar' }, { id: 'before', label: 'Taşınma öncesi' }, { id: 'after', label: 'Taşınma sonrası' }] as const;
+type PurchaseGroup = typeof purchaseGroups[number]['id'];
 function MonthArrow({ next = false }: { next?: boolean }) {
   return <svg className="timeline-arrow" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8"><path d={next ? 'M9 5l7 7-7 7' : 'M15 5l-7 7 7 7'} /></svg>;
 }
@@ -106,17 +108,18 @@ function TimelineJourney({ data }: { data: FinanceLedger }) {
   const months = data.months.map(month => month.month);
   const [selection, setSelection] = useState('');
   const [view, setView] = useState<string | null>('timeline');
+  const [purchaseGroup, setPurchaseGroup] = useState<PurchaseGroup>('all');
   const [filter, setFilter] = useState<JourneyFilter>('all');
   const [pageSelection, setPageSelection] = useState({ scope: '', page: 0 });
   const changeSelection = (next: string) => { setSelection(next); setPageSelection({ scope: next, page: 0 }); };
   const selected = selection === 'all' || months.includes(selection) ? selection : months[0];
   const events = data.events.filter(event => selected === 'all' || event.date.startsWith(selected));
-  const filteredEvents = events.filter(event => matchesFilter(event, filter));
-  const pageScope = `${selected}:${filter}`;
+  const filteredEvents = events.filter(event => matchesFilter(event, filter) && (filter !== 'purchase' || purchaseGroup === 'all' || event.type === `Alışveriş · ${purchaseGroup === 'before' ? 'Taşınma öncesi' : 'Taşınma sonrası'}`));
+  const pageScope = `${selected}:${filter}:${purchaseGroup}`;
   const page = Math.max(0, Math.min(pageSelection.scope === pageScope ? pageSelection.page : 0, Math.floor((filteredEvents.length - 1) / stepsPerPage)));
   const pageEvents = filteredEvents.slice(page * stepsPerPage, (page + 1) * stepsPerPage);
   // A fresh copy of the same ledger must not collapse an already visible page.
-  const renderScope = JSON.stringify([selected, filter, page, view, pageEvents.map(event => event.id)]);
+  const renderScope = JSON.stringify([selected, filter, purchaseGroup, page, view, pageEvents.map(event => event.id)]);
   const visibleCount = useVisibleStepCount(renderScope, pageEvents.length);
   const visibleEvents = pageEvents.slice(0, visibleCount);
   const rendering = visibleCount < pageEvents.length;
@@ -151,9 +154,14 @@ function TimelineJourney({ data }: { data: FinanceLedger }) {
     <section className="timeline-flow" aria-label="Ödeme akışı">
     <Tabs value={view} onChange={setView} keepMounted={false} unstyled className="timeline-views">
     <div className="timeline-flow-heading"><div><div className="timeline-flow-meta"><p className="timeline-flow-label">Ödeme akışı</p><span className="timeline-step-count">{events.length} adım</span></div><h2>{scope}</h2></div><Tabs.List aria-label="Takvim görünümü" className="timeline-view-switch"><Tabs.Tab value="timeline" aria-label="Zaman akışı">Akış</Tabs.Tab><Tabs.Tab value="table">Tablo</Tabs.Tab></Tabs.List></div>
-    <div className="timeline-filters" role="group" aria-label="Adımları filtrele">{journeyFilters.map(item => <button key={item.id} type="button" aria-pressed={filter === item.id} onClick={() => { setFilter(item.id); setPageSelection({ scope: `${selected}:${item.id}`, page: 0 }); }}>{item.label}</button>)}</div>
+    <div className="timeline-filters" role="group" aria-label="Adımları filtrele">{journeyFilters.map(item => <button key={item.id} type="button" aria-pressed={filter === item.id} onClick={() => { setFilter(item.id); setPageSelection({ scope: `${selected}:${item.id}:${purchaseGroup}`, page: 0 }); }}>{item.label}</button>)}</div>
+    {filter === 'purchase' && <>
+      <div className="timeline-filters timeline-purchase-filters" role="group" aria-label="Alım grubu">{purchaseGroups.map(item => <button key={item.id} type="button" aria-pressed={purchaseGroup === item.id} onClick={() => { setPurchaseGroup(item.id); setPageSelection({ scope: `${selected}:${filter}:${item.id}`, page: 0 }); }}>{item.label}</button>)}</div>
+      <p className="timeline-filter-note">Eşya ve taşınma giderleri, e-tablodaki kategorilerine göre ayrılır. Sıra planlanan alım tarihidir; teslimat tarihi değildir.</p>
+      {selected !== 'all' && <button className="quiet-button" onClick={() => changeSelection('all')}>Tüm dönemde göster</button>}
+    </>}
     {filter !== 'all' && <p className="timeline-filter-note" role="status">{filteredEvents.length} / {events.length} adım gösteriliyor. Bakiyeler tüm işlemleri içerir.</p>}
-    {filteredEvents.length === 0 && <div className="timeline-empty"><h3>Bu dönemde {filter === 'purchase' ? 'alışveriş' : filter === 'payment' ? 'ödeme' : 'gelir'} adımı yok.</h3><p>Başka bir ay seçebilir veya tüm adımları görüntüleyebilirsin.</p></div>}
+    {filteredEvents.length === 0 && <div className="timeline-empty"><h3>Bu dönemde {filter === 'purchase' ? purchaseGroup === 'all' ? 'alışveriş adımı' : purchaseGroup === 'before' ? 'taşınma öncesi alımı' : 'taşınma sonrası alımı' : filter === 'payment' ? 'ödeme adımı' : 'gelir adımı'} yok.</h3><p>Başka bir ay seçebilir veya tüm adımları görüntüleyebilirsin.</p></div>}
     {filteredEvents.length > stepsPerPage && <StepPages position="üst" page={page} count={filteredEvents.length} onChange={changePage} />}
     <Tabs.Panel value="timeline" aria-busy={rendering}><div className="timeline-journey" aria-label="Kronolojik ödeme adımları">
       {[...dates].map(([date, day]) => <section className="timeline-day" key={date} aria-labelledby={`timeline-date-${date}`}><DayHeading date={date} count={day.length} /><ol>{day.map(event => <EventStep key={event.id} event={event} number={eventNumbers.get(event.id)!} />)}</ol></section>)}

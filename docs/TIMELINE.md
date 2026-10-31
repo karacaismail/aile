@@ -31,3 +31,22 @@ Doğrulanmış snapshot yalnız bellekte 60 saniyelik tazelikle tutulur. İki ro
 Kapılar kaynak tutarlılığı, aynı bakiyenin iki sunumu, sıcak rota paylaşımı, eski kaynakta tutarların kaldırılması, hareket/odak, 320–1440 px, büyütülmüş metin ve tablo kaydırmasını kapsar. Fiziksel Safari/iOS/Android testi ile Playwright motor emülasyonu ayrı raporlanır. Gerçek finans verisi public fixture’a konmaz.
 
 `/aile/timeline`, `/aile/timeline/` ve `/aile/timeline/index.html` girişleri `/aile/#/timeline` adresine döner; eski `#/pano` parçası bu girişte rota seçimini değiştirmez.
+
+## Taşınma alımları
+
+Alışveriş filtresindeki Tüm alımlar / Taşınma öncesi / Taşınma sonrası grubu,
+`Arızi Giderler` C kategorisi ile P sabit kimliğinden üretilir. Motorun
+`candidate-{kimlik}` ve `{kimlik}-{parça}` nakit/kart alımları aynı eşlemeyi kullanır.
+`finance-sync/purchase-groups.mjs`, günlük defterin Tür alanına `Alışveriş`,
+`Alışveriş · Taşınma öncesi` veya `Alışveriş · Taşınma sonrası` yayınlar.
+Bu alan mevcut SHA-256 aktarım kapsamındadır; kategori hücreleri de native
+kaynak korumasına dahildir. Kategori tarihten, başlıktan veya banka adından türetilmez.
+Diğer kategoriler yalnız Tüm alımlar içinde kalır; fatura ve kart geri ödemeleri
+alım gruplarına girmez. Öncesi kategorisindeki ileri tarihli alım kendi tarihinde kalır.
+
+Tarihler planlanan alım tarihidir; teslimat/gerçekleşme kanıtı değildir. Takvime henüz
+alınamayan kayıt için sahte tarih veya adım üretilmez. Ay seçimi korunur;
+Tüm dönemde göster mevcut alım grubunu ve Akış/Tablo görünümünü koruyarak bütün
+kronolojiyi açar. Filtreler parasal hesap yapmaz. Ek veri isteği yoktur.
+Dar ekranda üç grup seçeneği sarılarak görünür kalır. Boş durum seçili grubu adlandırır.
+`purchase groups` tarayıcı testi bu yolu ve iki finans isteği sınırını denetler.

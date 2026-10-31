@@ -964,6 +964,23 @@ var __finance = (() => {
     return { result, ledger: final, modelInput, currentInput: adapted, currentLedger, currentMonthly };
   }
 
+  // finance-sync/purchase-groups.mjs
+  function purchaseGroupTypes(rows) {
+    const categories = /* @__PURE__ */ new Map();
+    for (const row of rows) {
+      const key2 = value(row?.[15]);
+      if (!key2) continue;
+      if (categories.has(key2)) throw new Error("Duplicate purchase identity");
+      const category = String(value(row[2]) ?? "").trim();
+      categories.set(key2, category === "Ta\u015F\u0131nmadan \xF6nce" ? "Al\u0131\u015Fveri\u015F \xB7 Ta\u015F\u0131nma \xF6ncesi" : category === "Ta\u015F\u0131nma sonras\u0131 E\u015Fya yenileme" ? "Al\u0131\u015Fveri\u015F \xB7 Ta\u015F\u0131nma sonras\u0131" : "Al\u0131\u015Fveri\u015F");
+    }
+    return (event) => {
+      if (!["cash", "purchase"].includes(event.type)) return void 0;
+      const key2 = event.id.startsWith("candidate-") ? event.id.slice(10) : event.id.replace(/-\d+$/, "");
+      return categories.get(key2);
+    };
+  }
+
   // finance-sync/native-finance.mjs
   var MONTH_HEADERS = ["Ay", "Nakit", "KMH anapara", "KMH faiz + vergi", "Kart borcu", "Gelecek taksit", "Birikimde kalan", "Net nakit ve bor\xE7", "Fon eksi\u011Fi"];
   var DAY_HEADERS = ["Tarih", "Ad\u0131m", "T\xFCr", "Nakit de\u011Fi\u015Fimi", "Gerekli bakiye", "Harcanabilir nakit", "KMH anapara", "KMH faiz + vergi", "Denizbank anapara", "Denizbank faiz + vergi", "\u0130\u015Fbank anapara", "\u0130\u015Fbank faiz + vergi", "Gelecek taksit taahh\xFCd\xFC", "Toplam kart borcu", "Fon eksi\u011Fi", "Kesinlik", "Kaynak", "ID"];
@@ -1086,7 +1103,9 @@ var __finance = (() => {
     for (const row of [2, 5, 6, 7, 8, 12, 13, 14, 15, 16, 17, 21, 22, 23, 24, 25, 26, 27, 28, 32, 33, 37, 38, 39, 43, 44, 45, 46, 47]) ranges.push(["Plan", row - 1, row, 2, 16]);
     const usedKeys = new Set(grid2(source, "_Ta\u015F\u0131nma ak\u0131\u015F\u0131").slice(100, 196).map((r) => value(r?.[0])).filter(Boolean));
     grid2(source, "Ar\u0131zi Giderler").forEach((row, index) => {
-      if (index >= 4 && usedKeys.has(value(row?.[15]))) for (const col of [0, 15]) ranges.push(["Ar\u0131zi Giderler", index, index + 1, col, col + 1]);
+      const key2 = value(row?.[15]);
+      if (index < 4 || !key2) return;
+      for (const col of usedKeys.has(key2) ? [0, 2, 15] : [2]) ranges.push(["Ar\u0131zi Giderler", index, index + 1, col, col + 1]);
     });
     for (const [title, r0, r1, c0, c1] of ranges) {
       const rows = grid2(source, title);
@@ -1176,6 +1195,7 @@ var __finance = (() => {
     let previous = finite2(facts.openingCash) - finite2(facts.overdraft.openingUsedPrincipal);
     const seen = /* @__PURE__ */ new Set();
     let previousDate = "";
+    const purchaseType = purchaseGroupTypes(grid2(source, "Ar\u0131zi Giderler").slice(4));
     const typeLabels = { opening: "Ba\u015Flang\u0131\xE7", "reserve-transfer": "Birikimden aktar\u0131m", cash: "Nakit hareketi", purchase: "Kart al\u0131\u015Fveri\u015Fi", "card-payment": "Kart \xF6demesi", statement: "Hesap kesimi", "month-end": "Ay sonu" };
     ledger.ledger.forEach((r, i) => {
       error(typeof r.id === "string" && r.id && !seen.has(r.id), "Duplicate or missing ledger ID");
@@ -1189,7 +1209,7 @@ var __finance = (() => {
       const cardTotal = finite2(r.cardDebt);
       error(Math.abs(cardTotal - dn.committedPrincipal - dn.charges - isb.committedPrincipal - isb.charges) <= 1e-6, "Card debt mismatch");
       const certainty = r.sourceDateStatus === "Tarih varsay\u0131m\u0131" ? "\xD6deme g\xFCn\xFC bilinmiyor \xB7 ay ba\u015F\u0131 b\xFCt\xE7e rezervi" : r.type === "reserve-transfer" ? "Teyitli kaynak \xB7 aktar\u0131m plan\u0131" : `Ko\u015Fullu hesap \xB7 ${r.sourceDateStatus ?? "planlanan hesap g\xFCn\xFC"}`;
-      const row = [r.date, r.label ?? (r.bank ? `${r.bank} \xB7 ${typeLabels[r.type] ?? r.type}` : typeLabels[r.type] ?? r.id), r.executionKind === "budget-reservation" ? "B\xFCt\xE7e ay\u0131rma" : r.type === "cash" && r.sourceType === "Gelir" ? "Gelir" : typeLabels[r.type] ?? r.type, delta, signed, finite2(r.cash), finite2(r.overdraftPrincipal), finite2(r.overdraftAccruedCost), finite2(dn.committedPrincipal), finite2(dn.charges), finite2(isb.committedPrincipal), finite2(isb.charges), finite2(dn.futureInstallmentPrincipal + isb.futureInstallmentPrincipal), cardTotal, finite2(r.unfundedCash), certainty, [r.source ?? "Finansman motoru", r.sourceNote ?? ""].filter(Boolean).join(" \xB7 "), r.id];
+      const row = [r.date, r.label ?? (r.bank ? `${r.bank} \xB7 ${typeLabels[r.type] ?? r.type}` : typeLabels[r.type] ?? r.id), purchaseType(r) ?? (r.executionKind === "budget-reservation" ? "B\xFCt\xE7e ay\u0131rma" : r.type === "cash" && r.sourceType === "Gelir" ? "Gelir" : typeLabels[r.type] ?? r.type), delta, signed, finite2(r.cash), finite2(r.overdraftPrincipal), finite2(r.overdraftAccruedCost), finite2(dn.committedPrincipal), finite2(dn.charges), finite2(isb.committedPrincipal), finite2(isb.charges), finite2(dn.futureInstallmentPrincipal + isb.futureInstallmentPrincipal), cardTotal, finite2(r.unfundedCash), certainty, [r.source ?? "Finansman motoru", r.sourceNote ?? ""].filter(Boolean).join(" \xB7 "), r.id];
       for (const c of [5, 6, 7, 8, 9, 10, 11, 12, 13, 14]) error(row[c] >= 0, "Negative asset/principal/cost");
       row.forEach((v, c) => output(i + 43, c, v));
     });
@@ -2258,7 +2278,7 @@ var __finance = (() => {
   }
 
   // gas/finance/main.mjs
-  var ENGINE_REV = true ? "b1484d85ff7ed3f63deddbaf031c1bbb178924f62ee5e3fba520a5e29a0fd8ce" : "development";
+  var ENGINE_REV = true ? "ce87406117843f68024487236ca5cbddfb49ff9c01b99b37661b6ce441f2ce5e" : "development";
   var properties = () => PropertiesService.getScriptProperties();
   var stateStore = () => new DurableStateStore({ properties: properties(), utilities: Utilities });
   var sheetRepository = () => new FinanceSheetRepository({

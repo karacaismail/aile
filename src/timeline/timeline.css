@@ -53,6 +53,8 @@ html[data-keyboard='true'] .budget-app .timeline-table-scroll:focus-visible { te
 .timeline-table-note .timeline-payment-dates { display: grid; }
 .timeline-filters { overflow-x: auto; margin-top: var(--budget-spaceSmall); }
 .timeline-filters button { flex-shrink: 0; padding-inline: var(--budget-spaceSmall); }
+.timeline-purchase-filters { display: flex; flex-wrap: wrap; }
+.timeline-purchase-filters button { flex: 1 1 auto; white-space: normal; }
 .timeline-filter-note { color: var(--budget-muted); margin-top: var(--budget-spaceSmall) !important; }
 .timeline-empty { padding-block: var(--budget-spaceWide); color: var(--budget-muted); }
 .timeline-empty h3 { margin-top: 0; color: var(--budget-ink); font-size: var(--budget-fontSection); }
