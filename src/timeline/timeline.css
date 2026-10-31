@@ -48,7 +48,6 @@ html[data-keyboard='true'] .budget-app .timeline-table-scroll:focus-visible { te
 .timeline-table-date > span { display: block; margin-top: var(--budget-spaceDense); }
 .timeline-table-event { min-width: var(--budget-timelineTableEventWidth); }
 .timeline-table-title { display: block; margin-block: var(--budget-spaceDense); font-size: var(--budget-fontSection); }
-.timeline-table .timeline-effect { display: grid; gap: var(--budget-spaceDense); }
 .timeline-table-note, .timeline-table th:last-child { min-width: var(--budget-timelineTableNoteWidth); }
 .timeline-table-note .timeline-payment-dates { display: grid; }
 .timeline-filters { overflow-x: auto; margin-top: var(--budget-spaceSmall); }
@@ -77,16 +76,19 @@ html[data-keyboard='true'] .budget-app .timeline-table-scroll:focus-visible { te
 .timeline-kind[data-kind='Gelir'] { color: var(--budget-green); }
 .timeline-kind[data-kind='Kart ödemesi'] { color: var(--budget-blue); }
 .timeline-assumption { color: var(--budget-amber); }
-.timeline-effect { display: flex; flex-wrap: wrap; gap: var(--budget-spaceDense) var(--budget-spaceSmall); }
-.timeline-change { display: inline-flex; flex-wrap: wrap; gap: var(--budget-spaceDense); color: var(--budget-muted); }
-.timeline-change strong { font-weight: var(--budget-labelWeight); font-variant-numeric: tabular-nums; }
-.timeline-change[data-tone='inflow'] strong { color: var(--budget-green); }
-.timeline-change[data-tone='outflow'] strong { color: var(--budget-red); }
-.timeline-change[data-tone='neutral'] strong { color: var(--budget-blue); }
+/* Scale follows the reading-order contract (data-step-part): this step's amount, then balances after it, then per-bank rows. */
+.timeline-step-facts .timeline-purchase-facts { margin: var(--budget-spaceTight) 0 0; }
+.timeline-step-facts .timeline-purchase-amount { grid-column: auto; }
+[data-step-part='facts'].timeline-step-facts .timeline-purchase-amount dd { font-size: var(--budget-fontMetric); }
+[data-step-part='after'] :is(.timeline-balances, .timeline-net-position) dd { font-size: var(--budget-fontSection); }
+[data-step-part='accounts'] dd { font-size: var(--budget-fontSmall); }
+.timeline-change[data-tone='inflow'] { color: var(--budget-green); }
+.timeline-change[data-tone='outflow'] { color: var(--budget-red); }
+.timeline-change[data-tone='neutral'] { color: var(--budget-blue); }
 .timeline-balances { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--budget-timelinePurchaseFactWidth)), 1fr)); gap: var(--budget-spaceSmall) var(--budget-spacing); margin: 0; align-content: start; min-width: 0; }
 .timeline-balances div { min-width: 0; }
 .timeline-balances dt { color: var(--budget-muted); }
-.timeline-balances dd { margin: var(--budget-spaceDense) 0 0; font-variant-numeric: tabular-nums; font-weight: var(--budget-headingWeight); font-size: var(--budget-fontMetric); }
+.timeline-balances dd { margin: var(--budget-spaceDense) 0 0; font-variant-numeric: tabular-nums; font-weight: var(--budget-headingWeight); }
 .timeline-details { grid-column: 1 / -1; min-width: 0; display: grid; gap: var(--budget-spaceDense); color: var(--budget-muted); }
 .timeline-details p { max-width: var(--budget-timelineReadingWidth); }
 .timeline-payment-dates { display: flex; flex-wrap: wrap; gap: var(--budget-spaceDense) var(--budget-spacing); }
@@ -130,7 +132,7 @@ html[data-keyboard='true'] .budget-app .timeline-table-scroll:focus-visible { te
 .timeline-account-state h4, .timeline-bank-group h5 { margin: 0; font-size: var(--budget-fontSmall); line-height: var(--budget-lineBody); font-weight: var(--budget-headingWeight); color: var(--budget-ink); }
 .timeline-net-position { margin: 0; color: var(--budget-muted); }
 .timeline-net-position > div { display: flex; flex-wrap: wrap; gap: var(--budget-spaceDense) var(--budget-spaceTight); }
-.timeline-net-position dd { margin: 0; color: var(--budget-ink); font-variant-numeric: tabular-nums; }
+.timeline-net-position dd { margin: 0; color: var(--budget-ink); font-variant-numeric: tabular-nums; font-weight: var(--budget-labelWeight); }
 .timeline-account-breakdown { display: grid; gap: var(--budget-spaceTight); }
 .timeline-bank-group { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--budget-spaceDense) var(--budget-spacing); }
 .timeline-bank-group h5 { flex: 1 1 var(--budget-timelinePurchaseFactWidth); font-weight: var(--budget-labelWeight); }

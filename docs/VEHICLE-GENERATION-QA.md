@@ -18,7 +18,7 @@
 | Önce başarısız davranış testi | PASS | Eski model bazlı galeri yıl değişiminde aynı `src` kaldığı için başarısızdı. Hilux fiyat/kasa ve yeniden yükleme regresyonları da önce başarısız oldu. |
 | `pnpm typecheck` | PASS | TypeScript kontrolü |
 | `pnpm test` | PASS | 35 dosyada 318 test |
-| `pnpm e2e:dashboard` | PASS | 45 test; Chromium, Firefox, WebKit |
+| `pnpm e2e:dashboard` | PASS | 45 test; Chromium, Firefox, WebKit (tarihî kayıt; 2026-10-31 kararından sonra matris yalnız Chromium ve WebKit) |
 | `pnpm build` | PASS | Üretim çıktısı; önceden var olan büyük ECharts/LegacyApp parça uyarısı sürüyor |
 | Görsel kaynak izolasyonu | PASS | 2017 ön → 2026 ön → 2025 aynı ön → 2025 arka → 2015 arka akışında tam dört benzersiz fotoğraf isteği; bütün galeri indirilmez |
 | Yıl sınırları / geçiş yılı / eksik açı | PASS | 2015/2017/2020/2026 Corolla ayrı dönem; 2025/2026 aynı dönem; 2016 açık seçim; eksik kabinde önceki fotoğraf yok |

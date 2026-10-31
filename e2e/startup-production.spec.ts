@@ -39,7 +39,7 @@ test('initial HTML stays readable while application JavaScript and CSS are delay
     const text = startup.getByRole('status');
     expect(await text.evaluate(el => parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(14);
     expect(await text.evaluate(el => getComputedStyle(el).fontFamily)).toContain('Outfit');
-    // Firefox/WebKit screenshot capture waits for blocked navigation resources.
+    // WebKit screenshot capture waits for blocked navigation resources.
     // Keep all layout/semantics checks on each engine; capture this pending state in Chromium.
     if (browserName === 'chromium') await page.screenshot({ path: testInfo.outputPath('html-startup-desktop.png') });
     await page.setViewportSize({ width: 320, height: 740 });

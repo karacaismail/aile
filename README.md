@@ -16,7 +16,7 @@ pnpm install
 pnpm dev        # http://127.0.0.1:5174/aile/
 pnpm test       # Vitest
 pnpm e2e        # Playwright (320×480, 320×568, iPhone 12 WebKit)
-pnpm e2e:dashboard # Chromium, Firefox, WebKit; yeni bütçe/araç ekranları
+pnpm e2e:dashboard # Chromium ve WebKit; yeni bütçe/araç ekranları (Firefox yalnız açık talimatla)
 pnpm build
 ```
 

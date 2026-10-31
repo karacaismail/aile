@@ -7,7 +7,6 @@ export default defineConfig({
   use: { baseURL: 'http://127.0.0.1:5177/aile/', serviceWorkers: 'allow', trace: 'retain-on-failure' },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-    { name: 'firefox', testMatch: /(?:startup|update)-production\.spec\.ts$/, use: { ...devices['Desktop Firefox'] } },
     { name: 'webkit', testMatch: /(?:startup|update)-production\.spec\.ts$/, use: { ...devices['Desktop Safari'] } },
   ],
   // Build first. This isolated preview does not restart the user's 5176 preview.

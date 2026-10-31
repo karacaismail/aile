@@ -57,7 +57,11 @@ Alım kartında sıralama: eşya adı → planlanan alım tutarı, tarihi, ödem
 kasaya/karta etkisi → aynı kartta adım sonrası nakit ve toplam kart borcu →
 banka bazında eşlenmiş anapara ve faiz/vergi → kaynak ve koşullar.
 İç içe ikinci bir hesap kutusu yoktur; bütün açıklamalar açık kalır.
-Akış ve Tablo aynı `PurchaseSummary` bileşenini kullanır. Planlanan tarih,
+Kart parçaları `src/timeline/StepCard.tsx` içindedir ve `data-step-part`
+(identity → facts → after → accounts → source) tek okuma sırası sözleşmesidir; düz
+adımlar da aynı `StepFacts` grubunu (`Adım bilgileri`: net nakit etkisi + tarih) kullanır
+ve Tablo görünümü hücrelerinde aynı parçalar tekrarlanır (tarih sütunu ile birlikte).
+Akış ve Tablo aynı alım bilgileri bileşenini kullanır. Planlanan tarih,
 gerçekleşme veya teslim tarihi olarak etiketlenmez. Gelecek taksit alanı açıkça
 iki kartın bütün taksitli alımlarının toplamıdır; ürüne ait taksit tutarı değildir.
 

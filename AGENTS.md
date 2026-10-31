@@ -18,7 +18,7 @@ Bu Git deposu `site/` klasörüdür. Üst klasördeki e-tablo yedekleri, kullan�
 - React 19, Mantine 9.7, TypeScript, Vite 8 korunur. ECharts 6 kullanımı kullanıcının açık talebidir. Modül yazarları için eski bağımlılık/mimari kısıtları bu kapsam dışındaki değişikliklerde geçerlidir.
 
 ## UI sözleşmesi
-- Uygulama sürümü değiştiğinde `UpdateNotice` yeni sürümü açma eylemini gösterir; kaydedilmemiş girdiyi otomatik sayfa yenilemesiyle silmez. Service worker kaydı bir kez kurulur; pencereye dönüşte güncelleme kontrol edilir. Gerçek worker geçişi `e2e/update-production.spec.ts` ile üç motorda denetlenir. Yeni bildirimi içermeyen eski açık JS, bildirimin ilk yayını için bir kez yeniden açılmalıdır.
+- Uygulama sürümü değiştiğinde `UpdateNotice` yeni sürümü açma eylemini gösterir; kaydedilmemiş girdiyi otomatik sayfa yenilemesiyle silmez. Service worker kaydı bir kez kurulur; pencereye dönüşte güncelleme kontrol edilir. Gerçek worker geçişi `e2e/update-production.spec.ts` ile Chromium ve WebKit'te denetlenir. Yeni bildirimi içermeyen eski açık JS, bildirimin ilk yayını için bir kez yeniden açılmalıdır.
 - Outfit, en az 14 CSS px; kullanıcı kök boyutu korunur. Renk, tipografi, boşluk, yüzey ve hareket için `src/dashboard/tokens.ts` ve ortak CSS kullanılır.
 - 320 px önce gelir. Tablonun okunabilir sütun minimumu korunur, yalnız kendi kapsayıcısı kayar. Kelime ortası bölünmez.
 - Mantine custom Select; açık/kapalı/hover/seçili durumlar markalı ve kontrastlıdır. Native select kullanılmaz. Panel viewporta göre fixed konumlanır; dropdown ve sticky katmanları ortak tokenlardan gelir. Alt bölümlerden modele dönüp seçim yapma akışı CI regresyonudur.
@@ -35,8 +35,9 @@ Bu Git deposu `site/` klasörüdür. Üst klasördeki e-tablo yedekleri, kullan�
 
 ## Gerçek kontrol komutları
 `pnpm typecheck`, `pnpm test`, `pnpm e2e:dashboard`, `pnpm build`.
-Timeline hedefli kapısı: `pnpm exec playwright test --config playwright.dashboard.config.ts e2e/timeline-dashboard.spec.ts`. Üç motor, sentetik veri, 320 px başlangıç, adım başına nakit/kart/KMH borcu, kaynak koşulları, geçersiz kaynakta tutarların kaldırılması, odak/motion ve rota kaynak izolasyonu kapsanır. Timeline veri deposu ve ağır arayüz paketi `vite.config.ts` precache dışlamasında kalır; sadece rota ziyaret edildiğinde alınır. Hafif veri içermeyen yükleme kabuğu ortak başlangıç paketindedir.
-Yeni dashboard/finansman E2E: Chromium, Firefox, WebKit, 320–1440, açık menü, dark tercih izolasyonu, klavye, kontrast, tablo kaydırma ve anlık senaryo değişikliği. Eski modül testleri `pnpm e2e` altında kalır. Yeni testleri genel legacy matriste tekrar çoğaltmayın.
+Timeline hedefli kapısı: `pnpm exec playwright test --config playwright.dashboard.config.ts e2e/timeline-dashboard.spec.ts`. Chromium (320 ve 1440) ve WebKit, sentetik veri, 320 px başlangıç, adım başına nakit/kart/KMH borcu, kaynak koşulları, geçersiz kaynakta tutarların kaldırılması, odak/motion ve rota kaynak izolasyonu kapsanır. Timeline veri deposu ve ağır arayüz paketi `vite.config.ts` precache dışlamasında kalır; sadece rota ziyaret edildiğinde alınır. Hafif veri içermeyen yükleme kabuğu ortak başlangıç paketindedir.
+Tarayıcı kapsamı (kullanıcı kararı 2026-10-31): otomatik E2E ve CI yalnız Chrome/Safari ailesini, yani izole Chromium ve WebKit motorlarını çalıştırır; Firefox yalnız açık kullanıcı talimatıyla elle eklenir. `src/browser-matrix.test.ts` Playwright konfigürasyonlarında ve workflow dosyalarında Firefox'u reddeder. Chromium/WebKit sonucu gerçek Chrome/Safari veya fiziksel cihaz testi değildir; eski üç motor kanıtları geçmiş bilgi olarak kalır.
+Yeni dashboard/finansman E2E: Chromium ve WebKit, 320–1440, açık menü, dark tercih izolasyonu, klavye, kontrast, tablo kaydırma ve anlık senaryo değişikliği. Eski modül testleri `pnpm e2e` altında kalır. Yeni testleri genel legacy matriste tekrar çoğaltmayın.
 Önemli değişikliklerde önce başarısız davranış testi, sonra aynı test GREEN. Anlamlı UI/finansal kurallar için bağımsız salt okunur standards-reviewer incelemesi. Ana ajan komutları çalıştırır. CI, ekran okuyucu veya gerçek cihaz koşulmadıysa `not_run` yazın; otomatik axe testi tüm WCAG 2.2 AA uygunluğunu kanıtlamaz.
 
 Kompakt araç düzeninin regresyonu: sekme klavyesi/durum koruma, karar–ayar hizası, açıklama açma/kapama hareketi ve anlık semantik durum, 320–1440 taşma/metin alt sınırı, yatay görünümde giriş/odak koruma, yalnız seçili fotoğraf isteği ve isteğe bağlı grafik. Ekran görüntüleri test çıktısıdır; kendiliğinden onaylanmış piksel baseline değildir.
@@ -75,7 +76,7 @@ Ev planı altındaki hazırlık/ölçü/teklif kayıtları ile finansal alım de
 
 Birleşim kapıları: `pnpm typecheck`, `pnpm test`, `pnpm e2e:dashboard`, `pnpm build`, `pnpm exec playwright test --config playwright.timeline-production.config.ts`; eski yazma akışları için `e2e/flows.spec.ts`, `lighting.spec.ts`, `budget.spec.ts`, `renovation.spec.ts`, `layout-module.spec.ts`. Finans/Sheet kişisel kanıtları depo dışındadır; sentetik fixture kullanın.
 
-İlk HTML açılışı: `src/app/startup.ts` yalnız build sırasında ortak tokenlardan markalı, finans verisi içermeyen kabuk üretir; Vite bunu HTML'e ekler. `src/main.tsx` hafif giriş düzeltmesi + async mount sahibidir. React ve sağlayıcılar `src/app/mount.tsx` içinde, ilgili CSS hazır olduğunda çalışır. JS/CSS gecikmesi boş ekran veya stilsiz uygulama üretmemeli; İlk giriş modülü hiç indirilmese bile HTML içindeki küçük hata dinleyicisi yüklemeyi sonlandırmalı; ağ hatasında kabuk okunabilir hata metniyle kalmalı. Gerçek tarih/tutar, sahte yüzde veya kalıcı finans önbelleği eklemeyin. `e2e/startup-production.spec.ts` production kapısında Chromium/Firefox/WebKit ile geciktirilmiş kaynak, 320–1440, %200 metin, reduced-motion, CSS hazır olma ve başarısız indirmeyi doğrular. WebKit sonucu gerçek Safari/cihaz testi değildir.
+İlk HTML açılışı: `src/app/startup.ts` yalnız build sırasında ortak tokenlardan markalı, finans verisi içermeyen kabuk üretir; Vite bunu HTML'e ekler. `src/main.tsx` hafif giriş düzeltmesi + async mount sahibidir. React ve sağlayıcılar `src/app/mount.tsx` içinde, ilgili CSS hazır olduğunda çalışır. JS/CSS gecikmesi boş ekran veya stilsiz uygulama üretmemeli; İlk giriş modülü hiç indirilmese bile HTML içindeki küçük hata dinleyicisi yüklemeyi sonlandırmalı; ağ hatasında kabuk okunabilir hata metniyle kalmalı. Gerçek tarih/tutar, sahte yüzde veya kalıcı finans önbelleği eklemeyin. `e2e/startup-production.spec.ts` production kapısında Chromium/WebKit ile geciktirilmiş kaynak, 320–1440, %200 metin, reduced-motion, CSS hazır olma ve başarısız indirmeyi doğrular. WebKit sonucu gerçek Safari/cihaz testi değildir.
 
 İlk HTML klavye niyeti: `keyboard.ts` içindeki tek installer build sırasında başlangıç HTML'ine eklenir. Tab/Shift+Tab, React indirilmeden önce de görünür odak modunu açar; React hook mevcut belge modunu sıfırlamaz veya ikinci dinleyici kurmaz. Pointer/touch yalnız görsel modu kapatır; focus blur edilmez. `family-dashboard.spec.ts` mount gecikmesini tutarak erken Tab'ın sonraki gerçek kontrolde alt çizgi olarak kaldığını doğrular.
 
@@ -92,7 +93,15 @@ SHA kapsamını koruyun. Alım filtresi ek ağ isteği oluşturmaz; bakiyeler ta
 Üç alım grubu dar ekranda sarılarak görünür kalır. Sözleşme docs/TIMELINE.md;
 Node purchase-groups.test.mjs ve E2E `purchase groups` kapıları zorunludur.
 
-Timeline işlem kartları: alım ve elden ödeme aynı okuma sırasını kullanır: başlık ve
+Timeline işlem kartları: her adım `src/timeline/StepCard.tsx` parçalarından oluşur;
+`data-step-part="identity|facts|after|accounts|source"` tek okuma sırası sözleşmesidir; ölçek CSS kuralları ve
+regresyon testlerinin sıra/ölçek kontrolleri bu özniteliğe bağlıdır, sınıf adları yerleşim ve eski test kancalarıdır.
+Net nakit konumu adım sonrası bakiyelerle aynı ikinci kademededir. Alım, elden nakit ve düz adımlar aynı
+`StepFacts` grubunu kullanır (düz adımda `Adım bilgileri`: net nakit etkisi + tarih). Görsel ölçek sırayı
+izler: adımın tutarı en büyük rakam, adım sonrası bakiyeler ikinci, banka satırları gövde boyutu; eşit
+ağırlıklı rakam duvarı kurmayın. `StepTable.tsx` aynı parçaları hücrelerde kullanır; ayrı hesap yoktur.
+Eski üst çubuk/alt sekme/yan menü kabuğu kaldırıldı; `src/app/shell` yalnız `Fab` ve `SyncStatus` içerir.
+Alım ve elden ödeme aynı okuma sırasını kullanır: başlık ve
 tutar → kesin tarih / ödeme yöntemi → bu adımın nakit ve borç etkisi → adım sonrası
 harcanabilir nakit / toplam kart borcu → banka bazında borç dağılımı → kaynak ve koşullar.
 İçte ikinci beyaz hesap kartı yoktur. Denizbank, İşbank ve KMH anaparası kendi faiz/vergi

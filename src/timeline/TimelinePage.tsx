@@ -6,10 +6,11 @@ import { financeSheetUrl, type FinanceLedger, type FinanceEvent } from '../finan
 import { dateLabel, monthLabel } from './data';
 import { useFinance } from '../finance/useFinance';
 import { TimelineLoading } from './TimelineLoading';
-import { isPurchase, purchaseDetails, type PurchaseDetails } from './purchase';
+import { isPurchase, purchaseDetails } from './purchase';
+import { StepCard } from './StepCard';
+import { StepTable } from './StepTable';
 import './timeline.css';
 
-const signedMoney = (value: number) => `${value > 0 ? '+' : ''}${money(value)}`;
 const stepsPerPage = 50;
 function useVisibleStepCount(scope: string, total: number) {
   const initial = Math.min(8, total);
@@ -45,104 +46,6 @@ function StepPages({ position, page, count, onChange }: { position: 'üst' | 'al
     <div className="button-row"><button className="quiet-button" disabled={page === 0} onClick={() => onChange(page - 1)}>Önceki adımlar</button><button className="quiet-button" disabled={(page + 1) * stepsPerPage >= count} onClick={() => onChange(page + 1)}>Sonraki adımlar</button></div>
   </nav>;
 }
-function EventDetails({ event }: { event: FinanceEvent }) {
-  return <div className="timeline-details">
-    <p className="timeline-source"><strong className="timeline-source-label">Kaynak ve koşullar</strong>{event.certainty} · {event.source}</p>
-    {event.fundingGap > 0 && <p className="negative">Fon eksiği {money(event.fundingGap)} · Kullanılabilir para değildir.</p>}
-  </div>;
-}
-function EventEffects({ event, previous }: { event: FinanceEvent; previous?: FinanceEvent }) {
-  const weeklyCash = /^week-\d+-etut-\d+$/.test(event.id) && event.type === 'Nakit hareketi' && event.cashChange < 0 && event.source.includes('her cuma akşamı');
-  if (weeklyCash) return <div className="timeline-cash-payment" role="group" aria-label="Planlanan nakit ödeme bilgileri">
-    <dl className="timeline-purchase-facts">
-      <div className="timeline-purchase-amount"><dt>Planlanan ödeme</dt><dd>{money(Math.abs(event.cashChange))}</dd></div>
-      <div><dt>Ödeme tarihi</dt><dd><time dateTime={event.date}>{dateLabel(event.date)}</time></dd></div>
-      <div><dt>Ödeme yöntemi</dt><dd>Elden nakit · Her cuma akşamı</dd></div>
-    </dl>
-    <div className="timeline-immediate-effect"><p><strong>Bu adımda</strong> Kasadan {money(Math.abs(event.cashChange))} çıkar.</p><p>Bu adımda yeni KMH kullanımı: {previous ? money(Math.max(0, Math.round((event.kmhPrincipal - previous.kmhPrincipal) * 100) / 100)) : 'doğrulanamadı'}.</p></div>
-    <p className="timeline-purchase-status">Planlanan işlem · Gerçekleşmiş harcama değildir.</p>
-  </div>;
-  return <div className="timeline-effect"><span className="timeline-change" data-tone={event.cashChange > 0 ? 'inflow' : event.cashChange < 0 ? 'outflow' : 'neutral'}><span>Net nakit etkisi</span> <strong>{signedMoney(event.cashChange)}</strong></span></div>;
-}
-const balanceFields = [
-  ['cash', 'Harcanabilir nakit'], ['cardDebt', 'Toplam kart borcu'],
-  ['requiredBalance', 'Net nakit konumu'], ['kmhPrincipal', 'KMH anaparası'],
-  ['kmhCost', 'KMH faiz + vergi'], ['denizPrincipal', 'Denizbank anapara'],
-  ['denizCost', 'Denizbank faiz + vergi'], ['isPrincipal', 'İşbank anapara'],
-  ['isCost', 'İşbank faiz + vergi'],
-] as const;
-function PurchaseSummary({ event, purchase }: { event: FinanceEvent; purchase: PurchaseDetails | null }) {
-  return <div className="timeline-purchase" role="group" aria-label="Planlanan alım bilgileri">
-    <dl className="timeline-purchase-facts">
-      <div className="timeline-purchase-amount"><dt>Planlanan alım tutarı</dt><dd>{purchase ? money(purchase.amount) : <span className="timeline-missing">Tutar doğrulanamadı</span>}</dd></div>
-      <div><dt>Alım tarihi</dt><dd><time dateTime={event.date}>{dateLabel(event.date)}</time></dd></div>
-      <div><dt>Ödeme yöntemi</dt><dd>{purchase?.method ?? 'Yöntem doğrulanamadı'}{purchase?.instalments && <span className="timeline-purchase-terms">{purchase.instalments === 1 ? 'Tek çekim' : `${purchase.instalments} taksit`}</span>}</dd></div>
-    </dl>
-    {purchase && <div className="timeline-immediate-effect"><p><strong>Bu adımda</strong> {purchase.method === 'Nakit' ? <>Kasadan {money(purchase.amount)} çıkar.</> : <>Kasadan çıkan {money(Math.abs(event.cashChange))} · Karta eklenen {money(purchase.amount)}.</>}</p>{purchase.method !== 'Nakit' && <p>Kasadan ödeme, ekstre ödeme adımlarındadır.</p>}</div>}
-    <p className="timeline-purchase-status">Planlanan işlem · Gerçekleşmiş harcama değildir.</p>
-  </div>;
-}
-function FutureInstalments({ event }: { event: FinanceEvent }) {
-  return <div className="timeline-future-instalments"><p><span>İki kartın gelecek taksitleri</span> <strong>{money(event.futureInstalments)}</strong></p><p>Toplam kart borcuna dahildir; bu adımın ödeme tutarı değildir.</p></div>;
-}
-const accounts = [
-  ['Denizbank kredi kartı', 'denizPrincipal', 'denizCost'],
-  ['İşbank kredi kartı', 'isPrincipal', 'isCost'],
-  ['KMH', 'kmhPrincipal', 'kmhCost'],
-] as const;
-function AccountState({ event, title }: { event: FinanceEvent; title: string }) {
-  return <div className="timeline-account-state" role="group" aria-label={title}>
-    <h4>Adım sonrası</h4>
-    <dl className="timeline-balances" aria-label="Bu adımdan sonraki hesap bakiyesi">
-      {balanceFields.slice(0, 2).map(([key, label]) => <div key={key}><dt>{label}</dt><dd className={event[key] < 0 ? 'negative' : undefined}>{money(event[key])}</dd></div>)}
-    </dl>
-    <dl className="timeline-net-position"><div><dt>Net nakit konumu</dt><dd className={event.requiredBalance < 0 ? 'negative' : undefined}>{money(event.requiredBalance)}</dd></div></dl>
-    <div className="timeline-account-breakdown">
-      <h4>Borç dağılımı</h4>
-      {accounts.map(([name, principal, cost]) => <div className="timeline-bank-group" role="group" aria-label={name} key={name}>
-        <h5>{name}</h5>
-        <dl><div><dt>Anapara</dt><dd>{money(event[principal])}</dd></div><div><dt>Faiz + vergi</dt><dd>{money(event[cost])}</dd></div></dl>
-      </div>)}
-      <FutureInstalments event={event} />
-    </div>
-  </div>;
-}
-function EventStep({ event, number, purchase, previous }: { event: FinanceEvent; number: number; purchase: PurchaseDetails | null; previous?: FinanceEvent }) {
-  const buying = isPurchase(event);
-  const balanceTitle = buying ? 'Alım sonrası · tüm hesaplar' : 'Adım sonrası · tüm hesaplar';
-  return <li className={`timeline-step${buying ? ' timeline-purchase-step' : ''}${['Kontrol', 'Ay sonu'].includes(event.type) ? ' timeline-control' : ''}`}>
-    <article aria-label={`${number}. adım · ${event.title}`}>
-      <div className="timeline-step-context">
-        <p className="timeline-meta"><span className="timeline-kind" data-kind={event.type}>{event.type}</span><span>Adım {number}</span></p>
-        <h3>{event.title}</h3>
-        {buying ? <PurchaseSummary event={event} purchase={purchase} /> : <EventEffects event={event} previous={previous} />}
-      </div>
-      <AccountState event={event} title={balanceTitle} />
-      <EventDetails event={event} />
-    </article>
-  </li>;
-}
-function EventTable({ events, eventNumbers, purchases, allEvents }: { events: FinanceEvent[]; eventNumbers: Map<string, number>; purchases: Map<string, PurchaseDetails | null>; allEvents: FinanceEvent[] }) {
-  return <div className="timeline-table-block">
-    <p className="timeline-table-help">Adım sonrası bakiyeler. Diğer sütunlar için yatay kaydır.</p>
-    <div className="table-scroll timeline-table-scroll" tabIndex={0} role="region" aria-label="Ödeme tablosu; yatay kaydırılabilir" onKeyDown={event => {
-      if (event.target === event.currentTarget && ['ArrowLeft', 'ArrowRight'].includes(event.key)) {
-        event.preventDefault(); event.currentTarget.scrollLeft += event.currentTarget.clientWidth / 2 * (event.key === 'ArrowRight' ? 1 : -1);
-      }
-    }}>
-      <table className="timeline-table" aria-label="Kronolojik ödeme tablosu">
-        <thead><tr><th scope="col">Tarih / adım</th><th scope="col">İşlem ve etkisi</th>{balanceFields.map(([key, label]) => <th scope="col" className="numeric" key={key}>{label}</th>)}<th scope="col">Açıklama / kaynak</th></tr></thead>
-        <tbody>{events.map(event => <tr key={event.id}>
-          <td className="timeline-table-date"><time dateTime={event.date}>{dateLabel(event.date)}</time><span>Adım {eventNumbers.get(event.id)}</span></td>
-          <td className="timeline-table-event"><p className="timeline-meta"><span className="timeline-kind" data-kind={event.type}>{event.type}</span></p><strong className="timeline-table-title">{event.title}</strong>{isPurchase(event) ? <PurchaseSummary event={event} purchase={purchases.get(event.id) ?? null} /> : <EventEffects event={event} previous={allEvents[(eventNumbers.get(event.id) ?? 1) - 2]} />}</td>
-          {balanceFields.map(([key]) => <td className={`numeric${event[key] < 0 ? ' negative' : ''}`} data-balance={key} key={key}>{money(event[key])}</td>)}
-          <td className="timeline-table-note"><FutureInstalments event={event} /><EventDetails event={event} /></td>
-        </tr>)}</tbody>
-      </table>
-    </div>
-  </div>;
-}
-
 function DayHeading({ date, count }: { date: string; count: number }) {
   const value = new Date(`${date}T12:00:00Z`);
   const month = new Intl.DateTimeFormat('tr-TR', { month: 'short', year: 'numeric', timeZone: 'UTC' }).format(value);
@@ -211,9 +114,9 @@ function TimelineJourney({ data }: { data: FinanceLedger }) {
     {filteredEvents.length === 0 && <div className="timeline-empty"><h3>Bu dönemde {filter === 'purchase' ? purchaseGroup === 'all' ? 'alışveriş adımı' : purchaseGroup === 'before' ? 'taşınma öncesi alımı' : 'taşınma sonrası alımı' : filter === 'payment' ? 'ödeme adımı' : 'gelir adımı'} yok.</h3><p>Başka bir ay seçebilir veya tüm adımları görüntüleyebilirsin.</p></div>}
     {filteredEvents.length > stepsPerPage && <StepPages position="üst" page={page} count={filteredEvents.length} onChange={changePage} />}
     <Tabs.Panel value="timeline" aria-busy={rendering}><div className="timeline-journey" aria-label="Kronolojik ödeme adımları">
-      {[...dates].map(([date, day]) => <section className="timeline-day" key={date} aria-labelledby={`timeline-date-${date}`}><DayHeading date={date} count={day.length} /><ol>{day.map(event => <EventStep key={event.id} event={event} number={eventNumbers.get(event.id)!} purchase={purchases.get(event.id) ?? null} previous={data.events[eventNumbers.get(event.id)! - 2]} />)}</ol></section>)}
+      {[...dates].map(([date, day]) => <section className="timeline-day" key={date} aria-labelledby={`timeline-date-${date}`}><DayHeading date={date} count={day.length} /><ol>{day.map(event => <StepCard key={event.id} event={event} number={eventNumbers.get(event.id)!} purchase={purchases.get(event.id) ?? null} previous={data.events[eventNumbers.get(event.id)! - 2]} />)}</ol></section>)}
     </div></Tabs.Panel>
-    <Tabs.Panel value="table" aria-busy={rendering}>{visibleEvents.length > 0 && <EventTable events={visibleEvents} eventNumbers={eventNumbers} purchases={purchases} allEvents={data.events} />}</Tabs.Panel>
+    <Tabs.Panel value="table" aria-busy={rendering}>{visibleEvents.length > 0 && <StepTable events={visibleEvents} eventNumbers={eventNumbers} purchases={purchases} allEvents={data.events} />}</Tabs.Panel>
     {filteredEvents.length > stepsPerPage && <StepPages position="alt" page={page} count={filteredEvents.length} onChange={changePage} />}
     </Tabs>
     </section>

@@ -10,8 +10,8 @@ Veri Google Sheets'te, Apps Script üzerinden; uygulama statik (GitHub Pages). K
 - `pnpm typecheck` · `pnpm vitest run <klasör>` · `pnpm e2e` (Playwright; aynı anda tek örnek — başkası koşuyorsa bekleyin)
 - Bağımlılık eklemeyin (`pnpm add` yok). Her şey mevcut paketlerle yapılır.
 
-## Mimari (dokunulmayacak dosyalar)
-`shared/schema.ts` (sütunlar/enumlar/etiketler, tek kaynak), `src/sync/*` (senkron), `src/theme.ts`, `src/routes.tsx`, `src/app/shell/*`,
+## Mimari (eski modül geliştiricileri için dokunulmayacak dosyalar; aile kabuğu/UX turları bu listeye bağlı değildir)
+`shared/schema.ts` (sütunlar/enumlar/etiketler, tek kaynak), `src/sync/*` (senkron), `src/theme.ts`, `src/routes.tsx`, `src/app/shell/*` (yalnız `Fab` ve `SyncStatus`; eski üst çubuk/alt sekme/yan menü kabuğu kaldırıldı, tek gezinme `src/app/family`),
 `src/modules/purchase/*`. Şema değişikliği gerekiyorsa kod yazmayın, raporlayın.
 
 ## Veri modeli

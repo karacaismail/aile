@@ -732,6 +732,37 @@ test('purchase cards answer amount, date and payment before account balances in 
   expect(requests).toHaveLength(2);
 });
 
+test('every step leads with its amount and date at a larger scale than the balances after it', async ({ page, browserName }, testInfo) => {
+  await mockTimeline(page);
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.goto('/aile/#/timeline');
+  const payment = page.getByRole('article', { name: /4\. adım/ });
+  const facts = payment.getByRole('group', { name: 'Adım bilgileri' });
+  await expect(facts).toContainText('Net nakit etkisi -200 ₺');
+  await expect(facts).toContainText('27 Kasım 2098');
+  for (const width of [320, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    expect(await payment.evaluate(el => [...el.querySelectorAll<HTMLElement>('[data-step-part]')].map(part => part.dataset.stepPart))).toEqual(['identity', 'facts', 'after', 'accounts', 'source']);
+    const scale = await payment.evaluate(el => {
+      const size = (selector: string) => parseFloat(getComputedStyle(el.querySelector(selector)!).fontSize);
+      return { amount: size('[data-step-part="facts"] .timeline-purchase-amount dd'), balance: size('[data-step-part="after"] .timeline-balances dd'), net: size('[data-step-part="after"] .timeline-net-position dd'), bank: size('[data-step-part="accounts"] .timeline-bank-group dd') };
+    });
+    expect(scale.amount, 'the transaction amount is the dominant figure').toBeGreaterThan(scale.balance);
+    expect(scale.net, 'net position belongs to the after-step tier').toBe(scale.balance);
+    expect(scale.balance, 'after-step balances outrank the bank breakdown').toBeGreaterThan(scale.bank);
+    expect(scale.bank).toBeGreaterThanOrEqual(14);
+    const factsBox = (await facts.boundingBox())!, afterBox = (await payment.getByRole('group', { name: 'Adım sonrası · tüm hesaplar' }).boundingBox())!;
+    expect(factsBox.y + factsBox.height).toBeLessThanOrEqual(afterBox.y + 1);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    await payment.screenshot({ path: testInfo.outputPath(`payment-card-${browserName}-${width}.png`) });
+  }
+  await page.getByRole('tab', { name: 'Tablo', exact: true }).click();
+  await expect(page.getByRole('row', { name: /Adım payment/ }).getByRole('group', { name: 'Adım bilgileri' })).toContainText('Net nakit etkisi -200 ₺');
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+});
+
 test('weekly cash tutoring states cash in hand and shows zero new overdraft without hiding account debt', async ({page},testInfo)=>{
   const table=syntheticTimeline();
   Object.assign(table.rows[2],{0:'week-0-etut-1',3:'Nakit hareketi',4:'Etüt (Abla)',5:'Kullanıcı teyidi · her cuma akşamı',6:-420,9:580,10:100});

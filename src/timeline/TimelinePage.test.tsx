@@ -194,6 +194,22 @@ it('explains weekly tutoring as cash in hand and separates any incremental overd
   expect(screen.getByRole('row',{name:/Etüt/})).toHaveTextContent('Elden nakit · Her cuma akşamı');
 });
 
+it('exposes one reading order for every step and states a plain payment amount and date before the balances', () => {
+  vi.mocked(useFinance).mockReturnValue({ data: buildFinance(syntheticFinance()), loading: false, error: null, updatedAt: null, refresh: vi.fn() });
+  mount();
+  const step = screen.getByRole('article', { name: '2. adım · Sentetik ay sonu' });
+  expect([...step.querySelectorAll<HTMLElement>('[data-step-part]')].map(part => part.dataset.stepPart)).toEqual(['identity', 'facts', 'after', 'accounts', 'source']);
+  const facts = within(step).getByRole('group', { name: 'Adım bilgileri' });
+  expect(facts).toHaveTextContent('Net nakit etkisi +550 ₺');
+  expect(facts).toHaveTextContent('31 Ocak 2098');
+  const balances = within(step).getByRole('group', { name: 'Adım sonrası · tüm hesaplar' });
+  expect(facts.compareDocumentPosition(balances) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(within(balances).getByRole('group', { name: 'KMH' }).closest('[data-step-part]')).toHaveAttribute('data-step-part', 'accounts');
+  expect(within(step).getByText('Kaynak ve koşullar').closest('[data-step-part]')).toHaveAttribute('data-step-part', 'source');
+  fireEvent.click(screen.getByRole('tab', { name: 'Tablo' }));
+  expect(within(screen.getByRole('row', { name: /Sentetik ay sonu/ })).getByRole('group', { name: 'Adım bilgileri' })).toHaveTextContent('Net nakit etkisi +550 ₺');
+});
+
 it('gives purchase and cash steps the same reading order and pairs principal with costs by account', () => {
   const data = buildFinance(syntheticLongFinance());
   Object.assign(data.events[2], { type: 'Alışveriş · Taşınma öncesi', title: 'Örnek alım', denizPrincipal: 700, source: 'Kredi kartı · Denizbank · Taksit: 6' });

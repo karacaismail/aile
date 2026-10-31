@@ -6,14 +6,7 @@ import { RenovationModule } from './modules/renovation';
 import { LayoutModule } from './modules/layout';
 import { BudgetModule } from './modules/budget';
 
-export const MODULES = [
-  { key: 'satinalma', path: '/satinalma', label: 'Satınalma' },
-  { key: 'aydinlatma', path: '/aydinlatma', label: 'Aydınlatma' },
-  { key: 'tadilat', path: '/tadilat', label: 'Tadilat' },
-  { key: 'yerlesim', path: '/yerlesim', label: 'Yerleşim' },
-  { key: 'butce', path: '/butce', label: 'Bütçe' },
-] as const;
-
+/** Planner routes only; page labels and navigation live in `app/family/navigation.ts`. */
 export function AppRoutes() {
   return (
     <Switch>
