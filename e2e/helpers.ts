@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import fixture from './fixtures/synthetic.json' with { type: 'json' };
 
 export const FAKE_API = 'https://script.google.com/macros/s/e2e-fake/exec';
@@ -105,6 +105,18 @@ export async function smallTargets(page: Page): Promise<string[]> {
       }
     }
     return out.slice(0, 12);
+  });
+}
+
+/** Metnin hesaplanmış rengi ile arkasındaki ilk saydam olmayan yüzeyin WCAG kontrast oranı. */
+export async function textContrast(locator: Locator): Promise<number> {
+  return locator.evaluate((el) => {
+    const parse = (s: string) => (s.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number);
+    const lum = (rgb: number[]) => rgb.map((v) => v / 255).map((v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)).reduce((sum, c, i) => sum + c * [0.2126, 0.7152, 0.0722][i], 0);
+    let p: Element | null = el; let background = 'rgb(255, 255, 255)';
+    while (p) { const bg = getComputedStyle(p).backgroundColor; if (bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') { background = bg; break; } p = p.parentElement; }
+    const fg = lum(parse(getComputedStyle(el).color)), bg = lum(parse(background));
+    return (Math.max(fg, bg) + 0.05) / (Math.min(fg, bg) + 0.05);
   });
 }
 

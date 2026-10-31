@@ -1,11 +1,10 @@
 import { FormSelect } from '@/components/FormSelect';
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import { ActionIcon, Alert, Button, Group, Modal, NumberInput, Paper, Stack, Text, TextInput, Textarea } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { useMediaQuery } from '@mantine/hooks';
 import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
-import { FloppyDiskIcon } from '@phosphor-icons/react/dist/csr/FloppyDisk';
 import { PlusIcon } from '@phosphor-icons/react/dist/csr/Plus';
 import { TrashIcon } from '@phosphor-icons/react/dist/csr/Trash';
 import { useLocation } from 'wouter';
@@ -16,6 +15,7 @@ import { upsert, remove } from '@/sync/controller';
 import { selectFirstLoad } from '@/data/selectors';
 import { EnumSelect } from '@/components/EnumSelect';
 import { DetailSkeleton } from '@/components/DetailSkeleton';
+import { FormFooter, focusFirstError } from '@/components/FormFooter';
 import { selectLayers } from './data';
 import { formatLevel, layerTitle, parseLevel, sortLayers, type SceneLevel } from './rules';
 import classes from './lighting.module.css';
@@ -81,6 +81,7 @@ function SceneFormBody({ item, onClose }: { item?: Item; onClose: () => void }) 
   const isMobile = useMediaQuery('(max-width: 48em)', true);
   // initialValues yalnız mount'ta okunur; bileşen kayıt kimliğiyle anahtarlandığından sunucu güncellemesi düzenlemeyi ezmez.
   const form = useForm<SceneFormValues>({ mode: 'controlled', initialValues: toSceneForm(item), validate: validateScene });
+  const formRef = useRef<HTMLFormElement>(null);
   const values = form.getValues();
   const layerOptions = useMemo(() => {
     const inRoom = values.oda ? layers.filter((l) => l.oda === values.oda) : [];
@@ -89,7 +90,10 @@ function SceneFormBody({ item, onClose }: { item?: Item; onClose: () => void }) 
   }, [layers, values.oda]);
 
   const save = (v: SceneFormValues) => {
-    upsert('kalemler', item?.id, toScenePatch(v, item));
+    const patch = toScenePatch(v, item);
+    // Kullanıcı hiçbir alanı değiştirmediyse (ya da fark kırpmayla kayboluyorsa) Sheets'e yazılmaz: sürüm/son güncelleyen bozulmaz.
+    if (item && (!form.isDirty() || Object.keys(patch).length <= 1)) { onClose(); return; }
+    upsert('kalemler', item?.id, patch);
     notifications.show({ message: isNew ? 'Sahne eklendi' : 'Kaydedildi', color: 'green', autoClose: 1500 });
     onClose();
   };
@@ -103,9 +107,10 @@ function SceneFormBody({ item, onClose }: { item?: Item; onClose: () => void }) 
   return (
     <Modal opened onClose={onClose} title={isNew ? 'Yeni sahne' : 'Sahne'} fullScreen={isMobile} size="lg"
       closeButtonProps={modalCloseProps} styles={{ body: { paddingBottom: 96 } }}>
-      <form onSubmit={form.onSubmit(save)} noValidate data-testid="scene-form">
+      <form ref={formRef} onSubmit={form.onSubmit(save, (errors) => focusFirstError(formRef.current, errors))} noValidate data-testid="scene-form">
         <Stack gap="sm">
-          <TextInput label="Ad" required autoFocus={isNew} placeholder="ör. Akşam filmi" {...form.getInputProps('ad')} key={form.key('ad')} />
+          {/* Yeni sahnede ilk alan odaklanır (Mantine FocusTrap `data-autofocus`); düzenlemede odak modal başlığında kalır. */}
+          <TextInput label="Ad" required data-autofocus={isNew || undefined} placeholder="ör. Akşam filmi" {...form.getInputProps('ad')} key={form.key('ad')} />
           <EnumSelect label="Oda" field="oda" options={ODA} value={values.oda} onChange={(v) => form.setFieldValue('oda', v)} />
           <EnumSelect label="Tetik" field="tetik" options={TETIK} value={values.tetik} onChange={(v) => form.setFieldValue('tetik', v)} />
           <div>
@@ -114,10 +119,10 @@ function SceneFormBody({ item, onClose }: { item?: Item; onClose: () => void }) 
               {values.seviyeler.map((row, i) => (
                 <Paper key={i} withBorder p="xs" radius="md" data-testid="scene-level-row">
                   <Stack gap={6}>
-                    <FormSelect label={`Katman ${i + 1}`} allowDeselect={false} data={layerOptions} value={row.layerId}
+                    <FormSelect label={`Katman ${i + 1}`} allowDeselect={false} data={layerOptions} value={row.layerId} data-path={`seviyeler.${i}.layerId`}
                       onChange={(value) => form.setFieldValue(`seviyeler.${i}.layerId`, value ?? '')} error={form.errors[`seviyeler.${i}.layerId`]} />
                     <Group gap={6} wrap="nowrap" align="flex-start">
-                      <NumberInput label="Parlaklık %" hideControls inputMode="numeric" min={0} max={100} className={classes.grow}
+                      <NumberInput label="Parlaklık %" hideControls inputMode="numeric" min={0} max={100} className={classes.grow} data-path={`seviyeler.${i}.pct`}
                         value={row.pct ?? ''} onChange={(v) => form.setFieldValue(`seviyeler.${i}.pct`, v === '' ? null : Number(v))} error={form.errors[`seviyeler.${i}.pct`]} />
                       <NumberInput label="CCT (K)" hideControls inputMode="numeric" min={0} className={classes.grow}
                         value={row.cct ?? ''} onChange={(v) => form.setFieldValue(`seviyeler.${i}.cct`, v === '' ? null : Number(v))} />
@@ -132,15 +137,7 @@ function SceneFormBody({ item, onClose }: { item?: Item; onClose: () => void }) 
             </Stack>
           </div>
           <Textarea label="Not" autosize minRows={3} {...form.getInputProps('not')} key={form.key('not')} />
-          <Group justify="space-between" mt="sm" style={{ position: 'sticky', bottom: 0, background: 'var(--mantine-color-body)', paddingTop: 8 }}>
-            {!isNew ? (
-              <Button variant="subtle" color="red" leftSection={<TrashIcon size={18} aria-hidden />} onClick={del}>Sil</Button>
-            ) : <span />}
-            <Group gap="xs">
-              <Button variant="default" onClick={onClose}>Vazgeç</Button>
-              <Button type="submit" leftSection={<FloppyDiskIcon size={18} aria-hidden />}>Kaydet</Button>
-            </Group>
-          </Group>
+          <FormFooter errors={form.errors} onCancel={onClose} onDelete={isNew ? undefined : del} />
         </Stack>
       </form>
     </Modal>

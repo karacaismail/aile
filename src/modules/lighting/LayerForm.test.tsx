@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, userEvent, within } from '@/test-utils/render';
+import { act, render, screen, userEvent, within } from '@/test-utils/render';
 import { Router } from 'wouter';
 import { memoryLocation } from 'wouter/memory-location';
 import type { Item } from '@shared/schema';
@@ -77,6 +77,43 @@ describe('LayerForm', () => {
     const confirm = await screen.findByRole('dialog', { name: 'Katmanı sil?' });
     await userEvent.click(within(confirm).getByRole('button', { name: 'Sil' }));
     expect(remove).toHaveBeenCalledWith('kalemler', 'L1');
+  });
+});
+
+describe('LayerForm: açılış odağı, hata odağı ve değişiklik koruması', () => {
+  // Mantine FocusTrap odağı mount sonrası zamanlayıcıyla taşır; iddia ondan sonra ölçülür.
+  const settle = () => act(() => new Promise<void>((r) => setTimeout(r, 30)));
+  it('yeni katmanda açılış odağı ilk alan olan Katman türü seçicisindedir', async () => {
+    mount('yeni');
+    await settle();
+    expect(screen.getByRole('combobox', { name: /Katman türü/ })).toHaveFocus();
+  });
+  it('doğrulama hatasında odak DOM sırasındaki ilk hatalı alana gider ve hata sayısı duyurulur', async () => {
+    mount('yeni');
+    await settle();
+    await userEvent.click(screen.getByLabelText('Not'));
+    await userEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
+    expect(upsert).not.toHaveBeenCalled();
+    expect(screen.getByRole('combobox', { name: /Katman türü/ })).toHaveFocus();
+    expect(screen.getByRole('status')).toHaveTextContent('1 alan düzeltilmeli');
+    // Oda kuralından gelen hata (köpek) ve zod hatası (lux) birlikte: sayı 2, odak önce gelen Lux max
+    await userEvent.click(screen.getByRole('combobox', { name: /Katman türü/ }));
+    await userEvent.click(screen.getByRole('option', { name: 'Ana' }));
+    await userEvent.type(screen.getByLabelText('Lux min'), '300');
+    await userEvent.type(screen.getByLabelText('Lux max'), '100');
+    await userEvent.click(screen.getByLabelText('Açıkta (şerit/kablo görünür)'));
+    await userEvent.type(screen.getByLabelText('Montaj yüksekliği (cm)'), '30');
+    await userEvent.click(screen.getByLabelText('Not'));
+    await userEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
+    expect(upsert).not.toHaveBeenCalled();
+    expect(screen.getByRole('status')).toHaveTextContent('2 alan düzeltilmeli');
+    expect(screen.getByLabelText('Lux max')).toHaveFocus();
+  });
+  it('var olan katmanda değişiklik yoksa Kaydet Sheets\'e yazmaz ve form kapanır', async () => {
+    const loc = mount('L1');
+    await userEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
+    expect(upsert).not.toHaveBeenCalled();
+    expect(loc.history.at(-1)).toBe('/aydinlatma/salon');
   });
 });
 

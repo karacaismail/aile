@@ -56,6 +56,17 @@ describe('İşler', () => {
     expect(await screen.findByTestId('task-detail')).toBeInTheDocument();
     expect(screen.getByText('Yeni iş')).toBeInTheDocument();
   });
+  it('yeni işte boş Ad ile Kaydet: yazmaz, odak Ad alanına döner, hata sayısı duyurulur', async () => {
+    applyRead(readFull());
+    mount();
+    await userEvent.click(screen.getByTestId('fab'));
+    const form = await screen.findByTestId('task-detail');
+    await userEvent.click(within(form).getByLabelText('Not'));
+    await userEvent.click(within(form).getByRole('button', { name: 'Kaydet' }));
+    expect(upsert).not.toHaveBeenCalled();
+    expect(within(form).getByLabelText(/^Ad\b/)).toHaveFocus();
+    expect(within(form).getByRole('status')).toHaveTextContent('1 alan düzeltilmeli');
+  });
 });
 
 describe('TaskDetail: kayıt zamanlaması', () => {

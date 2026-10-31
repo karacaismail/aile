@@ -12,7 +12,7 @@ import { PriceInput } from '@/components/PriceInput';
 import { formatTl } from '@/lib/price';
 import { todayIso } from '@/lib/dates';
 import { kalemOptions, quickKalems, normKalem } from './rules';
-import { closeExpense, useExpenseTarget, type ExpenseTarget } from './quick';
+import { closeExpense, notifyExpenseSaved, useExpenseTarget, type ExpenseTarget } from './quick';
 import classes from './budget.module.css';
 
 /** Tek örnek, kabukta durur: hangi ekrandan açılırsa açılsın aynı form. */
@@ -60,8 +60,9 @@ function ExpenseForm({ target }: { target: ExpenseTarget }) {
     if (!tutar || tutar <= 0) { setError('Tutar girin'); return; }
     const k = normKalem(kalem);
     if (!k) { setError('Kalem seçin'); return; }
-    upsert('nakit', entry?.id, { tarih, tutar, kalem: k, not: not.trim() || null });
+    const id = upsert('nakit', entry?.id, { tarih, tutar, kalem: k, not: not.trim() || null });
     notifications.show({ message: `${formatTl(tutar)} · ${k}`, color: 'green', autoClose: 1500 });
+    notifyExpenseSaved({ id, tarih });
     closeExpense();
   };
   const del = () => {

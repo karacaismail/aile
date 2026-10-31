@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ActionIcon, Box, Group, Paper, Progress, Stack, Text, Title, UnstyledButton, EmptyState } from '@mantine/core';
 import { CaretLeftIcon } from '@phosphor-icons/react/dist/csr/CaretLeft';
 import { CaretRightIcon } from '@phosphor-icons/react/dist/csr/CaretRight';
@@ -8,7 +8,7 @@ import { Fab } from '@/app/shell/Fab';
 import { formatTl } from '@/lib/price';
 import { formatTr, todayIso } from '@/lib/dates';
 import { monthLabel, monthOf, monthSummary, shiftMonth, type SummaryRow } from './rules';
-import { openExpense } from './quick';
+import { onExpenseSaved, openExpense } from './quick';
 import classes from './budget.module.css';
 
 function pct(actual: number, plan: number): number {
@@ -18,6 +18,8 @@ function pct(actual: number, plan: number): number {
 
 export function BudgetHome() {
   const [month, setMonth] = useState(() => monthOf(todayIso()));
+  // Kaydedilen harcama başka bir aya düştüyse görünüm o aya döner; kayıt "Bu ayın kayıtları"nda hemen görünür.
+  useEffect(() => onExpenseSaved((e) => setMonth(monthOf(e.tarih))), []);
   const plan = useAppStore((s) => s.plan);
   const cash = useAppStore((s) => s.cash);
   const supported = useAppStore((s) => s.cashSupported);

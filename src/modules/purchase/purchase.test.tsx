@@ -1,16 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, userEvent, within } from '@/test-utils/render';
-import { Router } from 'wouter';
+import { act, render, screen, userEvent, within } from '@/test-utils/render';
+import { Route, Router } from 'wouter';
 import { memoryLocation } from 'wouter/memory-location';
+import { notifications } from '@mantine/notifications';
 import type { Item } from '@shared/schema';
 import { ItemCard } from './ItemCard';
 import { TotalsBar } from './TotalsBar';
 import { DEFAULT_FILTERS, totalsFor } from '@/data/selectors';
 import { toPatch } from './ItemDetail';
 import { applyRead, resetStore, setState } from '@/sync/store';
+import { upsert } from '@/sync/controller';
 import { PurchaseList } from './PurchaseList';
 
-vi.mock('@/sync/controller', () => ({ upsert: vi.fn(), remove: vi.fn(), refresh: vi.fn(), startSync: vi.fn() }));
+vi.mock('@/sync/controller', () => ({ upsert: vi.fn(() => 'NEWID'), remove: vi.fn(), refresh: vi.fn(), startSync: vi.fn() }));
+vi.mock('@mantine/notifications', () => ({ notifications: { show: vi.fn(), hide: vi.fn() } }));
 
 const item: Item = { id: 'A', tip: 'satinalma', ad: 'Örnek koltuk takımı uzun bir ad ile', faz: '1', durum: 'karar', oda: 'salon', tahmini_tl_min: 1500, tahmini_tl_max: 1500, karar_bekliyor: true, siparis_son_tarih: '2099-01-01' };
 
@@ -197,6 +200,94 @@ describe('PurchaseList filtre deneyimi', () => {
       expect(names[2]).toContain('Alınmış sehpa');
     });
     expect(screen.getByTestId('sort-button')).toHaveAccessibleName(/Sırala: Ad/);
+  });
+});
+
+describe('Kayıt yolculuğu: yeni kalem formu ve kayıt sonrası görünürlük', () => {
+  const seed = () => {
+    setState({ hydrated: true, status: 'synced' });
+    applyRead({ ok: true, fingerprint: 'f', serverTime: 't', schemaVersion: 1, items: [item], settings: [] });
+  };
+  const mountAt = (path: string) => {
+    const loc = memoryLocation({ path, static: false, record: true });
+    render(<Router hook={loc.hook}><Route path="/satinalma" nest><PurchaseList /></Route></Router>);
+    return loc;
+  };
+  // Mantine FocusTrap odağı mount sonrası zamanlayıcıyla taşır; iddia ondan sonra ölçülür.
+  const settle = () => act(() => new Promise<void>((r) => setTimeout(r, 30)));
+  beforeEach(() => { localStorage.clear(); vi.mocked(upsert).mockClear(); vi.mocked(notifications.show).mockClear(); vi.mocked(notifications.hide).mockClear(); });
+
+  it('açılış odağı modalın Kapat düğmesine değil Ad alanına gider', async () => {
+    seed();
+    mountAt('/satinalma/yeni');
+    const form = await screen.findByTestId('item-detail');
+    await settle();
+    expect(within(form).getByLabelText(/^Ad\b/)).toHaveFocus();
+  });
+
+  it('boş Ad ile Kaydet: kayıt yazılmaz, odak ilk hatalı alana gider, hata sayısı duyurulur', async () => {
+    seed();
+    mountAt('/satinalma/yeni');
+    const form = await screen.findByTestId('item-detail');
+    await settle();
+    await userEvent.click(within(form).getByLabelText('Not'));
+    await userEvent.click(within(form).getByRole('button', { name: 'Kaydet' }));
+    expect(upsert).not.toHaveBeenCalled();
+    expect(within(form).getByText('Ad gerekli')).toBeInTheDocument();
+    expect(within(form).getByLabelText(/^Ad\b/)).toHaveFocus();
+    expect(within(form).getByRole('status')).toHaveTextContent('1 alan düzeltilmeli');
+    // setFieldValue ile bağlı fiyat alanı da ilk hatalı alan olarak odak alır
+    await userEvent.type(within(form).getByLabelText(/^Ad\b/), 'Odak');
+    await userEvent.type(within(form).getByLabelText('Tahmini (min)'), '200');
+    await userEvent.type(within(form).getByLabelText('Tahmini (max)'), '100');
+    await userEvent.click(within(form).getByLabelText('Not'));
+    await userEvent.click(within(form).getByRole('button', { name: 'Kaydet' }));
+    expect(upsert).not.toHaveBeenCalled();
+    expect(within(form).getByLabelText('Tahmini (max)')).toHaveFocus();
+    expect(within(form).getByRole('status')).toHaveTextContent('1 alan düzeltilmeli');
+  });
+
+  it('etkin faz ve tek seçili oda yeni kaleme ön değer olur; görünür kayıt olağan bildirim alır', async () => {
+    localStorage.setItem('aile:purchase:filters', JSON.stringify({ ...DEFAULT_FILTERS, faz: '2', oda: ['mutfak'] }));
+    seed();
+    mountAt('/satinalma/yeni');
+    const form = await screen.findByTestId('item-detail');
+    expect(within(form).getByRole('radio', { name: 'Yerleşme' })).toBeChecked();
+    expect(within(form).getByRole('combobox', { name: 'Oda' })).toHaveValue('Mutfak');
+    await userEvent.type(within(form).getByLabelText(/^Ad\b/), 'Mutfak kalemi');
+    await userEvent.click(within(form).getByRole('button', { name: 'Kaydet' }));
+    expect(upsert).toHaveBeenCalledWith('kalemler', undefined, expect.objectContaining({ ad: 'Mutfak kalemi', faz: '2', oda: 'mutfak' }));
+    expect(notifications.show).toHaveBeenCalledWith(expect.objectContaining({ message: 'Kalem eklendi' }));
+  });
+
+  it('kayıt etkin filtrede görünmüyorsa bildirim bunu söyler ve Göster filtreyi açar', async () => {
+    localStorage.setItem('aile:purchase:filters', JSON.stringify({ ...DEFAULT_FILTERS, faz: '2', fiyatsiz: true }));
+    seed();
+    mountAt('/satinalma/yeni');
+    const form = await screen.findByTestId('item-detail');
+    await userEvent.type(within(form).getByLabelText(/^Ad\b/), 'Fiyatlı kalem');
+    await userEvent.type(within(form).getByLabelText('Tahmini (min)'), '500');
+    await userEvent.click(within(form).getByRole('button', { name: 'Kaydet' }));
+    expect(upsert).toHaveBeenCalledTimes(1);
+    const shown = vi.mocked(notifications.show).mock.calls.at(-1)![0];
+    render(<>{shown.message}</>);
+    expect(screen.getByText(/Kalem eklendi · bu filtrede görünmüyor/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Göster' }));
+    expect(notifications.hide).toHaveBeenCalledWith(shown.id);
+    expect(screen.getByTestId('filter-button')).toHaveAccessibleName('Filtrele');
+    expect(screen.getByRole('radio', { name: 'Yerleşme' })).toBeChecked(); // kaydın fazı korunur, yalnız gizleyen filtre kalkar
+    // Bildirim kapanınca odak gövdeye düşmez: kayıt listede yoksa (burada upsert sahte) kalan liste kontrolüne gider
+    expect(screen.getByTestId('filter-button')).toHaveFocus();
+  });
+
+  it('var olan kalemde değişiklik yoksa Kaydet Sheets\'e yazmaz ve form kapanır', async () => {
+    // Eksik alanlı (adet/birim/öncelik yok) kayıt: formun gösterdiği varsayılanlar kullanıcı değişikliği değildir, yazılmaz.
+    seed();
+    const loc = mountAt('/satinalma/A');
+    const form = await screen.findByTestId('item-detail');
+    await userEvent.click(within(form).getByRole('button', { name: 'Kaydet' }));
+    expect(upsert).not.toHaveBeenCalled();
+    expect(loc.history.at(-1)).toBe('/satinalma');
   });
 });
 

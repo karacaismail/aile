@@ -59,6 +59,22 @@ test('üst çubuktan tek dokunuşla harcama: tutar → kalem → kaydet, liste v
   await expect(page.getByTestId('kalem-Okul servisi')).toContainText('99,5');
 });
 
+test('önceki ay görüntülenirken bugünkü tarihle eklenen harcama kaydın ayında görünür', async ({ page }) => {
+  await open(page);
+  const current = (await page.getByTestId('month-label').textContent())!;
+  await page.getByTestId('month-prev').click();
+  await expect(page.getByTestId('month-label')).not.toHaveText(current);
+  await page.getByTestId('fab').click();
+  const form = page.getByTestId('expense-form');
+  await form.getByLabel('Tutar').fill('45');
+  await form.getByTestId('kalem-select').click();
+  await page.getByRole('option', { name: 'Harçlık', exact: true }).click();
+  await form.getByTestId('expense-save').click();
+  await expect(form).toBeHidden();
+  await expect(page.getByTestId('month-label')).toHaveText(current);
+  await expect(page.getByTestId('kalem-Harçlık')).toContainText('45');
+});
+
 test('başka modülden de açılır; kayıt düzenlenip silinir', async ({ page }) => {
   await mockApi(page, { items: [], settings: [], cash, plan });
   await page.goto('/#/tadilat');

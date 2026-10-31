@@ -52,6 +52,17 @@ describe('Ustalar', () => {
     await userEvent.click(screen.getByTestId('fab'));
     expect(await screen.findByText('Yeni usta')).toBeInTheDocument();
   });
+  it('yeni ustada boş Ad ile Kaydet: yazmaz, odak Ad alanına döner, hata sayısı duyurulur', async () => {
+    applyRead(readFull());
+    mount();
+    await userEvent.click(screen.getByTestId('fab'));
+    const form = await screen.findByTestId('vendor-detail');
+    await userEvent.click(within(form).getByLabelText('Not'));
+    await userEvent.click(within(form).getByRole('button', { name: 'Kaydet' }));
+    expect(upsert).not.toHaveBeenCalled();
+    expect(within(form).getByLabelText(/^Ad\b/)).toHaveFocus();
+    expect(within(form).getByRole('status')).toHaveTextContent('1 alan düzeltilmeli');
+  });
 });
 
 describe('VendorDetail: kayıt zamanlaması', () => {

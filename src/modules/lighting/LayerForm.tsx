@@ -1,11 +1,9 @@
-import { useMemo, useState } from 'react';
-import { Alert, Button, Chip, Divider, Group, Modal, NumberInput, SimpleGrid, Stack, Switch, Text, TextInput, Textarea, type NumberInputProps } from '@mantine/core';
+import { useMemo, useRef, useState } from 'react';
+import { Alert, Chip, Divider, Group, Modal, NumberInput, SimpleGrid, Stack, Switch, Text, TextInput, Textarea, type NumberInputProps } from '@mantine/core';
 import { useForm, schemaResolver, type UseFormReturnType } from '@mantine/form';
 import { useMediaQuery } from '@mantine/hooks';
 import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
-import { FloppyDiskIcon } from '@phosphor-icons/react/dist/csr/FloppyDisk';
-import { TrashIcon } from '@phosphor-icons/react/dist/csr/Trash';
 import { WarningIcon } from '@phosphor-icons/react/dist/csr/Warning';
 import { z } from 'zod';
 import { useLocation } from 'wouter';
@@ -17,6 +15,7 @@ import { selectFirstLoad } from '@/data/selectors';
 import { PriceInput } from '@/components/PriceInput';
 import { EnumSelect } from '@/components/EnumSelect';
 import { DetailSkeleton } from '@/components/DetailSkeleton';
+import { FormFooter, focusFirstError } from '@/components/FormFooter';
 import { CctSlider } from './CctSlider';
 import { selectPurchases, useRoomSetting } from './data';
 import { CCT_RANGE, fieldErrors, validateLayer, type LayerLike } from './rules';
@@ -114,7 +113,7 @@ function NumField({ form, name, label: lbl, inputMode = 'numeric', ...rest }: {
 } & Omit<NumberInputProps, 'value' | 'onChange' | 'label' | 'inputMode' | 'error' | 'form'>) {
   return (
     <NumberInput
-      label={lbl} hideControls inputMode={inputMode} min={0} decimalSeparator="," allowDecimal={inputMode === 'decimal'}
+      label={lbl} hideControls inputMode={inputMode} min={0} decimalSeparator="," allowDecimal={inputMode === 'decimal'} data-path={name}
       value={form.getValues()[name] ?? ''} onChange={(v) => form.setFieldValue(name, v === '' ? null : Number(v))}
       error={form.errors[name]} {...rest}
     />
@@ -153,6 +152,7 @@ function LayerFormBody({ oda, item, onClose }: { oda: string; item?: Item; onClo
     mode: 'controlled', initialValues: toForm(item),
     validate: (values) => ({ ...zodValidate(values), ...fieldErrors(toLayerLike(values), room) }),
   });
+  const formRef = useRef<HTMLFormElement>(null);
   const [q, setQ] = useState('');
   const values = form.getValues();
   const warnings = validateLayer(toLayerLike(values), room).warnings;
@@ -166,7 +166,10 @@ function LayerFormBody({ oda, item, onClose }: { oda: string; item?: Item; onClo
   const visiblePurchases = qn ? purchaseOptions.filter((p) => p.ad.toLocaleLowerCase('tr').includes(qn) || values.bagli_idler.includes(p.id)) : purchaseOptions;
 
   const save = (v: LayerFormValues) => {
-    upsert('kalemler', item?.id, toLayerPatch(v, oda, item));
+    const patch = toLayerPatch(v, oda, item);
+    // Kullanıcı hiçbir alanı değiştirmediyse (ya da fark kırpmayla kayboluyorsa) Sheets'e yazılmaz: sürüm/son güncelleyen bozulmaz.
+    if (item && (!form.isDirty() || Object.keys(patch).length <= 1)) { onClose(); return; }
+    upsert('kalemler', item?.id, patch);
     notifications.show({ message: isNew ? 'Katman eklendi' : 'Kaydedildi', color: 'green', autoClose: 1500 });
     onClose();
   };
@@ -179,11 +182,12 @@ function LayerFormBody({ oda, item, onClose }: { oda: string; item?: Item; onClo
   return (
     <Modal opened onClose={onClose} title={isNew ? `${roomLabel} · yeni katman` : `${roomLabel} · katman`} fullScreen={isMobile} size="lg"
       closeButtonProps={modalCloseProps} styles={{ body: { paddingBottom: 96 } }}>
-      <form onSubmit={form.onSubmit(save)} noValidate data-testid="layer-form">
+      <form ref={formRef} onSubmit={form.onSubmit(save, (errors) => focusFirstError(formRef.current, errors))} noValidate data-testid="layer-form">
         <Stack gap="sm">
-          <EnumSelect label="Katman türü" field="katman_tur" options={KATMAN_TUR} required value={values.katman_tur || undefined}
+          {/* Yeni katmanda ilk (zorunlu) alan odaklanır; düzenlemede odak modal başlığında kalır. */}
+          <EnumSelect label="Katman türü" field="katman_tur" options={KATMAN_TUR} required value={values.katman_tur || undefined} data-path="katman_tur" data-autofocus={isNew || undefined}
             onChange={(v) => form.setFieldValue('katman_tur', v ?? '')} error={form.errors.katman_tur} />
-          <TextInput label="Katman adı" placeholder={`ör. ${roomLabel} tavan`} autoFocus={isNew} {...form.getInputProps('katman_ad')} key={form.key('katman_ad')} />
+          <TextInput label="Katman adı" placeholder={`ör. ${roomLabel} tavan`} {...form.getInputProps('katman_ad')} key={form.key('katman_ad')} />
           <TextInput label="Amaç" {...form.getInputProps('amac')} key={form.key('amac')} />
 
           <Divider label="Işık" labelPosition="left" />
@@ -234,8 +238,8 @@ function LayerFormBody({ oda, item, onClose }: { oda: string; item?: Item; onClo
 
           <Divider label="Fiyat" labelPosition="left" />
           <SimpleGrid cols={2} spacing="xs">
-            <PriceInput label="Tahmini (min)" value={values.tahmini_tl_min} onChange={(v) => form.setFieldValue('tahmini_tl_min', v)} error={form.errors.tahmini_tl_min} />
-            <PriceInput label="Tahmini (max)" value={values.tahmini_tl_max} onChange={(v) => form.setFieldValue('tahmini_tl_max', v)} error={form.errors.tahmini_tl_max} />
+            <PriceInput label="Tahmini (min)" data-path="tahmini_tl_min" value={values.tahmini_tl_min} onChange={(v) => form.setFieldValue('tahmini_tl_min', v)} error={form.errors.tahmini_tl_min} />
+            <PriceInput label="Tahmini (max)" data-path="tahmini_tl_max" value={values.tahmini_tl_max} onChange={(v) => form.setFieldValue('tahmini_tl_max', v)} error={form.errors.tahmini_tl_max} />
           </SimpleGrid>
           <EnumSelect label="Fiyat güveni" field="fiyat_guven" options={FIYAT_GUVEN} value={values.fiyat_guven} onChange={(v) => form.setFieldValue('fiyat_guven', v)} />
 
@@ -263,15 +267,7 @@ function LayerFormBody({ oda, item, onClose }: { oda: string; item?: Item; onClo
             </Alert>
           )}
           {item?.updated_by && <Text size="xs" c="dimmed">Son güncelleme: {item.updated_by}</Text>}
-          <Group justify="space-between" mt="sm" style={{ position: 'sticky', bottom: 0, background: 'var(--mantine-color-body)', paddingTop: 8 }}>
-            {!isNew ? (
-              <Button variant="subtle" color="red" leftSection={<TrashIcon size={18} aria-hidden />} onClick={del}>Sil</Button>
-            ) : <span />}
-            <Group gap="xs">
-              <Button variant="default" onClick={onClose}>Vazgeç</Button>
-              <Button type="submit" leftSection={<FloppyDiskIcon size={18} aria-hidden />}>Kaydet</Button>
-            </Group>
-          </Group>
+          <FormFooter errors={form.errors} onCancel={onClose} onDelete={isNew ? undefined : del} />
         </Stack>
       </form>
     </Modal>

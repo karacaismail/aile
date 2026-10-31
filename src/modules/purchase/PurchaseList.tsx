@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActionIcon, Box, Button, CloseButton, Divider, EmptyState, Group, Indicator, Paper, SimpleGrid, TextInput, Skeleton } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { ArrowCounterClockwiseIcon } from '@phosphor-icons/react/dist/csr/ArrowCounterClockwise';
@@ -25,9 +25,10 @@ import { facetLabel } from '@/components/filter/FacetChips';
 import { DURUM_COLOR } from '@/components/badges';
 import { ItemCard } from './ItemCard';
 import { TotalsBar } from './TotalsBar';
-import { ItemDetail } from './ItemDetail';
+import { ItemDetail, type NewItemDefaults } from './ItemDetail';
 import { PurchaseFilterSections, QuickChips, clearedFilters } from './PurchaseFilterSections';
 import { Fab } from '@/app/shell/Fab';
+import { tokens } from '@/dashboard/tokens';
 import classes from './PurchaseList.module.css';
 
 const selectItems = (s: { items: Item[]; hydrated: boolean; status: string }) => ({ items: s.items, hydrated: s.hydrated, status: s.status });
@@ -112,6 +113,44 @@ export function PurchaseList() {
     }
   };
 
+  // Yeni kalem kullanıcının baktığı yere eklenir: etkin faz ve tek seçili oda/kategori ön değer olur.
+  const newDefaults = useMemo<NewItemDefaults>(() => ({
+    faz: f.faz === 'hepsi' ? undefined : f.faz, oda: f.oda.length === 1 && f.oda[0] ? f.oda[0] : undefined, kategori: f.kategori.length === 1 && f.kategori[0] ? f.kategori[0] : undefined,
+  }), [f.faz, f.oda, f.kategori]);
+  // Kayıt sonrası görünürlük kararı listenin işidir: kalem etkin filtrede görünmüyorsa bildirim bunu söyler ve Göster gizleyen filtreyi kaldırır.
+  // Göster bildirimi kaldırınca odak gövdeye düşmesin: liste yeniden çizildikten sonra görünen kayda, yoksa kalan filtre kontrolüne geçer.
+  const listRef = useRef<HTMLDivElement>(null);
+  const filterRef = useRef<HTMLButtonElement>(null);
+  const [focusAfterShow, setFocusAfterShow] = useState<string | null>(null);
+  useEffect(() => {
+    if (!focusAfterShow) return;
+    const card = listRef.current?.querySelector<HTMLElement>(`[data-item-id="${CSS.escape(focusAfterShow)}"] [role="link"]`);
+    // Arama temizlendi ama gecikmeli terim henüz yetişmediyse liste eski; yeniden çizilince tekrar denenir.
+    if (!card && q !== dq) return;
+    (card ?? filterRef.current)?.focus();
+    setFocusAfterShow(null);
+  }, [focusAfterShow, list, q, dq]);
+  const afterSave = (saved: Item, isNew: boolean) => {
+    const base = isNew ? 'Kalem eklendi' : 'Kaydedildi';
+    if (filterPurchases([saved], f, now).length > 0) { notifications.show({ message: base, color: 'green', autoClose: 1500 }); return; }
+    const nid = `saved-${saved.id}`;
+    const show = () => {
+      setQ('');
+      setFilters({ ...DEFAULT_FILTERS, faz: f.faz === 'hepsi' || f.faz === saved.faz ? f.faz : (saved.faz ?? 'hepsi'), mevcutDahil: !!saved.mevcut });
+      notifications.hide(nid);
+      setFocusAfterShow(saved.id);
+    };
+    notifications.show({
+      id: nid, autoClose: 8000, color: 'teal', withCloseButton: true, closeButtonProps: { size: 'xl', 'aria-label': 'Kapat' },
+      message: (
+        <Group justify="space-between" wrap="nowrap" gap="xs">
+          <span>{base} · bu filtrede görünmüyor</span>
+          <Button size="sm" h={tokens.targetMin} variant="subtle" color="ember" onClick={show}>Göster</Button>
+        </Group>
+      ),
+    });
+  };
+
   const emptyAllDone = hasAny && list.length === 0 && f.hideDone && hiddenDone > 0 && nActive === 1 && !dq;
   const emptyByFaz = hasAny && list.length === 0 && nActive === 0 && !dq && f.faz !== 'hepsi';
 
@@ -128,7 +167,7 @@ export function PurchaseList() {
             />
             <SortControl value={sort} options={SORT_OPTIONS} onChange={setSort} defaultValue="oncelik" hint="Alınan ve iptal edilenler her sıralamada en altta." />
             <Indicator disabled={nActive === 0} label={nActive} size={22} offset={4} color="ember" autoContrast>
-              <ActionIcon variant={nActive ? 'light' : 'subtle'} color={nActive ? 'ember' : 'gray'} aria-label={nActive ? `Filtrele, ${nActive} etkin` : 'Filtrele'}
+              <ActionIcon ref={filterRef} variant={nActive ? 'light' : 'subtle'} color={nActive ? 'ember' : 'gray'} aria-label={nActive ? `Filtrele, ${nActive} etkin` : 'Filtrele'}
                 aria-haspopup="dialog" aria-expanded={sheet} onClick={() => setSheet(true)} data-testid="filter-button">
                 <FunnelSimpleIcon size={22} aria-hidden />
               </ActionIcon>
@@ -153,7 +192,7 @@ export function PurchaseList() {
           </Box>
         </Paper>
       )}
-      <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="xs" p="sm" data-testid="item-list">
+      <SimpleGrid ref={listRef} cols={{ base: 1, sm: 2, lg: 3 }} spacing="xs" p="sm" data-testid="item-list">
         {loading ? (
           <>
             <Skeleton h={72} radius="md" /><Skeleton h={72} radius="md" /><Skeleton h={72} radius="md" />
@@ -193,7 +232,7 @@ export function PurchaseList() {
         <PurchaseFilterSections items={items} filters={f} onChange={setFromSheet} now={now} />
       </FilterSheet>
       {hasAny && <Fab onClick={() => navigate('~/satinalma/yeni')} label="Kalem ekle" />}
-      <Route path="/:id">{(params) => <ItemDetail key={params.id} id={params.id} />}</Route>
+      <Route path="/:id">{(params) => <ItemDetail key={params.id} id={params.id} defaults={newDefaults} onSaved={afterSave} />}</Route>
     </Box>
   );
 }

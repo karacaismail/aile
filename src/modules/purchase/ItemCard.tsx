@@ -19,7 +19,7 @@ export function ItemCard({ item, onToggleDone }: { item: Item; onToggleDone: (it
   const dueSoon = due !== null && due <= 7 && !done && item.durum !== 'siparis' && item.durum !== 'iptal';
   const priceText = item.gercek_tl != null ? formatTl(est) : formatTlRange(item.tahmini_tl_min, item.tahmini_tl_max);
   return (
-    <Card withBorder radius="md" p="sm" className={classes.card} data-testid="item-card" data-done={done || undefined} data-cancelled={item.durum === 'iptal' || undefined}>
+    <Card withBorder radius="md" p="sm" className={classes.card} data-testid="item-card" data-item-id={item.id} data-done={done || undefined} data-cancelled={item.durum === 'iptal' || undefined}>
       <Group gap="xs" wrap="nowrap" align="flex-start">
         <Box component="label" className={classes.checkWrap} onClick={(e) => e.stopPropagation()}>
           <Checkbox

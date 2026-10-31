@@ -76,6 +76,19 @@ describe('Bütçe ekranı', () => {
     expect(upsert).toHaveBeenCalledWith('nakit', undefined, expect.objectContaining({ tutar: 45, kalem: 'Kredi A' }));
   });
 
+  it('önceki ay görüntülenirken bugünkü tarihle kaydedilen harcama: görünüm kaydın ayına döner', async () => {
+    mount();
+    await userEvent.click(screen.getByTestId('month-prev'));
+    expect(screen.getByTestId('month-label')).toHaveTextContent('Şubat 2099');
+    await userEvent.click(screen.getByTestId('fab'));
+    const form = await screen.findByTestId('expense-form');
+    await userEvent.type(within(form).getByLabelText(/Tutar/), '45');
+    await userEvent.click(within(form).getByRole('radio', { name: 'Kredi A' }));
+    await userEvent.click(within(form).getByTestId('expense-save'));
+    expect(upsert).toHaveBeenCalledWith('nakit', undefined, expect.objectContaining({ tarih: '2099-03-15', tutar: 45 }));
+    expect(screen.getByTestId('month-label')).toHaveTextContent('Mart 2099');
+  });
+
   it('kayda dokununca düzenlenir ve silinebilir', async () => {
     mount();
     await userEvent.click(screen.getByTestId('entry-C1'));

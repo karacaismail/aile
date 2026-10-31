@@ -1,12 +1,10 @@
-import { useMemo, useState } from 'react';
-import { Alert, Button, Checkbox, Group, Modal, NumberInput, ScrollArea, SegmentedControl, SimpleGrid, Stack, Switch, Text, TextInput, Textarea } from '@mantine/core';
+import { useMemo, useRef, useState } from 'react';
+import { Alert, Checkbox, Group, Modal, NumberInput, ScrollArea, SegmentedControl, SimpleGrid, Stack, Switch, Text, TextInput, Textarea } from '@mantine/core';
 import { useForm, schemaResolver } from '@mantine/form';
 import { useMediaQuery } from '@mantine/hooks';
 import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
-import { FloppyDiskIcon } from '@phosphor-icons/react/dist/csr/FloppyDisk';
 import { MagnifyingGlassIcon } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
-import { TrashIcon } from '@phosphor-icons/react/dist/csr/Trash';
 import { z } from 'zod';
 import { useLocation } from 'wouter';
 import type { Item, Oda } from '@shared/schema';
@@ -15,6 +13,7 @@ import { useAppStore, type AppState } from '@/sync/store';
 import { upsert, remove } from '@/sync/controller';
 import { selectFirstLoad } from '@/data/selectors';
 import { DetailSkeleton } from '@/components/DetailSkeleton';
+import { FormFooter, focusFirstError } from '@/components/FormFooter';
 import { OdaBadge } from '@/components/badges';
 import { WALL_KEYS, toFormValues, toItemPatch, type LayoutFormValues, type WallKey } from './rules';
 import classes from './layout.module.css';
@@ -106,9 +105,13 @@ function ItemFormBody({ oda, item, onClose }: { oda: Oda; item?: Item; onClose: 
   const isMobile = useMediaQuery('(max-width: 48em)', true);
   // initialValues yalnız mount'ta okunur; bileşen kayıt kimliğiyle anahtarlandığından sunucu güncellemesi düzenlemeyi ezmez.
   const form = useForm<LayoutFormValues>({ mode: 'controlled', initialValues: toFormValues(item), validate: schemaResolver(schema, { sync: true }) });
+  const formRef = useRef<HTMLFormElement>(null);
 
   const save = (values: LayoutFormValues) => {
-    upsert('kalemler', item?.id, toItemPatch(values, oda, item));
+    const patch = toItemPatch(values, oda, item);
+    // Kullanıcı hiçbir alanı değiştirmediyse (ya da fark kırpmayla kayboluyorsa) Sheets'e yazılmaz: sürüm/son güncelleyen bozulmaz.
+    if (item && (!form.isDirty() || Object.keys(patch).length <= 1)) { onClose(); return; }
+    upsert('kalemler', item?.id, patch);
     notifications.show({ message: isNew ? 'Kalem eklendi' : 'Kaydedildi', color: 'green', autoClose: 1500 });
     onClose();
   };
@@ -121,7 +124,7 @@ function ItemFormBody({ oda, item, onClose }: { oda: Oda; item?: Item; onClose: 
 
   const num = (k: NumKey, lbl: string, mode: 'numeric' | 'decimal' = 'numeric') => (
     <NumberInput
-      label={lbl} min={0} inputMode={mode} hideControls decimalSeparator="," decimalScale={mode === 'decimal' ? 1 : 0} allowNegative={false}
+      label={lbl} min={0} inputMode={mode} hideControls decimalSeparator="," decimalScale={mode === 'decimal' ? 1 : 0} allowNegative={false} data-path={k}
       value={form.getValues()[k] ?? ''} onChange={(v) => form.setFieldValue(k, v === '' ? null : Number(v))} error={form.errors[k]}
     />
   );
@@ -129,9 +132,10 @@ function ItemFormBody({ oda, item, onClose }: { oda: Oda; item?: Item; onClose: 
   return (
     <Modal opened onClose={onClose} title={isNew ? `Yeni kalem · ${label('oda', oda)}` : label('oda', oda)} fullScreen={isMobile} size="lg"
       closeButtonProps={modalCloseProps} styles={{ body: { paddingBottom: 96 } }}>
-      <form onSubmit={form.onSubmit(save)} noValidate data-testid="layout-item-form">
+      <form ref={formRef} onSubmit={form.onSubmit(save, (errors) => focusFirstError(formRef.current, errors))} noValidate data-testid="layout-item-form">
         <Stack gap="sm">
-          <TextInput label="Ad" required autoFocus={isNew} {...form.getInputProps('ad')} key={form.key('ad')} />
+          {/* Yeni kalemde zorunlu ilk alan odaklanır (Mantine FocusTrap `data-autofocus`); düzenlemede odak modal başlığında kalır. */}
+          <TextInput label="Ad" required data-autofocus={isNew || undefined} {...form.getInputProps('ad')} key={form.key('ad')} />
           <div>
             <Text size="sm" fw={500} mb={4} id="duvar-label">Duvar</Text>
             <SegmentedControl fullWidth aria-labelledby="duvar-label" data={WALL_OPTIONS} value={form.getValues().duvar} onChange={(v) => form.setFieldValue('duvar', v as WallKey)} />
@@ -150,15 +154,7 @@ function ItemFormBody({ oda, item, onClose }: { oda: Oda; item?: Item; onClose: 
           <PurchasePicker oda={oda} value={form.getValues().bagli_idler} onChange={(v) => form.setFieldValue('bagli_idler', v)} />
           <Textarea label="Not" autosize minRows={3} {...form.getInputProps('not')} key={form.key('not')} />
           {item?.updated_by && <Text size="xs" c="dimmed">Son güncelleme: {item.updated_by}</Text>}
-          <Group justify="space-between" mt="sm" style={{ position: 'sticky', bottom: 0, background: 'var(--mantine-color-body)', paddingTop: 8 }}>
-            {!isNew ? (
-              <Button variant="subtle" color="red" leftSection={<TrashIcon size={18} aria-hidden />} onClick={del}>Sil</Button>
-            ) : <span />}
-            <Group gap="xs">
-              <Button variant="default" onClick={onClose}>Vazgeç</Button>
-              <Button type="submit" leftSection={<FloppyDiskIcon size={18} aria-hidden />}>Kaydet</Button>
-            </Group>
-          </Group>
+          <FormFooter errors={form.errors} onCancel={onClose} onDelete={isNew ? undefined : del} />
         </Stack>
       </form>
     </Modal>
