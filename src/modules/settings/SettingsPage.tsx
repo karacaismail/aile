@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Alert, Button, Code, Group, Stack, Text, TextInput, Title, Anchor } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { PlugsConnectedIcon } from '@phosphor-icons/react/dist/csr/PlugsConnected';
@@ -7,8 +7,30 @@ import { callApi } from '@/sync/api';
 import { getActor, getApiUrl, getAppKey, isApiConfigured, setActor, setApiUrl, setAppKey } from '@/sync/config';
 import { refresh } from '@/sync/controller';
 import { clearCache } from '@/sync/cache';
-import { resetStore, setState } from '@/sync/store';
+import { getState, setState, useAppStore, type AppState } from '@/sync/store';
 import type { HealthResponse } from '@shared/api';
+
+const selectCacheMeta = (s: AppState) => ({ pending: s.outbox.length, status: s.status, hasFreshCopy: Boolean(s.fingerprint) });
+
+/**
+ * `deleted`: IndexedDB silmeyi kabul etti (false ise hiçbir şey değişmedi). `reloaded`: tam okuma gerçekten geldi (parmak izi
+ * yeniden kuruldu); `status` ardından gelen gönderimin sonucunu da taşıyabilir. Metin yenileme sonucunu anlatır; silme ile okuma
+ * arasına giren bir `persistCache` kopyayı geri yazabileceğinden "kopya kalıcı olarak silindi" iddiası kurulmaz.
+ */
+interface ClearResult { deleted: boolean; reloaded: boolean; status: AppState['status']; pending: number; lastError?: string }
+
+const pendingText = (n: number) => `${n} bekleyen değişiklik`;
+
+function clearResultText(r: ClearResult): string {
+  const kept = r.pending > 0 ? `${pendingText(r.pending)} korundu.` : 'Bekleyen değişiklik yok.';
+  if (!r.deleted) return `Yerel kopya silinemedi (tarayıcı depolaması reddetti); hiçbir şey değişmedi, yeniden deneyebilirsiniz. ${kept}`;
+  if (r.reloaded) return `Yeniden yüklendi. ${kept}`;
+  switch (r.status) {
+    case 'offline': return `Çevrimdışı olduğundan yeniden yüklenemedi; bağlantı gelince otomatik denenir. ${kept}`;
+    case 'unconfigured': return `Sheets bağlantısı ayarlanmadığından yeniden yüklenemedi. ${kept}`;
+    default: return `Yeniden yüklenemedi${r.lastError ? ` (${r.lastError})` : ''}. ${kept}`;
+  }
+}
 
 export function SettingsPage() {
   const [url, setUrl] = useState(getApiUrl());
@@ -17,6 +39,12 @@ export function SettingsPage() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [testing, setTesting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [clearing, setClearing] = useState(false);
+  const [clearResult, setClearResult] = useState<ClearResult | null>(null);
+  const clearingRef = useRef(false);
+  const { pending, status, hasFreshCopy } = useAppStore(selectCacheMeta);
+  // Başarısız temizlemeden sonra bağlantı dönüp tam okuma gelirse eski "yüklenemedi" satırı bayat kalmasın.
+  const shownResult = clearResult && clearResult.deleted && !clearResult.reloaded && hasFreshCopy ? { ...clearResult, reloaded: true, pending } : clearResult;
 
   const save = () => {
     setApiUrl(url); setActor(actor); setAppKey(key);
@@ -33,7 +61,30 @@ export function SettingsPage() {
     } catch (e) { setErr((e as Error).message); }
     finally { setTesting(false); }
   };
-  const clear = async () => { await clearCache(); resetStore(); notifications.show({ message: 'Önbellek temizlendi; yeniden yükleniyor', color: 'gray' }); void refresh(); };
+  /**
+   * Bu cihazdaki kopyayı siler ve tam okuma zorlar. Store sıfırlanmaz: bekleyen kuyruk (silme beklerken girenler dahil),
+   * çakışmalar ve bu sayfadaki girdiler kalır; `applyRead` bekleyen patch'leri yeni sunucu verisinin üstüne yeniden uygular.
+   */
+  const clear = async () => {
+    if (clearingRef.current) return;
+    clearingRef.current = true;
+    setClearing(true); setClearResult(null);
+    let deleted = false;
+    try {
+      deleted = await clearCache();
+      if (deleted) {
+        setState({ fingerprint: undefined });
+        await refresh();
+        // Uçuştaki eski parmak izli okuma `notModified` dönmüşse kopya yeniden yazılmamıştır; bir kez daha tam okuma iste.
+        if (getState().status === 'synced' && !getState().fingerprint) await refresh();
+      }
+    } finally {
+      const s = getState();
+      setClearResult({ deleted, reloaded: deleted && Boolean(s.fingerprint), status: s.status, pending: s.outbox.length, lastError: s.lastError });
+      setClearing(false);
+      clearingRef.current = false;
+    }
+  };
 
   return (
     <Stack p="sm" gap="md" pb={96}>
@@ -56,8 +107,18 @@ export function SettingsPage() {
       {err && <Alert color="red" title="Bağlantı hatası"><Text size="sm">{err}</Text></Alert>}
       <div>
         <Title order={2} size="h4">Önbellek</Title>
-        <Text size="sm" c="dimmed">Veri Sheets'te durur; bu cihazdaki kopya silinip yeniden çekilir.</Text>
-        <Button mt="xs" variant="subtle" color="red" leftSection={<TrashIcon size={18} aria-hidden />} onClick={() => { void clear(); }}>Önbelleği temizle</Button>
+        <Text size="sm" c="dimmed">Veri Sheets'te durur; bu cihazdaki kopya silinir ve Sheets'ten yeniden çekilmeye çalışılır. Bağlantı ayarları ve bu sayfadaki girdiler korunur.</Text>
+        {pending > 0 && <Text size="sm" c="dimmed">{pendingText(pending)} gönderilmeyi bekliyor; temizleme bunları silmez, bağlantı gelince gönderilir.</Text>}
+        {status === 'offline' && <Text size="sm" c="dimmed">Şu an çevrimdışı: kopya, bağlantı gelene kadar yeniden yüklenemez.</Text>}
+        {/* Mantine `loading` gerçek `disabled` basıp odağı düşürür; sürerken yalnız görünüm ve ARIA devre dışı, odak düğmede kalır. */}
+        <Button mt="xs" variant="subtle" color="red" leftSection={<TrashIcon size={18} aria-hidden />} data-disabled={clearing || undefined} aria-disabled={clearing || undefined}
+          onClick={(e) => { if (clearing) { e.preventDefault(); return; } void clear(); }}>
+          Önbelleği temizle
+        </Button>
+        {/* Durum bölgesi mesajdan önce DOM'da durur (ARIA22); odak almaz, kaybolmaz; ilerleme ve sonuç burada. */}
+        <Text size="sm" mt="xs" role="status" aria-atomic="true" aria-label="Önbellek sonucu" data-testid="cache-result">
+          {clearing ? 'Temizleniyor…' : shownResult ? clearResultText(shownResult) : ''}
+        </Text>
       </div>
     </Stack>
   );

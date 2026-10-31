@@ -13,6 +13,7 @@ async function safe<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
 
 export const loadCache = () => safe<CachedData | undefined>(() => get<CachedData>(DATA_KEY), undefined);
 export const saveCache = (d: CachedData) => safe(() => set(DATA_KEY, d), undefined);
-export const clearCache = () => safe(() => del(DATA_KEY), undefined);
+/** Veri kopyasını siler; kuyruk anahtarına dokunmaz. Silme gerçekten oldu mu diye `true/false` döner (IndexedDB reddi yutulmaz, fırlatılmaz). */
+export const clearCache = () => safe(async () => { await del(DATA_KEY); return true; }, false);
 export const loadOutbox = () => safe<QueuedOp[]>(async () => (await get<QueuedOp[]>(OUTBOX_KEY)) ?? [], []);
 export const saveOutbox = (ops: QueuedOp[]) => safe(() => set(OUTBOX_KEY, ops), undefined);
