@@ -61,6 +61,8 @@ test('home plan uses budget records and connects to preparation without duplicat
   const { feeds } = await mockFamily(page);
   await page.goto('/aile/#/ev');
   await expect(page.getByRole('heading', { name: 'Alım planı', exact: true })).toBeVisible();
+  await expect(page.locator('header.page-header').getByRole('button', { name: 'Yenile', exact: true })).toBeVisible();
+  await expect(page.getByRole('status').filter({ hasText: 'Son okuma' })).toHaveCount(1);
   const table = page.getByRole('table', { name: 'Bütçedeki alım planı' });
   await expect(table).toContainText('Tutar yok');
   await expect(table).toContainText('0 ₺');

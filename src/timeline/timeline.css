@@ -13,18 +13,21 @@ html[data-keyboard='true'] .timeline-month-arrow:focus-visible::after { content:
 .timeline-summary span { display: block; color: var(--budget-muted); }
 .timeline-summary strong { display: block; font-size: var(--budget-fontMetric); font-variant-numeric: tabular-nums; line-height: var(--budget-lineCompact); margin-top: var(--budget-spaceDense); letter-spacing: var(--budget-metricTracking); }
 .timeline-summary-cash strong:not(.negative) { color: var(--budget-green); }
-.timeline-summary-secondary strong { font-size: var(--budget-fontSection); }
-.timeline-summary .timeline-summary-secondary { padding: var(--budget-spaceDense) 0; }
-.timeline-summary-secondary span { color: var(--budget-timelineOverviewMuted); }
-.timeline-summary-secondary strong.negative { color: var(--budget-timelineOverviewNegative); }
+/* Period details: light panel after the steps at every width; on wide screens it stays within reading width in the flow column. */
+.timeline-details-panel { min-width: 0; max-width: var(--budget-timelineReadingWidth); padding: var(--budget-spaceSmall); border-radius: var(--budget-timelineSummaryRadius); background: var(--budget-timelineSurface); }
+.timeline-details-panel h2 { margin: 0 0 var(--budget-spaceTight); font-size: var(--budget-fontSection); }
+.timeline-details-panel dl { display: grid; gap: var(--budget-spaceTight); margin: 0; }
+.timeline-details-panel dl > div { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 0 var(--budget-spaceSmall); }
+.timeline-details-panel dt { color: var(--budget-muted); }
+.timeline-details-panel dd { margin: 0; font-weight: var(--budget-headingWeight); font-variant-numeric: tabular-nums; }
 .timeline-caveat { color: var(--budget-muted); margin-top: var(--budget-spaceSmall); }
 .timeline-caveat strong { font-weight: var(--budget-labelWeight); }
 .timeline-cash-warning { color: var(--budget-red); background: var(--budget-redSurface); padding: var(--budget-spaceSmall); border-radius: var(--budget-radius); margin-top: var(--budget-spaceSmall) !important; }
 .timeline-flow { min-width: 0; container-type: inline-size; }
 .timeline-flow-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--budget-spaceTight); }
-.timeline-flow-meta { display: flex; flex-wrap: wrap; gap: var(--budget-spaceDense) var(--budget-spaceTight); }
-.timeline-flow-label { color: var(--budget-muted); font-weight: var(--budget-labelWeight); }
-.timeline-flow-heading h2 { font-size: var(--budget-fontMetric); letter-spacing: var(--budget-metricTracking); }
+.timeline-flow-heading h2 { font-size: var(--budget-fontSection); line-height: var(--budget-lineBody); }
+.timeline-flow-meta { display: flex; flex-wrap: wrap; gap: var(--budget-spaceDense) var(--budget-spaceTight); color: var(--budget-muted); }
+.timeline-flow-scope { color: var(--budget-ink); font-weight: var(--budget-labelWeight); }
 .timeline-step-count { color: var(--budget-muted); white-space: nowrap; }
 .timeline-views { min-width: 0; }
 .timeline-view-switch, .timeline-filters { display: inline-flex; max-width: 100%; gap: var(--budget-spaceDense); padding: var(--budget-spaceDense); border-radius: var(--budget-timelineSummaryRadius); background: var(--budget-blueSurface); }
@@ -101,8 +104,7 @@ html[data-keyboard='true'] .budget-app .timeline-table-scroll:focus-visible { te
   .timeline-summary { grid-template-columns: minmax(0,1fr); }
   .timeline-summary-cash, .timeline-summary-debt { padding: var(--budget-spacing); }
   .timeline-summary-cash strong { font-size: var(--budget-fontPayment); }
-  .timeline-summary-secondary { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--budget-spaceDense) var(--budget-spaceTight); padding-block: var(--budget-spaceDense) !important; }
-  .timeline-summary-secondary strong { margin: 0; }
+  .timeline-details-panel { padding: var(--budget-spacing); }
 }
 @container (min-width: 40em) {
   .timeline-day { display: grid; grid-template-columns: var(--budget-timelineDateWidth) minmax(0, 1fr); gap: var(--budget-spacing); }

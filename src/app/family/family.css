@@ -45,6 +45,9 @@
 .page-header h1 { font-size: var(--budget-fontPayment); letter-spacing: var(--budget-metricTracking); line-height: var(--budget-lineCompact); margin: 0; }
 .page-header-lead { color: var(--budget-muted); margin: var(--budget-spaceDense) 0 0; max-width: var(--budget-timelineReadingWidth); }
 .page-header-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--budget-spaceTight); }
+/* Freshness is a quiet status line under the heading, never a strip competing with the figures. */
+.data-status { margin: 0; color: var(--budget-muted); }
+.page-header .data-status { flex-basis: 100%; }
 .family-hint { color: var(--budget-muted); margin: var(--budget-spaceDense) 0 0; }
 .family-footer { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--budget-spacing); padding: var(--budget-spaceSection) var(--budget-spacing); background: var(--budget-canvas); color: var(--budget-muted); }
 .family-loading { padding-block: var(--budget-spaceSection); color: var(--budget-muted); }

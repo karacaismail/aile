@@ -8,7 +8,9 @@ import { useBudget } from '../../dashboard/useBudget';
 import { buildBudget } from '../../dashboard/data';
 import { syntheticSheets } from '../../dashboard/fixtures';
 
-vi.mock('wouter/use-hash-location', () => ({ useHashLocation: () => ['/pano', vi.fn()] }));
+const route = { value: '/pano' };
+vi.mock('wouter/use-hash-location', () => ({ useHashLocation: () => [route.value, vi.fn()] }));
+vi.mock('../../home/HomePlanPage', async original => original<typeof import('../../home/HomePlanPage')>());
 vi.mock('../../dashboard/useBudget', () => ({ useBudget: vi.fn() }));
 vi.mock('../../dashboard/Charts', () => ({ default: () => <p>Grafik</p> }));
 
@@ -16,7 +18,19 @@ beforeEach(() => {
   // jsdom has no IntersectionObserver; the deferred chart host only needs a stub.
   window.IntersectionObserver = class { observe() {} unobserve() {} disconnect() {} takeRecords() { return []; } root = null; rootMargin = ''; thresholds = []; } as unknown as typeof IntersectionObserver;
 });
-afterEach(() => { cleanup(); vi.restoreAllMocks(); document.title = ''; });
+afterEach(() => { cleanup(); vi.restoreAllMocks(); document.title = ''; route.value = '/pano'; });
+
+it('gives the purchase plan page the same refresh control and freshness line as the budget page', async () => {
+  route.value = '/ev';
+  vi.mocked(useBudget).mockReturnValue({ data: buildBudget(syntheticSheets()), error: null, loading: false, updatedAt: new Date('2098-11-01T09:05:00Z'), refresh: vi.fn() });
+  render(<MantineProvider><Dashboard /></MantineProvider>);
+  // Wait for the lazy page itself, not the route shell that shares its heading.
+  await screen.findByRole('textbox', { name: 'Alım planında ara' });
+  const header = screen.getByRole('heading', { level: 1, name: 'Alım planı' }).closest('header')!;
+  expect(within(header).getByRole('button', { name: 'Yenile' })).toBeInTheDocument();
+  expect(screen.getAllByRole('status').filter(node => /Son okuma/.test(node.textContent ?? ''))).toHaveLength(1);
+  expect(screen.queryByText(/Yukarıdaki Yenile/)).not.toBeInTheDocument();
+});
 
 it('names the document after the selected page so the tab title and the navigation label agree', () => {
   for (const [path, title] of [['/timeline', 'Ödeme takvimi · aile'], ['/tadilat/isler', 'Yapılacak işler · aile'], ['/ayarlar', 'Ayarlar · aile']] as const) {
@@ -36,6 +50,22 @@ it('keeps the same heading while the budget is loading or unavailable', () => {
   render(<MantineProvider><Dashboard /></MantineProvider>);
   expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Genel bütçe');
   expect(screen.getByRole('alert')).toHaveTextContent('Bağlantı kesildi');
+});
+
+it('keeps the refresh control in the page heading and announces freshness once as a status line', () => {
+  vi.mocked(useBudget).mockReturnValue({ data: buildBudget(syntheticSheets()), error: null, loading: false, updatedAt: new Date('2098-11-01T09:05:00Z'), refresh: vi.fn() });
+  render(<MantineProvider><Dashboard /></MantineProvider>);
+  const header = screen.getByRole('heading', { level: 1 }).closest('header')!;
+  expect(within(header).getByRole('button', { name: 'Yenile' })).toBeInTheDocument();
+  const statuses = screen.getAllByRole('status').filter(node => /Son okuma/.test(node.textContent ?? ''));
+  expect(statuses).toHaveLength(1);
+  expect(document.querySelector('.sync-strip')).toBeNull();
+  // Decision order: monthly net cash is the first metric, month-end balances follow, then income/payments/savings.
+  const summary = screen.getByRole('region', { name: 'Seçili ay özeti' });
+  const headings = within(summary).getAllByRole('heading', { level: 2 }).map(node => node.textContent);
+  expect(headings[0]).toBe('Aylık net nakit');
+  const monthEnd = within(summary).getByText('Seçili ay sonunda nakit');
+  expect(within(summary).getByText('Gelir').compareDocumentPosition(monthEnd) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
 });
 
 it('leads the budget page with its navigation label and section caption instead of a duplicate eyebrow', () => {

@@ -35,7 +35,8 @@ export function ItemCard({ item, onToggleDone }: { item: Item; onToggleDone: (it
           onKeyDown={(e) => { if (e.key === 'Enter') navigate(`~/satinalma/${item.id}`); }} aria-label={`${item.ad} detayı`}>
           {/* The item name is the identifier: it wraps fully and is never clamped; the price follows it in the same text flow. */}
           <Text component="p" className={classes.heading}>
-            <span className={classes.title}>{item.ad}</span>{' '}
+            <span className={classes.title}>{item.ad}</span>
+            <span className={classes.separator} aria-hidden="true"> · </span>
             <Text component="span" fw={700} className={`tabular ${classes.price}`} c={est == null ? 'dimmed' : undefined}>{item.mevcut ? 'mevcut' : priceText}</Text>
           </Text>
           <Group gap={4} wrap="wrap">

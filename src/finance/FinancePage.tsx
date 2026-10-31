@@ -5,6 +5,7 @@ import { financeMoney as money } from './format';
 import { financeSheetUrl, type FinanceEvent, type FinanceLedger } from './data';
 import { useFinance } from './useFinance';
 import { PageHeader } from '../app/family/PageHeader';
+import { DataStatus } from '../app/family/DataStatus';
 import './finance.css';
 
 const monthLabel = (value: string) => new Intl.DateTimeFormat('tr-TR', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${value}-01T00:00:00Z`));
@@ -86,8 +87,8 @@ export default function FinancePage() {
   return <div className="finance-page">
     <PageHeader location="/finansman" lead="Nakit, kredi kartları, KMH ve finansman maliyetleri." actions={<button className="quiet-button" disabled={state.loading} onClick={state.refresh}>Yenile</button>}>
       <p className="finance-plan-note"><strong>Hesap</strong> · Gerçekleşmiş ödeme değildir. Banka ekstresi yerine geçmez.</p>
+      <DataStatus loading={state.loading} updatedAt={state.updatedAt} idle="Kaynak doğrulaması tamamlanmadı." />
     </PageHeader>
-    <p className="finance-sync muted" role="status" aria-live="polite">{state.loading ? 'Finansman kaynağı ve bakiyeler kontrol ediliyor…' : state.updatedAt ? `Son kontrol ${state.updatedAt.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Istanbul' })} · Açıkken her dakika yenilenir.` : 'Kaynak doğrulaması tamamlanmadı.'}</p>
     {state.error && <p role="alert" className="error-message">{state.error}</p>}
     {state.data ? <><FinanceContent data={state.data} /><p className="finance-native-status"><strong>Kaynak durumu</strong> {state.data.status}</p>{state.data.notes.map((note, index) => <p className="finance-explanation" key={index}>{note}</p>)}</> : state.loading ? <FinanceSkeleton /> : <p>Güncel hesap doğrulandığında ay sonu özeti ve bütün ödeme adımları burada görünür.</p>}
     <footer className="finance-footer"><a href={financeSheetUrl} target="_blank" rel="noreferrer">Finansman e-tablosunu aç</a><a href="#/timeline">Ödeme takvimine git</a><p>Tutarlar Finansman sayfasından okunur; bu görünüm e-tabloyu değiştirmez. Ödeme takvimi de aynı doğrulanmış hesabı kullanır.</p></footer>
