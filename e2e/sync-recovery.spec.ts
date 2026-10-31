@@ -61,6 +61,13 @@ test('reddedilen kayıt sessizce kaybolmaz: rozet ve etiket söyler, yenilemede 
   await expect(item).toContainText(REASON);
   await expect(item.getByRole('button', { name: 'Yeniden dene' })).toBeVisible();
   await expect(item.getByRole('button', { name: 'Vazgeç' })).toBeVisible();
+  // Okuma sırası: neden ve eylemler, her zaman açık değer listesinden önce gelir; değerler etiket/değer çiftleridir.
+  const details = item.getByRole('group', { name: 'Kaydedilen değerler' });
+  await expect(details.getByRole('term').filter({ hasText: /^Ad$/ })).toBeVisible();
+  await expect(details.getByRole('definition').filter({ hasText: REJECT_NAME })).toBeVisible();
+  const y = async (l: ReturnType<Page['getByText']>) => (await l.boundingBox())!.y;
+  expect(await y(item.getByText(REASON))).toBeLessThan(await y(item.getByRole('button', { name: 'Yeniden dene' })));
+  expect(await y(item.getByRole('button', { name: 'Yeniden dene' }))).toBeLessThan(await y(details));
   await page.waitForFunction(() => [...document.querySelectorAll<HTMLElement>('.mantine-Drawer-content')].every((el) => getComputedStyle(el).opacity === '1'));
   await page.screenshot({ path: testInfo.outputPath('sync-rejected-drawer.png'), fullPage: false });
   expect(await horizontalOverflow(page)).toEqual([]);
@@ -107,6 +114,32 @@ test('vazgeç yalnız onaydan sonra siler; onay kaydın adını söyler; silinen
   await expect(page.getByText(REJECT_NAME)).toHaveCount(0);
 });
 
+for (const count of [1, 2]) test(`klavyeyle onaylanan "Vazgeç" sonrası odak çekmecede kalır ve görünür (${count} red)`, async ({ page }) => {
+  await mockApi(page);
+  await rejectNamed(page);
+  await page.goto('/#/satinalma');
+  await expect(page.getByTestId('item-card').first()).toBeVisible();
+  for (let i = 1; i <= count; i++) { await addItem(page, REJECT_NAME); await expect(status(page)).toHaveAttribute('aria-label', new RegExp(`${i} değişiklik gönderilemedi`)); }
+  await status(page).click();
+  const d = drawer(page);
+  await page.keyboard.press('Tab');
+  const discard = d.getByRole('button', { name: 'Vazgeç', exact: true }).first();
+  await discard.focus();
+  await discard.press('Enter');
+  const confirm = page.getByRole('dialog', { name: /vazgeç/i });
+  const yes = confirm.getByRole('button', { name: 'Değişikliği sil', exact: true });
+  await yes.focus();
+  await yes.press('Enter');
+  await expect(confirm).toBeHidden();
+  await expect(d.getByTestId('sync-rejected-item')).toHaveCount(count - 1);
+  // Odak çekmecede kalan sabit öğeye geçer (satır kalkınca "Şimdi eşitle", liste kaldıysa bölüm başlığı) ve tek alt çizgiyle görünür.
+  const survivor = count === 1 ? d.getByRole('button', { name: 'Şimdi eşitle' }) : d.getByRole('heading', { name: 'Gönderilemeyen değişiklikler' });
+  await expect(survivor).toBeFocused();
+  await page.waitForTimeout(400); // ek emniyet: ilk iddia zaten modal çıkışından sonradır; sonradan bir zamanlayıcı odağı çalmıyor
+  await expect(survivor).toBeFocused();
+  await expect.poll(() => survivor.evaluate((el) => ({ outline: getComputedStyle(el).outlineStyle, decoration: getComputedStyle(el).textDecorationLine }))).toEqual({ outline: 'none', decoration: 'underline' });
+});
+
 test('klavye: Tab ile "Yeniden dene"ye gelince tek alt çizgi, çevre halkası yok; Enter çalışır', async ({ page }) => {
   await mockApi(page);
   const stopRejecting = await rejectNamed(page);
@@ -124,4 +157,8 @@ test('klavye: Tab ile "Yeniden dene"ye gelince tek alt çizgi, çevre halkası y
   await stopRejecting();
   await retry.press('Enter');
   await expect(status(page)).toHaveAttribute('aria-label', /Eşitlendi/);
+  // Satır kalktı; odak çekmeceden düşmez, kalan sabit düğmeye geçer ve tek alt çizgiyle görünür.
+  const syncNow = drawer(page).getByRole('button', { name: 'Şimdi eşitle' });
+  await expect(syncNow).toBeFocused();
+  await expect.poll(() => syncNow.evaluate((el) => ({ outline: getComputedStyle(el).outlineStyle, decoration: getComputedStyle(el).textDecorationLine }))).toEqual({ outline: 'none', decoration: 'underline' });
 });

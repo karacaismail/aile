@@ -57,11 +57,30 @@ describe('SyncStatus · gönderilemeyen değişiklikler', () => {
     const drawer = await openDrawer();
     const [first, second] = within(drawer).getAllByTestId('sync-rejected-item');
     expect(first).toHaveTextContent('Yeni kayıt');
-    expect(first).toHaveTextContent('Mevcut (elimizde): hayır');
+    expect(within(first).getAllByRole('term').map((t) => t.textContent)).toEqual(['Tip', 'Ad', 'Mevcut (elimizde)']);
+    expect(within(first).getAllByRole('definition').map((d) => d.textContent)).toEqual(['Satınalma', 'Perde', 'hayır']);
     expect(first).not.toHaveTextContent(/Oda/);
     expect(first).not.toHaveTextContent(/Linkler/);
     expect(second).toHaveTextContent('Düzenleme');
-    expect(second).toHaveTextContent('Not: —');
+    expect(within(second).getAllByRole('term').map((t) => t.textContent)).toEqual(['Not']);
+    expect(within(second).getByRole('definition')).toHaveTextContent('—');
+  });
+
+  it('okuma sırası: kayıt adı → neden → eylemler → alan değerleri (etiket/değer listesi, her zaman açık)', async () => {
+    setState({ rejected: [rejectedPerde] });
+    render(<SyncStatus />);
+    const drawer = await openDrawer();
+    const item = within(drawer).getByTestId('sync-rejected-item');
+    const reason = within(item).getByText(/izinli değerler/);
+    const retry = within(item).getByRole('button', { name: 'Yeniden dene' });
+    const details = within(item).getByRole('group', { name: 'Kaydedilen değerler' });
+    const before = (a: Node, b: Node) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(before(reason, retry)).toBe(true);
+    expect(before(retry, details)).toBe(true);
+    // Değerler anlamsal etiket/değer çiftleri; noktalı tek paragraf değil.
+    expect(within(details).getAllByRole('term').map((t) => t.textContent)).toEqual(['Durum', 'Adet']);
+    expect(within(details).getAllByRole('definition').map((d) => d.textContent)).toEqual(['yanlis', '3']);
+    expect(within(item).queryByText(/Durum: yanlis · Adet: 3/)).toBeNull();
   });
 
   it('"Yeniden dene" aynı işlemi kuyruğa geri koyar', async () => {
@@ -88,6 +107,28 @@ describe('SyncStatus · gönderilemeyen değişiklikler', () => {
     expect(controller.discardRejected).toHaveBeenCalledWith('op-a');
   });
 
+  // Son durum kontrolü: jsdom, Mantine'in 10 ms odak-dönüş zamanlamasını üretmez (bu test düzeltmeden önce de geçiyordu).
+  // Gerçek regresyon kapısı e2e/sync-recovery.spec.ts "klavyeyle onaylanan Vazgeç" (Chromium 320 + WebKit).
+  for (const count of [1, 2]) it(`klavyeyle onaylanan "Vazgeç" sonrası odak çekmecede kalır (${count} red)`, async () => {
+    const second: QueuedOp = { ...rejectedPerde, op: { ...rejectedPerde.op, id: 'B', opId: 'op-b' }, rejection: { ...rejectedPerde.rejection!, label: 'Koltuk' } };
+    setState({ rejected: count === 1 ? [rejectedPerde] : [rejectedPerde, second] });
+    // Gerçek controller gibi: red kaydı store'dan kalkar (Vazgeç satırı DOM'dan silinir).
+    vi.mocked(controller.discardRejected).mockImplementation(async (opId) => { setState((s) => ({ rejected: s.rejected.filter((q) => q.op.opId !== opId) })); });
+    render(<SyncStatus />);
+    const drawer = await openDrawer();
+    const discard = within(drawer).getAllByRole('button', { name: 'Vazgeç' })[0];
+    discard.focus();
+    await userEvent.keyboard('{Enter}');
+    const confirm = await screen.findByRole('dialog', { name: /vazgeç/i });
+    within(confirm).getByRole('button', { name: 'Değişikliği sil' }).focus();
+    await userEvent.keyboard('{Enter}');
+    await vi.waitFor(() => expect(screen.queryByRole('dialog', { name: /vazgeç/i })).toBeNull());
+    expect(within(drawer).queryAllByTestId('sync-rejected-item')).toHaveLength(count - 1);
+    await vi.waitFor(() => expect(document.activeElement).not.toBe(document.body));
+    expect(drawer.contains(document.activeElement)).toBe(true);
+    expect(document.activeElement).toBe(count === 1 ? within(drawer).getByRole('button', { name: 'Şimdi eşitle' }) : within(drawer).getByRole('heading', { name: 'Gönderilemeyen değişiklikler' }));
+  });
+
   it('bekleyen ve çevrimdışı durumu programatik durum metninde; rutin eşitlenmiş durumda metin boş (gevezelik yok)', () => {
     render(<SyncStatus />);
     expect(screen.getByRole('status')).toHaveTextContent('');
@@ -95,6 +136,43 @@ describe('SyncStatus · gönderilemeyen değişiklikler', () => {
     act(() => { setState({ status: 'offline', outbox: [{ op: { op: 'upsert', table: 'kalemler', id: 'B', opId: 'op-b', patch: { adet: 1 } }, ts: 't', attempts: 0 }] }); });
     expect(screen.getByRole('status')).toHaveTextContent('Çevrimdışı · 1 bekleyen');
     expect(statusButton()).toHaveAttribute('aria-label', expect.stringMatching(/Çevrimdışı/));
+    // Çevrimiçi kaydetmedeki anlık "1 bekleyen" duyurulmaz (her kayıtta gevezelik olmasın); rozet ve etiket yine sayar.
+    act(() => { setState({ status: 'syncing' }); });
+    expect(screen.getByRole('status')).toHaveTextContent('');
+    expect(statusButton()).toHaveAttribute('aria-label', 'Senkron: Eşitleniyor · 1 bekleyen');
+  });
+
+  it('red varken çevrimdışı/ayarsız/hata durumu etiketten ve başlıktan düşmez', async () => {
+    setState({ status: 'offline', rejected: [rejectedPerde], outbox: [{ op: { op: 'upsert', table: 'kalemler', id: 'B', opId: 'op-b', patch: { adet: 1 } }, ts: 't', attempts: 0 }] });
+    render(<SyncStatus />);
+    expect(statusButton()).toHaveAttribute('aria-label', 'Senkron: 1 değişiklik gönderilemedi · Çevrimdışı · 1 bekleyen');
+    expect(screen.getByRole('status')).toHaveTextContent('Çevrimdışı · 1 bekleyen · 1 değişiklik gönderilemedi');
+    const drawer = await openDrawer();
+    expect(within(drawer).getByText('1 değişiklik gönderilemedi · Çevrimdışı')).toBeInTheDocument();
+    act(() => { setState({ status: 'unconfigured' }); });
+    expect(statusButton()).toHaveAttribute('aria-label', expect.stringMatching(/Sheets bağlantısı ayarlanmadı/));
+  });
+
+  it('not_found reddinde yeniden denemenin satır geri gelmeden başarmayacağı söylenir', async () => {
+    setState({ rejected: [{ ...rejectedPerde, op: { op: 'delete', table: 'kalemler', id: 'A', opId: 'op-del' }, rejection: { at: 't', code: 'not_found', message: "Kayıt bulunamadı (Sheets'te silinmiş olabilir)", label: 'Perde' } }] });
+    render(<SyncStatus />);
+    const drawer = await openDrawer();
+    const item = within(drawer).getByTestId('sync-rejected-item');
+    expect(item).toHaveTextContent('Silme');
+    expect(item).toHaveTextContent(/yeniden deneme başarmaz/);
+  });
+
+  it('klavyeyle "Yeniden dene" sonrası odak çekmecede kalır (satır kalkınca "Şimdi eşitle" düğmesine)', async () => {
+    setState({ rejected: [rejectedPerde] });
+    render(<SyncStatus />);
+    const drawer = await openDrawer();
+    const retry = within(drawer).getByRole('button', { name: 'Yeniden dene' });
+    retry.focus();
+    await userEvent.keyboard('{Enter}');
+    expect(controller.retryRejected).toHaveBeenCalledWith('op-a');
+    act(() => { setState({ rejected: [] }); }); // controller kuyruğa taşıdı, satır kalktı
+    expect(within(drawer).queryByTestId('sync-rejected-item')).toBeNull();
+    expect(within(drawer).getByRole('button', { name: 'Şimdi eşitle' })).toHaveFocus();
   });
 
   it('kuyruk olağandan uzunsa çekmece bunu söyler, hiçbir işlem atılmış değildir', async () => {

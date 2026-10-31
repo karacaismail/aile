@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { configureController, startSync, stopSync } from './controller';
 import { setApiUrl } from './config';
 import { resetStore, getState } from './store';
+import { upsert } from './controller';
 import * as cache from './cache';
 
 beforeEach(() => {
@@ -21,6 +22,66 @@ describe('planner route sync lifetime', () => {
     const stop = startSync(); stop(); release();
     await new Promise(resolve => setTimeout(resolve, 0));
     expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it('a batch rejected after the planner closes keeps the rejection but starts no follow-up read', async () => {
+    let answer!: () => void;
+    const fetchImpl = vi.fn((_url: string | URL | Request, init?: RequestInit) => new Promise<Response>((resolve) => {
+      const body = JSON.parse(String(init?.body)) as { action: string; ops?: Array<{ id: string }> };
+      if (body.action === 'read') { resolve(new Response(JSON.stringify({ ok: true, fingerprint: 'f1', serverTime: 't', schemaVersion: 2, items: [], settings: [], cash: [] }), { status: 200 })); return; }
+      answer = () => resolve(new Response(JSON.stringify({ ok: false, doneCount: 0, fingerprint: 'f1', serverTime: 't', error: 'not_found', message: 'Kayıt bulunamadı', results: [{ ok: false, id: body.ops![0].id, error: 'not_found', message: 'Kayıt bulunamadı' }] }), { status: 200 }));
+    }));
+    configureController({ fetchImpl });
+    const stop = startSync();
+    await vi.waitFor(() => expect(getState().fingerprint).toBe('f1'));
+    upsert('kalemler', 'A', { adet: 2 }); // batch yola çıktı, yanıt bekleniyor
+    await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalledTimes(2));
+    stop(); answer();
+    await vi.waitFor(() => expect(getState().rejected).toHaveLength(1));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(fetchImpl).toHaveBeenCalledTimes(2); // kapanıştan sonra tam okuma başlatılmaz
+    expect(getState().fingerprint).toBeUndefined(); // sonraki açılış tam okur
+  });
+
+  it('a rejection inside the refresh-owned flush after the planner closes does not start the reconciling read', async () => {
+    // Açılışta kuyrukta bekleyen işlem var: refresh → okuma → kendi flush'ı (batch yolda) → kullanıcı sayfadan çıkar → red gelir.
+    vi.mocked(cache.loadOutbox).mockResolvedValue([{ op: { op: 'upsert', opId: 'queued-A', table: 'kalemler', id: 'A', patch: { adet: 2 }, baseVersion: 1 }, ts: 't', attempts: 0 }]);
+    let answer!: () => void;
+    const fetchImpl = vi.fn((_url: string | URL | Request, init?: RequestInit) => new Promise<Response>((resolve) => {
+      const body = JSON.parse(String(init?.body)) as { action: string; ops?: Array<{ id: string }> };
+      if (body.action === 'read') { resolve(new Response(JSON.stringify({ ok: true, fingerprint: 'f1', serverTime: 't', schemaVersion: 2, items: [], settings: [], cash: [] }), { status: 200 })); return; }
+      answer = () => resolve(new Response(JSON.stringify({ ok: false, doneCount: 0, fingerprint: 'f1', serverTime: 't', error: 'not_found', message: 'Kayıt bulunamadı', results: [{ ok: false, id: body.ops![0].id, error: 'not_found', message: 'Kayıt bulunamadı' }] }), { status: 200 }));
+    }));
+    configureController({ fetchImpl });
+    const stop = startSync();
+    await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalledTimes(2)); // read + batch
+    stop(); answer();
+    await vi.waitFor(() => expect(getState().rejected).toHaveLength(1));
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(fetchImpl.mock.calls.map(([, init]) => (JSON.parse(String(init?.body)) as { action: string }).action)).toEqual(['read', 'batch']);
+    expect(getState().rejected[0].op.opId).toBe('queued-A'); // red kaydı durur
+    expect(getState().fingerprint).toBeUndefined(); // sonraki açılış tam okur
+  });
+
+  it('leaving and re-entering before the rejected batch answers still reconciles the list with one full read', async () => {
+    vi.mocked(cache.loadOutbox).mockResolvedValue([{ op: { op: 'upsert', opId: 'queued-A', table: 'kalemler', id: 'A', patch: { adet: 2 }, baseVersion: 1 }, ts: 't', attempts: 0 }]);
+    let answer!: () => void;
+    const fetchImpl = vi.fn((_url: string | URL | Request, init?: RequestInit) => new Promise<Response>((resolve) => {
+      const body = JSON.parse(String(init?.body)) as { action: string; fingerprint?: string; ops?: Array<{ id: string }> };
+      if (body.action === 'read') { resolve(new Response(JSON.stringify({ ok: true, fingerprint: 'f1', serverTime: 't', schemaVersion: 2, items: [], settings: [], cash: [] }), { status: 200 })); return; }
+      answer = () => resolve(new Response(JSON.stringify({ ok: false, doneCount: 0, fingerprint: 'f1', serverTime: 't', error: 'not_found', message: 'Kayıt bulunamadı', results: [{ ok: false, id: body.ops![0].id, error: 'not_found', message: 'Kayıt bulunamadı' }] }), { status: 200 }));
+    }));
+    configureController({ fetchImpl });
+    const stop = startSync();
+    await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalledTimes(2)); // read + batch (yolda)
+    stop();
+    startSync(); // kullanıcı hemen geri döner; yeni yenileme uçuştaki eskiye katılır
+    answer();
+    await vi.waitFor(() => expect(getState().rejected).toHaveLength(1));
+    await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalledTimes(3));
+    const calls = fetchImpl.mock.calls.map(([, init]) => JSON.parse(String(init?.body)) as { action: string; fingerprint?: string });
+    expect(calls.map((c) => c.action)).toEqual(['read', 'batch', 'read']);
+    expect(calls[2].fingerprint).toBeUndefined(); // planlayıcı açık: iyimser değer sunucu gerçeğine döner
   });
 
   it('a failed pending request cannot restart polling after the planner closes', async () => {

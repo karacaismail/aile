@@ -59,7 +59,9 @@ export async function refresh(): Promise<void> {
       await readOnce();
       await flush();
       // Bu yenileme sırasında bir işlem kalıcı reddedildiyse iyimser değer listede kalmasın: parmak izi düşürüldü, tam oku.
-      if (rejectionGeneration !== generation) await readOnce();
+      // Planlayıcı kapalıysa (stopSync) yeni istek yok; red kaydı ve düşürülmüş parmak izi saklandığından sonraki açılış tam okur.
+      // Hızlı çıkıp geri dönüldüyse yeni oturumun yenilemesi bu uçuştaki yenilemeye katılmıştır; okuma yine burada yapılır (`started` yeter).
+      if (rejectionGeneration !== generation && started) await readOnce();
     } catch (e) {
       const err = e instanceof ApiError ? e : new ApiError('network', String(e), true);
       setState({ status: err.code === 'network' ? 'offline' : err.code === 'config' ? 'unconfigured' : 'error', lastError: err.message });
@@ -79,6 +81,7 @@ function scheduleRetry(attempts: number) {
 export async function flush(opts: { keepalive?: boolean } = {}): Promise<void> {
   if (flushing) return flushing;
   const generation = rejectionGeneration;
+  const lifetime = syncGeneration;
   flushing = (async () => {
     // Gönderim sürerken kuyruğa yeni işlem girebilir (ör. art arda iki upsert). Anlık görüntü dışında kalanlar
     // korunur ve aynı turda gönderilir; aksi halde `outbox: remaining` onları sessizce düşürürdü.
@@ -122,7 +125,8 @@ export async function flush(opts: { keepalive?: boolean } = {}): Promise<void> {
   })().finally(() => {
     flushing = null;
     // Kendi başına çağrılan gönderimde (enqueue/yeniden dene) red olduysa listeyi sunucu gerçeğine döndür; yenileme içindeysek o yapar.
-    if (rejectionGeneration !== generation && !refreshing) void refresh();
+    // Planlayıcı kapandıysa (stopSync) yeni istek başlatılmaz; parmak izi düşürülüp saklandığı için sonraki açılış zaten tam okur.
+    if (rejectionGeneration !== generation && !refreshing && started && lifetime === syncGeneration) void refresh();
   });
   return flushing;
 }

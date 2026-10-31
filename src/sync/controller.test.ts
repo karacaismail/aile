@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { ApiErrorCode, BatchRequest, ReadRequest } from '@shared/api';
 import type { Item } from '@shared/schema';
-import { configureController, discardRejected, hydrate, refresh, retryRejected, upsert } from './controller';
+import { configureController, discardRejected, hydrate, refresh, retryRejected, startSync, stopSync, upsert } from './controller';
 import { setApiUrl } from './config';
 import { getState, resetStore, setState } from './store';
 import type { QueuedOp } from './queue';
@@ -70,7 +70,7 @@ beforeEach(() => {
   vi.spyOn(cache, 'loadCache').mockResolvedValue(undefined);
   vi.spyOn(cache, 'loadOutbox').mockResolvedValue([]);
 });
-afterEach(() => { vi.restoreAllMocks(); });
+afterEach(() => { stopSync(); vi.restoreAllMocks(); });
 
 describe('flush', () => {
   it('gönderim sürerken kuyruğa giren işlem kaybolmaz; ikinci turda gönderilir', async () => {
@@ -114,7 +114,9 @@ describe('kalıcı red: sessiz kayıp yok', () => {
   it('red sonrası liste sunucu gerçeğine döner (tam okuma), red kaydı okumayla silinmez', async () => {
     const api = rejectingApi({ reject: { A: BAD_ENUM }, server: [{ id: 'A', tip: 'satinalma', ad: 'Perde', durum: 'karar', version: 2 }] });
     configureController({ fetchImpl: api.fetchImpl });
-    setState({ items: [{ id: 'A', tip: 'satinalma', ad: 'Perde', durum: 'karar', version: 2 }], fingerprint: 'srv-1' });
+    // Gerçek yaşam döngüsü: planlayıcı açık (startSync) — ilk okuma gelir, sonra kullanıcı düzenler.
+    startSync();
+    await vi.waitFor(() => expect(getState().fingerprint).toBe('srv-1'));
     upsert('kalemler', 'A', { durum: 'yanlis' });
     expect(getState().items[0].durum).toBe('yanlis'); // optimistic
     await vi.waitFor(() => expect(getState().rejected).toHaveLength(1));
