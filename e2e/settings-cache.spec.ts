@@ -71,3 +71,38 @@ test('çevrimiçi temizleme yeniden yükler; klavye odağı düğmede kalır ve 
   await expect(button).not.toHaveAttribute('disabled');
   await expect(button).not.toHaveAttribute('aria-disabled');
 });
+
+test('IndexedDB silmeyi reddederse tarayıcıda "silinemedi" der, okuma başlatmaz ve yeniden denenebilir', async ({ page }) => {
+  await mockApi(page);
+  await page.goto('/#/ayarlar');
+  await expect(page.getByTestId('sync-status')).toHaveAttribute('aria-label', /Eşitlendi/);
+  const reads: number[] = [];
+  page.on('request', (req) => { if (req.url().includes('/macros/s/') && (req.postData() ?? '').includes('"action":"read"')) reads.push(Date.now()); });
+  const readsBefore = reads.length;
+  // Gerçek IndexedDB: yalnız silme reddedilir (okuma/yazma dokunulmaz) — idb-keyval `del` bu yüzden reddeder.
+  await page.evaluate(() => {
+    const w = window as Window & { __nativeIdbDelete?: typeof IDBObjectStore.prototype.delete };
+    w.__nativeIdbDelete = IDBObjectStore.prototype.delete;
+    IDBObjectStore.prototype.delete = function () { throw new DOMException('Depolama kilitli', 'InvalidStateError'); };
+  });
+  const button = page.getByRole('button', { name: 'Önbelleği temizle' });
+  await button.click();
+  const result = page.getByTestId('cache-result');
+  await expect(result).toContainText('silinemedi');
+  await expect(result).toContainText('hiçbir şey değişmedi');
+  await expect(result).not.toContainText(/silindi\b/);
+  await expect(result).not.toContainText('Yeniden yüklendi');
+  expect(reads.length).toBe(readsBefore);
+  await expect(page.getByTestId('sync-status')).toHaveAttribute('aria-label', /Eşitlendi/);
+  await expect(button).not.toHaveAttribute('aria-disabled');
+  expect(await horizontalOverflow(page)).toEqual([]);
+  expect(await smallText(page)).toEqual([]);
+  // Silme yeniden çalışınca aynı düğme tam okumayla devam eder.
+  await page.evaluate(() => {
+    const w = window as Window & { __nativeIdbDelete?: typeof IDBObjectStore.prototype.delete };
+    IDBObjectStore.prototype.delete = w.__nativeIdbDelete!;
+  });
+  await button.click();
+  await expect(result).toContainText('Yeniden yüklendi');
+  await expect(result).not.toContainText('silinemedi');
+});

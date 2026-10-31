@@ -183,6 +183,7 @@ describe('Ayarlar · Önbelleği temizle', () => {
     await userEvent.click(clearButton());
     const status = await resultLine();
     await vi.waitFor(() => expect(status).toHaveTextContent(/Sheets bağlantısı ayarlanmadığından yeniden yüklenemedi/));
+    expect(status).not.toHaveTextContent(/silindi/i);
     expect(api.reads).toHaveLength(0);
     expect(getState().outbox).toHaveLength(1);
   });
