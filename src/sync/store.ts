@@ -27,13 +27,16 @@ export interface AppState {
   fingerprint?: string;
   status: SyncStatus;
   lastSync?: string;
+  /** Yalnız taşıma/sunucu geneli hatası (ağ, HTML, şema). Tek bir işlemin kalıcı reddi `rejected` içindedir. */
   lastError?: string;
   outbox: QueuedOp[];
+  /** Sunucunun kalıcı reddettiği işlemler (`rejection` dolu). Kuyruk dosyasında bekleyenlerle birlikte saklanır; okuma/yenileme silmez. */
+  rejected: QueuedOp[];
   conflicts: PendingConflict[];
   hydrated: boolean;
 }
 
-const initial: AppState = { items: [], settings: [], cash: [], status: 'idle', outbox: [], conflicts: [], hydrated: false };
+const initial: AppState = { items: [], settings: [], cash: [], status: 'idle', outbox: [], rejected: [], conflicts: [], hydrated: false };
 let state: AppState = initial;
 const listeners = new Set<() => void>();
 
@@ -160,5 +163,12 @@ export const selectActiveItems = (s: AppState): Item[] => s.items.filter((i) => 
 export const selectByTip = (tip: Item['tip']) => (s: AppState): Item[] => s.items.filter((i) => !i.deleted_at && i.tip === tip);
 export const selectActiveCash = (s: AppState): CashEntry[] => s.cash.filter((c) => !c.deleted_at);
 export const selectPendingCount = (s: AppState): number => s.outbox.length;
+export const selectRejectedCount = (s: AppState): number => s.rejected.length;
+/** Kayıt adı: kalem `ad`, ayar `anahtar`, harcama `kalem`; yoksa kimlik. Red/çakışma listeleri bunu gösterir. */
+export function recordLabel(s: AppState, table: Table, id: string, fallback?: Rec): string {
+  const row = (listOf(s, table).find((r) => String(r.id) === id) ?? fallback ?? {}) as Rec;
+  const v = table === 'kalemler' ? row.ad : table === 'ayarlar' ? row.anahtar : row.kalem;
+  return typeof v === 'string' && v.trim() ? v : id;
+}
 export const selectSetting = (tip: Setting['tip'], anahtar: string) => (s: AppState): Setting | undefined =>
   s.settings.find((x) => !x.deleted_at && x.tip === tip && x.anahtar === anahtar);

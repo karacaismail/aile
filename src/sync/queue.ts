@@ -1,10 +1,16 @@
 // Çevrimdışı kuyruk (outbox): sıralı, idempotent (opId), ilk hatada durup doneCount'tan devam eder.
 import type { Op, BatchRequest, BatchResponse, OpResult } from '@shared/api';
-import { ApiError } from './api';
+import { ApiError, type ClientErrorCode } from './api';
 
-export interface QueuedOp { op: Op; ts: string; attempts: number }
+/**
+ * Sunucunun kalıcı reddettiği bir işlemin izi. Reddedilen işlem kuyruktan çıkar ama atılmaz: aynı kuyruk dosyasında
+ * `rejection` alanıyla saklanır, kullanıcı yeniden deneyebilir ya da bilerek vazgeçebilir. `label` red anındaki kayıt adı.
+ */
+export interface Rejection { at: string; code: ClientErrorCode; message: string; label?: string }
+export interface QueuedOp { op: Op; ts: string; attempts: number; rejection?: Rejection }
 
-export const MAX_OUTBOX = 200;
+/** Kuyruk bu uzunluğu aşınca arayüz uyarır; hiçbir bekleyen işlem atılmaz (sunucu isteği başına sınır BATCH_SIZE ile korunur). */
+export const OUTBOX_WARN = 200;
 export const BATCH_SIZE = 50;
 
 export interface FlushDeps {
@@ -32,6 +38,16 @@ export function coalesce(ops: QueuedOp[]): QueuedOp[] {
   return out;
 }
 
+/**
+ * `callApi` her `ok:false` gövdeyi fırlatır; işlem sonuçlarını taşıyan bir batch yanıtı ise taşıma hatası değildir.
+ * Aksi hâlde tek bir reddedilen işlem bütün kuyruğu "Hata" ile tıkar ve her yenilemede yeniden gönderilir.
+ */
+function batchPayload(err: ApiError): BatchResponse | undefined {
+  const x = err.extra;
+  if (x && Array.isArray(x.results) && typeof x.doneCount === 'number') return x as unknown as BatchResponse;
+  return undefined;
+}
+
 export async function flushOutbox(queue: QueuedOp[], deps: FlushDeps): Promise<FlushOutcome> {
   let remaining = coalesce(queue);
   let sent = 0;
@@ -42,11 +58,15 @@ export async function flushOutbox(queue: QueuedOp[], deps: FlushDeps): Promise<F
       res = await deps.send({ action: 'batch', actor: deps.actor, key: deps.key, ops: chunk.map((q) => q.op) });
     } catch (e) {
       const err = e instanceof ApiError ? e : new ApiError('network', String(e), true);
-      if (err.retryable || err.code === 'config') {
-        return { sent, remaining: remaining.map((q) => ({ ...q, attempts: q.attempts + 1 })), error: err };
+      const payload = batchPayload(err);
+      if (!payload) {
+        if (err.retryable || err.code === 'config') {
+          return { sent, remaining: remaining.map((q) => ({ ...q, attempts: q.attempts + 1 })), error: err };
+        }
+        // Kalıcı hata (ör. şema): kuyruğu koru ama dışarı bildir
+        return { sent, remaining, error: err };
       }
-      // Kalıcı hata (ör. şema): kuyruğu koru ama dışarı bildir
-      return { sent, remaining, error: err };
+      res = payload;
     }
     res.results.forEach((r, i) => { if (r.ok) deps.onResult(chunk[i].op, r); });
     sent += res.doneCount;
@@ -59,7 +79,7 @@ export async function flushOutbox(queue: QueuedOp[], deps: FlushDeps): Promise<F
         if (code === 'busy' || code === 'internal') {
           return { sent, remaining: remaining.map((q) => ({ ...q, attempts: q.attempts + 1 })), error: new ApiError(code, failedResult.message ?? code, true) };
         }
-        // not_found / invalid_enum / bad_request: bu işlem düşürülür, diğerleri devam eder
+        // not_found / invalid_enum / bad_request: bu işlem kuyruktan çıkar (çağıran red kaydını saklar), diğerleri devam eder
         deps.onDrop(failed.op, new ApiError(code, failedResult.message ?? code, false, { ...failedResult }));
         remaining = remaining.slice(1);
         continue;

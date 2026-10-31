@@ -1,0 +1,13 @@
+/* Senkron çekmecesi: tek yüzey; bölümler ve kayıtlar boşlukla ayrılır (kutu içinde kutu, dekoratif kenarlık yok). */
+.list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--budget-spaceSection); }
+.item { display: flex; flex-direction: column; gap: var(--budget-spaceDense); min-width: 0; }
+.item p { margin: 0; overflow-wrap: break-word; }
+.actions { display: flex; flex-wrap: wrap; gap: var(--budget-spaceTight); margin-top: var(--budget-spaceDense); }
+/* Kaydedilen değerler: etiket/değer çiftleri; dar ekranda doğal sarılır, yalnız kelime arasından böler. */
+.details { display: flex; flex-direction: column; gap: var(--budget-spaceDense); margin: var(--budget-spaceDense) 0 0; padding: 0; }
+.detail { display: flex; flex-wrap: wrap; gap: 0 var(--budget-spaceTight); min-width: 0; }
+.detail dt { color: var(--budget-muted); }
+.detail dt::after { content: ':'; }
+.detail dd { margin: 0; min-width: 0; overflow-wrap: break-word; }
+.section { display: flex; flex-direction: column; gap: var(--budget-spaceTight); min-width: 0; }
+.section h3 { margin: 0; font-size: var(--budget-fontSection); font-weight: var(--budget-headingWeight); line-height: var(--budget-lineCompact); }
