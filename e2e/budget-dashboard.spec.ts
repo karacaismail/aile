@@ -2,6 +2,7 @@ import { syntheticBridgeResponse } from '../src/dashboard/bridgeFixtures';
 import { test, expect, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { syntheticSheets, gviz } from '../src/dashboard/fixtures';
+import { horizontalOverflow } from './helpers';
 async function mockSheet(page: Page) {
   let fail=false; let fresh=true;
   const raw=syntheticSheets();
@@ -67,18 +68,41 @@ test('custom selects, visible keyboard focus, motion and responsive table stay a
   expect(await button.evaluate(e=>getComputedStyle(e).transitionDuration)).toBe('0s');
 });
 
-test('narrow budget summary keeps related figures close and puts long explanations after the results', async ({ page }, testInfo) => {
+test('narrow budget summary answers the spending decision first and puts long explanations after the results', async ({ page }, testInfo) => {
   await mockSheet(page);
   await page.setViewportSize({ width: 320, height: 740 });
   await page.goto('/aile/#/pano');
   const summary = page.getByRole('region', { name: 'Seçili ay özeti' });
   await expect(summary).toContainText('10.000 ₺');
   const box = async (locator: ReturnType<typeof page.locator>) => (await locator.boundingBox())!;
-  const metrics = await box(summary), strip = await box(page.locator('.balance-strip')), views = await box(page.getByRole('navigation', { name: 'Bütçe görünümleri' }));
-  expect(metrics.height, 'four metrics stay compact at 320').toBeLessThanOrEqual(560);
-  expect(strip.y - (metrics.y + metrics.height), 'month-end balances stay next to the metrics (proximity)').toBeLessThanOrEqual(24);
-  expect(views.y - (strip.y + strip.height), 'the view switch follows the balances without a long explanation in between').toBeLessThanOrEqual(24);
-  expect(views.y - metrics.y, 'summary block from first metric to view switch').toBeLessThanOrEqual(680);
+  // Decision first: this month's net cash and the month-end cash are inside the first 320×740 screen without scrolling.
+  const hero = await box(summary.locator('.metric-emphasis .metric-value'));
+  expect(hero.y + hero.height, 'monthly net cash is the first figure and stays inside the first screen').toBeLessThanOrEqual(740);
+  const monthEnd = await box(page.locator('.balance-strip dd').first());
+  expect(monthEnd.y + monthEnd.height, 'month-end cash is visible without scrolling').toBeLessThanOrEqual(740);
+  expect(hero.y, 'net cash precedes the month-end balances').toBeLessThan(monthEnd.y);
+  const income = await box(summary.getByText('Gelir', { exact: true }));
+  expect(income.y, 'income, payments and savings follow the decision figures').toBeGreaterThan(monthEnd.y);
+  // Freshness is a quiet status line, and the refresh control belongs to the page heading, not a strip above it.
+  const header = page.locator('header.page-header');
+  await expect(header.getByRole('button', { name: 'Yenile', exact: true })).toBeVisible();
+  await expect(page.locator('.sync-strip')).toHaveCount(0);
+  const freshness = page.getByRole('status').filter({ hasText: 'Son okuma' });
+  await expect(freshness).toHaveCount(1);
+  expect((await box(freshness)).y, 'freshness sits below the heading, not above it').toBeGreaterThan((await box(page.getByRole('heading', { level: 1 }))).y);
+  const metrics = await box(summary), views = await box(page.getByRole('navigation', { name: 'Bütçe görünümleri' }));
+  expect(views.y - metrics.y, 'summary block from first figure to view switch').toBeLessThanOrEqual(680);
+  const heroCard = await box(summary.locator('.metric-emphasis')), strip = await box(page.locator('.balance-strip'));
+  expect(strip.y - (heroCard.y + heroCard.height), 'month-end balances stay next to the hero card').toBeLessThanOrEqual(24);
+  expect(views.y - (metrics.y + metrics.height), 'the view switch follows the summary group').toBeLessThanOrEqual(24);
+  // Below the wide layout the summary group uses the full content width at every width (no half-width column).
+  for (const width of [575, 576, 577, 768, 844]) {
+    await page.setViewportSize({ width, height: 900 });
+    const widths = await page.evaluate(() => ({ metrics: document.querySelector('.metrics')!.getBoundingClientRect().width, hero: document.querySelector('.metric-emphasis')!.getBoundingClientRect().width, strip: document.querySelector('.balance-strip')!.getBoundingClientRect().width }));
+    expect(Math.abs(widths.hero - widths.metrics), `hero spans the summary width at ${width}`).toBeLessThan(1);
+    expect(Math.abs(widths.strip - widths.metrics), `balances span the summary width at ${width}`).toBeLessThan(1);
+  }
+  await page.setViewportSize({ width: 320, height: 740 });
   const note = page.getByText(/Güncel değerler Gerçekleşen sayfasından gelir/);
   await expect(note).toBeVisible();
   expect((await box(note)).y, 'full explanations stay open but follow the results').toBeGreaterThan(views.y);
@@ -98,7 +122,9 @@ test('narrow budget summary keeps related figures close and puts long explanatio
   }
   await page.setViewportSize({ width: 320, height: 740 });
   await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  await page.evaluate(() => document.fonts.ready);
+  // Charts resize asynchronously (ResizeObserver) after the viewport shrinks; wait for the settled layout.
+  await expect.poll(() => horizontalOverflow(page), { message: 'no page overflow at 320 with 200% text' }).toEqual([]);
 });
 
 test('current cashflow sheet reads real dates, renamed irregular columns and Kasa totals', async ({ page }) => {

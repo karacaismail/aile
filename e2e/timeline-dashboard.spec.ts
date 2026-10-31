@@ -732,6 +732,42 @@ test('purchase cards answer amount, date and payment before account balances in 
   expect(requests).toHaveLength(2);
 });
 
+test('the first step shows its title and amount inside the first 320 screen', async ({ page }, testInfo) => {
+  await mockTimeline(page);
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.goto('/aile/#/timeline');
+  const first = page.getByRole('article').first();
+  await expect(first).toBeVisible();
+  await page.evaluate(() => document.fonts.ready);
+  const title = (await first.getByRole('heading', { level: 3 }).boundingBox())!;
+  const amount = (await first.locator('[data-step-part="facts"] .timeline-purchase-amount dd').boundingBox())!;
+  expect(title.y + title.height, 'first step title inside the first screen').toBeLessThanOrEqual(740);
+  expect(amount.y + amount.height, 'first step amount inside the first screen').toBeLessThanOrEqual(740);
+  // The period summary stays complete: the two decision figures above the steps, the period details after them (same DOM at every width).
+  const summary = page.getByRole('region', { name: 'Kasım 2098 özeti' });
+  for (const label of ['Harcanabilir nakit', 'Kalan kart borcu']) await expect(summary.getByText(label, { exact: true })).toBeVisible();
+  const details = page.getByRole('complementary', { name: 'Dönem ayrıntıları · Kasım 2098' });
+  for (const label of ['Başlangıç nakdi', 'KMH anaparası', 'KMH faiz + vergi', 'Net nakit ve borç']) await expect(details.getByText(label, { exact: true })).toBeVisible();
+  expect((await details.boundingBox())!.y, 'period details follow the steps on narrow screens').toBeGreaterThan(amount.y);
+  // Wide: the period control stays sticky beside the long flow; the details follow the steps in the same reading order.
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const control = page.getByRole('complementary', { name: 'Dönem kontrolü' });
+  const [controlBox, wideDetails, flow] = await Promise.all([control.boundingBox(), details.boundingBox(), page.getByRole('region', { name: 'Ödeme akışı' }).boundingBox()]);
+  expect(flow!.x).toBeGreaterThan(controlBox!.x + controlBox!.width);
+  expect(Math.abs(wideDetails!.x - flow!.x), 'wide: details share the flow column after the steps').toBeLessThan(1);
+  expect(wideDetails!.y).toBeGreaterThan(flow!.y);
+  await page.evaluate(() => window.scrollTo(0, 1200));
+  await page.waitForTimeout(100);
+  const stuck = (await control.boundingBox())!;
+  expect(stuck.y, 'period control stays in view while the steps scroll').toBeGreaterThanOrEqual(0);
+  expect(stuck.y).toBeLessThanOrEqual(32);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.setViewportSize({ width: 320, height: 740 });
+  await expect(page.getByRole('region', { name: 'Ödeme akışı' }).getByRole('heading', { level: 2 }).first()).toHaveText('Ödeme akışı');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath('first-screen-320.png') });
+});
+
 test('every step leads with its amount and date at a larger scale than the balances after it', async ({ page, browserName }, testInfo) => {
   await mockTimeline(page);
   await page.setViewportSize({ width: 320, height: 740 });

@@ -36,14 +36,16 @@ html[data-keyboard='true'] .budget-app :is(input, .table-scroll):focus-visible {
 /* Plain provenance line: short qualifier before the figures, no inset box. */
 .provenance { display: flex; gap: var(--budget-spaceSmall); flex-wrap: wrap; align-items: baseline; margin-bottom: var(--budget-spaceSmall); color: var(--budget-muted); }
 .source-label { color: var(--budget-ink); font-weight: 700; white-space: nowrap; }
-/* Summary group: metrics, then month-end balances, then the view switch; gaps inside a group stay smaller than gaps between groups. */
-.metrics { display: grid; grid-template-columns: minmax(0,1fr); gap: var(--budget-spaceSmall); margin-block: var(--budget-spacing); }
+/* Summary group in decision order: net cash (hero) → month-end balances → income, payments, savings (second tier). Inner gaps ≤ 24 px. */
+.metrics { display: grid; grid-template-columns: minmax(0,1fr); grid-template-areas: 'hero' 'balances' 'group'; gap: var(--budget-spaceSmall); margin-block: var(--budget-spacing); }
 .metric { min-width: 0; }
 .metric h2 { font-size: 1rem; font-weight: 400; }
 .metric p { margin-top: var(--budget-spaceDense); }
 .metric .metric-value { font-size: clamp(1.7rem, 2.7vw, 2.4rem); font-weight: 700; line-height: 1.3; font-variant-numeric: tabular-nums; letter-spacing: -.025em; }
-.metric-emphasis { padding: var(--budget-spaceSmall); background: var(--budget-blueSurface); border-radius: var(--budget-radius); }
-.balance-strip { display: grid; gap: var(--budget-spaceTight); margin: 0 0 var(--budget-spacing); padding-block: var(--budget-spaceSmall); border-block: 1px solid var(--budget-line); }
+.metric-emphasis { grid-area: hero; padding: var(--budget-spaceSmall); background: var(--budget-blueSurface); border-radius: var(--budget-radius); }
+.metric-group { grid-area: group; display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: var(--budget-spaceSmall) var(--budget-spacing); }
+.metric-group .metric-value { font-size: 1.25rem; }
+.balance-strip { grid-area: balances; display: grid; gap: var(--budget-spaceTight); margin: 0; padding-block: var(--budget-spaceSmall); border-block: 1px solid var(--budget-line); }
 .balance-strip > div { min-width: 0; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 0 var(--budget-spaceSmall); }
 .balance-strip dt { color: var(--budget-muted); }
 .balance-strip dd { margin: 0; font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -86,9 +88,8 @@ html[data-keyboard='true'] .budget-app :is(input, .table-scroll):focus-visible {
 .loading-message { min-height: 40vh; }
 .skip-link { position: fixed; left: 16px; top: -100px; z-index: 1000; padding: 12px; background: var(--budget-paper); color: var(--budget-ink); }
 .skip-link:focus { top: 12px; }
-@media (min-width: 36em) { .metrics { grid-template-columns: repeat(2,minmax(0,1fr)); } }
 @media (min-width: 48em) { .budget-header { padding-inline: 32px; justify-content: space-between; } .budget-app main { padding-inline: 32px; } .chart-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } .chart-wide { grid-column: 1 / -1; } .balance-strip { grid-template-columns: repeat(2, max-content); gap: var(--budget-spaceTight) var(--budget-spaceWide); } .balance-strip > div { flex-direction: column; align-items: flex-start; } }
-@media (min-width: 70em) { .metrics { grid-template-columns: repeat(4,minmax(0,1fr)); gap: var(--budget-spaceSection); align-items: center; } }
+@media (min-width: 70em) { .metrics { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); grid-template-areas: 'hero group' 'balances balances'; gap: var(--budget-spacing) var(--budget-spaceSection); align-items: center; } .metric-group { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (prefers-reduced-motion: reduce) { .budget-app *, .budget-app *::before, .budget-app *::after { transition-duration: 0s !important; animation-duration: 0s !important; } }
 html { font-size: 100%; }
 body { margin: 0; }

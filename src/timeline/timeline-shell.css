@@ -8,13 +8,18 @@
 .timeline-page { padding-top: var(--budget-spacing); max-width: var(--budget-timelineMaxWidth); margin-inline: auto; container-type: inline-size; }
 .timeline-plan-label { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: var(--budget-spaceDense) var(--budget-spaceTight); color: var(--budget-muted); margin: 0; }
 .timeline-plan-label > span { color: var(--budget-ink); font-weight: var(--budget-labelWeight); }
-.timeline-workspace { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--budget-spacing); align-items: start; }
+/* Document order everywhere: period control → next steps → period details. Wide: the control is a sticky left column; details follow the steps. */
+.timeline-workspace { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-areas: 'overview' 'flow' 'details'; gap: var(--budget-spacing); align-items: start; }
+.timeline-workspace > .timeline-overview { grid-area: overview; }
+.timeline-flow, .timeline-loading-flow { grid-area: flow; }
+.timeline-details-panel { grid-area: details; }
 .timeline-overview { min-width: 0; padding: var(--budget-spaceTight); border-radius: var(--budget-timelinePanelRadius); background: var(--budget-timelineOverviewSurface); color: var(--budget-paper); }
 .timeline-overview-heading { margin: 0 0 var(--budget-spaceTight); font-size: var(--budget-fontSection); }
 @media (min-width: 48em) { .timeline-shell .wordmark span { display: inline; } }
 @container (min-width: 64em) {
-  .timeline-workspace { grid-template-columns: var(--budget-timelineSidebarWidth) minmax(0, 1fr); gap: var(--budget-spaceWide); }
-  .timeline-overview { position: sticky; top: var(--budget-timelineStickyInset); padding: var(--budget-spacing); }
+  /* The control spans both rows so its sticky box can travel the whole flow height. */
+  .timeline-workspace { grid-template-columns: var(--budget-timelineSidebarWidth) minmax(0, 1fr); grid-template-rows: 1fr auto; grid-template-areas: 'overview flow' 'overview details'; gap: var(--budget-spacing) var(--budget-spaceWide); }
+  .timeline-overview { align-self: start; position: sticky; top: var(--budget-timelineStickyInset); padding: var(--budget-spacing); }
 }
 
 .timeline-loading-status { color: var(--budget-muted); margin-bottom: var(--budget-spaceSmall) !important; }

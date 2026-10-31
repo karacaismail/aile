@@ -10,7 +10,7 @@ Eski native Timeline ve `_Timeline web` ile parser testleri finans motorunun esk
 
 ## Kullanıcı yolculuğu
 
-Aile menüsü sayfalar arası gezinmedir. Dönem, filtre ve Akış/Tablo sekmeleri sayfa içi kontroldür. Koyu dönem özeti, açık zemin ve ayrı nötr adım yüzeyleri işlevleri ayırır. Her adımın tutarı, banka/KMH kırılımı, açıklaması ve kaynağı açık kalır; Ayrıntı düğmesi yoktur. Kesin olmayan tarih veya maliyet kesinmiş gibi sunulmaz. Pozitif fon eksiği kullanılabilir para değildir ve görünür uyarı verir.
+Aile menüsü sayfalar arası gezinmedir. Dönem, filtre ve Akış/Tablo sekmeleri sayfa içi kontroldür. Koyu dönem özeti (dönem seçimi, harcanabilir nakit, kalan kart borcu), açık zemin ve ayrı nötr adım yüzeyleri işlevleri ayırır; başlangıç nakdi, KMH ve net nakit ve borç ayrıntıları adımlardan sonra gelen açık "Dönem ayrıntıları" panelindedir (geniş ekranda da akış sütununda adımların ardından; dönem kontrolü yapışkan sol sütun olarak görünür kalır). Kullanıcının ilk sorusu olan sıradaki adımın başlığı ve tutarı 320×740'ta ilk ekranda görünür. Her adımın tutarı, banka/KMH kırılımı, açıklaması ve kaynağı açık kalır; Ayrıntı düğmesi yoktur. Kesin olmayan tarih veya maliyet kesinmiş gibi sunulmaz. Pozitif fon eksiği kullanılabilir para değildir ve görünür uyarı verir.
 
 Filtre yalnız görünür olayları daraltır; dönem özetini veya bakiyeleri yeniden hesaplamaz. Gelir filtresi kaynakta açıkça Gelir olan olayları seçer. Akış ve Tablo aynı sıralı, filtrelenmiş, 50 adımlık sayfayı kullanır; görünüm değişimi dönem/filtre/sayfayı korur. Tablonun okunabilir minimum sütunları vardır, yalnız kapsayıcısı kayar. Tutarlar iki ondalığa kadar korunur. 320 px, büyütülmüş metin ve klavye odağı ortak aile tokenlarıyla çalışır.
 

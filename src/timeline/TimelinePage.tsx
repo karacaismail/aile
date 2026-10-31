@@ -10,6 +10,7 @@ import { isPurchase, purchaseDetails } from './purchase';
 import { StepCard } from './StepCard';
 import { StepTable } from './StepTable';
 import { PageHeader } from '../app/family/PageHeader';
+import { DataStatus } from '../app/family/DataStatus';
 import './timeline.css';
 
 const stepsPerPage = 50;
@@ -95,16 +96,12 @@ function TimelineJourney({ data }: { data: FinanceLedger }) {
     <section className="timeline-summary" aria-label={`${scope} özeti`}>
       <div className="timeline-summary-cash"><span>Harcanabilir nakit</span><strong className={last.cash < 0 ? 'negative' : undefined}>{money(last.cash)}</strong></div>
       <div className="timeline-summary-debt"><span>Kalan kart borcu</span><strong>{money(last.cardDebt)}</strong></div>
-      <div className="timeline-summary-secondary"><span>Başlangıç nakdi</span><strong>{money(startingCash)}</strong></div>
-      <div className="timeline-summary-secondary"><span>KMH anaparası</span><strong>{money(last.kmhPrincipal)}</strong></div>
-      <div className="timeline-summary-secondary"><span>KMH faiz + vergi</span><strong>{money(last.kmhCost)}</strong></div>
-      <div className="timeline-summary-secondary"><span>Net nakit ve borç</span><strong className={monthEnd.knownNetAssets < 0 ? 'negative' : undefined}>{money(monthEnd.knownNetAssets)}</strong></div>
     </section>
     {maximumGap > 0 && <p className="timeline-cash-warning" role="alert">Bu dönemde fon eksiği {money(maximumGap)} seviyesine ulaşıyor. Bu tutar kullanılabilir para değildir.</p>}
     </aside>
     <section className="timeline-flow" aria-label="Ödeme akışı">
     <Tabs value={view} onChange={setView} keepMounted={false} unstyled className="timeline-views">
-    <div className="timeline-flow-heading"><div><div className="timeline-flow-meta"><p className="timeline-flow-label">Ödeme akışı</p><span className="timeline-step-count">{events.length} adım</span></div><h2>{scope}</h2></div><Tabs.List aria-label="Takvim görünümü" className="timeline-view-switch"><Tabs.Tab value="timeline" aria-label="Zaman akışı">Akış</Tabs.Tab><Tabs.Tab value="table">Tablo</Tabs.Tab></Tabs.List></div>
+    <div className="timeline-flow-heading"><div><h2>Ödeme akışı</h2><p className="timeline-flow-meta"><span className="timeline-flow-scope">{scope}</span><span className="timeline-step-count">{events.length} adım</span></p></div><Tabs.List aria-label="Takvim görünümü" className="timeline-view-switch"><Tabs.Tab value="timeline" aria-label="Zaman akışı">Akış</Tabs.Tab><Tabs.Tab value="table">Tablo</Tabs.Tab></Tabs.List></div>
     <div className="timeline-filters" role="group" aria-label="Adımları filtrele">{journeyFilters.map(item => <button key={item.id} type="button" aria-pressed={filter === item.id} onClick={() => { setFilter(item.id); setPageSelection({ scope: `${selected}:${item.id}:${purchaseGroup}`, page: 0 }); }}>{item.label}</button>)}</div>
     {filter === 'purchase' && <>
       <div className="timeline-filters timeline-purchase-filters" role="group" aria-label="Alım grubu">{purchaseGroups.map(item => <button key={item.id} type="button" aria-pressed={purchaseGroup === item.id} onClick={() => { setPurchaseGroup(item.id); setPageSelection({ scope: `${selected}:${filter}:${item.id}`, page: 0 }); }}>{item.label}</button>)}</div>
@@ -121,6 +118,16 @@ function TimelineJourney({ data }: { data: FinanceLedger }) {
     {filteredEvents.length > stepsPerPage && <StepPages position="alt" page={page} count={filteredEvents.length} onChange={changePage} />}
     </Tabs>
     </section>
+    {/* Period details follow the steps at every width (same DOM, no hidden data); the period control stays sticky beside them on wide screens. */}
+    <aside className="timeline-details-panel" aria-label={`Dönem ayrıntıları · ${scope}`}>
+      <h2>Dönem ayrıntıları</h2>
+      <dl>
+        <div><dt>Başlangıç nakdi</dt><dd>{money(startingCash)}</dd></div>
+        <div><dt>KMH anaparası</dt><dd>{money(last.kmhPrincipal)}</dd></div>
+        <div><dt>KMH faiz + vergi</dt><dd>{money(last.kmhCost)}</dd></div>
+        <div><dt>Net nakit ve borç</dt><dd className={monthEnd.knownNetAssets < 0 ? 'negative' : undefined}>{money(monthEnd.knownNetAssets)}</dd></div>
+      </dl>
+    </aside>
   </div>;
 }
 
@@ -135,6 +142,6 @@ export default function TimelinePage() {
     <p className="timeline-model-note">Nakit, kartlar ve KMH aynı finansman hesabından gelir. <a href="#/finansman">Aylık özet ve ayrıntılı tablo</a></p>
     {state.data && <div className="timeline-model-notes"><p><strong>Kaynak durumu</strong> {state.data.status}</p>{state.data.notes.map((note, index) => <p key={index}>{note}</p>)}</div>}
     <aside className="timeline-caveat" aria-label="Hesap kapsamı"><p>Harcanabilir nakit, ayrılan bütçeler sonrasıdır. Net nakit konumu KMH kullanımını da içerir; negatif tutar harcanabilir para değildir.</p><p>Gelecek taksitler kart borcuna dahildir. Tarih ve maliyet koşulları her adımın kaynağında görünür.</p></aside>
-    <footer className="timeline-data-note"><span className="timeline-sync" role="status" aria-live="polite">{state.loading ? 'Kontrol ediliyor…' : state.updatedAt ? `Güncellendi ${state.updatedAt.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Istanbul' })}` : 'Google Sheets bağlantısı'}</span><a className="timeline-sheet-link" href={financeSheetUrl} target="_blank" rel="noreferrer">E-tabloda aç <span aria-hidden="true">↗</span></a><p>Açıkken her dakika yenilenir. Aynı gün içindeki sıra e-tablodaki hesap sırasıdır; banka hareketinin gerçekleştiğini göstermez.</p></footer>
+    <footer className="timeline-data-note"><DataStatus loading={state.loading} updatedAt={state.updatedAt} /><a className="timeline-sheet-link" href={financeSheetUrl} target="_blank" rel="noreferrer">E-tabloda aç <span aria-hidden="true">↗</span></a><p>Aynı gün içindeki sıra e-tablodaki hesap sırasıdır; banka hareketinin gerçekleştiğini göstermez.</p></footer>
   </div>;
 }
