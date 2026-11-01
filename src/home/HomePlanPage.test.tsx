@@ -27,3 +27,35 @@ it('finds missing prices within the source category without treating zero as mis
   expect(screen.getByRole('navigation', { name: 'Alımdan sonraki adım' })).toHaveTextContent('Hazırlık listesine git');
   expect(screen.getByText(/Plan tutarı ödeme yapıldığı anlamına gelmez/)).toBeInTheDocument();
 });
+
+it('answers what and how much before when and category, so narrow screens show the amount first', () => {
+  const data = buildCurrentBudget(syntheticCurrentSheets());
+  render(<MantineProvider><HomePlanPage data={data} loading={false} updatedAt={null} refresh={() => {}} /></MantineProvider>);
+  const headers = within(screen.getByRole('table', { name: 'Bütçedeki alım planı' })).getAllByRole('columnheader').map(cell => cell.textContent?.replace(/[↕↑↓]/g, '').trim());
+  expect(headers.slice(0, 4)).toEqual(['Alınacak / yapılacak', 'Güncel tutar', 'Plan ayı', 'Kategori']);
+  // Narrow screens see only the first column: it repeats the amount and plan month as a glance line (the cells keep the semantics).
+  const first = within(screen.getByRole('row', { name: /Fiyatı beklenen ürün/ })).getAllByRole('cell')[0];
+  expect(first.querySelector('.home-plan-glance')).toHaveTextContent('Tutar yok');
+  expect(first.querySelector('.home-plan-glance')).toHaveAttribute('aria-hidden', 'true');
+});
+
+it('summarises the active filters with a count and clears all of them in one step', () => {
+  const data = buildCurrentBudget(syntheticCurrentSheets());
+  render(<MantineProvider><HomePlanPage data={data} loading={false} updatedAt={null} refresh={() => {}} /></MantineProvider>);
+  expect(screen.queryByRole('button', { name: 'Filtreleri temizle' })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Tutarı eksik' }));
+  const search = screen.getByRole('textbox', { name: 'Alım planında ara' });
+  fireEvent.change(search, { target: { value: 'Fiyatı' } });
+  // Plain labelled text: the table toolbar is the single live count, so the summary does not announce twice.
+  const summary = screen.getByRole('group', { name: 'Etkin filtreler' });
+  expect(summary.closest('[aria-live], [role="status"]')).toBeNull();
+  expect(summary).toHaveTextContent('Tutarı eksik');
+  expect(summary).toHaveTextContent('“Fiyatı”');
+  expect(summary).toHaveTextContent(`1 / ${data.irregular.length} kalem`);
+  fireEvent.click(screen.getByRole('button', { name: 'Filtreleri temizle' }));
+  expect(search).toHaveValue('');
+  expect(search).toHaveFocus();
+  expect(screen.getByRole('button', { name: 'Tüm alımlar' })).toHaveAttribute('aria-pressed', 'true');
+  expect(screen.queryByRole('group', { name: 'Etkin filtreler' })).not.toBeInTheDocument();
+  expect(within(screen.getByRole('table', { name: 'Bütçedeki alım planı' })).getByText('İptal edilen ürün')).toBeInTheDocument();
+});

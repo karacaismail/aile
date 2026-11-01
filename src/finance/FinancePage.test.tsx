@@ -5,6 +5,8 @@ import FinancePage from './FinancePage';
 import { buildFinance } from './data';
 import { syntheticFinance } from './fixtures';
 import { useFinance } from './useFinance';
+import { FinancePeriodProvider, useFinancePeriod } from '../app/family/FinancePeriod';
+import { useEffect } from 'react';
 
 vi.mock('./useFinance', () => ({ useFinance: vi.fn() }));
 vi.mock('../dashboard/Select', () => ({ Select: (props: { value: string; onChange: (value: string) => void; data: { value: string; label: string }[] }) => <select aria-label="Dönem" value={props.value} onChange={event => props.onChange(event.target.value)}>{props.data.map(option => <option value={option.value} key={option.value}>{option.label}</option>)}</select> }));
@@ -74,4 +76,44 @@ it('groups spendable cash separately from financing commitments without dropping
   expect(commitments).toHaveTextContent('155 ₺');
   expect(commitments).toHaveTextContent('KMH anaparası');
   expect(commitments).toHaveTextContent('Gelecek taksit');
+});
+
+it('steps between months with controls named by their destination and keeps the selection shared', () => {
+  mount();
+  const previous = screen.getByRole('button', { name: /^Önceki ay/ });
+  expect(previous).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: 'Sonraki ay · Şubat 2098' }));
+  expect(screen.getByRole('combobox', { name: 'Dönem' })).toHaveValue('2098-02');
+  expect(screen.getByRole('region', { name: 'Şubat 2098 ay sonu' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Önceki ay · Ocak 2098' })).toBeEnabled();
+  expect(screen.getByRole('button', { name: /^Sonraki ay/ })).toBeDisabled();
+});
+
+it('states every month-end figure against the previous month end, and a first month as having none', () => {
+  mount();
+  const january = screen.getByRole('region', { name: 'Ocak 2098 ay sonu' });
+  expect(january).toHaveTextContent('İlk ay · önceki ayla karşılaştırma yok');
+  fireEvent.change(screen.getByRole('combobox', { name: 'Dönem' }), { target: { value: '2098-02' } });
+  const february = screen.getByRole('region', { name: 'Şubat 2098 ay sonu' });
+  const fact = (group: string, label: string) => within(within(february).getByRole('group', { name: group })).getByText(label).closest('div')!;
+  expect(fact('Nakit sonucu', 'Harcanabilir nakit')).toHaveTextContent('Ocak 2098 ay sonuna göre +900 ₺');
+  expect(fact('Nakit sonucu', 'Net nakit ve borç')).toHaveTextContent('Ocak 2098 ay sonuna göre +750 ₺');
+  expect(fact('Borç ve taahhütler', 'Toplam kart borcu')).toHaveTextContent('Ocak 2098 ay sonuna göre +150 ₺');
+  expect(fact('Borç ve taahhütler', 'KMH anaparası')).toHaveTextContent('Ocak 2098 ay sonuna göre değişmedi');
+});
+
+it('ends the month summary with the month-specific payment steps as the next step', () => {
+  mount();
+  const next = screen.getByRole('navigation', { name: 'Bu aydan sonraki adım' });
+  expect(within(next).getByRole('link', { name: /Ocak 2098 ödeme adımları/ })).toHaveAttribute('href', '#/timeline');
+  const summary = screen.getByRole('region', { name: 'Ocak 2098 ay sonu' });
+  expect(summary.compareDocumentPosition(next) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+});
+
+it('says so when the shared month is not in this ledger instead of silently showing another month', () => {
+  function Preset() { const [, set] = useFinancePeriod(); useEffect(() => set('2099-05'), [set]); return null; }
+  render(<MantineProvider><FinancePeriodProvider><Preset /><FinancePage /></FinancePeriodProvider></MantineProvider>);
+  expect(screen.getByRole('note', { name: 'Seçilen ay' })).toHaveTextContent('Mayıs 2099 bu hesapta yok; Ocak 2098 gösteriliyor.');
+  fireEvent.click(screen.getByRole('button', { name: 'Sonraki ay · Şubat 2098' }));
+  expect(screen.queryByRole('note', { name: 'Seçilen ay' })).not.toBeInTheDocument();
 });

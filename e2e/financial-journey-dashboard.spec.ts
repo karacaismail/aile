@@ -1,11 +1,13 @@
 import { expect, test, type Page } from '@playwright/test';
 import { syntheticSheets, gviz } from '../src/dashboard/fixtures';
 import { syntheticBridgeResponse } from '../src/dashboard/bridgeFixtures';
+import { syntheticTimeline, timelineResponse } from './timelineFinanceFixture';
 
 async function source(page: Page) {
   const raw = syntheticSheets();
   const sheets = { Pano: 'summary', Plan: 'plan', 'Gerçekleşen': 'actual', 'Düzensiz giderler': 'irregular' } as const;
   await page.route('**/gviz/tq?*', route => {
+    if (new URL(route.request().url()).searchParams.get('sheet') === '_Finans web') return route.fulfill({ contentType: 'application/json', body: timelineResponse(route.request().url(), syntheticTimeline()) });
     const bridge = syntheticBridgeResponse(route.request().url());
     if (bridge) return route.fulfill({ contentType: 'application/json', body: bridge });
     const sheet = new URL(route.request().url()).searchParams.get('sheet') as keyof typeof sheets;
@@ -96,3 +98,68 @@ for (const width of [320, 1440]) for (const textScale of [100, 200]) {
     await expect(page.getByRole('table')).toContainText('4.000 ₺');
   });
 }
+
+test('the budget month travels to the payment steps and financing, and financing steps between months by name', async ({ page, browserName }, testInfo) => {
+  await source(page);
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.goto('/aile/#/pano');
+  const picker = page.getByRole('combobox', { name: 'Gösterilen ay' });
+  await picker.click();
+  await page.getByRole('option', { name: 'Aralık 2098', exact: true }).click();
+  const hero = page.getByRole('region', { name: 'Seçili ay özeti' }).locator('.metric-emphasis');
+  await expect(hero).toContainText('Aralık 2098');
+  await expect(hero).toContainText('Kasım 2098 ayına göre');
+  await expect(page.getByRole('group', { name: 'Aralık 2098 · gelir, ödemeler ve birikim' })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath(`budget-month-${browserName}-320.png`), fullPage: true });
+  const toSteps = page.getByRole('navigation', { name: 'Bütçeden sonraki adım' }).getByRole('link', { name: /Aralık 2098 ödeme adımları/ });
+  // Keyboard focus marks only the destination label, never the whole tile or its detail line.
+  await toSteps.focus();
+  await page.keyboard.press(browserName === 'webkit' ? 'Alt+Shift+Tab' : 'Shift+Tab');
+  await page.keyboard.press(browserName === 'webkit' ? 'Alt+Tab' : 'Tab');
+  await expect(toSteps).toBeFocused();
+  expect(await toSteps.evaluate(el => ({ outline: getComputedStyle(el).outlineStyle, tile: getComputedStyle(el).textDecorationLine, label: getComputedStyle(el.querySelector('.info-journey-label')!).textDecorationLine, detail: getComputedStyle(el.querySelector('.info-journey-detail')!).textDecorationLine }))).toEqual({ outline: 'none', tile: 'none', label: 'underline', detail: 'none' });
+  await toSteps.press('Enter');
+  await expect(page.getByRole('combobox', { name: 'Gösterilen dönem' })).toHaveValue('Aralık 2098');
+  await page.getByRole('link', { name: 'Aylık özet ve ayrıntılı tablo', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Aralık 2098 · ay sonu', exact: true })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Aralık 2098 ay sonu' })).toContainText('Kasım 2098 ay sonuna göre');
+  const previous = page.getByRole('button', { name: 'Önceki ay · Kasım 2098', exact: true });
+  expect((await previous.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await previous.click();
+  await expect(page.getByRole('heading', { name: 'Kasım 2098 · ay sonu', exact: true })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Kasım 2098 ay sonu' })).toContainText('İlk ay · önceki ayla karşılaştırma yok');
+  await expect(page.getByRole('button', { name: /^Önceki ay/ })).toBeDisabled();
+  await expect(page.getByRole('navigation', { name: 'Bu aydan sonraki adım' }).getByRole('link', { name: /Kasım 2098 ödeme adımları/ })).toBeVisible();
+  for (const width of [320, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    expect(await page.locator('.finance-page *').evaluateAll(els => els.filter(el => el.textContent?.trim() && el.getBoundingClientRect().width > 0 && parseFloat(getComputedStyle(el).fontSize) < 14).length)).toBe(0);
+  }
+});
+
+test('narrow purchase rows show what and how much in the visible column, and active filters clear in one step', async ({ page, browserName }) => {
+  await source(page);
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.goto('/aile/#/ev');
+  const table = page.getByRole('table', { name: 'Bütçedeki alım planı', exact: true });
+  const glance = table.locator('tbody tr').nth(1).locator('.home-plan-glance');
+  await expect(glance).toHaveText('Tutar yok · Aralık 2098');
+  const visible = await glance.evaluate(el => { const box = el.getBoundingClientRect(), plane = el.closest('.table-scroll')!.getBoundingClientRect(); return box.left >= plane.left - 1 && box.right <= plane.right + 1 && parseFloat(getComputedStyle(el).fontSize) >= 14; });
+  expect(visible).toBe(true);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(glance).toBeHidden();
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.getByRole('button', { name: 'Tutarı eksik', exact: true }).click();
+  const status = page.getByRole('group', { name: 'Etkin filtreler' });
+  await expect(status).toContainText('Tutarı eksik · 1 / 3 kalem');
+  const clear = page.getByRole('button', { name: 'Filtreleri temizle', exact: true });
+  await clear.focus();
+  await page.keyboard.press(browserName === 'webkit' ? 'Alt+Shift+Tab' : 'Shift+Tab');
+  await page.keyboard.press(browserName === 'webkit' ? 'Alt+Tab' : 'Tab');
+  await expect(clear).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('textbox', { name: 'Alım planında ara' })).toBeFocused();
+  await expect(status).toHaveCount(0);
+  await expect(table.locator('tbody tr')).toHaveCount(3);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+});

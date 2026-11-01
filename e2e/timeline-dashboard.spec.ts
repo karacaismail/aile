@@ -1006,6 +1006,10 @@ test('step links name the destination, cross the 50-step page and land visible k
   await expect(back).toBeFocused();
   await expect(back).toBeInViewport();
   await expect(pages).toContainText('1–50 / 716 adım');
+  // Wide container refinements must win over their base rules: the day rail keeps its inset and step links read on one line.
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const wide = await page.getByRole('article', { name: /^50\. adım/ }).evaluate(el => ({ rail: getComputedStyle(el.closest('ol')!).paddingLeft, link: getComputedStyle(el.querySelector('.timeline-step-link')!).display }));
+  expect(wide).toEqual({ rail: tokens.timelineRailInset, link: 'flex' });
   for (const width of [320, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);

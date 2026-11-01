@@ -23,10 +23,17 @@
 .info-source { display: grid; gap: var(--budget-spaceDense); margin-top: var(--budget-spaceSmall); color: var(--budget-muted); font-size: var(--budget-fontSmall); line-height: var(--budget-lineBody); }
 .info-source > strong { color: var(--budget-ink); font-weight: var(--budget-labelWeight); }
 .info-source p { margin: 0; }
-.info-journey { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--budget-spacing); margin-block: var(--budget-spaceSmall); }
-.info-journey > span { color: var(--budget-muted); }
-.info-journey ul { display: flex; flex-wrap: wrap; gap: 0 var(--budget-spacing); list-style: none; padding: 0; margin: 0; }
-.info-journey a { display: inline-flex; align-items: center; gap: var(--budget-spaceDense); min-height: var(--budget-targetMin); color: var(--budget-ink); text-underline-offset: var(--budget-focusOffset); font-weight: var(--budget-labelWeight); }
+/* Next steps: one titled group of destination tiles; each names where it goes and what it answers there. */
+.info-journey { display: grid; gap: var(--budget-spaceTight); margin-block: var(--budget-spacing); }
+.info-journey > span { color: var(--budget-ink); font-weight: var(--budget-headingWeight); }
+.info-journey ul { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--budget-timelineFilterWidth)), 1fr)); gap: var(--budget-spaceTight); list-style: none; padding: 0; margin: 0; }
+.info-journey a { display: grid; align-content: center; gap: var(--budget-spaceDense); min-height: var(--budget-targetMin); height: 100%; padding: var(--budget-spaceSmall) var(--budget-spacing); border-radius: var(--budget-radius); background: var(--budget-paper); color: var(--budget-ink); text-decoration: none; text-underline-offset: var(--budget-focusOffset); transition: background-color var(--budget-duration) var(--budget-ease); }
+.info-journey a:hover { background: var(--budget-blueSurface); }
+.info-journey-label { font-weight: var(--budget-headingWeight); }
+.info-journey-detail { color: var(--budget-muted); }
+/* Only the label carries the single keyboard underline; .budget-app's global [tabindex]-weighted rule must not underline the detail line. */
+html[data-keyboard='true'] :is(.budget-app, .aile-app) .info-journey a:focus-visible { text-decoration: none; }
+html[data-keyboard='true'] :is(.budget-app, .aile-app) .info-journey a:focus-visible .info-journey-label { text-decoration: underline; text-decoration-thickness: var(--budget-focusThickness); text-underline-offset: var(--budget-focusOffset); }
 /* Named record/form sections share a surface vocabulary without imposing a universal card. */
 .record-surface { min-width: 0; background: var(--budget-paper); border-radius: var(--budget-radius); padding: var(--budget-spacing); }
 .record-support { min-width: 0; background: var(--budget-canvas); border-radius: var(--budget-radius); padding: var(--budget-spaceSmall); }

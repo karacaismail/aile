@@ -80,9 +80,8 @@ html[data-keyboard='true'] .budget-app .timeline-table-scroll:focus-visible { te
 .timeline-weekday, .timeline-day-count { color: var(--budget-muted); font-size: var(--budget-fontSmall); font-weight: var(--budget-labelWeight); }
 .timeline-day-count { flex-shrink: 0; }
 .timeline-step { padding: 0; border-radius: var(--budget-timelineStepRadius); background: var(--budget-paper); }
-.timeline-step article { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
+.timeline-step article { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; --step-tone-surface: var(--budget-timelineSurface); --step-tone-ink: var(--budget-ink); border-radius: var(--budget-timelineStepRadius); scroll-margin-top: var(--budget-spaceSmall); transition: box-shadow var(--budget-duration) var(--budget-ease); }
 .timeline-step-context { min-width: 0; padding: var(--budget-spaceSmall) var(--budget-spacing); }
-.timeline-step h3 { margin: var(--budget-spaceDense) 0; font-size: var(--budget-fontSection); line-height: var(--budget-lineBody); }
 .timeline-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--budget-spaceDense) var(--budget-spaceTight); color: var(--budget-muted); }
 .timeline-kind { font-weight: var(--budget-labelWeight); color: var(--budget-ink); }
 .timeline-kind[data-kind='Gelir'] { color: var(--budget-green); }
@@ -99,7 +98,7 @@ html[data-keyboard='true'] .budget-app .timeline-table-scroll:focus-visible { te
 .timeline-change[data-tone='outflow'] { color: var(--budget-red); }
 .timeline-change[data-tone='neutral'] { color: var(--budget-blue); }
 .timeline-balances { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--budget-timelinePurchaseFactWidth)), 1fr)); gap: var(--budget-spaceSmall) var(--budget-spacing); margin: 0; align-content: start; min-width: 0; }
-.timeline-balances div { min-width: 0; }
+.timeline-balances > div { min-width: 0; display: grid; align-content: start; }
 .timeline-balances dt { color: var(--budget-muted); }
 .timeline-balances dd { margin: var(--budget-spaceDense) 0 0; font-variant-numeric: tabular-nums; font-weight: var(--budget-headingWeight); }
 .timeline-details { grid-column: 1 / -1; min-width: 0; display: grid; gap: var(--budget-spaceDense); color: var(--budget-muted); }
@@ -112,6 +111,8 @@ html[data-keyboard='true'] .budget-app .timeline-table-scroll:focus-visible { te
 .timeline-details strong { color: var(--budget-ink); font-weight: var(--budget-labelWeight); }
 .timeline-data-note { color: var(--budget-muted); padding-top: var(--budget-spaceSection); margin-top: var(--budget-spaceWide); border-top: var(--budget-ruleWidth) solid var(--budget-line); display: flex; flex-wrap: wrap; gap: var(--budget-spaceTight) var(--budget-spacing); }
 .timeline-control .timeline-kind { color: var(--budget-green); }
+/* Base rules precede the container blocks that refine them (same specificity: order decides). */
+.timeline-day ol { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--budget-spacing); }
 @container (min-width: 64em) {
   .timeline-summary { grid-template-columns: minmax(0,1fr); }
   .timeline-summary-cash, .timeline-summary-debt { padding: var(--budget-spacing); }
@@ -139,8 +140,8 @@ html[data-keyboard='true'] .budget-app .timeline-table-scroll:focus-visible { te
 .timeline-purchase-facts dd { margin: var(--budget-spaceDense) 0 0; color: var(--budget-ink); font-size: var(--budget-fontSection); font-weight: var(--budget-headingWeight); font-variant-numeric: tabular-nums; }
 .timeline-purchase-amount dd { font-size: var(--budget-fontPayment); line-height: var(--budget-lineCompact); letter-spacing: var(--budget-metricTracking); }
 .timeline-purchase-terms { display: block; font-size: var(--budget-fontSmall); font-weight: var(--budget-labelWeight); margin-top: var(--budget-spaceDense); }
-.timeline-immediate-effect { display: grid; gap: var(--budget-spaceDense); color: var(--budget-ink); margin-top: var(--budget-spacing); }
-.timeline-immediate-effect strong { display: block; font-weight: var(--budget-headingWeight); }
+.timeline-immediate-effect { display: grid; gap: var(--budget-spaceDense); color: var(--budget-ink); margin-top: var(--budget-spaceSmall); padding-top: var(--budget-spaceSmall); border-top: var(--budget-ruleWidth) solid var(--budget-line); }
+.timeline-immediate-effect strong { display: block; font-weight: var(--budget-headingWeight); color: var(--step-tone-ink); }
 .timeline-purchase-status { color: var(--budget-muted); margin-top: var(--budget-spaceDense) !important; }
 .timeline-account-state { min-width: 0; display: grid; gap: 0; }
 .timeline-account-state h4, .timeline-bank-group h5 { margin: 0; font-size: var(--budget-fontSmall); line-height: var(--budget-lineBody); font-weight: var(--budget-headingWeight); color: var(--budget-ink); }
@@ -148,7 +149,6 @@ html[data-keyboard='true'] .budget-app .timeline-table-scroll:focus-visible { te
 .timeline-net-position > div { display: flex; flex-wrap: wrap; gap: var(--budget-spaceDense) var(--budget-spaceTight); }
 .timeline-net-position dd { margin: 0; color: var(--budget-ink); font-variant-numeric: tabular-nums; font-weight: var(--budget-labelWeight); }
 .timeline-account-breakdown { display: grid; gap: var(--budget-spaceTight); padding: var(--budget-spaceSmall) var(--budget-spacing); background: var(--budget-timelineStepSurface); }
-.timeline-bank-group dl > div { min-width: 0; }
 .timeline-bank-group dt { color: var(--budget-muted); }
 .timeline-bank-group dd { margin: 0; font-weight: var(--budget-labelWeight); font-variant-numeric: tabular-nums; }
 .timeline-future-instalments { color: var(--budget-muted); font-size: var(--budget-fontSmall); }
@@ -171,13 +171,10 @@ html[data-keyboard='true'] .budget-app .timeline-table-scroll:focus-visible { te
 .timeline-step-effect dd { margin: 0; font-weight: var(--budget-headingWeight); font-variant-numeric: tabular-nums; }
 .timeline-table-note .info-source { margin: 0; }
 
-.timeline-bank-group dd { margin: 0; }
 
 /* Step anatomy: a kind-toned opening band and a matching closing link band bracket every step
    (common region + closure). Inside, spacing groups the facts, the movement, the result and the
    bank rows; colour always accompanies the visible kind label and signed text, never alone. */
-.timeline-day ol { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--budget-spacing); }
-.timeline-step article { --step-tone-surface: var(--budget-timelineSurface); --step-tone-ink: var(--budget-ink); border-radius: var(--budget-timelineStepRadius); scroll-margin-top: var(--budget-spaceSmall); transition: box-shadow var(--budget-duration) var(--budget-ease); }
 .timeline-step article[data-tone='income'] { --step-tone-surface: var(--budget-greenSurface); --step-tone-ink: var(--budget-green); }
 .timeline-step article[data-tone='outflow'] { --step-tone-surface: var(--budget-redSurface); --step-tone-ink: var(--budget-red); }
 .timeline-step article[data-tone='card'] { --step-tone-surface: var(--budget-blueSurface); --step-tone-ink: var(--budget-blue); }
@@ -188,10 +185,7 @@ html[data-keyboard='true'] .budget-app .timeline-table-scroll:focus-visible { te
 .timeline-step .timeline-kind { display: inline-flex; padding: 0 var(--budget-spaceTight); background: var(--budget-paper); color: var(--step-tone-ink); border-radius: var(--budget-radius); }
 .timeline-step-number { color: var(--budget-muted); font-weight: var(--budget-labelWeight); font-variant-numeric: tabular-nums; }
 .timeline-step-identity h3 { margin-bottom: 0; }
-.timeline-immediate-effect { margin-top: var(--budget-spaceSmall); padding-top: var(--budget-spaceSmall); border-top: var(--budget-ruleWidth) solid var(--budget-line); }
-.timeline-immediate-effect strong { color: var(--step-tone-ink); }
 /* Result: every balance carries its change against the preceding unfiltered ledger step. */
-.timeline-balances > div { display: grid; align-content: start; }
 [data-step-part='after'] .timeline-result dd.timeline-balance-change { margin-top: var(--budget-spaceDense); font-size: var(--budget-fontSmall); font-weight: var(--budget-labelWeight); color: var(--budget-timelineOverviewMuted); }
 [data-step-part='after'] .timeline-result dd.timeline-balance-change[data-tone='inflow'] { color: var(--budget-timelineOverviewPositive); }
 [data-step-part='after'] .timeline-result dd.timeline-balance-change[data-tone='outflow'] { color: var(--budget-timelineOverviewNegative); }
@@ -201,17 +195,8 @@ html[data-keyboard='true'] .budget-app .timeline-table-scroll:focus-visible { te
 .timeline-bank-group[data-moved='true'] { background: var(--budget-paper); }
 .timeline-bank-group h5 { font-weight: var(--budget-headingWeight); }
 .timeline-bank-group dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--budget-spaceDense) var(--budget-spaceSmall); margin: 0; }
-.timeline-bank-group dl > div { display: grid; align-content: start; }
+.timeline-bank-group dl > div { min-width: 0; display: grid; align-content: start; }
 .timeline-bank-group .timeline-balance-change { color: var(--budget-blue); }
-@container (min-width: 36em) {
-  .timeline-bank-group { grid-template-columns: var(--budget-timelineBankNameWidth) minmax(0, 1fr); align-items: start; }
-  /* Wide rows read as one line per bank: label and value side by side in shared columns. */
-  .timeline-bank-group { align-items: baseline; padding-block: var(--budget-spaceDense); }
-  .timeline-bank-group dl > div { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--budget-spaceTight); }
-  [data-step-part='after'] .timeline-bank-group dd.timeline-balance-change { margin: 0; }
-  .timeline-step-link { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--budget-spaceTight); }
-  .timeline-step-link[data-direction='next'] { justify-content: flex-end; }
-}
 /* Step end: destination-named links to the neighbouring visible steps on the step's own tone. */
 .timeline-step-links { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--budget-timelinePurchaseFactWidth)), 1fr)); gap: var(--budget-spaceTight); padding: var(--budget-spaceSmall) var(--budget-spacing); background: var(--step-tone-surface); border-radius: 0 0 var(--budget-timelineStepRadius) var(--budget-timelineStepRadius); }
 .timeline-step-link { display: grid; align-content: center; gap: var(--budget-spaceDense); min-height: var(--budget-targetMin); min-width: 0; padding: var(--budget-spaceTight) var(--budget-spaceSmall); border: 0; border-radius: var(--budget-radius); background: var(--budget-paper); color: var(--budget-ink); font: inherit; text-align: start; cursor: pointer; transition: background-color var(--budget-duration) var(--budget-ease); }
@@ -221,6 +206,14 @@ html[data-keyboard='true'] .budget-app .timeline-table-scroll:focus-visible { te
 .timeline-step-link-target { font-weight: var(--budget-headingWeight); overflow-wrap: break-word; }
 .timeline-step-link-edge { align-self: center; padding: var(--budget-spaceTight) var(--budget-spaceSmall); color: var(--budget-muted); }
 .timeline-balance-change .timeline-amount { white-space: nowrap; }
+@container (min-width: 36em) {
+  /* Wide rows read as one line per bank: label and value side by side in shared columns. */
+  .timeline-bank-group { grid-template-columns: var(--budget-timelineBankNameWidth) minmax(0, 1fr); align-items: baseline; padding-block: var(--budget-spaceDense); }
+  .timeline-bank-group dl > div { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--budget-spaceTight); }
+  [data-step-part='after'] .timeline-bank-group dd.timeline-balance-change { margin: 0; }
+  .timeline-step-link { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--budget-spaceTight); }
+  .timeline-step-link[data-direction='next'] { justify-content: flex-end; }
+}
 @container (min-width: 48em) {
   /* Wide identity reads as one line: kind, title, then the step number; DOM order stays kind → number → title. */
   .timeline-step-identity { display: flex; flex-wrap: wrap; align-items: center; gap: var(--budget-spaceDense) var(--budget-spaceSmall); padding-block: var(--budget-spaceTight); }
@@ -231,3 +224,4 @@ html[data-keyboard='true'] .budget-app .timeline-table-scroll:focus-visible { te
   .timeline-step-links { padding-block: var(--budget-spaceTight); }
   .timeline-account-breakdown { gap: var(--budget-spaceDense); }
 }
+.timeline-period-note { margin: 0 0 var(--budget-spaceTight); color: var(--budget-timelineOverviewMuted); }

@@ -93,7 +93,7 @@ yüzeye alınır. İlk defter olayında fark iddiası yoktur. Adım sonu "Öncek
 Sonraki adım" bağlantıları hedef adımın numarası, tarihi ve başlığıyla görünür
 (filtrelenmiş) sırayı izler, 50'lik sayfa sınırını geçer, odağı hedef adımın
 başlığına verir ve hedef adımı `data-selected` ile işaretler; dönem, filtre, görünüm
-ve rota değişmez. Görünen son adım dönem ayrıntılarına götürür.
+ve rota değişmez. Görünen son adım dönem ayrıntılarına götürür. Filtre etkinken gün başlığındaki sayı "N görünen adım" olur; günün bütün adımları gibi okunmaz.
 
 Regresyon: `purchase.test.ts`, `TimelinePage.test.tsx` ve `purchase cards answer`
 E2E; kuruş, nakit/kart ayrımı, yanlış banka, karışık hareket, eksik bilgi,

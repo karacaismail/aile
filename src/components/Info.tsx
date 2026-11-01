@@ -20,7 +20,8 @@ export function SectionHeading({ title, description, actions, level = 2 }: { tit
 export function SourceNote({ label = 'Kaynak ve kapsam', children }: { label?: string; children: ReactNode }) {
   return <div className="info-source">{label && <strong>{label}</strong>}<div>{children}</div></div>;
 }
-/** Page links are navigation, not tabs or local filters. No record matching is inferred. */
-export function JourneyLinks({ label = 'İlgili adımlar', items }: { label?: string; items: readonly { href: string; label: string }[] }) {
-  return <nav className="info-journey" aria-label={label}><span>{label}</span><ul>{items.map(item => <li key={item.href}><a href={item.href}>{item.label}<span aria-hidden="true"> →</span></a></li>)}</ul></nav>;
+/** Page links are navigation, not tabs or local filters. No record matching is inferred; `onSelect` may only set shared navigation context such as the period. */
+export type JourneyLink = { href: string; label: string; detail?: string; onSelect?: () => void };
+export function JourneyLinks({ label = 'İlgili adımlar', items }: { label?: string; items: readonly JourneyLink[] }) {
+  return <nav className="info-journey" aria-label={label}><span>{label}</span><ul>{items.map(item => <li key={item.href + item.label}><a href={item.href} onClick={item.onSelect}><span className="info-journey-label">{item.label}<span aria-hidden="true"> →</span></span>{item.detail && <span className="info-journey-detail">{item.detail}</span>}</a></li>)}</ul></nav>;
 }

@@ -19,3 +19,10 @@
 .home-plan-overview .info-facts > dl { grid-template-columns: minmax(0, 1fr); gap: var(--budget-spaceTight); }
 .home-plan-overview .info-facts dl > div { display: flex; align-items: baseline; justify-content: space-between; gap: var(--budget-spaceSmall); }
 .home-plan-overview .info-facts dd { margin: 0; font-size: var(--budget-fontSection); }
+/* Active filters are stated in words with the visible count, next to the one action that clears them. */
+.home-plan-active { display: flex; flex-wrap: wrap; align-items: center; gap: var(--budget-spaceTight) var(--budget-spacing); margin-bottom: var(--budget-spaceSmall); }
+.home-plan-active p { flex: 1 1 var(--budget-timelineFilterWidth); min-width: 0; }
+.home-plan-active strong { font-weight: var(--budget-headingWeight); }
+/* The scroll plane shows only the first column on narrow containers: a glance line repeats the amount and plan month there (cells keep the semantics). */
+.home-plan-glance { display: none; margin-top: var(--budget-spaceDense); font-weight: var(--budget-headingWeight); font-variant-numeric: tabular-nums; }
+@container (max-width: 36em) { .home-plan-glance { display: block; } }

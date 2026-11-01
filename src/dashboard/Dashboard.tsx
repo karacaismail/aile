@@ -11,6 +11,7 @@ import { DataTable, type Column } from './DataTable';
 import { PageHeader } from '../app/family/PageHeader';
 import { DataStatus } from '../app/family/DataStatus';
 import { JourneyLinks, SourceNote, SectionHeading } from '../components/Info';
+import { useFinancePeriod } from '../app/family/FinancePeriod';
 import './dashboard.css';
 const VehiclePage = lazy(() => import('../vehicle/VehiclePage'));
 const TimelinePage = lazy(() => import('../timeline/TimelinePage'));
@@ -35,12 +36,20 @@ const deltaColumns: Column<Month>[] = [
 ];
 type Freshness = { loading: boolean; updatedAt: Date | null; refresh: () => void };
 const metricLabels = { income: 'Gelir', expense: 'Ödemeler', saving: 'Birikime ayrılan', free: 'Aylık net nakit' } as const;
+// Comparison with the previous month is a plain difference of source values; the first month says so once, on the result, instead of a dash.
+function comparison(key: keyof typeof metricLabels, current: Month, previous?: Month) {
+  if (!previous) return 'İlk ay · önceki ayla karşılaştırma yok';
+  const change = current[key].current - previous[key].current;
+  if (change === 0) return `${previous.label} ayına göre değişmedi`;
+  return `${previous.label} ayına göre ${key === 'free' ? `${change > 0 ? '+' : ''}${money(change)}` : percentChange(current[key].current, previous[key].current) === null ? 'yüzde hesaplanamaz (önceki ay 0 ₺)' : percent(percentChange(current[key].current, previous[key].current))}`;
+}
 function BudgetContent({ data, loading, updatedAt, refresh }: { data: Budget } & Freshness) {
   const nowKey = new Intl.DateTimeFormat('sv-SE', { year: 'numeric', month: '2-digit', timeZone: 'Europe/Istanbul' }).format(new Date());
   const [month, setMonth] = useState(data.months.find(m => m.key === nowKey)?.key ?? data.months[0].key);
   const [view, setView] = useState('overview');
   const [query, setQuery] = useState(''); const [group, setGroup] = useState('Tümü'); const [type, setType] = useState('Tümü');
   const reduced = useReducedMotion();
+  const [, setPeriod] = useFinancePeriod();
   const selectProps = { allowDeselect: false, withScrollArea: false, comboboxProps: { transitionProps: { duration: reduced ? 0 : tokens.duration, timingFunction: tokens.ease, transition: dropdownTransition }, withinPortal: false } };
   const index = Math.max(0, data.months.findIndex(m => m.key === month)), current = data.months[index], previous = data.months[index - 1];
   const categoryCols: Column<Category>[] = [
@@ -62,7 +71,7 @@ function BudgetContent({ data, loading, updatedAt, refresh }: { data: Budget } &
   const categories = data.categories.filter(c => (group === 'Tümü' || c.group === group) && `${c.label} ${c.group}`.toLocaleLowerCase('tr').includes(q));
   const irregular = data.irregular.filter(r => (type === 'Tümü' || (type === 'Tutar eksik' ? r.current === null : r.type === type)) && `${r.label} ${r.room} ${r.status} ${r.note}`.toLocaleLowerCase('tr').includes(q));
   // Decision order: what is left this month, what the month and the period end with, then the components.
-  const metric = (key: 'income' | 'expense' | 'saving' | 'free') => <article className={`metric${key === 'free' ? ' metric-emphasis' : ''}`} key={key}><h2>{metricLabels[key]}</h2><p className="metric-value"><Amount value={current[key].current} /></p><p>Plan <Amount value={current[key].plan} /></p><p className="muted">Önceki aya göre {previous ? key === 'free' ? money(current[key].current - previous[key].current) : percent(percentChange(current[key].current, previous[key].current)) : '—'}</p></article>;
+  const metric = (key: keyof typeof metricLabels) => <article className={`metric${key === 'free' ? ' metric-emphasis' : ''}`} key={key}>{key === 'free' && <p className="metric-period">{current.label}</p>}<h2>{metricLabels[key]}</h2><p className="metric-value"><Amount value={current[key].current} /></p><p>Plan <Amount value={current[key].plan} /></p>{(previous || key === 'free') && <p className="muted metric-comparison">{comparison(key, current, previous)}</p>}</article>;
   return <>
     <PageHeader location="/pano" lead={`${data.months[0].label} — ${data.months.at(-1)!.label}`} actions={<><button className="quiet-button" disabled={loading} onClick={refresh}>Yenile</button><div className="month-picker"><Select label="Gösterilen ay" value={current.key} onChange={v => v && setMonth(v)} data={data.months.map(m => ({ value: m.key, label: m.label }))} {...selectProps} /></div></>}>
       <DataStatus loading={loading} updatedAt={updatedAt} />
@@ -70,15 +79,16 @@ function BudgetContent({ data, loading, updatedAt, refresh }: { data: Budget } &
     <p className="provenance"><strong>{current.label}</strong><span className="source-label">{current.source}</span>{data.bridge && <span>Koşullu hesap</span>}</p>
     <section className="metrics" aria-label="Seçili ay özeti">
       {metric('free')}
-      <dl className="balance-strip"><div><dt>Seçili ay sonunda nakit</dt><dd><Amount value={current.balance.current} /></dd></div><div><dt>Dönem sonunda nakit</dt><dd><Amount value={data.months.at(-1)!.balance.current} /></dd></div></dl>
-      <div className="metric-group">{(['income', 'expense', 'saving'] as const).map(metric)}</div>
+      <div className="balance-strip-group" role="group" aria-label="Nakit bakiyesi"><dl className="balance-strip"><div><dt>Seçili ay sonunda nakit</dt><dd><Amount value={current.balance.current} /></dd></div><div><dt>Dönem sonunda nakit</dt><dd><Amount value={data.months.at(-1)!.balance.current} /></dd></div></dl></div>
+      <div className="metric-group" role="group" aria-labelledby="budget-components-title"><p className="metric-group-title" id="budget-components-title">{current.label} · gelir, ödemeler ve birikim</p>{(['income', 'expense', 'saving'] as const).map(metric)}</div>
     </section>
     <nav className="view-nav budget-view-nav" aria-label="Bütçe görünümleri">{[['overview','Genel bakış'],['months','Aylık tablo'],['categories','Kalemler ve fark'],['irregular','Düzensiz giderler']].map(([key, label]) => <button key={key} aria-pressed={view === key} onClick={() => { setView(key); setQuery(''); }}>{label}</button>)}</nav>
     {view === 'overview' && <DeferredCharts data={data} selected={index} />}
     {view === 'months' && <section className="budget-detail"><SectionHeading title="Aydan aya bütün bütçe" description="Tüm dönem. Başlıklara dokunarak sıralayın; ayrıntılar için tabloyu yatay kaydırın." /><DataTable rows={data.months} columns={deltaColumns} rowKey={m => m.key} caption="Aylık plan ve güncel karşılaştırması" /></section>}
     {view === 'categories' && <section className="budget-detail"><SectionHeading title={`${current.label} kalemleri`} description="Fark = güncel − plan. Giderde pozitif fark daha fazla harcama; gelirde pozitif fark daha fazla gelirdir." />{data.schema === 'cashflow' && <p className="muted">Kalemler harcamanın ait olduğu ayı gösterir. Kartla alışveriş ile karta ödeme farklı aylarda olabilir; kasadan çıkan tutarları aylık özette ve Timeline’da izleyin.</p>}<div className="filters"><TextInput label="Kalem ara" value={query} onChange={e => setQuery(e.currentTarget.value)} placeholder="Örneğin kira" /><Select label="Kategori" value={group} onChange={v => v && setGroup(v)} data={['Tümü', ...data.groups.map(g => g.label)]} {...selectProps} /></div><DataTable rows={categories} columns={categoryCols} rowKey={r => r.id} caption={`${current.label} kategori karşılaştırması`} /></section>}
     {view === 'irregular' && <section className="budget-detail"><SectionHeading title="Taşınma, özel günler ve tek seferlik ödemeler" description={`Tüm dönemden ${data.irregular.length} kalem. ${data.irregular.filter(r => r.current === null).length} kalemde tutar eksik; bunlar sıfır değildir.`} /><div className="filters"><TextInput label="Gider ara" value={query} onChange={e => setQuery(e.currentTarget.value)} placeholder="Gider, oda veya durum" /><Select label="Gider türü" value={type} onChange={v => v && setType(v)} data={['Tümü','Tutar eksik', ...new Set(data.irregular.map(r => r.type).filter(Boolean))]} {...selectProps} /></div><DataTable rows={irregular} columns={irregularCols} rowKey={r => r.id} caption="Düzensiz giderlerin plan ve güncel tutarları" /></section>}
-    <JourneyLinks label="Bütçeden sonraki adım" items={[{href:'#/ev',label:'Alım planını incele'},{href:'#/timeline',label:'Ödeme takvimine git'}]} />
+    {/* The shared finance period carries the month; each destination validates it against its own ledger. */}
+    <JourneyLinks label="Bütçeden sonraki adım" items={[{ href: '#/timeline', label: `${current.label} ödeme adımları`, detail: 'Nakit, kart ve KMH adım adım', onSelect: () => setPeriod(current.key) }, { href: '#/finansman', label: `${current.label} finansman özeti`, detail: 'Ay sonu borç ve maliyetler', onSelect: () => setPeriod(current.key) }, { href: '#/ev', label: 'Alım planını incele', detail: 'Bütçedeki alımlar ve eksik tutarlar' }]} />
     <SourceNote><p>Güncel değerler Gerçekleşen sayfasından gelir. Planı izleyen tutarlar, yapılmış ödeme anlamına gelmez.</p>{data.bridge && <p>{data.bridge.status} · {data.bridge.scope}</p>}</SourceNote>
   </>;
 }

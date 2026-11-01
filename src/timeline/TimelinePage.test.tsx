@@ -5,6 +5,8 @@ import TimelinePage from './TimelinePage';
 import { buildFinance } from '../finance/data';
 import { syntheticFinance, syntheticLongFinance } from '../finance/fixtures';
 import { useFinance } from '../finance/useFinance';
+import { FinancePeriodProvider, useFinancePeriod } from '../app/family/FinancePeriod';
+import { useEffect } from 'react';
 
 vi.mock('../finance/useFinance', () => ({ useFinance: vi.fn() }));
 // The branded Select is covered in browser tests; use its value/onChange contract here.
@@ -144,6 +146,20 @@ it('compares a filtered step with its hidden full-ledger predecessor and links o
   advanceFrame();
   expect(screen.getByRole('article', { name: '10. adım · Ödeme B' })).not.toHaveAttribute('data-selected');
   expect(document.activeElement).not.toBe(within(screen.getByRole('article', { name: '6. adım · Ödeme A' })).getByRole('heading', { level: 3 }));
+});
+
+it('says a filtered day count covers only the visible steps of that day', () => {
+  const data = buildFinance(syntheticLongFinance());
+  // Three steps on one day, two of them payments.
+  for (const index of [1, 2, 3]) data.events[index].date = '2098-01-02';
+  Object.assign(data.events[1], { cashChange: -10 }); Object.assign(data.events[3], { cashChange: -20 });
+  vi.mocked(useFinance).mockReturnValue({ data, loading: false, error: null, updatedAt: null, refresh: vi.fn() });
+  mount();
+  const day = () => screen.getByRole('region', { name: /2 Ocak 2098/ });
+  expect(day()).toHaveTextContent('3 adım');
+  fireEvent.click(screen.getByRole('button', { name: 'Ödemeler' }));
+  expect(day()).toHaveTextContent('2 görünen adım');
+  expect(day()).not.toHaveTextContent(/(^|\D)3 adım/);
 });
 
 it('renders the first eight verified steps immediately, then sixteen per frame without changing source totals', () => {
@@ -389,4 +405,10 @@ it('shows the actual prior-ledger KMH change beside a transfer without calling r
   expect(within(facts).getByText('+5.000 ₺')).toBeVisible();
   expect(within(step).getByRole('group',{name:'Adım sonrası · tüm hesaplar'})).toHaveTextContent('Harcanabilir nakit2.000 ₺');
   expect(step).not.toHaveTextContent('Gelir');
+});
+
+it('says so when the shared month is not in this ledger instead of silently showing another month', () => {
+  function Preset() { const [, set] = useFinancePeriod(); useEffect(() => set('2099-05'), [set]); return null; }
+  render(<MantineProvider><FinancePeriodProvider><Preset /><TimelinePage /></FinancePeriodProvider></MantineProvider>);
+  expect(screen.getByRole('note', { name: 'Seçilen ay' })).toHaveTextContent('Mayıs 2099 bu hesapta yok; Ocak 2098 gösteriliyor.');
 });

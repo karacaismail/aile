@@ -49,11 +49,12 @@ function StepPages({ position, page, count, onChange }: { position: 'üst' | 'al
     <div className="button-row"><button className="quiet-button" disabled={page === 0} onClick={() => onChange(page - 1)}>Önceki adımlar</button><button className="quiet-button" disabled={(page + 1) * stepsPerPage >= count} onClick={() => onChange(page + 1)}>Sonraki adımlar</button></div>
   </nav>;
 }
-function DayHeading({ date, count }: { date: string; count: number }) {
+// A filtered day may hide steps, so its count names only the visible ones.
+function DayHeading({ date, count, filtered }: { date: string; count: number; filtered: boolean }) {
   const value = new Date(`${date}T12:00:00Z`);
   const month = new Intl.DateTimeFormat('tr-TR', { month: 'short', year: 'numeric', timeZone: 'UTC' }).format(value);
   const weekday = new Intl.DateTimeFormat('tr-TR', { weekday: 'long', timeZone: 'UTC' }).format(value);
-  return <div className="timeline-day-heading"><h2 id={`timeline-date-${date}`}><time dateTime={date} aria-label={dateLabel(date)}><span className="timeline-date-number">{date.slice(8)}</span><span className="timeline-date-month">{month}</span><span className="timeline-weekday">{weekday}</span></time></h2>{count > 1 && <span className="timeline-day-count">{count} adım</span>}</div>;
+  return <div className="timeline-day-heading"><h2 id={`timeline-date-${date}`}><time dateTime={date} aria-label={dateLabel(date)}><span className="timeline-date-number">{date.slice(8)}</span><span className="timeline-date-month">{month}</span><span className="timeline-weekday">{weekday}</span></time></h2>{count > 1 && <span className="timeline-day-count">{count} {filtered ? 'görünen adım' : 'adım'}</span>}</div>;
 }
 
 function TimelineJourney({ data }: { data: FinanceLedger }) {
@@ -66,6 +67,8 @@ function TimelineJourney({ data }: { data: FinanceLedger }) {
   const [pageSelection, setPageSelection] = useState({ scope: '', page: 0 });
   const changeSelection = (next: string) => { setSelection(next); setPageSelection({ scope: next, page: 0 }); };
   const selected = selection === 'all' || months.includes(selection) ? selection : months[0];
+  // A month carried from another page may be outside this ledger: say which month is shown instead.
+  const absent = selection && selection !== selected && /^\d{4}-\d{2}$/.test(selection) ? selection : null;
   const events = data.events.filter(event => selected === 'all' || event.date.startsWith(selected));
   const filteredEvents = events.filter(event => matchesFilter(event, filter) && (filter !== 'purchase' || purchaseGroup === 'all' || event.type === `Alışveriş · ${purchaseGroup === 'before' ? 'Taşınma öncesi' : 'Taşınma sonrası'}`));
   const pageScope = `${selected}:${filter}:${purchaseGroup}`;
@@ -116,6 +119,7 @@ function TimelineJourney({ data }: { data: FinanceLedger }) {
   return <div className="timeline-workspace">
     <aside className="timeline-overview" aria-label="Dönem kontrolü">
     <div className="timeline-overview-heading-row"><h2 className="timeline-overview-heading">Dönem sonu</h2><button type="button" ref={jumpRef} className="timeline-jump" onClick={() => reveal(detailsRef.current, 'start')}>Dönem ayrıntıları</button></div>
+    {absent && <p className="timeline-period-note" role="note" aria-label="Seçilen ay">{monthLabel(absent)} bu hesapta yok; {monthLabel(selected)} gösteriliyor.</p>}
     <div className="timeline-toolbar">
       <div className="timeline-month"><Select aria-label="Gösterilen dönem" value={selected} onChange={value => value && changeSelection(value)} allowDeselect={false} data={[...months.map(month => ({ value: month, label: monthLabel(month) })), { value: 'all', label: 'Tüm dönem' }]} /></div>
       <div className="button-row timeline-period-buttons"><button className="quiet-button timeline-month-arrow" aria-label="Önceki ay" disabled={index <= 0} onClick={() => changeSelection(months[index - 1])}><MonthArrow /></button><button className="quiet-button timeline-month-arrow" aria-label="Sonraki ay" disabled={index < 0 || index >= months.length - 1} onClick={() => changeSelection(months[index + 1])}><MonthArrow next /></button></div>
@@ -139,7 +143,7 @@ function TimelineJourney({ data }: { data: FinanceLedger }) {
     {filteredEvents.length === 0 && <div className="timeline-empty"><h3>Bu dönemde {filter === 'purchase' ? purchaseGroup === 'all' ? 'alışveriş adımı' : purchaseGroup === 'before' ? 'taşınma öncesi alımı' : 'taşınma sonrası alımı' : filter === 'payment' ? 'ödeme adımı' : 'gelir adımı'} yok.</h3><p>Başka bir ay seçebilir veya tüm adımları görüntüleyebilirsin.</p></div>}
     {filteredEvents.length > stepsPerPage && <StepPages position="üst" page={page} count={filteredEvents.length} onChange={changePage} />}
     <Tabs.Panel value="timeline" aria-busy={rendering}><div className="timeline-journey" aria-label="Kronolojik ödeme adımları">
-      {[...dates].map(([date, day]) => <section className="timeline-day" key={date} aria-labelledby={`timeline-date-${date}`}><DayHeading date={date} count={day.length} /><ol>{day.map(event => <StepCard key={event.id} event={event} number={eventNumbers.get(event.id)!} purchase={purchases.get(event.id) ?? null} previous={data.events[eventNumbers.get(event.id)! - 2]} selected={focusCurrent && stepFocus.selected === event.id} links={{ previous: neighbour(filteredEvents[filteredIndex.get(event.id)! - 1]), next: neighbour(filteredEvents[filteredIndex.get(event.id)! + 1]), onStep: goToStep, onEnd: () => reveal(detailsRef.current, 'start') }} />)}</ol></section>)}
+      {[...dates].map(([date, day]) => <section className="timeline-day" key={date} aria-labelledby={`timeline-date-${date}`}><DayHeading date={date} count={day.length} filtered={filter !== 'all'} /><ol>{day.map(event => <StepCard key={event.id} event={event} number={eventNumbers.get(event.id)!} purchase={purchases.get(event.id) ?? null} previous={data.events[eventNumbers.get(event.id)! - 2]} selected={focusCurrent && stepFocus.selected === event.id} links={{ previous: neighbour(filteredEvents[filteredIndex.get(event.id)! - 1]), next: neighbour(filteredEvents[filteredIndex.get(event.id)! + 1]), onStep: goToStep, onEnd: () => reveal(detailsRef.current, 'start') }} />)}</ol></section>)}
     </div></Tabs.Panel>
     <Tabs.Panel value="table" aria-busy={rendering}>{visibleEvents.length > 0 && <StepTable events={visibleEvents} eventNumbers={eventNumbers} purchases={purchases} allEvents={data.events} />}</Tabs.Panel>
     {filteredEvents.length > stepsPerPage && <StepPages position="alt" page={page} count={filteredEvents.length} onChange={changePage} />}
