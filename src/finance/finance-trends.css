@@ -12,3 +12,4 @@
 .finance-trend-context button { width: fit-content; text-underline-offset: var(--budget-spaceDense); }
 
 .finance-chart-recovery { display: grid; justify-items: start; gap: var(--budget-spaceTight); padding: var(--budget-spaceSmall); margin-bottom: var(--budget-spacing); background: var(--budget-amberSurface); border-radius: var(--budget-radius); }
+.finance-chart-recovery .quiet-button[aria-disabled="true"] { cursor: wait; color: var(--budget-muted); background: var(--budget-canvas); }

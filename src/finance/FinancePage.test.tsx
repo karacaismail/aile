@@ -229,5 +229,39 @@ it.each(['not-a-month', '2097-12'])('ignores invalid or out-of-ledger recovery m
     mount();
     expect(screen.getByRole('combobox', { name: 'Dönem' })).toHaveValue('2098-01');
     expect(screen.getByRole('tab', { name: 'Günlük adımlar' })).toHaveAttribute('aria-selected', 'true');
+    expect(new URL(window.location.href).searchParams.has('financeChartMonth')).toBe(false);
+  } finally { window.history.replaceState(null, '', before); }
+});
+
+it('consumes recovery even during a load error and does not override a later shared month after leaving', () => {
+  const before = window.location.href;
+  window.history.replaceState(null, '', '?keep=1&financeChartMonth=2098-02#/finansman');
+  const PeriodChoice = () => { const [, select] = useFinancePeriod(); return <button onClick={() => select('2098-01')}>Ocak seç</button>; };
+  const tree = (finance: boolean) => <MantineProvider><FinancePeriodProvider>{finance ? <FinancePage /> : <PeriodChoice />}</FinancePeriodProvider></MantineProvider>;
+  vi.mocked(useFinance).mockReturnValue({ data: null, loading: false, error: 'Kaynak doğrulanamadı.', updatedAt: null, refresh: vi.fn() });
+  try {
+    const screenView = render(tree(true));
+    expect(new URL(window.location.href).search).toBe('?keep=1');
+    screenView.rerender(tree(false));
+    fireEvent.click(screen.getByRole('button', { name: 'Ocak seç' }));
+    vi.mocked(useFinance).mockReturnValue({ data: buildFinance(syntheticFinance()), loading: false, error: null, updatedAt: null, refresh: vi.fn() });
+    screenView.rerender(tree(true));
+    expect(screen.getByRole('combobox', { name: 'Dönem' })).toHaveValue('2098-01');
+    expect(screen.getByRole('tab', { name: 'Günlük adımlar' })).toHaveAttribute('aria-selected', 'true');
+  } finally { window.history.replaceState(null, '', before); }
+});
+
+it('holds consumed recovery in this page while loading and applies it only to a validated ledger', async () => {
+  const before = window.location.href;
+  window.history.replaceState(null, '', '?financeChartMonth=2098-02#/finansman');
+  vi.mocked(useFinance).mockReturnValue({ data: null, loading: true, error: null, updatedAt: null, refresh: vi.fn() });
+  try {
+    const screenView = mount();
+    expect(new URL(window.location.href).searchParams.has('financeChartMonth')).toBe(false);
+    vi.mocked(useFinance).mockReturnValue({ data: buildFinance(syntheticFinance()), loading: false, error: null, updatedAt: null, refresh: vi.fn() });
+    screenView.rerender(<MantineProvider><FinancePage /></MantineProvider>);
+    expect(screen.getByRole('combobox', { name: 'Dönem' })).toHaveValue('2098-02');
+    expect(screen.getByRole('tab', { name: 'Aylık özet' })).toHaveAttribute('aria-selected', 'true');
+    await screen.findAllByLabelText('Sentetik çizim');
   } finally { window.history.replaceState(null, '', before); }
 });

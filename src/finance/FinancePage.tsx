@@ -67,18 +67,13 @@ function MonthStep({ direction, month, onSelect }: { direction: 'previous' | 'ne
     {direction === 'previous' && <span aria-hidden="true">← </span>}{label}{month && <> · <strong>{monthLabel(month.month)}</strong></>}{direction === 'next' && <span aria-hidden="true"> →</span>}
   </button>;
 }
-function FinanceContent({ data }: { data: FinanceLedger }) {
-  const [recovery] = useState(() => {
-    const month = new URL(window.location.href).searchParams.get('financeChartMonth') ?? '';
-    return /^\d{4}-(0[1-9]|1[0-2])$/.test(month) && data.months.some(value => value.month === month) ? month : '';
-  });
+function FinanceContent({ data, recoveryMonth }: { data: FinanceLedger; recoveryMonth: string }) {
+  const [recovery] = useState(() => /^\d{4}-(0[1-9]|1[0-2])$/.test(recoveryMonth) && data.months.some(value => value.month === recoveryMonth) ? recoveryMonth : '');
   const [selection, setSelection] = useFinancePeriod(recovery || data.months[0].month);
   const [view, setView] = useState<string | null>(recovery ? 'monthly' : 'daily');
   useEffect(() => {
     if (!recovery) return;
     setSelection(recovery);
-    const url = new URL(window.location.href); url.searchParams.delete('financeChartMonth');
-    window.history.replaceState(window.history.state, '', url.href);
   }, [recovery, setSelection]);
   const [page, setPage] = useState(0);
   const selected = data.months.find(month => month.month === (selection || recovery)) ?? data.months[0];
@@ -131,13 +126,23 @@ function FinanceSkeleton() {
 }
 export default function FinancePage() {
   const state = useFinance();
+  const [recoveryMonth, setRecoveryMonth] = useState(() => new URL(window.location.href).searchParams.get('financeChartMonth') ?? '');
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('financeChartMonth')) {
+      url.searchParams.delete('financeChartMonth');
+      window.history.replaceState(window.history.state, '', url.href);
+    }
+  }, []);
+  // The first validated ledger consumes the in-memory request; later source errors cannot replay it.
+  useEffect(() => { if (state.data) setRecoveryMonth(''); }, [state.data]);
   return <div className="finance-page">
     <PageHeader location="/finansman" lead="Nakit, kredi kartları, KMH ve finansman maliyetleri." actions={<button className="quiet-button" disabled={state.loading} onClick={state.refresh}>Yenile</button>}>
       <p className="finance-plan-note"><strong>Hesap</strong> · Gerçekleşmiş ödeme değildir. Banka ekstresi yerine geçmez.</p>
       <DataStatus loading={state.loading} updatedAt={state.updatedAt} idle="Kaynak doğrulaması tamamlanmadı." />
     </PageHeader>
     {state.error && <p role="alert" className="error-message">{state.error}</p>}
-    {state.data ? <><FinanceContent data={state.data} /><SourceNote label="Kaynak durumu"><p>{state.data.status}</p>{state.data.notes.map((note, index) => <p key={index}>{note}</p>)}</SourceNote></> : state.loading ? <FinanceSkeleton /> : <p>Güncel hesap doğrulandığında ay sonu özeti ve bütün ödeme adımları burada görünür.</p>}
+    {state.data ? <><FinanceContent data={state.data} recoveryMonth={recoveryMonth} /><SourceNote label="Kaynak durumu"><p>{state.data.status}</p>{state.data.notes.map((note, index) => <p key={index}>{note}</p>)}</SourceNote></> : state.loading ? <FinanceSkeleton /> : <p>Güncel hesap doğrulandığında ay sonu özeti ve bütün ödeme adımları burada görünür.</p>}
     <footer className="finance-footer"><a href={financeSheetUrl} target="_blank" rel="noreferrer">Finansman e-tablosunu aç</a><a href="#/timeline">Ödeme takvimine git</a><p>Tutarlar Finansman sayfasından okunur; bu görünüm e-tabloyu değiştirmez. Ödeme takvimi de aynı doğrulanmış hesabı kullanır.</p></footer>
   </div>;
 }

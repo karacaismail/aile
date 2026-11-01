@@ -54,7 +54,9 @@ it('retains source values, a page-local jump and explicit page reload when the o
   vi.spyOn(console, 'error').mockImplementation(() => {});
   plot.fail = true;
   render(<FinanceTrends months={buildFinance(syntheticFinance()).months} selected="2098-02" tableId="test-table" />);
-  expect((await screen.findAllByRole('status'))[0]).toHaveTextContent('Grafik yüklenemedi');
+  const failures = await screen.findAllByText('Grafik yüklenemedi. Kaynak tutarları ve aylık tablo kullanılabilir.');
+  expect(failures).toHaveLength(3);
+  for (const failure of failures) expect(failure).toHaveAttribute('role', 'status');
   expect(within(screen.getByRole('group', { name: 'Harcanabilir nakit' })).getByText('1.400 ₺')).toBeVisible();
   expect(within(screen.getByRole('group', { name: 'Toplam kart borcu' })).getByText('305 ₺')).toBeVisible();
   expect(screen.getByRole('button', { name: 'Bütün aylık tutarlara git' })).not.toHaveAttribute('href');

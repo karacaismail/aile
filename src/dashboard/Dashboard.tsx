@@ -1,5 +1,5 @@
 import { useHashLocation } from 'wouter/use-hash-location';
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { Component, lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 import { TextInput } from '@mantine/core';
 import { useReducedMotion } from '@mantine/hooks';
 import { tokens, dropdownTransition } from './tokens';
@@ -12,18 +12,24 @@ import { PageHeader } from '../app/family/PageHeader';
 import { DataStatus } from '../app/family/DataStatus';
 import { JourneyLinks, SourceNote, SectionHeading } from '../components/Info';
 import { periodFallback, useFinancePeriod } from '../app/family/FinancePeriod';
+import { loadCharts } from './chartLoader';
 import './dashboard.css';
 const VehiclePage = lazy(() => import('../vehicle/VehiclePage'));
 const TimelinePage = lazy(() => import('../timeline/TimelinePage'));
 const FinancePage = lazy(() => import('../finance/FinancePage'));
-const Charts = lazy(() => import('./Charts'));
+const Charts = lazy(loadCharts);
 const HomePlanPage = lazy(() => import('../home/HomePlanPage'));
 
 export const Amount = ({ value }: { value: number | null }) => <span className={value !== null && value < 0 ? 'negative' : undefined}>{money(value)}</span>;
+class OptionalChartsBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() { return { failed: true }; }
+  render() { return this.state.failed ? <p role="status">Grafikler yüklenemedi. Tutarlar ve Aylık tablo kullanılabilir.</p> : this.props.children; }
+}
 function DeferredCharts({ data, selected }: { data: Budget; selected: number }) {
   const ref = useRef<HTMLDivElement>(null); const [visible, setVisible] = useState(false);
   useEffect(() => { const observer = new IntersectionObserver(entries => { if (entries.some(e => e.isIntersecting)) { setVisible(true); observer.disconnect(); } }, { rootMargin: '80px' }); if (ref.current) observer.observe(ref.current); return () => observer.disconnect(); }, []);
-  return <div ref={ref} className="charts-host">{visible ? <Suspense fallback={<p role="status">Grafikler hazırlanıyor…</p>}><Charts data={data} selected={selected} /></Suspense> : <p>Grafikler</p>}</div>;
+  return <div ref={ref} className="charts-host">{visible ? <OptionalChartsBoundary><Suspense fallback={<p role="status">Grafikler hazırlanıyor…</p>}><Charts data={data} selected={selected} /></Suspense></OptionalChartsBoundary> : <p>Grafikler</p>}</div>;
 }
 const diff = (a: number | null, p: number | null) => a === null || p === null ? null : a - p;
 const deltaColumns: Column<Month>[] = [
