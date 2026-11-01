@@ -175,7 +175,7 @@ describe('PurchaseList filtre deneyimi', () => {
     render(withRouter(<PurchaseList />));
     // faz 2'de kalem yok (hepsi faz 1) + fiyatsız açık → boş durum, çökmez
     expect(screen.getByTestId('empty-state')).toBeInTheDocument();
-    expect(screen.getByRole('radio', { name: 'Yerleşme' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Sonra' })).toBeChecked();
   });
 
   it('bozuk localStorage değeri varsayılana düşer', () => {
@@ -279,7 +279,7 @@ describe('Kayıt yolculuğu: yeni kalem formu ve kayıt sonrası görünürlük'
     seed();
     mountAt('/satinalma/yeni');
     const form = await screen.findByTestId('item-detail');
-    expect(within(form).getByRole('radio', { name: 'Yerleşme' })).toBeChecked();
+    expect(within(form).getByRole('radio', { name: 'Sonra' })).toBeChecked();
     expect(within(form).getByRole('combobox', { name: 'Oda' })).toHaveValue('Mutfak');
     await userEvent.type(within(form).getByLabelText(/^Ad\b/), 'Mutfak kalemi');
     await userEvent.click(within(form).getByRole('button', { name: 'Kaydet' }));
@@ -302,7 +302,7 @@ describe('Kayıt yolculuğu: yeni kalem formu ve kayıt sonrası görünürlük'
     await userEvent.click(screen.getByRole('button', { name: 'Göster' }));
     expect(notifications.hide).toHaveBeenCalledWith(shown.id);
     expect(screen.getByTestId('filter-button')).toHaveAccessibleName('Filtrele');
-    expect(screen.getByRole('radio', { name: 'Yerleşme' })).toBeChecked(); // kaydın fazı korunur, yalnız gizleyen filtre kalkar
+    expect(screen.getByRole('radio', { name: 'Sonra' })).toBeChecked(); // kaydın fazı korunur, yalnız gizleyen filtre kalkar
     // Bildirim kapanınca odak gövdeye düşmez: kayıt listede yoksa (burada upsert sahte) kalan liste kontrolüne gider
     expect(screen.getByTestId('filter-button')).toHaveFocus();
   });

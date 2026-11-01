@@ -52,11 +52,11 @@ test('etkin faz yeni kaleme ön değer olur ve kayıt görünümde kalır; filtr
   await mockApi(page);
   await page.goto('/#/satinalma');
   await expect(page.getByTestId('item-card').first()).toBeVisible();
-  await page.getByTestId('totals-bar').getByText('Yerleşme', { exact: true }).click();
+  await page.getByTestId('totals-bar').getByText('Sonra', { exact: true }).click();
   await expect(page.getByTestId('item-card')).toHaveCount(1);
   await page.getByTestId('fab').click();
   const form = page.getByTestId('item-detail');
-  await expect(form.getByRole('radio', { name: 'Yerleşme' })).toBeChecked();
+  await expect(form.getByRole('radio', { name: 'Sonra' })).toBeChecked();
   await form.getByLabel(/^Ad\b/).fill('Yerleşme için yeni kalem');
   await page.getByRole('button', { name: 'Kaydet' }).click();
   await expect(page.getByText('Yerleşme için yeni kalem')).toBeVisible();
