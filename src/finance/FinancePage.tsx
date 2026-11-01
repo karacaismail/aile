@@ -6,6 +6,7 @@ import { financeSheetUrl, type FinanceEvent, type FinanceLedger } from './data';
 import { useFinance } from './useFinance';
 import { PageHeader } from '../app/family/PageHeader';
 import { DataStatus } from '../app/family/DataStatus';
+import { FactList, SectionHeading, SourceNote } from '../components/Info';
 import './finance.css';
 
 const monthLabel = (value: string) => new Intl.DateTimeFormat('tr-TR', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${value}-01T00:00:00Z`));
@@ -54,26 +55,31 @@ function FinanceContent({ data }: { data: FinanceLedger }) {
     <div className="finance-controls"><Select label="Dönem" value={selected.month} onChange={value => { if (value) { setSelection(value); setPage(0); } }} data={data.months.map(month => ({ value: month.month, label: monthLabel(month.month) }))} allowDeselect={false} />
       <p className="muted">Aşağıdaki özet seçili ayın son adımını gösterir.</p></div>
     <section className="finance-summary" aria-label={`${monthLabel(selected.month)} ay sonu`}>
-      <h2>{monthLabel(selected.month)} · ay sonu</h2>
-      <dl>
-        <div><dt>Harcanabilir nakit</dt><dd><Amount value={selected.cash} /></dd></div>
-        <div><dt>Toplam kart borcu</dt><dd><Amount value={selected.cardDebt} /></dd></div>
-        <div><dt>KMH anaparası</dt><dd><Amount value={selected.kmhPrincipal} /></dd><p>Faiz + vergi <Amount value={selected.kmhCost} /></p></div>
-        <div><dt>Net nakit ve borç</dt><dd><Amount value={selected.knownNetAssets} /></dd></div>
-      </dl>
+      <SectionHeading title={`${monthLabel(selected.month)} · ay sonu`} description="Bu ayın son adımındaki nakit ve borç durumu." />
+      <div className="finance-summary-groups">
+        <FactList label="Nakit sonucu" tone="strong" items={[
+          { label: 'Harcanabilir nakit', value: <Amount value={selected.cash} />, emphasis: true },
+          { label: 'Net nakit ve borç', value: <Amount value={selected.knownNetAssets} /> },
+        ]} />
+        <FactList label="Borç ve taahhütler" tone="plain" items={[
+          { label: 'Toplam kart borcu', value: <Amount value={selected.cardDebt} />, emphasis: true },
+          { label: 'KMH anaparası', value: <Amount value={selected.kmhPrincipal} />, detail: <>Faiz + vergi <Amount value={selected.kmhCost} /></> },
+          { label: 'Gelecek taksit', value: <Amount value={selected.futureInstalments} />, detail: 'Kart borcuna dahildir.' },
+        ]} />
+      </div>
     </section>
     {selected.fundingGap > 0 && <p className="error-message" role="note">Ay sonunda <strong>{money(selected.fundingGap)}</strong> fon eksiği var. Bu tutar kullanılabilir para değildir.</p>}
     <p className="finance-explanation">Gelecek taksit taahhüdü kart borcuna dahildir; tekrar eklenmez. Net nakit ve borç, kalan TL birikimini içerir; döviz, altın ve eşyaların değerini içermez.</p>
     <Tabs value={view} onChange={setView} unstyled keepMounted={false} className="finance-views">
       <Tabs.List aria-label="Finansman görünümleri" className="finance-view-selector"><Tabs.Tab value="daily">Günlük adımlar</Tabs.Tab><Tabs.Tab value="monthly">Aylık özet</Tabs.Tab></Tabs.List>
       <Tabs.Panel value="daily">
-        <div className="finance-table-heading"><h2>{monthLabel(selected.month)} · {events.length} adım</h2><p>Her adım sonrası bakiyeler. Diğer sütunlar için tabloyu yatay kaydırın.</p></div>
+        <SectionHeading title={`${monthLabel(selected.month)} · ${events.length} adım`} description="Soldan sağa: işlem → nakit sonucu → banka borçları → kaynak. Diğer sütunlar için tabloyu yatay kaydırın." />
         <DailyTable events={events.slice(activePage * pageSize, (activePage + 1) * pageSize)} />
         {events.length > pageSize && <nav className="finance-pagination" aria-label="Finansman adım sayfaları"><p aria-live="polite">{activePage * pageSize + 1}–{Math.min((activePage + 1) * pageSize, events.length)} / {events.length} adım</p><div className="button-row"><button className="quiet-button" disabled={activePage === 0} onClick={() => setPage(activePage - 1)}>Önceki adımlar</button><button className="quiet-button" disabled={(activePage + 1) * pageSize >= events.length} onClick={() => setPage(activePage + 1)}>Sonraki adımlar</button></div></nav>}
         <p className="finance-explanation">Gerekli bakiye KMH kullanımını da içeren net nakit konumudur. Negatif değer harcanabilir para değildir. Nakit etkisi, adımlar arasındaki bu bakiye değişimidir.</p>
       </Tabs.Panel>
       <Tabs.Panel value="monthly">
-        <div className="finance-table-heading"><h2>Aydan aya finansman</h2><p>Google Sheets’teki ay sonu sonuçları.</p></div>
+        <SectionHeading title="Aydan aya finansman" description="Google Sheets’teki ay sonu sonuçları. Seçili dönem tabloda vurgulanır." />
         <ScrollTable label="Aylık finansman tablosu; yatay kaydırılabilir"><table className="finance-table" aria-label="Aylık finansman özeti"><thead><tr><th scope="col">Ay</th>{['Harcanabilir nakit', 'KMH anapara', 'KMH faiz + vergi', 'Kart borcu', 'Gelecek taksit', 'Birikimde kalan', 'Net nakit ve borç', 'Fon eksiği'].map(label => <th scope="col" key={label}>{label}</th>)}</tr></thead><tbody>{data.months.map(month => <tr key={month.month} data-selected={month.month === selected.month}><th scope="row">{monthLabel(month.month)}</th>{(['cash', 'kmhPrincipal', 'kmhCost', 'cardDebt', 'futureInstalments', 'reserve', 'knownNetAssets', 'fundingGap'] as const).map(key => <td className="numeric" key={key}><Amount value={month[key]} /></td>)}</tr>)}</tbody></table></ScrollTable>
       </Tabs.Panel>
     </Tabs>
@@ -90,7 +96,7 @@ export default function FinancePage() {
       <DataStatus loading={state.loading} updatedAt={state.updatedAt} idle="Kaynak doğrulaması tamamlanmadı." />
     </PageHeader>
     {state.error && <p role="alert" className="error-message">{state.error}</p>}
-    {state.data ? <><FinanceContent data={state.data} /><p className="finance-native-status"><strong>Kaynak durumu</strong> {state.data.status}</p>{state.data.notes.map((note, index) => <p className="finance-explanation" key={index}>{note}</p>)}</> : state.loading ? <FinanceSkeleton /> : <p>Güncel hesap doğrulandığında ay sonu özeti ve bütün ödeme adımları burada görünür.</p>}
+    {state.data ? <><FinanceContent data={state.data} /><SourceNote label="Kaynak durumu"><p>{state.data.status}</p>{state.data.notes.map((note, index) => <p key={index}>{note}</p>)}</SourceNote></> : state.loading ? <FinanceSkeleton /> : <p>Güncel hesap doğrulandığında ay sonu özeti ve bütün ödeme adımları burada görünür.</p>}
     <footer className="finance-footer"><a href={financeSheetUrl} target="_blank" rel="noreferrer">Finansman e-tablosunu aç</a><a href="#/timeline">Ödeme takvimine git</a><p>Tutarlar Finansman sayfasından okunur; bu görünüm e-tabloyu değiştirmez. Ödeme takvimi de aynı doğrulanmış hesabı kullanır.</p></footer>
   </div>;
 }

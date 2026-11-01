@@ -27,3 +27,12 @@ it('keeps unavailable capacity unknown instead of falling back to old monthly ca
   expect(within(first).getAllByRole('cell')[1]).toHaveTextContent('Tutar yok');
   expect(within(first).getAllByRole('cell')[3]).toHaveTextContent('Tutar yok');
 });
+
+it('separates monthly burden, purchase funding and approval conditions in the simulation summary', () => {
+  render(<MantineProvider><VehiclePage budget={null} /></MantineProvider>);
+  const summary = screen.getByTestId('finance-result');
+  expect(within(summary).getByRole('group', { name: 'Ödeme yükü' })).toHaveTextContent('En yüksek aylık taksit');
+  expect(within(summary).getByRole('group', { name: 'Finansmanın dağılımı' })).toHaveTextContent('Taşıt kredisi');
+  expect(within(summary).getByRole('group', { name: 'Alım günü nakdi' })).toHaveTextContent('Yedekte kalan');
+  expect(within(summary).getByText(/Kişisel onay değildir/)).toBeInTheDocument();
+});

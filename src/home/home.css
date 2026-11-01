@@ -1,0 +1,21 @@
+.home-plan-page { display: grid; gap: var(--budget-spaceSection); min-width: 0; }
+.home-plan-page > * { min-width: 0; }
+.home-plan-page .page-header { margin-bottom: 0; }
+.home-plan-overview { display: grid; gap: var(--budget-spacing); padding: var(--budget-spacing); background: var(--budget-blueSurface); border-radius: var(--budget-timelinePanelRadius); }
+.home-plan-overview > div:first-child { display: grid; gap: var(--budget-spaceSmall); align-content: start; }
+.home-plan-overview > div:first-child > p { color: var(--budget-muted); }
+.home-plan-overview .info-facts { background: var(--budget-paper); border-radius: var(--budget-radius); padding: var(--budget-spacing); }
+.home-plan-records { min-width: 0; }
+.home-plan-filters { display: flex; align-items: end; flex-wrap: wrap; gap: var(--budget-spaceSmall); margin-block: var(--budget-spacing); }
+.home-plan-filters > :is(.mantine-TextInput-root,.mantine-Select-root) { flex: 1 1 var(--budget-timelineFilterWidth); min-width: 0; }
+.home-plan-filter-buttons { display: flex; max-width: 100%; gap: var(--budget-spaceDense); padding: var(--budget-spaceDense); background: var(--budget-blueSurface); border-radius: var(--budget-radius); }
+.home-plan-filter-buttons button { min-height: var(--budget-targetMin); border: 0; border-radius: var(--budget-radius); padding: var(--budget-spaceTight) var(--budget-spaceSmall); background: transparent; color: var(--budget-ink); font-weight: var(--budget-headingWeight); transition: background-color var(--budget-duration) var(--budget-ease); }
+.home-plan-filter-buttons button:hover { background: var(--budget-paper); }
+.home-plan-filter-buttons button[aria-pressed='true'] { background: var(--budget-timelineViewSelectedSurface); }
+@media (min-width: 70em) { .home-plan-overview { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: var(--budget-spaceWide); padding: var(--budget-spaceSection); } }
+@media (prefers-reduced-motion: reduce) { .home-plan-filter-buttons button { transition-duration: 0s; } }
+
+.home-plan-overview .info-heading { margin-top: 0; }
+.home-plan-overview .info-facts > dl { grid-template-columns: minmax(0, 1fr); gap: var(--budget-spaceTight); }
+.home-plan-overview .info-facts dl > div { display: flex; align-items: baseline; justify-content: space-between; gap: var(--budget-spaceSmall); }
+.home-plan-overview .info-facts dd { margin: 0; font-size: var(--budget-fontSection); }

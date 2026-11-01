@@ -1,5 +1,6 @@
 import { money } from '../dashboard/data';
 import type { FinanceInput, simulate } from './finance';
+import { FactList } from '../components/Info';
 
 type Result = ReturnType<typeof simulate>;
 const cashMoney = (value: number) => new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value) + ' ₺';
@@ -9,7 +10,7 @@ export function FinanceSummary({ result, input, onRules }: { result: Result | nu
   const blocked = result.status === 'Uygun değil';
   return <aside data-testid="finance-result" className="scenario-summary" aria-labelledby="finance-conclusion">
     <div className="summary-header"><p className="summary-kicker">Finansman özeti</p><span className="summary-mode">Tahmini hesap</span></div>
-    <div className="decision-metrics">
+    <div className="decision-metrics" role="group" aria-label="Ödeme yükü">
       <div className="payment-metric"><span>En yüksek aylık taksit</span><strong>{money(result.peakPayment)}</strong></div>
       <div><span>Toplam alım maliyeti</span><strong>{money(result.totalCost)}</strong></div>
       <div><span>Alım günü ek nakit açığı <strong className={result.upfrontGap ? 'negative' : ''}>{money(result.upfrontGap)}</strong></span></div>
@@ -23,13 +24,16 @@ export function FinanceSummary({ result, input, onRules }: { result: Result | nu
     <div className="budget-verdict"><h3>Ödeme gücü</h3><p>{result.budgetStatus}.</p><p className="muted">{input.existingDebt === null && <span>Mevcut borç bilgisi eksik. </span>}{input.livingCost === null && <span>Hane gideri bilgisi eksik.</span>}</p></div>
     </div>
     <div className="summary-details">
-    <dl className="finance-breakdown">
+    <section aria-label="Finansmanın dağılımı" role="group"><dl className="finance-breakdown">
       <div><dt>Taşıt kredisi <span>· {result.autoMonths} ay</span></dt><dd>{money(result.autoPrincipal)}</dd></div>
       <div><dt>İhtiyaç kredisi <span>· {result.personalMonths} ay</span></dt><dd>{money(result.personalPrincipal)}</dd></div>
       <div><dt>Faiz, vergiler ve tahsis</dt><dd>{money(result.financingCost)}</dd></div>
       {result.fundingGap > 0 && <div className="negative"><dt>Karşılanmayan kredi tutarı</dt><dd>{money(result.fundingGap)}</dd></div>}
-    </dl>
-    <div className="reserve-summary" data-testid="contingency-result"><span>Yedekten kullanılan <strong>{cashMoney(result.contingencyUsed)}</strong></span><span>Yedekte kalan <strong>{cashMoney(result.contingencyRemaining)}</strong></span></div>
+    </dl></section>
+    <div className="reserve-summary" data-testid="contingency-result"><FactList label="Alım günü nakdi" items={[
+      {label:'Yedekten kullanılan',value:cashMoney(result.contingencyUsed)},
+      {label:'Yedekte kalan',value:cashMoney(result.contingencyRemaining)},
+    ]}/></div>
 
     </div>
     <button className="summary-action" onClick={onRules}>Koşulları ve bütçe hesabını incele <span aria-hidden="true">↗</span></button>

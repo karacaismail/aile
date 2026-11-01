@@ -65,3 +65,13 @@ it('loads an accessible skeleton without invented dates, numbers or percentages'
   expect(document.querySelector('[aria-busy="true"]')).not.toBeNull();
   expect(screen.queryByText(/₺|%/)).not.toBeInTheDocument();
 });
+
+it('groups spendable cash separately from financing commitments without dropping native facts', () => {
+  mount();
+  const summary = screen.getByRole('region', { name: 'Ocak 2098 ay sonu' });
+  expect(within(summary).getByRole('group', { name: 'Nakit sonucu' })).toHaveTextContent('500 ₺');
+  const commitments = within(summary).getByRole('group', { name: 'Borç ve taahhütler' });
+  expect(commitments).toHaveTextContent('155 ₺');
+  expect(commitments).toHaveTextContent('KMH anaparası');
+  expect(commitments).toHaveTextContent('Gelecek taksit');
+});
