@@ -17,6 +17,7 @@ import {
   CLOSED_DURUM, DEFAULT_FILTERS, activeFilterCount, countWith, filterPurchases, normalizeFilters, optionCounts, sortItems, totalsOf,
   type FacetField, type PurchaseFilters, type SortKey,
 } from '@/data/selectors';
+import { SourceNote } from '@/components/Info';
 import { FilterChip } from '@/components/filter/FilterChip';
 import { FilterRail } from '@/components/filter/FilterRail';
 import { FilterSheet } from '@/components/filter/FilterSheet';
@@ -229,6 +230,7 @@ export function PurchaseList() {
           ))
         )}
       </SimpleGrid>
+      <Box px="sm" id="purchase-total-scope"><SourceNote label="Toplamın kapsamı">Mevcut eşyalar ve iptal edilenler hariç kayıtlı ve tahmini bedellerdir; yapılmış ödeme toplamı değildir.</SourceNote></Box>
       <FilterSheet opened={sheet} onClose={() => setSheet(false)} resultCount={list.length} activeCount={nActive} onClear={() => setFilters(clearedFilters(f))}>
         <PurchaseFilterSections items={items} filters={f} onChange={setFromSheet} now={now} />
       </FilterSheet>

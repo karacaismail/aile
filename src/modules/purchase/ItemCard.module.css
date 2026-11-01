@@ -1,4 +1,4 @@
-.card { gap: var(--budget-spaceSmall); }
+.card { gap: var(--budget-spaceTight); }
 .card[data-done] .title { color: var(--budget-muted); }
 .card[data-cancelled] .title { text-decoration: line-through; }
 .checkWrap {
@@ -12,3 +12,7 @@
 .title { margin: 0; font-size: var(--budget-fontSection); font-weight: var(--budget-headingWeight); line-height: var(--budget-lineCompact); overflow-wrap: break-word; }
 .linkArea { cursor: pointer; flex: 1; min-width: 0; min-height: var(--budget-targetMin); gap: var(--budget-spaceSmall); }
 .recordLink { display: inline-flex; min-height: var(--budget-targetMin); align-items: center; }
+
+.facts[data-tone="subtle"] { padding: var(--budget-spaceSmall); }
+.facts dl > div:not([data-emphasis]) { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0 var(--budget-spaceTight); }
+.facts dl > div:not([data-emphasis]) > dd { margin-top: 0; }
