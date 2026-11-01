@@ -2,6 +2,7 @@ import { Badge, Box, Card, Group, Stack, Text } from '@mantine/core';
 import { useLocation } from 'wouter';
 import type { Item } from '@shared/schema';
 import { label } from '@shared/schema';
+import { FactList } from '@/components/Info';
 import { WarnBadge } from '@/components/badges';
 import { formatTr } from '@/lib/dates';
 import { TASK_RESOLVED, depsResolved, taskDurumLabel } from './rules';
@@ -34,11 +35,11 @@ export function TaskCard({ task, tasks }: { task: Item; tasks: readonly Item[] }
   const resolved = depsResolved(task, tasks);
   const go = () => navigate(`~/tadilat/isler/${task.id}`);
   return (
-    <Card withBorder radius="md" p="sm" className={classes.card} data-testid="task-card" data-done={done || undefined} data-cancelled={task.durum === 'iptal' || undefined}>
+    <Card radius="md" p="md" className={classes.card} data-testid="task-card" data-done={done || undefined} data-cancelled={task.durum === 'iptal' || undefined}>
       <Stack gap={4} className={classes.linkArea} role="link" tabIndex={0} aria-label={`${task.ad} detayı`} onClick={go} onKeyDown={(e) => { if (e.key === 'Enter') go(); }}>
         <Group gap={6} wrap="nowrap" align="flex-start" style={{ minWidth: 0 }}>
           <Badge size="sm" variant="filled" color="sand.8" className="tabular" style={{ flexShrink: 0 }} data-testid="task-kod">{task.kod ?? '—'}</Badge>
-          <Text fw={600} className={classes.title}>{task.ad}</Text>
+          <Text component="h3" fw={700} className={classes.title}>{task.ad}</Text>
         </Group>
         <Group gap={4} wrap="wrap">
           <TaskDurumBadge value={task.durum} />
@@ -46,11 +47,11 @@ export function TaskCard({ task, tasks }: { task: Item; tasks: readonly Item[] }
           {task.izin_gerekli && <WarnBadge tone={izinTone(task.izin_durumu)}>İzin: {label('izin_durumu', task.izin_durumu) || 'gerekli'}</WarnBadge>}
           {deps.length > 0 && <WarnBadge tone={resolved ? 'ok' : 'info'}>Bağımlı: {deps.join(', ')}</WarnBadge>}
         </Group>
-        <Text size="xs" c="dimmed" className="tabular">
-          {task.planlanan_tarih ? formatTr(task.planlanan_tarih) : 'Tarih yok'}
-          {task.sure_gun ? <Text span size="xs" c="dimmed"> · {task.sure_gun} gün</Text> : null}
-          {task.bitis_tarihi ? <Text span size="xs" c="dimmed"> → {formatTr(task.bitis_tarihi)}</Text> : null}
-        </Text>
+        <FactList label={`${task.ad} iş takvimi`} tone="subtle" items={[
+          { label: 'Planlanan başlangıç', value: task.planlanan_tarih ? formatTr(task.planlanan_tarih) : 'Tarih yok' },
+          ...(task.sure_gun ? [{ label: 'İş süresi', value: `${task.sure_gun} gün` }] : []),
+          ...(task.bitis_tarihi ? [{ label: 'Bitiş tarihi', value: formatTr(task.bitis_tarihi) }] : []),
+        ]} />
       </Stack>
     </Card>
   );

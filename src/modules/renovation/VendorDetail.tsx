@@ -1,5 +1,6 @@
+import { SectionHeading } from '@/components/Info';
 import { useMemo, useRef } from 'react';
-import { Alert, Divider, Modal, NumberInput, SimpleGrid, Stack, Switch, Text, TextInput, Textarea } from '@mantine/core';
+import { Alert, Modal, NumberInput, SimpleGrid, Stack, Switch, Text, TextInput, Textarea } from '@mantine/core';
 import { useForm, schemaResolver } from '@mantine/form';
 import { useMediaQuery } from '@mantine/hooks';
 import { modals } from '@mantine/modals';
@@ -101,25 +102,32 @@ function VendorDetailBody({ item, onClose }: { item?: Item; onClose: () => void 
       closeButtonProps={modalCloseProps} styles={{ body: { paddingBottom: 96 } }}>
       <form ref={formRef} onSubmit={form.onSubmit(save, (errors) => focusFirstError(formRef.current, errors))} noValidate data-testid="vendor-detail">
         <Stack gap="sm">
-          {/* Yeni ustada zorunlu ilk alan odaklanır (Mantine FocusTrap `data-autofocus`); düzenlemede odak modal başlığında kalır. */}
-          <TextInput label="Ad" required data-autofocus={isNew || undefined} {...form.getInputProps('ad')} key={form.key('ad')} />
-          <SimpleGrid cols={2} spacing="xs">
-            <EnumSelect label="Meslek" field="meslek" options={MESLEK} value={v.meslek} onChange={(x) => form.setFieldValue('meslek', x)} />
-            <TextInput label="Telefon" inputMode="tel" autoComplete="off" placeholder="05xx xxx xx xx" {...form.getInputProps('telefon')} key={form.key('telefon')} />
-          </SimpleGrid>
-          <Divider label="MYK" labelPosition="left" />
-          <TextInput label="MYK belge no" {...form.getInputProps('myk_no')} key={form.key('myk_no')} />
-          <Switch label="MYK doğrulandı (myk.gov.tr sorgusu yapıldı)" {...form.getInputProps('myk_dogrulandi', { type: 'checkbox' })} key={form.key('myk_dogrulandi')} />
-          <Divider label="Teklif" labelPosition="left" />
-          <SimpleGrid cols={2} spacing="xs">
-            <PriceInput label="Teklif" value={v.teklif_tl} onChange={(x) => form.setFieldValue('teklif_tl', x)} />
-            <NumberInput label="Süre (gün)" min={0} inputMode="numeric" hideControls {...num('teklif_sure_gun')} />
-            <NumberInput label="Garanti (ay)" min={0} inputMode="numeric" hideControls {...num('garanti_ay')} />
-            <NumberInput label="Şartname uyumu (%)" min={0} max={100} inputMode="numeric" hideControls {...num('uyum_pct')} />
-          </SimpleGrid>
-          <LinksField value={v.linkler} onChange={(x) => form.setFieldValue('linkler', x)} />
-          <Textarea label="Not" autosize minRows={2} {...form.getInputProps('not')} key={form.key('not')} />
-          {item?.updated_by && <Text size="xs" c="dimmed">Son güncelleme: {item.updated_by}</Text>}
+          <Stack component="section" aria-label="Usta ve iletişim" className="record-form-section" gap="sm">
+            <SectionHeading title="Usta ve iletişim" level={3} />
+            {/* Yeni ustada zorunlu ilk alan odaklanır (Mantine FocusTrap `data-autofocus`); düzenlemede odak modal başlığında kalır. */}
+            <TextInput label="Ad" required data-autofocus={isNew || undefined} {...form.getInputProps('ad')} key={form.key('ad')} />
+            <SimpleGrid cols={{ base: 1, xs: 2 }} spacing="xs">
+              <EnumSelect label="Meslek" field="meslek" options={MESLEK} value={v.meslek} onChange={(x) => form.setFieldValue('meslek', x)} />
+              <TextInput label="Telefon" inputMode="tel" autoComplete="off" placeholder="05xx xxx xx xx" {...form.getInputProps('telefon')} key={form.key('telefon')} />
+            </SimpleGrid>
+          </Stack>
+          <Stack component="section" aria-label="Yetkinlik kontrolü" className="record-form-section" gap="sm">
+            <SectionHeading title="Yetkinlik kontrolü" level={3} />
+            <TextInput label="MYK belge no" {...form.getInputProps('myk_no')} key={form.key('myk_no')} />
+            <Switch label="MYK doğrulandı (myk.gov.tr sorgusu yapıldı)" {...form.getInputProps('myk_dogrulandi', { type: 'checkbox' })} key={form.key('myk_dogrulandi')} />
+          </Stack>
+          <Stack component="section" aria-label="Teklif koşulları" className="record-form-section" gap="sm">
+            <SectionHeading title="Teklif koşulları" level={3} />
+            <SimpleGrid cols={{ base: 1, xs: 2 }} spacing="xs">
+              <PriceInput label="Teklif" value={v.teklif_tl} onChange={(x) => form.setFieldValue('teklif_tl', x)} />
+              <NumberInput label="Süre (gün)" min={0} inputMode="numeric" hideControls {...num('teklif_sure_gun')} />
+              <NumberInput label="Garanti (ay)" min={0} inputMode="numeric" hideControls {...num('garanti_ay')} />
+              <NumberInput label="Şartname uyumu (%)" min={0} max={100} inputMode="numeric" hideControls {...num('uyum_pct')} />
+            </SimpleGrid>
+            <LinksField value={v.linkler} onChange={(x) => form.setFieldValue('linkler', x)} />
+            <Textarea label="Not" autosize minRows={2} {...form.getInputProps('not')} key={form.key('not')} />
+            {item?.updated_by && <Text size="xs" c="dimmed">Son güncelleme: {item.updated_by}</Text>}
+          </Stack>
           <FormFooter errors={form.errors} onCancel={onClose} onDelete={isNew ? undefined : del} />
         </Stack>
       </form>

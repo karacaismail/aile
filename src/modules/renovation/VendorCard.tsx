@@ -4,6 +4,7 @@ import { WhatsappLogoIcon } from '@phosphor-icons/react/dist/csr/WhatsappLogo';
 import { useLocation } from 'wouter';
 import type { Item } from '@shared/schema';
 import { label } from '@shared/schema';
+import { FactList, SourceNote } from '@/components/Info';
 import { WarnBadge } from '@/components/badges';
 import { formatTl } from '@/lib/price';
 import { normalizePhone, whatsappHref } from './rules';
@@ -15,20 +16,13 @@ export function VendorCard({ vendor }: { vendor: Item }) {
   const tel = normalizePhone(vendor.telefon);
   const go = () => navigate(`~/tadilat/ustalar/${vendor.id}`);
   return (
-    <Card withBorder radius="md" p="sm" className={classes.card} data-testid="vendor-card">
+    <Card radius="md" p="md" className={classes.card} data-testid="vendor-card">
       <Group gap="xs" wrap="nowrap" align="flex-start">
         <Stack gap={4} className={classes.linkArea} role="link" tabIndex={0} aria-label={`${vendor.ad} detayı`} onClick={go} onKeyDown={(e) => { if (e.key === 'Enter') go(); }}>
-          <Group justify="space-between" wrap="nowrap" align="flex-start" gap="xs">
-            <Text fw={600} className={classes.title}>{vendor.ad}</Text>
-            <Text fw={700} className="tabular" style={{ whiteSpace: 'nowrap', flexShrink: 0 }} c={vendor.teklif_tl == null ? 'dimmed' : undefined}>
-              {vendor.teklif_tl != null ? formatTl(vendor.teklif_tl) : 'teklif yok'}
-            </Text>
-          </Group>
+          <Text component="h3" fw={700} className={classes.title}>{vendor.ad}</Text>
           <Group gap={4} wrap="wrap">
             {vendor.meslek && <Badge size="xs" variant="outline" color="gray">{label('meslek', vendor.meslek)}</Badge>}
             <WarnBadge tone={vendor.myk_dogrulandi ? 'ok' : 'warn'}>{vendor.myk_dogrulandi ? 'MYK doğrulandı' : 'MYK doğrulanmadı'}</WarnBadge>
-            {vendor.teklif_sure_gun != null && <Badge size="xs" variant="default">{vendor.teklif_sure_gun} gün</Badge>}
-            {vendor.garanti_ay != null && <Badge size="xs" variant="default">{vendor.garanti_ay} ay garanti</Badge>}
           </Group>
         </Stack>
         {wa && (
@@ -37,6 +31,11 @@ export function VendorCard({ vendor }: { vendor: Item }) {
           </ActionIcon>
         )}
       </Group>
+      <FactList label={`${vendor.ad} teklif bilgileri`} tone="subtle" items={[
+        { label: 'Teklif bedeli', value: vendor.teklif_tl != null ? formatTl(vendor.teklif_tl) : 'Teklif girilmedi', emphasis: vendor.teklif_tl != null },
+        ...(vendor.teklif_sure_gun != null ? [{ label: 'İş süresi', value: `${vendor.teklif_sure_gun} gün` }] : []),
+        ...(vendor.garanti_ay != null ? [{ label: 'Garanti', value: `${vendor.garanti_ay} ay garanti` }] : []),
+      ]} />
       <Group justify="space-between" wrap="nowrap" gap="xs" mt={2}>
         {tel ? (
           <Anchor href={`tel:+${tel}`} size="sm" className={classes.telLink}>
@@ -51,6 +50,7 @@ export function VendorCard({ vendor }: { vendor: Item }) {
           </Group>
         )}
       </Group>
+      <SourceNote label="">Teklif, yapılmış ödeme değildir.</SourceNote>
     </Card>
   );
 }

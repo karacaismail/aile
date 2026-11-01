@@ -5,6 +5,7 @@ import { CopyIcon } from '@phosphor-icons/react/dist/csr/Copy';
 import type { Item } from '@shared/schema';
 import { label } from '@shared/schema';
 import { useAppStore, type AppState } from '@/sync/store';
+import { FactList, SectionHeading } from '@/components/Info';
 import { upsert } from '@/sync/controller';
 import { KONTROL_TUR_ORDER, checklistProgress, checklistText, groupChecks } from './rules';
 import classes from './renovation.module.css';
@@ -20,13 +21,13 @@ function CheckRow({ item }: { item: Item }) {
   };
   return (
     <Stack gap={4}>
-      <Checkbox.Card className={classes.checkRow} checked={!!item.tamam} onChange={(c) => upsert('kalemler', item.id, { tamam: c })} radius="md" p="xs" withBorder data-testid="kontrol-row">
+      <Checkbox.Card className={classes.checkRow} checked={!!item.tamam} onChange={(c) => upsert('kalemler', item.id, { tamam: c })} radius="md" p="sm" data-testid="kontrol-row">
         <Group wrap="nowrap" align="flex-start" gap="xs">
           <Checkbox.Indicator size="md" mt={2} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <Text size="sm" fw={500} td={item.tamam ? 'line-through' : undefined} c={item.tamam ? 'dimmed' : undefined}>{item.ad}</Text>
             {(item.esik || item.olcum_birim) && <Text size="xs" c="dimmed">eşik: {item.esik ?? ''}{item.olcum_birim ? ` ${item.olcum_birim}` : ''}</Text>}
-            {item.not && <Text size="xs" c="dimmed" lineClamp={2} data-allow-clamp>{item.not}</Text>}
+            {item.not && <Text size="xs" c="dimmed" >{item.not}</Text>}
           </div>
         </Group>
       </Checkbox.Card>
@@ -43,9 +44,12 @@ function CheckRow({ item }: { item: Item }) {
 export function ChecklistScreen() {
   const checks = useAppStore(selectChecks);
   const groups = groupChecks(checks);
+  const progress = checklistProgress(checks);
   return (
     <Box pb={96} px={6} pt="xs" className={classes.checklist}>
-      <Accordion multiple defaultValue={['sartname']} keepMounted={false} chevronPosition="right" variant="separated" radius="md"
+      <FactList label="Kontrol özeti" tone="subtle" items={[{ label: 'Tamamlanan kontroller', value: `${progress.done} / ${progress.total}` }]} />
+      <SectionHeading title="Kontrol başlıkları" description="Her başlıkta şartları, ölçümleri ve tamamlanma durumunu izleyin." />
+      <Accordion multiple defaultValue={['sartname']} keepMounted={false} chevronPosition="right" variant="filled" radius="md"
         styles={{ content: { paddingInline: 6, paddingBottom: 8 }, label: { paddingBlock: 10 } }}>
         {KONTROL_TUR_ORDER.map((tur) => {
           const sub = groups.get(tur) ?? new Map<string, Item[]>();

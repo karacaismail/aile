@@ -14,6 +14,7 @@ import type { Item, Oda, Setting } from '@shared/schema';
 import { KOPEK_ERISIM, label } from '@shared/schema';
 import { useAppStore, type AppState } from '@/sync/store';
 import { upsert } from '@/sync/controller';
+import { FactList, SectionHeading } from '@/components/Info';
 import { EnumSelect } from '@/components/EnumSelect';
 import { WarnBadge } from '@/components/badges';
 import { DogAccessBadge } from '@/components/DogAccessBadge';
@@ -39,14 +40,14 @@ function RoomDimsForm({ oda, setting }: { oda: Oda; setting?: Setting }) {
     notifications.show({ message: 'Oda ölçüleri kaydedildi', color: 'green', autoClose: 1500 });
   };
   return (
-    <Card withBorder radius="md" p="sm">
+    <Card radius="md" p="md" className="record-form-section">
       <form onSubmit={(e) => { e.preventDefault(); save(); }} noValidate data-testid="room-dims-form">
         <Stack gap="xs">
           <Group gap={6} wrap="nowrap">
             <RulerIcon size={18} aria-hidden />
-            <Text fw={600}>Oda ölçüleri</Text>
+            <SectionHeading title="Oda ölçüleri" level={3} />
           </Group>
-          <SimpleGrid cols={2} spacing="xs">
+          <SimpleGrid cols={{ base: 1, xs: 2 }} spacing="xs">
             <NumberInput label="En (cm)" min={0} max={9999} inputMode="numeric" hideControls value={dims.en_cm ?? ''} onChange={(v) => set('en_cm', numOrNull(v))} />
             <NumberInput label="Boy (cm)" min={0} max={9999} inputMode="numeric" hideControls value={dims.boy_cm ?? ''} onChange={(v) => set('boy_cm', numOrNull(v))} />
             <NumberInput label="Yükseklik (cm)" min={0} max={9999} inputMode="numeric" hideControls value={dims.yuk_cm ?? ''} onChange={(v) => set('yuk_cm', numOrNull(v))} />
@@ -64,12 +65,10 @@ function LayoutItemCard({ oda, item }: { oda: Oda; item: Item }) {
   const dims = formatDims(item);
   const isik = (item.isik_ihtiyaci ?? '').trim();
   return (
-    <Card component={Link} href={`~/yerlesim/${oda}/${item.id}`} withBorder radius="md" p="sm" className={classes.card} data-testid="layout-item-card">
+    <Card component={Link} href={`~/yerlesim/${oda}/${item.id}`} radius="md" p="md" className={classes.card} data-testid="layout-item-card">
       <Stack gap={4}>
-        <Group justify="space-between" wrap="nowrap" gap="xs" align="flex-start">
-          <Text fw={600} className={classes.title}>{item.ad}</Text>
-          {dims && <Text size="sm" c="dimmed" className="tabular" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>{dims}</Text>}
-        </Group>
+        <Text component="h3" fw={700} className={classes.title}>{item.ad}</Text>
+        <FactList label={`${item.ad} yerleşim ölçüsü`} items={[{ label: 'Ölçüler', value: dims || 'Ölçü girilmedi' }]} />
         <Group gap={4} wrap="wrap">
           {item.mevcut && <WarnBadge tone="ok" leftSection={<HouseIcon size={10} aria-hidden />}>elimizde</WarnBadge>}
           {item.priz_ihtiyaci ? <Badge size="xs" variant="default" leftSection={<PlugIcon size={10} aria-hidden />}>{item.priz_ihtiyaci} priz</Badge> : null}
@@ -77,7 +76,7 @@ function LayoutItemCard({ oda, item }: { oda: Oda; item: Item }) {
           {isik && (
             <Group gap={4} wrap="nowrap" style={{ minWidth: 0, maxWidth: '100%' }}>
               <LightbulbIcon size={14} aria-hidden style={{ flexShrink: 0 }} />
-              <Text size="xs" lineClamp={1} data-allow-clamp>{isik}</Text>
+              <Text size="xs" >{isik}</Text>
             </Group>
           )}
         </Group>
@@ -116,11 +115,11 @@ function NeedsCard({ map, onSuggest }: { map: NeedsMap; onSuggest: () => void })
   const rows = WALL_KEYS.filter((w) => map[w].priz > 0 || map[w].kanal_m > 0 || map[w].isik.length > 0);
   const empty = rows.length === 0;
   return (
-    <Card withBorder radius="md" p="sm" data-testid="needs-map">
+    <Card radius="md" p="md" className="record-support" data-testid="needs-map">
       <Stack gap="xs">
         <Group gap={6} wrap="nowrap">
           <PlugIcon size={18} aria-hidden />
-          <Text fw={600}>İhtiyaç haritası</Text>
+          <Text component="h3" fw={700}>İhtiyaç haritası</Text>
         </Group>
         {empty ? (
           <Text size="sm" c="dimmed">Kalemlerde priz, ışık ya da kanal ihtiyacı girilmemiş.</Text>
@@ -149,7 +148,7 @@ function NeedsCard({ map, onSuggest }: { map: NeedsMap; onSuggest: () => void })
           <Stack gap={2}>
             <Group gap={6} wrap="nowrap"><LightbulbIcon size={14} aria-hidden /><Text size="sm" fw={600}>Işık notları</Text></Group>
             {WALL_KEYS.flatMap((w) => map[w].isik.map((s, i) => (
-              <Text key={`${w}-${i}`} size="sm" lineClamp={2} data-allow-clamp><Text component="span" c="dimmed">{wallLabel(w)}: </Text>{s}</Text>
+              <Text key={`${w}-${i}`} size="sm" ><Text component="span" c="dimmed">{wallLabel(w)}: </Text>{s}</Text>
             )))}
           </Stack>
         )}
@@ -204,7 +203,7 @@ export function RoomPage({ oda }: { oda: string }) {
           <ActionIcon component={Link} href="~/yerlesim" aria-label="Odalara dön" color="gray">
             <ArrowLeftIcon size={22} aria-hidden />
           </ActionIcon>
-          <Title order={2} size="h4" lineClamp={1} data-allow-clamp style={{ flex: 1, minWidth: 0 }}>{label('oda', room)}</Title>
+          <Title order={2} size="h4"  style={{ flex: 1, minWidth: 0 }}>{label('oda', room)}</Title>
           <DogAccessBadge value={dims.kopek_erisim} />
           <Badge size="xs" variant="default">{list.length} kalem</Badge>
         </Group>

@@ -1,3 +1,4 @@
+import { SectionHeading } from '@/components/Info';
 import { useMemo, useRef, useState } from 'react';
 import { Alert, Checkbox, Group, Modal, NumberInput, ScrollArea, SegmentedControl, SimpleGrid, Stack, Switch, Text, TextInput, Textarea } from '@mantine/core';
 import { useForm, schemaResolver } from '@mantine/form';
@@ -134,26 +135,30 @@ function ItemFormBody({ oda, item, onClose }: { oda: Oda; item?: Item; onClose: 
       closeButtonProps={modalCloseProps} styles={{ body: { paddingBottom: 96 } }}>
       <form ref={formRef} onSubmit={form.onSubmit(save, (errors) => focusFirstError(formRef.current, errors))} noValidate data-testid="layout-item-form">
         <Stack gap="sm">
-          {/* Yeni kalemde zorunlu ilk alan odaklanır (Mantine FocusTrap `data-autofocus`); düzenlemede odak modal başlığında kalır. */}
-          <TextInput label="Ad" required data-autofocus={isNew || undefined} {...form.getInputProps('ad')} key={form.key('ad')} />
-          <div>
-            <Text size="sm" fw={500} mb={4} id="duvar-label">Duvar</Text>
-            <SegmentedControl fullWidth aria-labelledby="duvar-label" data={WALL_OPTIONS} value={form.getValues().duvar} onChange={(v) => form.setFieldValue('duvar', v as WallKey)} />
-          </div>
-          <SimpleGrid cols={3} spacing="xs">
-            {num('en_cm', 'En (cm)')}
-            {num('boy_cm', 'Boy (cm)')}
-            {num('yuk_cm', 'Yük. (cm)')}
-          </SimpleGrid>
-          <Switch label="Elimizde var" {...form.getInputProps('mevcut', { type: 'checkbox' })} key={form.key('mevcut')} />
-          <SimpleGrid cols={2} spacing="xs">
-            {num('priz_ihtiyaci', 'Priz ihtiyacı')}
-            {num('kanal_m', 'Kanal (m)', 'decimal')}
-          </SimpleGrid>
-          <TextInput label="Işık ihtiyacı" placeholder="ör. raf aydınlatması" {...form.getInputProps('isik_ihtiyaci')} key={form.key('isik_ihtiyaci')} />
-          <PurchasePicker oda={oda} value={form.getValues().bagli_idler} onChange={(v) => form.setFieldValue('bagli_idler', v)} />
-          <Textarea label="Not" autosize minRows={3} {...form.getInputProps('not')} key={form.key('not')} />
-          {item?.updated_by && <Text size="xs" c="dimmed">Son güncelleme: {item.updated_by}</Text>}
+          <Stack component="section" aria-label="Eşya ve konum" className="record-form-section" gap="sm"><SectionHeading title="Eşya ve konum" level={3} />
+            {/* Yeni kalemde zorunlu ilk alan odaklanır (Mantine FocusTrap `data-autofocus`); düzenlemede odak modal başlığında kalır. */}
+            <TextInput label="Ad" required data-autofocus={isNew || undefined} {...form.getInputProps('ad')} key={form.key('ad')} />
+            <div>
+              <Text size="sm" fw={500} mb={4} id="duvar-label">Duvar</Text>
+              <SegmentedControl fullWidth aria-labelledby="duvar-label" data={WALL_OPTIONS} value={form.getValues().duvar} onChange={(v) => form.setFieldValue('duvar', v as WallKey)} />
+            </div>
+          </Stack><Stack component="section" aria-label="Ölçüler ve ihtiyaçlar" className="record-form-section" gap="sm"><SectionHeading title="Ölçüler ve ihtiyaçlar" level={3} />
+            <SimpleGrid cols={{ base: 1, xs: 3 }} spacing="xs">
+              {num('en_cm', 'En (cm)')}
+              {num('boy_cm', 'Boy (cm)')}
+              {num('yuk_cm', 'Yük. (cm)')}
+            </SimpleGrid>
+            <Switch label="Elimizde var" {...form.getInputProps('mevcut', { type: 'checkbox' })} key={form.key('mevcut')} />
+            <SimpleGrid cols={{ base: 1, xs: 2 }} spacing="xs">
+              {num('priz_ihtiyaci', 'Priz ihtiyacı')}
+              {num('kanal_m', 'Kanal (m)', 'decimal')}
+            </SimpleGrid>
+            <TextInput label="Işık ihtiyacı" placeholder="ör. raf aydınlatması" {...form.getInputProps('isik_ihtiyaci')} key={form.key('isik_ihtiyaci')} />
+          </Stack><Stack component="section" aria-label="Bağlı alımlar ve not" className="record-form-section" gap="sm"><SectionHeading title="Bağlı alımlar ve not" level={3} />
+            <PurchasePicker oda={oda} value={form.getValues().bagli_idler} onChange={(v) => form.setFieldValue('bagli_idler', v)} />
+            <Textarea label="Not" autosize minRows={3} {...form.getInputProps('not')} key={form.key('not')} />
+            {item?.updated_by && <Text size="xs" c="dimmed">Son güncelleme: {item.updated_by}</Text>}
+          </Stack>
           <FormFooter errors={form.errors} onCancel={onClose} onDelete={isNew ? undefined : del} />
         </Stack>
       </form>

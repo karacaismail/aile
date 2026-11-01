@@ -2,14 +2,13 @@
 .row, .entry {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--budget-spaceTight);
   min-height: 44px;
   padding: 8px var(--mantine-spacing-sm);
-  border: 1px solid var(--mantine-color-default-border);
   border-radius: var(--mantine-radius-md);
-  background: var(--mantine-color-body);
+  background: var(--budget-paper);
 }
-.entry { flex-direction: row; align-items: center; gap: var(--mantine-spacing-xs); }
+.entry { flex-direction: column; align-items: stretch; gap: var(--budget-spaceSmall); }
 .row:active, .entry:active { background: var(--mantine-color-default-hover); }
 .amount { white-space: nowrap; font-variant-numeric: tabular-nums; }
 /* Taban tek sütun (kalemler üstte, kayıtlar altta); geniş ekranda yan yana. */
@@ -23,7 +22,12 @@
   bottom: 0;
   margin-inline: calc(var(--mantine-spacing-sm) * -1);
   padding: var(--mantine-spacing-xs) var(--mantine-spacing-sm) calc(var(--mantine-spacing-xs) + var(--aile-safe-bottom, 0px));
-  background: var(--mantine-color-body);
+  background: var(--budget-paper);
   border-top: 1px solid var(--mantine-color-default-border);
 }
 .chipLabel { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+
+.summary { background: var(--budget-paper); }
+.entryIdentity, .entryAmount { display: grid; gap: var(--budget-spaceDense); }
+.entryAmount { color: var(--budget-muted); }
+.entryAmount strong { color: var(--budget-ink); font-size: var(--budget-fontSection); font-variant-numeric: tabular-nums; }

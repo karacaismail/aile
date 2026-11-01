@@ -40,7 +40,7 @@ export function RoomPage({ oda, layerId }: { oda: string; layerId?: string }) {
       <Paper className={classes.sticky} px="sm" py={6} radius={0} data-testid="room-header">
         <Group gap="xs" wrap="nowrap">
           <ActionIcon aria-label="Geri" color="gray" onClick={() => navigate('~/aydinlatma')}><ArrowLeftIcon size={22} aria-hidden /></ActionIcon>
-          <Title order={2} size="h4" lineClamp={1} className={classes.grow} data-allow-clamp>{name}</Title>
+          <Title order={2} size="h4" className={classes.grow}>{name}</Title>
           <DogAccessBadge value={room.kopek_erisim} prefix unsetLabel="ayarlanmadı" data-testid="dog-badge" />
         </Group>
         {/* Köpek erişimi Yerleşim'deki oda ölçü formunun alanıdır (`tip='oda'`); bağlantı ayarın gerçekten düzenlendiği yere gider. */}

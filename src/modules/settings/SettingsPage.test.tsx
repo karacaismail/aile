@@ -215,7 +215,7 @@ describe('Ayarlar · Önbelleği temizle', () => {
   it('düğmeye basmadan önce neyin korunacağı bölümde görünür', () => {
     configureController({ fetchImpl: fakeApi().fetchImpl });
     mount();
-    const section = screen.getByRole('heading', { name: 'Önbellek' }).parentElement!;
+    const section = screen.getByRole('region', { name: 'Önbellek' });
     expect(within(section).getByText(/1 bekleyen değişiklik/)).toBeInTheDocument();
     expect(within(section).getByText(/çevrimdışı/i)).toBeInTheDocument();
   });

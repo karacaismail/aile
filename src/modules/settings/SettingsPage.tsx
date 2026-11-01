@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Alert, Button, Code, Group, Stack, Text, TextInput, Title, Anchor } from '@mantine/core';
+import { Alert, Button, Code, Group, Stack, Text, TextInput, Anchor } from '@mantine/core';
 import { DatePickerInput } from '@mantine/dates';
 import { notifications } from '@mantine/notifications';
 import { PlugsConnectedIcon } from '@phosphor-icons/react/dist/csr/PlugsConnected';
@@ -9,6 +9,8 @@ import { getActor, getApiUrl, getAppKey, isApiConfigured, setActor, setApiUrl, s
 import { refresh, upsert } from '@/sync/controller';
 import { clearCache } from '@/sync/cache';
 import { getState, selectSetting, setState, useAppStore, type AppState } from '@/sync/store';
+import { SectionHeading } from '@/components/Info';
+import classes from './settings.module.css';
 import type { HealthResponse } from '@shared/api';
 
 const selectCacheMeta = (s: AppState) => ({ pending: s.outbox.length, status: s.status, hasFreshCopy: Boolean(s.fingerprint) });
@@ -93,34 +95,36 @@ export function SettingsPage() {
   };
 
   return (
-    <Stack p="sm" gap="md" pb={96}>
-      <div>
-        <Title order={2} size="h4">Kayıt bağlantısı</Title>
-        <Text size="sm" c="dimmed">Apps Script web uygulamasının <Code>/exec</Code> adresi. Kurulum: <Anchor href="https://github.com/karacaismail/aile/blob/main/apps-script/README.md" target="_blank" rel="noreferrer" data-inline-link>apps-script/README</Anchor>.</Text>
-      </div>
-      <TextInput label="API adresi" placeholder="https://script.google.com/macros/s/…/exec" value={url} onChange={(e) => setUrl(e.currentTarget.value)} inputMode="url" autoCapitalize="none" autoCorrect="off" />
-      <TextInput label="Anahtar (opsiyonel, APP_KEY)" value={key} onChange={(e) => setKey(e.currentTarget.value)} autoCapitalize="none" autoCorrect="off" />
-      <TextInput label="Cihaz adı (kim değiştirdi)" value={actor} onChange={(e) => setActorState(e.currentTarget.value)} maxLength={60} />
-      <Group grow>
-        <Button variant="default" loading={testing} leftSection={<PlugsConnectedIcon size={18} aria-hidden />} onClick={() => { void test(); }}>Bağlantıyı test et</Button>
-        <Button onClick={save}>Kaydet</Button>
-      </Group>
-      {health && (
-        <Alert color={health.warnings?.length ? 'yellow' : 'green'} title={`Bağlantı tamam · şema v${health.schemaVersion}`}>
-          {health.warnings?.length ? health.warnings.map((w) => <Text size="sm" key={w}>{w}</Text>) : <Text size="sm">Uyarı yok.</Text>}
-        </Alert>
-      )}
-      {err && <Alert color="red" title="Bağlantı hatası"><Text size="sm">{err}</Text></Alert>}
-      <div>
-        <Title order={2} size="h4">Ev planı</Title>
+    <div className={classes.layout}>
+      <Stack component="section" aria-label="Kayıt bağlantısı" className="record-surface" gap="sm">
+        <div>
+          <SectionHeading title="Kayıt bağlantısı" description="Hazırlık, yerleşim ve harcama kayıtlarını eşitleyin." />
+          <Text size="sm" c="dimmed">Apps Script web uygulamasının <Code>/exec</Code> adresi. Kurulum: <Anchor href="https://github.com/karacaismail/aile/blob/main/apps-script/README.md" target="_blank" rel="noreferrer" data-inline-link>apps-script/README</Anchor>.</Text>
+        </div>
+        <TextInput label="API adresi" placeholder="https://script.google.com/macros/s/…/exec" value={url} onChange={(e) => setUrl(e.currentTarget.value)} inputMode="url" autoCapitalize="none" autoCorrect="off" />
+        <TextInput label="Anahtar (opsiyonel, APP_KEY)" value={key} onChange={(e) => setKey(e.currentTarget.value)} autoCapitalize="none" autoCorrect="off" />
+        <TextInput label="Cihaz adı (kim değiştirdi)" value={actor} onChange={(e) => setActorState(e.currentTarget.value)} maxLength={60} />
+        <Group className={classes.actions}>
+          <Button variant="default" loading={testing} leftSection={<PlugsConnectedIcon size={18} aria-hidden />} onClick={() => { void test(); }}>Bağlantıyı test et</Button>
+          <Button onClick={save}>Kaydet</Button>
+        </Group>
+        {health && (
+          <Alert color={health.warnings?.length ? 'yellow' : 'green'} title={`Bağlantı tamam · şema v${health.schemaVersion}`}>
+            {health.warnings?.length ? health.warnings.map((w) => <Text size="sm" key={w}>{w}</Text>) : <Text size="sm">Uyarı yok.</Text>}
+          </Alert>
+        )}
+        {err && <Alert color="red" title="Bağlantı hatası"><Text size="sm">{err}</Text></Alert>}
+      </Stack>
+      <section className="record-surface" aria-label="Ev planı">
+        <SectionHeading title="Ev planı" />
         <Text size="sm" c="dimmed">Tadilat takvimindeki taşınma sayacı bu tarihi okur; Sheets'te saklanır ve bütün cihazlarda ortaktır.</Text>
         {/* Temizleme de aynı kaydı yazar (`deger: null` → alan silinir, sayaç "ayarlanmadı"a döner); temizle düğmesi 44 px hedef. */}
         <DatePickerInput mt="xs" label="Taşınma tarihi" placeholder="Tarih seçin" valueFormat="D MMM YYYY" dropdownType="modal"
           clearable clearButtonProps={clearButtonProps} rightSectionWidth={44}
           value={move?.deger ?? null} onChange={(v) => upsert('ayarlar', move?.id, { tip: 'tarih', anahtar: 'tasinma', deger: v ? String(v).slice(0, 10) : null })} />
-      </div>
-      <div>
-        <Title order={2} size="h4">Önbellek</Title>
+      </section>
+      <section className="record-support" aria-label="Önbellek">
+        <SectionHeading title="Önbellek" />
         <Text size="sm" c="dimmed">Veri Sheets'te durur; bu cihazdaki kopya silinir ve Sheets'ten yeniden çekilmeye çalışılır. Bağlantı ayarları ve bu sayfadaki girdiler korunur.</Text>
         {pending > 0 && <Text size="sm" c="dimmed">{pendingText(pending)} gönderilmeyi bekliyor; temizleme bunları silmez, bağlantı gelince gönderilir.</Text>}
         {status === 'offline' && <Text size="sm" c="dimmed">Şu an çevrimdışı: kopya, bağlantı gelene kadar yeniden yüklenemez.</Text>}
@@ -133,7 +137,7 @@ export function SettingsPage() {
         <Text size="sm" mt="xs" role="status" aria-atomic="true" aria-label="Önbellek sonucu" data-testid="cache-result">
           {clearing ? 'Temizleniyor…' : shownResult ? clearResultText(shownResult) : ''}
         </Text>
-      </div>
-    </Stack>
+      </section>
+    </div>
   );
 }

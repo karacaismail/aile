@@ -1,5 +1,2 @@
-/* Faz + toplam: listeyle kayar (320'de dikey alan en kıt kaynak); yapışkan olan araç çubuğu + şerittir. */
-.bar {
-  border-bottom: 1px solid var(--mantine-color-default-border);
-  background: var(--mantine-color-body);
-}
+.bar { display: grid; gap: var(--budget-spaceSmall); background: transparent; }
+.summary { padding: var(--budget-spaceSmall) var(--budget-spacing); border-radius: var(--budget-radius); background: var(--budget-blueSurface); }

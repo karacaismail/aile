@@ -5,6 +5,7 @@ import { Link } from 'wouter';
 import type { Item, Oda, Setting } from '@shared/schema';
 import { label } from '@shared/schema';
 import { useAppStore, type AppState } from '@/sync/store';
+import { FactList } from '@/components/Info';
 import { WarnBadge } from '@/components/badges';
 import { DogAccessBadge } from '@/components/DogAccessBadge';
 import { ROOMS, formatDims, parseRoomSetting, roomItems, wallSummary, type RoomDims } from './rules';
@@ -20,15 +21,14 @@ function RoomCard({ oda, dims, items }: { oda: Oda; dims: RoomDims; items: Item[
   const size = formatDims({ en_cm: dims.en_cm, boy_cm: dims.boy_cm }, ' × ');
   const walls = wallSummary(dims, items);
   return (
-    <Card component={Link} href={`~/yerlesim/${oda}`} withBorder radius="md" p="sm" className={classes.card} data-testid="room-card">
+    <Card component={Link} href={`~/yerlesim/${oda}`} radius="md" p="md" className={classes.card} data-testid="room-card">
       <Group justify="space-between" wrap="nowrap" gap="xs">
         <Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
-          <Text fw={600} className={classes.title}>{label('oda', oda)}</Text>
-          <Group gap={6} wrap="nowrap">
-            <Text size="sm" c={size ? undefined : 'dimmed'} className="tabular">{size || 'ölçü gir'}</Text>
-            <Text size="sm" c="dimmed" aria-hidden>·</Text>
-            <Text size="sm" c="dimmed">{items.length} kalem</Text>
-          </Group>
+          <Text component="h2" fw={700} className={classes.title}>{label('oda', oda)}</Text>
+          <FactList label={`${label('oda', oda)} oda özeti`} items={[
+            { label: 'Oda ölçüsü', value: size || 'ölçü gir' },
+            { label: 'Yerleşim', value: `${items.length} kalem` },
+          ]} />
           <Group gap={4} wrap="wrap">
             <DogAccessBadge value={dims.kopek_erisim} />
             {size && walls.map((w) => (

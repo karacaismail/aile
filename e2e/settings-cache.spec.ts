@@ -2,7 +2,17 @@ import { test, expect, type Page } from '@playwright/test';
 import { horizontalOverflow, mockApi, smallTargets, smallText } from './helpers';
 
 const goOffline = (page: Page) => page.route('**/macros/s/**', (route) => route.abort('internetdisconnected'));
-const cacheSection = (page: Page) => page.getByRole('heading', { name: 'Önbellek' }).locator('..');
+const cacheSection = (page: Page) => page.getByRole('region', { name: 'Önbellek' });
+
+test('bağlantı eylemlerinin tam etiketi dar görünümde de okunur', async ({ page }) => {
+  await mockApi(page);
+  await page.goto('/#/ayarlar');
+  const testConnection = page.getByRole('button', { name: 'Bağlantıyı test et' });
+  await expect(testConnection).toBeVisible();
+  const label = testConnection.locator('.mantine-Button-label');
+  expect(await label.evaluate(el => el.scrollWidth <= el.clientWidth + 1), 'Bağlantıyı test et etiketi kırpılmaz').toBe(true);
+  await expect(page.getByRole('button', { name: 'Kaydet', exact: true })).toBeVisible();
+});
 
 test('çevrimdışı bekleyen kayıt önbellek temizlemede korunur; sonuç dürüst; bağlantı dönünce gider', async ({ page }, testInfo) => {
   await mockApi(page);

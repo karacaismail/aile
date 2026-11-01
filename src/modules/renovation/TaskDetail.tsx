@@ -1,6 +1,7 @@
+import { SectionHeading } from '@/components/Info';
 import { FormSelect } from '@/components/FormSelect';
 import { useMemo, useRef } from 'react';
-import { Alert, Chip, Divider, Group, Modal, NumberInput, SimpleGrid, Stack, Switch, Text, TextInput, Textarea } from '@mantine/core';
+import { Alert, Chip, Group, Modal, NumberInput, SimpleGrid, Stack, Switch, Text, TextInput, Textarea } from '@mantine/core';
 import { DatePickerInput } from '@mantine/dates';
 import { useForm, schemaResolver } from '@mantine/form';
 import { useMediaQuery } from '@mantine/hooks';
@@ -108,34 +109,41 @@ function TaskDetailBody({ item, onClose }: { item?: Item; onClose: () => void })
       closeButtonProps={modalCloseProps} styles={{ body: { paddingBottom: 96 } }}>
       <form ref={formRef} onSubmit={form.onSubmit(save, (errors) => focusFirstError(formRef.current, errors))} noValidate data-testid="task-detail">
         <Stack gap="sm">
-          <Group gap="xs" wrap="nowrap" align="flex-start">
-            <TextInput label="Kod" placeholder="T1" w={88} style={{ flexShrink: 0 }} {...form.getInputProps('kod')} key={form.key('kod')} />
-            {/* Yeni işte zorunlu ilk alan odaklanır (Mantine FocusTrap `data-autofocus`); düzenlemede odak modal başlığında kalır. */}
-            <TextInput label="Ad" required data-autofocus={isNew || undefined} style={{ flex: 1 }} {...form.getInputProps('ad')} key={form.key('ad')} />
-          </Group>
-          <div>
-            <Text size="sm" fw={500} mb={4}>İşi yapan</Text>
-            <Chip.Group multiple value={v.is_kim} onChange={(val) => form.setFieldValue('is_kim', val)}>
-              <Group gap={6}>
-                {IS_KIM.map((k) => <Chip key={k} value={k} size="sm" variant="light">{label('is_kim', k)}</Chip>)}
-              </Group>
-            </Chip.Group>
-          </div>
-          <FormSelect label="Durum" allowDeselect={false} data={DURUM.map((d) => ({ value: d, label: TASK_DURUM_LABEL[d] ?? d }))} value={v.durum ?? 'fikir'} onChange={(value) => value && form.setFieldValue('durum', value)} />
-          <Divider label="Zaman" labelPosition="left" />
-          <SimpleGrid cols={{ base: 1, xs: 2 }} spacing="xs">
-            <DatePickerInput label="Planlanan tarih" {...dateProps} value={v.planlanan_tarih} onChange={(d) => form.setFieldValue('planlanan_tarih', d)} />
-            <DatePickerInput label="Bitiş tarihi" {...dateProps} value={v.bitis_tarihi} onChange={(d) => form.setFieldValue('bitis_tarihi', d)} />
-          </SimpleGrid>
-          <NumberInput label="Süre (gün)" min={0} inputMode="numeric" hideControls data-path="sure_gun" value={v.sure_gun ?? ''} onChange={(n) => form.setFieldValue('sure_gun', n === '' ? null : Number(n))} error={form.errors.sure_gun} />
-          <TextInput label="Bağımlılık (kodlar, virgülle)" placeholder="T1, T2" {...depsInput} key={form.key('bagimlilik')}
-            onBlur={(e) => { depsInput.onBlur?.(e); form.setFieldValue('bagimlilik', splitDeps(e.currentTarget.value).join(', ')); }} />
-          <Divider label="İzin" labelPosition="left" />
-          <Switch label="İzin gerekli (ev sahibi / yönetim)" {...form.getInputProps('izin_gerekli', { type: 'checkbox' })} key={form.key('izin_gerekli')} />
-          {v.izin_gerekli && <EnumSelect label="İzin durumu" field="izin_durumu" options={IZIN_DURUMU} value={v.izin_durumu} onChange={(x) => form.setFieldValue('izin_durumu', x)} />}
-          <Textarea label="Şartname" autosize minRows={2} {...form.getInputProps('sartname')} key={form.key('sartname')} />
-          <Textarea label="Not" autosize minRows={2} {...form.getInputProps('not')} key={form.key('not')} />
-          {item?.updated_by && <Text size="xs" c="dimmed">Son güncelleme: {item.updated_by}</Text>}
+          <Stack component="section" aria-label="İş ve sorumlular" className="record-form-section" gap="sm">
+            <SectionHeading title="İş ve sorumlular" level={3} />
+            <Group gap="xs" wrap="nowrap" align="flex-start">
+              <TextInput label="Kod" placeholder="T1" w={88} style={{ flexShrink: 0 }} {...form.getInputProps('kod')} key={form.key('kod')} />
+              {/* Yeni işte zorunlu ilk alan odaklanır (Mantine FocusTrap `data-autofocus`); düzenlemede odak modal başlığında kalır. */}
+              <TextInput label="Ad" required data-autofocus={isNew || undefined} style={{ flex: 1 }} {...form.getInputProps('ad')} key={form.key('ad')} />
+            </Group>
+            <div>
+              <Text size="sm" fw={500} mb={4}>İşi yapan</Text>
+              <Chip.Group multiple value={v.is_kim} onChange={(val) => form.setFieldValue('is_kim', val)}>
+                <Group gap={6}>
+                  {IS_KIM.map((k) => <Chip key={k} value={k} size="sm" variant="light">{label('is_kim', k)}</Chip>)}
+                </Group>
+              </Chip.Group>
+            </div>
+            <FormSelect label="Durum" allowDeselect={false} data={DURUM.map((d) => ({ value: d, label: TASK_DURUM_LABEL[d] ?? d }))} value={v.durum ?? 'fikir'} onChange={(value) => value && form.setFieldValue('durum', value)} />
+          </Stack>
+          <Stack component="section" aria-label="İş takvimi" className="record-form-section" gap="sm">
+            <SectionHeading title="İş takvimi" level={3} />
+            <SimpleGrid cols={{ base: 1, xs: 2 }} spacing="xs">
+              <DatePickerInput label="Planlanan tarih" {...dateProps} value={v.planlanan_tarih} onChange={(d) => form.setFieldValue('planlanan_tarih', d)} />
+              <DatePickerInput label="Bitiş tarihi" {...dateProps} value={v.bitis_tarihi} onChange={(d) => form.setFieldValue('bitis_tarihi', d)} />
+            </SimpleGrid>
+            <NumberInput label="Süre (gün)" min={0} inputMode="numeric" hideControls data-path="sure_gun" value={v.sure_gun ?? ''} onChange={(n) => form.setFieldValue('sure_gun', n === '' ? null : Number(n))} error={form.errors.sure_gun} />
+            <TextInput label="Bağımlılık (kodlar, virgülle)" placeholder="T1, T2" {...depsInput} key={form.key('bagimlilik')}
+              onBlur={(e) => { depsInput.onBlur?.(e); form.setFieldValue('bagimlilik', splitDeps(e.currentTarget.value).join(', ')); }} />
+          </Stack>
+          <Stack component="section" aria-label="İzin ve şartname" className="record-form-section" gap="sm">
+            <SectionHeading title="İzin ve şartname" level={3} />
+            <Switch label="İzin gerekli (ev sahibi / yönetim)" {...form.getInputProps('izin_gerekli', { type: 'checkbox' })} key={form.key('izin_gerekli')} />
+            {v.izin_gerekli && <EnumSelect label="İzin durumu" field="izin_durumu" options={IZIN_DURUMU} value={v.izin_durumu} onChange={(x) => form.setFieldValue('izin_durumu', x)} />}
+            <Textarea label="Şartname" autosize minRows={2} {...form.getInputProps('sartname')} key={form.key('sartname')} />
+            <Textarea label="Not" autosize minRows={2} {...form.getInputProps('not')} key={form.key('not')} />
+            {item?.updated_by && <Text size="xs" c="dimmed">Son güncelleme: {item.updated_by}</Text>}
+          </Stack>
           <FormFooter errors={form.errors} onCancel={onClose} onDelete={isNew ? undefined : del} />
         </Stack>
       </form>

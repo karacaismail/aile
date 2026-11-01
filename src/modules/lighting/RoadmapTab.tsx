@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
-import { Box, Group, Paper, Stepper, Text } from '@mantine/core';
+import { Box, Paper, Stepper, Text } from '@mantine/core';
 import type { Item } from '@shared/schema';
 import { label } from '@shared/schema';
 import { useAppStore } from '@/sync/store';
+import { FactList, SourceNote } from '@/components/Info';
 import { formatTlRange } from '@/lib/price';
 import { formatTr } from '@/lib/dates';
 import { selectLayers, selectPurchases } from './data';
@@ -42,12 +43,10 @@ export function RoadmapTab({ now = new Date() }: { now?: Date }) {
   const est = useMemo(() => estimateRange(layers), [layers]);
   return (
     <Box p="sm" className={classes.roadmap} data-testid="roadmap">
-      <Paper withBorder p="sm" radius="md" className={classes.roadmapSummary}>
-        <Group justify="space-between" wrap="nowrap" gap="xs">
-          <Text size="sm" c="dimmed">Toplam tahmini</Text>
-          <Text fw={700} size="lg" className="tabular" data-testid="roadmap-total">{formatTlRange(est.min, est.max)}</Text>
-        </Group>
+      <Paper p="md" radius="md" className={classes.roadmapSummary}>
+        <FactList label="Aydınlatma bütçesi" tone="subtle" items={[{ label: 'Toplam tahmini', value: <span data-testid="roadmap-total">{formatTlRange(est.min, est.max)}</span>, emphasis: true }]} />
         <Text size="xs" c="dimmed">{est.priced}/{est.total} katman fiyatlı · {layers.length} katman, {purchases.length} satınalma kalemi</Text>
+        <SourceNote label="Kapsam">Katman bedelleri tahminidir; ödeme kaydı değildir.</SourceNote>
       </Paper>
       <Stepper active={active} orientation="vertical" iconSize={44} size="sm" allowNextStepsSelect={false} data-testid="roadmap-steps" className={classes.roadmapSteps}>
         {grouped.steps.map((s) => (

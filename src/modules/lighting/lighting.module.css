@@ -1,4 +1,5 @@
-.card { cursor: pointer; min-height: 44px; }
+.card { cursor: pointer; min-height: var(--budget-targetMin); background: var(--budget-paper); }
+.title { margin: 0; font-size: var(--budget-fontSection); line-height: var(--budget-lineCompact); overflow-wrap: break-word; }
 .strip { height: 4px; border-radius: 2px; }
 .miniStrip { display: inline-block; width: 40px; height: 4px; border-radius: 2px; vertical-align: middle; margin-inline-start: 6px; }
 .sticky {

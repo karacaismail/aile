@@ -4,6 +4,7 @@ import { LightningIcon } from '@phosphor-icons/react/dist/csr/Lightning';
 import { useLocation } from 'wouter';
 import type { Item } from '@shared/schema';
 import { label } from '@shared/schema';
+import { SourceNote } from '@/components/Info';
 import { OdaBadge } from '@/components/badges';
 import { layerTitle, parseLevel, type SceneLevel } from './rules';
 import classes from './lighting.module.css';
@@ -19,11 +20,11 @@ export function SceneCard({ scene, layers }: { scene: Item; layers: Map<string, 
   const levels = (scene.seviyeler ?? []).map(parseLevel).filter((x): x is SceneLevel => !!x);
   const go = () => navigate(`~/aydinlatma/sahne/${scene.id}`);
   return (
-    <Card withBorder radius="md" p="sm" className={classes.card} data-testid="scene-card" role="link" tabIndex={0}
+    <Card radius="md" p="md" className={classes.card} data-testid="scene-card" role="link" tabIndex={0}
       aria-label={`${scene.ad} sahnesi`} onClick={go} onKeyDown={(e) => { if (e.key === 'Enter') go(); }}>
       <Stack gap={4}>
         <Group justify="space-between" wrap="nowrap" gap="xs">
-          <Text fw={600} lineClamp={1} data-allow-clamp>{scene.ad}</Text>
+          <Text component="h3" fw={700} className={classes.title}>{scene.ad}</Text>
           <CaretRightIcon size={18} aria-hidden />
         </Group>
         <Group gap={4} wrap="wrap">
@@ -32,11 +33,11 @@ export function SceneCard({ scene, layers }: { scene: Item; layers: Map<string, 
           <Badge size="xs" variant="default">{levels.length} katman</Badge>
         </Group>
         {levels.length > 0 && (
-          <Stack gap={2}>
+          <Stack gap="xs" className="record-support">
             {levels.map((lv, i) => <Text key={`${lv.layerId}-${i}`} size="xs" data-testid="scene-level">{levelText(lv, layers)}</Text>)}
           </Stack>
         )}
-        {scene.not && <Text size="xs" c="dimmed" lineClamp={2} data-allow-clamp>{scene.not}</Text>}
+        {scene.not && <SourceNote label="Sahne notu">{scene.not}</SourceNote>}
       </Stack>
     </Card>
   );

@@ -1,3 +1,4 @@
+import { SectionHeading } from '@/components/Info';
 import { FormSelect } from '@/components/FormSelect';
 import { useMemo, useRef } from 'react';
 import { ActionIcon, Alert, Button, Group, Modal, NumberInput, Paper, Stack, Text, TextInput, Textarea } from '@mantine/core';
@@ -109,33 +110,34 @@ function SceneFormBody({ item, onClose }: { item?: Item; onClose: () => void }) 
       closeButtonProps={modalCloseProps} styles={{ body: { paddingBottom: 96 } }}>
       <form ref={formRef} onSubmit={form.onSubmit(save, (errors) => focusFirstError(formRef.current, errors))} noValidate data-testid="scene-form">
         <Stack gap="sm">
-          {/* Yeni sahnede ilk alan odaklanır (Mantine FocusTrap `data-autofocus`); düzenlemede odak modal başlığında kalır. */}
-          <TextInput label="Ad" required data-autofocus={isNew || undefined} placeholder="ör. Akşam filmi" {...form.getInputProps('ad')} key={form.key('ad')} />
-          <EnumSelect label="Oda" field="oda" options={ODA} value={values.oda} onChange={(v) => form.setFieldValue('oda', v)} />
-          <EnumSelect label="Tetik" field="tetik" options={TETIK} value={values.tetik} onChange={(v) => form.setFieldValue('tetik', v)} />
-          <div>
-            <Text size="sm" fw={500} mb={4}>Seviyeler</Text>
-            <Stack gap="xs">
-              {values.seviyeler.map((row, i) => (
-                <Paper key={i} withBorder p="xs" radius="md" data-testid="scene-level-row">
-                  <Stack gap={6}>
-                    <FormSelect label={`Katman ${i + 1}`} allowDeselect={false} data={layerOptions} value={row.layerId} data-path={`seviyeler.${i}.layerId`}
-                      onChange={(value) => form.setFieldValue(`seviyeler.${i}.layerId`, value ?? '')} error={form.errors[`seviyeler.${i}.layerId`]} />
-                    <Group gap={6} wrap="nowrap" align="flex-start">
-                      <NumberInput label="Parlaklık %" hideControls inputMode="numeric" min={0} max={100} className={classes.grow} data-path={`seviyeler.${i}.pct`}
-                        value={row.pct ?? ''} onChange={(v) => form.setFieldValue(`seviyeler.${i}.pct`, v === '' ? null : Number(v))} error={form.errors[`seviyeler.${i}.pct`]} />
-                      <NumberInput label="CCT (K)" hideControls inputMode="numeric" min={0} className={classes.grow}
-                        value={row.cct ?? ''} onChange={(v) => form.setFieldValue(`seviyeler.${i}.cct`, v === '' ? null : Number(v))} />
-                      <ActionIcon aria-label={`Seviye ${i + 1} sil`} color="red" mt={26} onClick={() => form.removeListItem('seviyeler', i)}>
-                        <TrashIcon size={20} aria-hidden />
-                      </ActionIcon>
-                    </Group>
-                  </Stack>
-                </Paper>
-              ))}
-              <Button variant="default" leftSection={<PlusIcon size={18} aria-hidden />} onClick={addRow}>Seviye ekle</Button>
-            </Stack>
-          </div>
+          <Stack component="section" aria-label="Sahne bilgileri" className="record-form-section" gap="sm"><SectionHeading title="Sahne bilgileri" level={3} />
+            {/* Yeni sahnede ilk alan odaklanır (Mantine FocusTrap `data-autofocus`); düzenlemede odak modal başlığında kalır. */}
+            <TextInput label="Ad" required data-autofocus={isNew || undefined} placeholder="ör. Akşam filmi" {...form.getInputProps('ad')} key={form.key('ad')} />
+            <EnumSelect label="Oda" field="oda" options={ODA} value={values.oda} onChange={(v) => form.setFieldValue('oda', v)} />
+            <EnumSelect label="Tetik" field="tetik" options={TETIK} value={values.tetik} onChange={(v) => form.setFieldValue('tetik', v)} />
+          </Stack>
+          <Stack component="section" aria-label="Işık seviyeleri" className="record-form-section" gap="sm"><SectionHeading title="Işık seviyeleri" level={3} />
+              <Stack gap="xs">
+                {values.seviyeler.map((row, i) => (
+                  <Paper key={i} p="sm" radius="md" data-testid="scene-level-row">
+                    <Stack gap={6}>
+                      <FormSelect label={`Katman ${i + 1}`} allowDeselect={false} data={layerOptions} value={row.layerId} data-path={`seviyeler.${i}.layerId`}
+                        onChange={(value) => form.setFieldValue(`seviyeler.${i}.layerId`, value ?? '')} error={form.errors[`seviyeler.${i}.layerId`]} />
+                      <Group gap={6} wrap="nowrap" align="flex-start">
+                        <NumberInput label="Parlaklık %" hideControls inputMode="numeric" min={0} max={100} className={classes.grow} data-path={`seviyeler.${i}.pct`}
+                          value={row.pct ?? ''} onChange={(v) => form.setFieldValue(`seviyeler.${i}.pct`, v === '' ? null : Number(v))} error={form.errors[`seviyeler.${i}.pct`]} />
+                        <NumberInput label="CCT (K)" hideControls inputMode="numeric" min={0} className={classes.grow}
+                          value={row.cct ?? ''} onChange={(v) => form.setFieldValue(`seviyeler.${i}.cct`, v === '' ? null : Number(v))} />
+                        <ActionIcon aria-label={`Seviye ${i + 1} sil`} color="red" mt={26} onClick={() => form.removeListItem('seviyeler', i)}>
+                          <TrashIcon size={20} aria-hidden />
+                        </ActionIcon>
+                      </Group>
+                    </Stack>
+                  </Paper>
+                ))}
+                <Button variant="default" leftSection={<PlusIcon size={18} aria-hidden />} onClick={addRow}>Seviye ekle</Button>
+              </Stack>
+          </Stack>
           <Textarea label="Not" autosize minRows={3} {...form.getInputProps('not')} key={form.key('not')} />
           <FormFooter errors={form.errors} onCancel={onClose} onDelete={isNew ? undefined : del} />
         </Stack>

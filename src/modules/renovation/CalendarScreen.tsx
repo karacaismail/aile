@@ -62,7 +62,7 @@ export function CalendarScreen({ now }: { now?: Date } = {}) {
 
   return (
     <Box pb={96}>
-      <Paper className={classes.strip} px="sm" py={6} radius={0} data-testid="countdown">
+      <Paper className={`${classes.strip} record-support`} px="md" py="sm" radius={0} data-testid="countdown">
         <Group justify="space-between" wrap={days == null ? 'wrap' : 'nowrap'} gap="xs" align="center">
           {days == null ? (
             <Group gap={4} wrap="nowrap" style={{ flex: '1 1 100%', minWidth: 0 }}>
@@ -75,12 +75,12 @@ export function CalendarScreen({ now }: { now?: Date } = {}) {
                 <Text className={classes.bigNumber} data-testid="countdown-days">{Math.abs(days)}</Text>
                 <Text size="sm" fw={600}>{days < 0 ? 'gün önce' : days === 0 ? 'gün — bugün' : 'gün'}</Text>
               </Group>
-              <Text size="xs" c="dimmed" lineClamp={1} data-allow-clamp>{days < 0 ? 'Taşınma' : 'Taşınmaya'} · {formatTr(move?.deger)}</Text>
+              <Text size="xs" c="dimmed" >{days < 0 ? 'Taşınma' : 'Taşınmaya'} · {formatTr(move?.deger)}</Text>
             </div>
           )}
           <SegmentedControl size="sm" value={scenario} onChange={setScenario} data={SCENARIOS} aria-label="Senaryo" ml="auto" styles={{ label: { minWidth: 44 } }} />
         </Group>
-        <Text size="xs" c="dimmed" mt={2} lineClamp={1} data-allow-clamp>{scenario ? label('senaryo', scenario) : 'Senaryo seçilmedi (tüm taşlar)'}</Text>
+        <Text size="xs" c="dimmed" mt={2} >{scenario ? label('senaryo', scenario) : 'Senaryo seçilmedi (tüm taşlar)'}</Text>
       </Paper>
 
       <Timeline bulletSize={28} lineWidth={2} color="gray.4" p="sm" pt="md" data-testid="timeline" className={classes.timeline}>
@@ -100,7 +100,7 @@ export function CalendarScreen({ now }: { now?: Date } = {}) {
               <UnstyledButton className={classes.entry} data-testid="timeline-entry" data-past={e.past ? 'true' : undefined} data-current={e.current ? 'true' : undefined}
                 aria-label={e.title} onClick={() => setOpen(e)}>
                 <Text size="xs" c="dimmed" className="tabular">{dateRange(e)}</Text>
-                <Text fw={600} size="sm" lineClamp={2} className={classes.title} data-allow-clamp>{e.title}</Text>
+                <Text fw={600} size="sm" className={classes.title}>{e.title}</Text>
                 <Group gap={4} mt={2}>
                   {e.kind === 'tadilat'
                     ? <Badge size="xs" variant="default">{taskDurumLabel(e.item?.durum) || 'İş'}</Badge>

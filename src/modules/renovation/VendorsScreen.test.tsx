@@ -18,6 +18,17 @@ function mount(path = '/tadilat/ustalar') {
 beforeEach(() => { resetStore(); vi.mocked(upsert).mockClear(); setState({ hydrated: true, status: 'synced' }); });
 
 describe('Ustalar', () => {
+  it('teklifi ödeme olarak sunmaz; bedel ve koşullar ayrı adlandırılır', () => {
+    applyRead(readFull());
+    mount();
+    const cards = screen.getAllByTestId('vendor-card');
+    expect(within(cards[0]).getByText('Teklif bedeli')).toBeInTheDocument();
+    expect(within(cards[0]).getByText('İş süresi')).toBeInTheDocument();
+    expect(within(cards[0]).getByText('Garanti')).toBeInTheDocument();
+    expect(within(cards[0]).getByText('Teklif, yapılmış ödeme değildir.')).toBeInTheDocument();
+    expect(within(cards[1]).getByText('Teklif girilmedi')).toBeInTheDocument();
+    expect(within(cards[1]).queryByText('₺0')).not.toBeInTheDocument();
+  });
   it('sayaç, MYK rozetleri, telefon ve WhatsApp bağlantıları, teklif alanları', () => {
     applyRead(readFull());
     mount();

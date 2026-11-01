@@ -25,6 +25,24 @@ function withRouter(ui: React.ReactElement, path = '/satinalma') {
 beforeEach(() => resetStore());
 
 describe('ItemCard', () => {
+  it('tutarın niteliği, sipariş ve teslim tarihi ayrı okunur; teslim ödeme kanıtı sayılmaz', () => {
+    render(withRouter(<ItemCard item={{ ...item, durum: 'teslim', gercek_tl: 1700, fiyat_guven: 'dogrulandi', teslim_tarihi: '2099-02-15' }} onToggleDone={vi.fn()} />));
+    expect(screen.getByText('Kayıtlı bedel')).toBeInTheDocument();
+    expect(screen.getByText('Fiyat doğrulandı')).toBeInTheDocument();
+    expect(screen.getByText('Sipariş son günü')).toBeInTheDocument();
+    expect(screen.getByText('Teslim tarihi')).toBeInTheDocument();
+    expect(screen.getByText('Teslim durumu ödeme kaydı değildir.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Harcama kayıtlarına git' })).toHaveAttribute('href', '/butce');
+    expect(screen.queryByText('Ödendi')).not.toBeInTheDocument();
+  });
+  it('tahmin ve eksik fiyatı açıklar; eksik fiyat sıfır ödeme değildir', () => {
+    const { rerender } = render(withRouter(<ItemCard item={item} onToggleDone={vi.fn()} />));
+    expect(screen.getByText('Tahmini bedel')).toBeInTheDocument();
+    expect(screen.getByText('Ödeme kaydı değildir.')).toBeInTheDocument();
+    rerender(withRouter(<ItemCard item={{ ...item, tahmini_tl_min: undefined, tahmini_tl_max: undefined }} onToggleDone={vi.fn()} />));
+    expect(screen.getByText('Fiyat girilmedi')).toBeInTheDocument();
+    expect(screen.queryByText('₺0')).not.toBeInTheDocument();
+  });
   it('ad, fiyat, rozetler ve alındı kutusu', async () => {
     const onToggle = vi.fn();
     render(withRouter(<ItemCard item={item} onToggleDone={onToggle} />));
@@ -216,6 +234,14 @@ describe('Kayıt yolculuğu: yeni kalem formu ve kayıt sonrası görünürlük'
   // Mantine FocusTrap odağı mount sonrası zamanlayıcıyla taşır; iddia ondan sonra ölçülür.
   const settle = () => act(() => new Promise<void>((r) => setTimeout(r, 30)));
   beforeEach(() => { localStorage.clear(); vi.mocked(upsert).mockClear(); vi.mocked(notifications.show).mockClear(); vi.mocked(notifications.hide).mockClear(); });
+
+  it('uzun formda kimlik, fiyat teyidi ve sipariş alanları adlandırılmış bölümlerdedir', async () => {
+    seed();
+    mountAt('/satinalma/yeni');
+    expect(within(screen.getByRole('region', { name: 'Kalem bilgileri' })).getByLabelText(/^Ad\b/)).toBeInTheDocument();
+    expect(within(screen.getByRole('region', { name: 'Fiyat ve teyit' })).getByLabelText('Gerçek')).toBeInTheDocument();
+    expect(within(screen.getByRole('region', { name: 'Sipariş ve teslim' })).getByLabelText('Nereden')).toBeInTheDocument();
+  });
 
   it('açılış odağı modalın Kapat düğmesine değil Ad alanına gider', async () => {
     seed();

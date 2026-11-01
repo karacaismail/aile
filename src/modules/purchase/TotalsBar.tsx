@@ -2,6 +2,7 @@ import { Group, Paper, SegmentedControl, Text } from '@mantine/core';
 import type { Faz } from '@shared/schema';
 import type { Totals } from '@/data/selectors';
 import { formatTl } from '@/lib/price';
+import { SourceNote } from '@/components/Info';
 import classes from './TotalsBar.module.css';
 
 export interface TotalsBarProps {
@@ -30,7 +31,9 @@ export function TotalsBar({ faz, onFaz, totals, count, total, filtered = false }
         fullWidth size="xs" value={faz} onChange={(v) => onFaz(v as Faz | 'hepsi')} aria-label="Faz"
         data={[{ value: 'hepsi', label: 'Hepsi' }, { value: '1', label: 'Önce' }, { value: '2', label: 'Yerleşme' }, { value: '3', label: 'Bebek' }]}
       />
-      <Group gap="xs" wrap="wrap" align="baseline" mt="xs">
+      <div className={classes.summary}>
+      <Text component="p" fw={500}>Görünen hazırlık kayıtlarının bedeli</Text>
+      <Group gap="xs" wrap="wrap" align="baseline">
         <Text fw={700} className="tabular" size="lg" style={{ whiteSpace: 'nowrap' }} data-testid="totals-sum" data-filtered={filtered || undefined}>{range}</Text>
         {/* Ayraç sayımla aynı satırda kalır: uzun aralıkta yalnız "· N kalem" alt satıra iner */}
         <Text component="span" className="tabular" style={{ whiteSpace: 'nowrap' }}>
@@ -38,6 +41,8 @@ export function TotalsBar({ faz, onFaz, totals, count, total, filtered = false }
           <span data-testid="totals-count" aria-label={filtered && total != null ? `Görünen ${shown} kalem, kapsamda ${total}` : undefined}>{countText}</span>
         </Text>
       </Group>
+      </div>
+      <SourceNote label="Kapsam">Kayıtlı ve tahmini bedellerin toplamı; yapılmış ödeme toplamı değildir.</SourceNote>
     </Paper>
   );
 }

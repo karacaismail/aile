@@ -4,6 +4,7 @@ import { CaretLeftIcon } from '@phosphor-icons/react/dist/csr/CaretLeft';
 import { CaretRightIcon } from '@phosphor-icons/react/dist/csr/CaretRight';
 import { ReceiptIcon } from '@phosphor-icons/react/dist/csr/Receipt';
 import { useAppStore } from '@/sync/store';
+import { FactList, SourceNote, SectionHeading, JourneyLinks } from '@/components/Info';
 import { Fab } from '@/app/shell/Fab';
 import { formatTl } from '@/lib/price';
 import { formatTr, todayIso } from '@/lib/dates';
@@ -42,9 +43,8 @@ export function BudgetHome() {
 
       <div className={classes.layout}>
         <Stack gap="sm" p="sm">
-          <Paper withBorder p="sm" data-testid="month-summary">
-            <Text c="dimmed">Bu ay kaydedilen</Text>
-            <Text fw={700} size="xl" data-testid="month-actual">{formatTl(summary.actual)}</Text>
+          <Paper p="md" className={classes.summary} data-testid="month-summary">
+            <FactList label="Ayın harcama özeti" tone="strong" items={[{ label: 'Bu ay kaydedilen', value: <span data-testid="month-actual">{formatTl(summary.actual)}</span>, emphasis: true }]} />
             {summary.hasPlan && summary.plan > 0 ? (
               <>
                 <Progress value={pct(summary.actual, summary.plan)} color={over ? 'red' : 'ember'} mt={6} aria-label="Plana göre harcama" />
@@ -55,6 +55,7 @@ export function BudgetHome() {
             ) : (
               <Text mt={4} c="dimmed" data-testid="month-plan">{plan ? 'Bu ay için plan yok' : 'Plan sekmesi okunamadı'}</Text>
             )}
+            <SourceNote label="Harcama günlüğü">Yalnız kaydettiğiniz ödemeler. Hazırlık listesindeki teslim işareti buraya ödeme eklemez.</SourceNote>
           </Paper>
 
           {summary.groups.map((g) => (
@@ -69,7 +70,7 @@ export function BudgetHome() {
         </Stack>
 
         <Stack gap="sm" p="sm">
-          <Text fw={700}>Bu ayın kayıtları</Text>
+          <SectionHeading title="Bu ayın kayıtları" description={`${summary.entries.length} ödeme kaydı`} />
           {summary.entries.length === 0 ? (
             <EmptyState
               icon={<ReceiptIcon size={32} aria-hidden />}
@@ -80,11 +81,11 @@ export function BudgetHome() {
             <Stack gap={6} data-testid="entries">
               {summary.entries.map((e) => (
                 <UnstyledButton key={e.id} className={classes.entry} onClick={() => openExpense({ id: e.id })} data-testid={`entry-${e.id}`}>
-                  <Box miw={0} style={{ flex: 1 }}>
-                    <Text fw={500} lineClamp={1} data-allow-clamp>{e.kalem}</Text>
-                    <Text c="dimmed" lineClamp={1} data-allow-clamp>{formatTr(e.tarih, 'D MMM')}{e.not ? ` · ${e.not}` : ''}</Text>
+                  <Box component="span" miw={0} className={classes.entryIdentity}>
+                    <Text component="span" fw={700}>{e.kalem}</Text>
+                    <Text component="span" c="dimmed">{formatTr(e.tarih, 'D MMM')}{e.not ? ` · ${e.not}` : ''}</Text>
                   </Box>
-                  <Text fw={600} className={classes.amount}>{formatTl(e.tutar)}</Text>
+                  <span className={classes.entryAmount}><span>Kaydedilen ödeme</span><strong>{formatTl(e.tutar)}</strong></span>
                 </UnstyledButton>
               ))}
             </Stack>
@@ -92,6 +93,7 @@ export function BudgetHome() {
         </Stack>
       </div>
 
+      <JourneyLinks items={[{ href: '#/pano', label: 'Genel bütçeye git' }, { href: '#/satinalma', label: 'Hazırlık listesine git' }]} />
       <Fab onClick={() => openExpense()} label="Harcama ekle" />
     </Box>
   );
@@ -107,12 +109,12 @@ function KalemRow({ row }: { row: SummaryRow }) {
       data-testid={`kalem-${row.label}`}
     >
       <Group justify="space-between" wrap="nowrap" gap="xs">
-        <Text lineClamp={1} data-allow-clamp miw={0}>{row.label}</Text>
+        <Text miw={0}>{row.label}</Text>
         <Text fw={600} className={classes.amount}>{row.count ? formatTl(row.actual) : '—'}</Text>
       </Group>
       <Group gap="xs" wrap="nowrap">
         <Progress value={pct(row.actual, row.plan)} color={over ? 'red' : 'ember'} size="sm" style={{ flex: 1 }} aria-hidden />
-        <Text c="dimmed" className={classes.amount}>{row.plan > 0 ? formatTl(row.plan) : 'plansız'}</Text>
+        <Text c="dimmed" className={classes.amount}>{row.plan > 0 ? `Plan ${formatTl(row.plan)}` : 'plansız'}</Text>
       </Group>
     </UnstyledButton>
   );

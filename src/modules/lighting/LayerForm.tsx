@@ -1,3 +1,4 @@
+import { SectionHeading } from '@/components/Info';
 import { useMemo, useRef, useState } from 'react';
 import { Alert, Chip, Divider, Group, Modal, NumberInput, SimpleGrid, Stack, Switch, Text, TextInput, Textarea, type NumberInputProps } from '@mantine/core';
 import { useForm, schemaResolver, type UseFormReturnType } from '@mantine/form';
@@ -184,89 +185,98 @@ function LayerFormBody({ oda, item, onClose }: { oda: string; item?: Item; onClo
       closeButtonProps={modalCloseProps} styles={{ body: { paddingBottom: 96 } }}>
       <form ref={formRef} onSubmit={form.onSubmit(save, (errors) => focusFirstError(formRef.current, errors))} noValidate data-testid="layer-form">
         <Stack gap="sm">
-          {/* Yeni katmanda ilk (zorunlu) alan odaklanır; düzenlemede odak modal başlığında kalır. */}
-          <EnumSelect label="Katman türü" field="katman_tur" options={KATMAN_TUR} required value={values.katman_tur || undefined} data-path="katman_tur" data-autofocus={isNew || undefined}
-            onChange={(v) => form.setFieldValue('katman_tur', v ?? '')} error={form.errors.katman_tur} />
-          <TextInput label="Katman adı" placeholder={`ör. ${roomLabel} tavan`} {...form.getInputProps('katman_ad')} key={form.key('katman_ad')} />
-          <TextInput label="Amaç" {...form.getInputProps('amac')} key={form.key('amac')} />
+          <Stack component="section" aria-label="Katman ve amaç" className="record-form-section" gap="sm">
+            <SectionHeading title="Katman ve amaç" level={3} />
+            {/* Yeni katmanda ilk (zorunlu) alan odaklanır; düzenlemede odak modal başlığında kalır. */}
+            <EnumSelect label="Katman türü" field="katman_tur" options={KATMAN_TUR} required value={values.katman_tur || undefined} data-path="katman_tur" data-autofocus={isNew || undefined}
+              onChange={(v) => form.setFieldValue('katman_tur', v ?? '')} error={form.errors.katman_tur} />
+            <TextInput label="Katman adı" placeholder={`ör. ${roomLabel} tavan`} {...form.getInputProps('katman_ad')} key={form.key('katman_ad')} />
+            <TextInput label="Amaç" {...form.getInputProps('amac')} key={form.key('amac')} />
 
-          <Divider label="Işık" labelPosition="left" />
-          <SimpleGrid cols={2} spacing="xs">
-            <NumField form={form} name="lux_min" label="Lux min" />
-            <NumField form={form} name="lux_max" label="Lux max" />
-          </SimpleGrid>
-          <EnumSelect label="Lux düzlemi" field="lux_duzlem" options={LUX_DUZLEM} value={values.lux_duzlem} onChange={(v) => form.setFieldValue('lux_duzlem', v)} />
+          </Stack>
+          <Stack component="section" aria-label="Işık ve renk" className="record-form-section" gap="sm">
+            <SectionHeading title="Işık ve renk" level={3} />
+            <SimpleGrid cols={{ base: 1, xs: 2 }} spacing="xs">
+              <NumField form={form} name="lux_min" label="Lux min" />
+              <NumField form={form} name="lux_max" label="Lux max" />
+            </SimpleGrid>
+            <EnumSelect label="Lux düzlemi" field="lux_duzlem" options={LUX_DUZLEM} value={values.lux_duzlem} onChange={(v) => form.setFieldValue('lux_duzlem', v)} />
 
-          <Divider label="Renk sıcaklığı" labelPosition="left" />
-          <EnumSelect label="CCT modu" field="cct_mod" options={CCT_MOD} value={values.cct_mod} onChange={(v) => form.setFieldValue('cct_mod', v)} />
-          <CctSlider value={values.cct} onChange={(v) => form.setFieldValue('cct', v)} error={form.errors.cct_max} />
-          <NumField form={form} name="dim_min_pct" label="Dim min (%)" max={100} />
+            <Divider label="Renk sıcaklığı" labelPosition="left" />
+            <EnumSelect label="CCT modu" field="cct_mod" options={CCT_MOD} value={values.cct_mod} onChange={(v) => form.setFieldValue('cct_mod', v)} />
+            <CctSlider value={values.cct} onChange={(v) => form.setFieldValue('cct', v)} error={form.errors.cct_max} />
+            <NumField form={form} name="dim_min_pct" label="Dim min (%)" max={100} />
 
-          <Divider label="Kalite" labelPosition="left" />
-          <SimpleGrid cols={2} spacing="xs">
-            <NumField form={form} name="cri_min" label="CRI min" max={100} />
-            <NumField form={form} name="r9_min" label="R9 min" max={100} />
-          </SimpleGrid>
-          <EnumSelect label="Flicker" field="flicker" options={FLICKER} value={values.flicker} onChange={(v) => form.setFieldValue('flicker', v)} />
+            <Divider label="Kalite" labelPosition="left" />
+            <SimpleGrid cols={{ base: 1, xs: 2 }} spacing="xs">
+              <NumField form={form} name="cri_min" label="CRI min" max={100} />
+              <NumField form={form} name="r9_min" label="R9 min" max={100} />
+            </SimpleGrid>
+            <EnumSelect label="Flicker" field="flicker" options={FLICKER} value={values.flicker} onChange={(v) => form.setFieldValue('flicker', v)} />
 
-          <Divider label="Kontrol ve ürün" labelPosition="left" />
-          <EnumSelect label="Kontrol cihazı" field="kontrol_cihaz" options={KONTROL_CIHAZ} value={values.kontrol_cihaz} onChange={(v) => form.setFieldValue('kontrol_cihaz', v)} />
-          <TextInput label="Ürün sınıfı" placeholder="ör. COB şerit 24V" {...form.getInputProps('urun_sinifi')} key={form.key('urun_sinifi')} />
+          </Stack>
+          <Stack component="section" aria-label="Ürün ve kurulum" className="record-form-section" gap="sm">
+            <SectionHeading title="Ürün ve kurulum" level={3} />
+            <EnumSelect label="Kontrol cihazı" field="kontrol_cihaz" options={KONTROL_CIHAZ} value={values.kontrol_cihaz} onChange={(v) => form.setFieldValue('kontrol_cihaz', v)} />
+            <TextInput label="Ürün sınıfı" placeholder="ör. COB şerit 24V" {...form.getInputProps('urun_sinifi')} key={form.key('urun_sinifi')} />
 
-          <Divider label="Şerit ve sürücü" labelPosition="left" />
-          <SimpleGrid cols={2} spacing="xs">
-            <NumField form={form} name="uzunluk_m" label="Uzunluk (m)" inputMode="decimal" />
-            <NumField form={form} name="w_per_m" label="W/m" inputMode="decimal" />
-            <TextInput label="Sürücü modeli" {...form.getInputProps('surucu_model')} key={form.key('surucu_model')} />
-            <NumField form={form} name="surucu_w" label="Sürücü (W)" inputMode="decimal" />
-          </SimpleGrid>
+            <Divider label="Şerit ve sürücü" labelPosition="left" />
+            <SimpleGrid cols={{ base: 1, xs: 2 }} spacing="xs">
+              <NumField form={form} name="uzunluk_m" label="Uzunluk (m)" inputMode="decimal" />
+              <NumField form={form} name="w_per_m" label="W/m" inputMode="decimal" />
+              <TextInput label="Sürücü modeli" {...form.getInputProps('surucu_model')} key={form.key('surucu_model')} />
+              <NumField form={form} name="surucu_w" label="Sürücü (W)" inputMode="decimal" />
+            </SimpleGrid>
 
-          <Divider label="Montaj" labelPosition="left" />
-          <NumField form={form} name="montaj_yukseklik_cm" label="Montaj yüksekliği (cm)" />
-          <Switch label="Açıkta (şerit/kablo görünür)" {...form.getInputProps('acikta', { type: 'checkbox' })} key={form.key('acikta')} />
+            <Divider label="Montaj" labelPosition="left" />
+            <NumField form={form} name="montaj_yukseklik_cm" label="Montaj yüksekliği (cm)" />
+            <Switch label="Açıkta (şerit/kablo görünür)" {...form.getInputProps('acikta', { type: 'checkbox' })} key={form.key('acikta')} />
 
-          <Divider label="Plan" labelPosition="left" />
-          <EnumSelect label="Adım" field="adim" options={ADIM} value={values.adim} onChange={(v) => form.setFieldValue('adim', v)} />
-          <div>
-            <Text size="sm" fw={500} mb={4}>Kim</Text>
-            <Chip.Group multiple value={values.kim} onChange={(v) => form.setFieldValue('kim', v)}>
-              <Group gap={6}>
-                {KIM.map((k) => <Chip key={k} value={k} variant="outline">{label('kim', k)}</Chip>)}
-              </Group>
-            </Chip.Group>
-          </div>
-
-          <Divider label="Fiyat" labelPosition="left" />
-          <SimpleGrid cols={2} spacing="xs">
-            <PriceInput label="Tahmini (min)" data-path="tahmini_tl_min" value={values.tahmini_tl_min} onChange={(v) => form.setFieldValue('tahmini_tl_min', v)} error={form.errors.tahmini_tl_min} />
-            <PriceInput label="Tahmini (max)" data-path="tahmini_tl_max" value={values.tahmini_tl_max} onChange={(v) => form.setFieldValue('tahmini_tl_max', v)} error={form.errors.tahmini_tl_max} />
-          </SimpleGrid>
-          <EnumSelect label="Fiyat güveni" field="fiyat_guven" options={FIYAT_GUVEN} value={values.fiyat_guven} onChange={(v) => form.setFieldValue('fiyat_guven', v)} />
-
-          <Divider label="Bağlı ürünler" labelPosition="left" />
-          {purchaseOptions.length === 0 ? (
-            <Text size="sm" c="dimmed">Satınalma listesinde kalem yok.</Text>
-          ) : (
-            <>
-              {purchaseOptions.length > 8 && (
-                <TextInput placeholder="Ürün ara" aria-label="Ürün ara" type="search" value={q} onChange={(e) => setQ(e.currentTarget.value)} />
-              )}
-              <Chip.Group multiple value={values.bagli_idler} onChange={(v) => form.setFieldValue('bagli_idler', v)}>
+          </Stack>
+          <Stack component="section" aria-label="Plan ve ürün bağlantıları" className="record-form-section" gap="sm">
+            <SectionHeading title="Plan ve ürün bağlantıları" level={3} />
+            <EnumSelect label="Adım" field="adim" options={ADIM} value={values.adim} onChange={(v) => form.setFieldValue('adim', v)} />
+            <div>
+              <Text size="sm" fw={500} mb={4}>Kim</Text>
+              <Chip.Group multiple value={values.kim} onChange={(v) => form.setFieldValue('kim', v)}>
                 <Group gap={6}>
-                  {visiblePurchases.map((p) => <Chip key={p.id} value={p.id} variant="outline">{p.ad}</Chip>)}
+                  {KIM.map((k) => <Chip key={k} value={k} variant="outline">{label('kim', k)}</Chip>)}
                 </Group>
               </Chip.Group>
-            </>
-          )}
+            </div>
 
-          <Textarea label="Not" autosize minRows={3} {...form.getInputProps('not')} key={form.key('not')} />
+            <Divider label="Fiyat" labelPosition="left" />
+            <SimpleGrid cols={{ base: 1, xs: 2 }} spacing="xs">
+              <PriceInput label="Tahmini (min)" data-path="tahmini_tl_min" value={values.tahmini_tl_min} onChange={(v) => form.setFieldValue('tahmini_tl_min', v)} error={form.errors.tahmini_tl_min} />
+              <PriceInput label="Tahmini (max)" data-path="tahmini_tl_max" value={values.tahmini_tl_max} onChange={(v) => form.setFieldValue('tahmini_tl_max', v)} error={form.errors.tahmini_tl_max} />
+            </SimpleGrid>
+            <EnumSelect label="Fiyat güveni" field="fiyat_guven" options={FIYAT_GUVEN} value={values.fiyat_guven} onChange={(v) => form.setFieldValue('fiyat_guven', v)} />
 
-          {warnings.length > 0 && (
-            <Alert color="yellow" variant="light" icon={<WarningIcon size={20} aria-hidden />} title="Uyarı" data-testid="layer-warnings">
-              {warnings.map((w) => <Text size="sm" key={w}>{w}</Text>)}
-            </Alert>
-          )}
-          {item?.updated_by && <Text size="xs" c="dimmed">Son güncelleme: {item.updated_by}</Text>}
+            <Divider label="Bağlı ürünler" labelPosition="left" />
+            {purchaseOptions.length === 0 ? (
+              <Text size="sm" c="dimmed">Satınalma listesinde kalem yok.</Text>
+            ) : (
+              <>
+                {purchaseOptions.length > 8 && (
+                  <TextInput placeholder="Ürün ara" aria-label="Ürün ara" type="search" value={q} onChange={(e) => setQ(e.currentTarget.value)} />
+                )}
+                <Chip.Group multiple value={values.bagli_idler} onChange={(v) => form.setFieldValue('bagli_idler', v)}>
+                  <Group gap={6}>
+                    {visiblePurchases.map((p) => <Chip key={p.id} value={p.id} variant="outline">{p.ad}</Chip>)}
+                  </Group>
+                </Chip.Group>
+              </>
+            )}
+
+            <Textarea label="Not" autosize minRows={3} {...form.getInputProps('not')} key={form.key('not')} />
+
+            {warnings.length > 0 && (
+              <Alert color="yellow" variant="light" icon={<WarningIcon size={20} aria-hidden />} title="Uyarı" data-testid="layer-warnings">
+                {warnings.map((w) => <Text size="sm" key={w}>{w}</Text>)}
+              </Alert>
+            )}
+            {item?.updated_by && <Text size="xs" c="dimmed">Son güncelleme: {item.updated_by}</Text>}
+          </Stack>
           <FormFooter errors={form.errors} onCancel={onClose} onDelete={isNew ? undefined : del} />
         </Stack>
       </form>

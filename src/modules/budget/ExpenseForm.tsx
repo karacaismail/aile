@@ -1,3 +1,4 @@
+import { SectionHeading } from '@/components/Info';
 import { FormSelect } from '@/components/FormSelect';
 import { useEffect, useMemo, useState } from 'react';
 import { Modal, Stack, TextInput, Button, Group, Chip, Alert, Text, Box } from '@mantine/core';
@@ -102,6 +103,7 @@ function ExpenseForm({ target }: { target: ExpenseTarget }) {
             Harcama günlüğü sekmesi henüz kurulmadı; kurulana kadar kayıt eklenemez.
           </Alert>
         )}
+        <Stack component="section" aria-label="Ödeme bilgileri" className="record-form-section" gap="sm"><SectionHeading title="Ödeme bilgileri" level={3} description="Gerçekleşen tutarı, kalemi ve tarihi kaydedin." />
         <PriceInput
           label="Tutar"
           value={tutar}
@@ -143,6 +145,7 @@ function ExpenseForm({ target }: { target: ExpenseTarget }) {
           dropdownType="modal"
         />
         <TextInput label="Not" placeholder="İsteğe bağlı" value={not} onChange={(e) => setNot(e.currentTarget.value)} />
+        </Stack>
         {/* Kaydet her zaman başparmak altında: 320×480'de form uzasa da alta yapışık kalır. */}
         <Box className={classes.saveBar}>
           <Group gap="xs" wrap="nowrap" grow>
