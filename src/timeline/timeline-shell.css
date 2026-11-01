@@ -34,7 +34,7 @@
 .timeline-loading-metric:first-of-type { background: var(--budget-timelineHeroSurface); }
 .timeline-loading-value { height: var(--budget-fontMetric); width: var(--budget-loadingValueWidth); }
 /* The loading shell uses the loaded surface grammar: steps as white elevated cards on the timeline canvas. */
-.timeline-loading-flow { min-width: 0; display: grid; gap: var(--budget-timelineStepGap); padding: var(--budget-spaceTight); border-radius: var(--budget-timelinePanelRadius); background: var(--budget-timelineFlowCanvas); }
+.timeline-loading-flow { min-width: 0; display: grid; gap: var(--budget-timelineStepGap); padding: var(--budget-spaceTight) var(--budget-timelineCanvasInset); border-radius: var(--budget-timelinePanelRadius); background: var(--budget-timelineFlowCanvas); }
 .timeline-loading-flow-heading { height: var(--budget-targetMin); width: var(--budget-loadingTitleWidth); }
 .timeline-loading-step { position: relative; min-width: 0; display: grid; gap: var(--budget-spaceSmall); padding: var(--budget-spacing); border-radius: var(--budget-timelineStepRadius); background: var(--budget-paper); box-shadow: var(--budget-timelineStepShadow); }
 .timeline-loading-step + .timeline-loading-step::before { content: ''; position: absolute; inset-inline: var(--budget-spacing); top: calc(var(--budget-timelineStepGap) / -2); height: var(--budget-ruleWidth); background: var(--budget-timelineDivider); pointer-events: none; }

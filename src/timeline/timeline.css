@@ -71,8 +71,9 @@ html[data-keyboard='true'] .budget-app .timeline-table-scroll:focus-visible { te
 .timeline-empty { padding-block: var(--budget-spaceWide); color: var(--budget-muted); }
 .timeline-empty h3 { margin-top: 0; color: var(--budget-ink); font-size: var(--budget-fontSection); }
 .timeline-pagination { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--budget-spaceSmall); margin-block: var(--budget-spacing); }
-/* Surface grammar: the step list sits on a darker canvas; each step is an elevated card; days are further apart than steps. */
-.timeline-journey { margin-top: var(--budget-spaceTight); padding: var(--budget-spaceTight); border-radius: var(--budget-timelinePanelRadius); background: var(--budget-timelineFlowCanvas); }
+/* One outer inset frames both dates and cards. Keep the narrow vertical budget;
+   the compact fixed date column preserves one reading rail across months. */
+.timeline-journey { margin-top: var(--budget-spaceTight); padding: var(--budget-spaceTight) var(--budget-timelineCanvasInset); border-radius: var(--budget-timelinePanelRadius); background: var(--budget-timelineFlowCanvas); }
 .timeline-day { min-width: 0; position: relative; }
 /* A filter with no matching steps shows its empty message, not an empty canvas bar. */
 .timeline-journey:empty { display: none; }
@@ -235,8 +236,6 @@ html[data-keyboard='true'] .budget-app .timeline-table-scroll:focus-visible { te
   .timeline-step-links:has(> .timeline-step-link-edge) { grid-template-columns: max-content minmax(0, 1fr); }
   /* Wide account tiles: name, then each label beside its value; the instalment note reads as one line. */
   .timeline-bank-group { padding: var(--budget-spaceTight) var(--budget-spaceSmall); }
-  /* Wide: the canvas frames the list vertically; steps keep the full column width so closing links stay on one line. */
-  .timeline-journey { padding-inline: 0; }
   .timeline-bank-group dl > div { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--budget-spaceTight); }
   .timeline-future-instalments { display: flex; flex-wrap: wrap; gap: 0 var(--budget-spaceSmall); }
   /* Wide result tile: the two balances and the net position share one row under the heading. */

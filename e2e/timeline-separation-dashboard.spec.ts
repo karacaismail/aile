@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { writeFile } from 'node:fs/promises';
 import { gviz } from '../src/dashboard/fixtures';
 import { financeWireResponseTable, syntheticJourneyFinance } from '../src/finance/fixtures';
+import { syntheticTimeline, timelineResponse } from './timelineFinanceFixture';
 
 // Two consecutive steps on the same day are the tightest boundary. The line and
 // breathing room supplement the surface hierarchy: neither colour nor shadow alone.
@@ -83,3 +84,59 @@ for (const [width, height] of [[320, 740], [360, 800], [375, 812], [390, 844], [
     }
   });
 }
+
+// Date and cards share one outer inset. This budget catches a wide-screen reset
+// to edge-to-edge content and nested padding that wastes the narrow reading area.
+for (const [width, height] of [[320, 740], [1440, 900]] as const) {
+  test(`the timeline canvas frames the date and step cards at ${width}`, async ({ page }, testInfo) => {
+    await page.route('**/gviz/tq?*', route => {
+      const wire = financeWireResponseTable(route.request().url(), syntheticJourneyFinance());
+      return route.fulfill({ contentType: 'application/json', body: gviz(wire.rows, wire.labels) });
+    });
+    await page.setViewportSize({ width, height });
+    await page.goto('/aile/#/timeline');
+    await expect(page.getByRole('article')).toHaveCount(7);
+    await page.evaluate(() => document.fonts.ready);
+    const geometry = await page.locator('.timeline-journey').evaluate(canvas => {
+      const box = canvas.getBoundingClientRect();
+      const date = canvas.querySelector('.timeline-date-number')!.getBoundingClientRect();
+      const cards = [...canvas.querySelectorAll('.timeline-step')].map(card => card.getBoundingClientRect());
+      const first = canvas.querySelector('.timeline-step')!;
+      const amount = first.querySelector('.timeline-purchase-amount dd')!.getBoundingClientRect();
+      return {
+        left: date.left - box.left, right: box.right - cards[0].right,
+        top: Math.min(date.top, cards[0].top) - box.top, bottom: box.bottom - cards.at(-1)!.bottom,
+        amountBottom: amount.bottom, firstCardBottom: cards[0].bottom,
+        dayCardLefts: [...canvas.querySelectorAll('.timeline-day')].map(day => day.querySelector('.timeline-step')!.getBoundingClientRect().left),
+        overflow: document.documentElement.scrollWidth > innerWidth + 1,
+      };
+    });
+    await writeFile(testInfo.outputPath('outer-insets.json'), JSON.stringify({ width, height, ...geometry }, null, 2));
+    await page.screenshot({ path: testInfo.outputPath(`outer-insets-${width}.png`) });
+    for (const edge of ['left', 'right', 'top', 'bottom'] as const) {
+      expect.soft(geometry[edge], `${edge}: the date and cards are framed by visible canvas`).toBeGreaterThanOrEqual(edge === 'left' || edge === 'right' ? 12 : 8);
+      expect.soft(geometry[edge], `${edge}: one outer inset leaves the content its reading width`).toBeLessThanOrEqual(edge === 'left' || edge === 'right' ? 16 : 24);
+    }
+    expect.soft(geometry.overflow).toBe(false);
+    expect.soft(geometry.amountBottom, 'the first amount remains visible without scrolling').toBeLessThanOrEqual(height);
+    expect.soft(new Set(geometry.dayCardLefts).size, 'successive dates keep their cards on one reading rail').toBe(1);
+    // The existing compact-steps fixture owns its full-card 900px acceptance.
+    // This longer-source fixture checks outer framing without hiding its extra text.
+  });
+}
+
+// A changing month label must not make the chronological reading rail wander.
+test('the outer date column keeps cards aligned across months', async ({ page }) => {
+  const table = syntheticTimeline();
+  await page.route('**/gviz/tq?*', route => route.fulfill({ contentType: 'application/json', body: timelineResponse(route.request().url(), table) }));
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/aile/#/timeline');
+  await page.getByRole('combobox', { name: 'Gösterilen dönem' }).click();
+  await page.getByRole('option', { name: 'Tüm dönem', exact: true }).click();
+  const dates = page.locator('.timeline-day-heading time');
+  await expect(dates).toHaveCount(new Set(table.rows.map(row => row[1])).size);
+  const months = await dates.evaluateAll(nodes => [...new Set(nodes.map(node => node.getAttribute('datetime')!.slice(0, 7)))]);
+  expect(months.length).toBeGreaterThan(1);
+  const lefts = await page.locator('.timeline-day .timeline-step:first-child').evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect().left));
+  expect(new Set(lefts).size, 'month text must not change the left edge of the next card').toBe(1);
+});

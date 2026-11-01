@@ -25,7 +25,7 @@ export const tokens = {
   duration: 240, ease: 'cubic-bezier(.65, 0, .35, 1)',
   layerSticky: 20, layerDropdown: 300,
   timelineReadingWidth: '75ch', timelineFilterWidth: '20rem', timelineBalanceWidth: '22rem', timelineMetricWidth: '7.5rem',
-  timelineMaxWidth: '1360px', timelineDateWidth: '6rem', timelineRailInset: '20px', timelineDotSize: '7px',
+  timelineMaxWidth: '1360px', timelineDateWidth: '5rem', timelineRailInset: '20px', timelineDotSize: '7px',
   timelineDateFont: '1.75rem', timelineRowColumns: 'minmax(0, 1fr) minmax(17rem, .85fr)',
   timelineIconSize: '20px', timelineSurface: '#F0F5F7', timelineSummaryRadius: '12px',
   timelineSidebarWidth: '18rem', timelineHeadingGap: '12px', timelineHeroSurface: '#EAF3EF',
@@ -40,7 +40,7 @@ export const tokens = {
   timelineBankNameWidth: '11rem',
   // Timeline surface grammar: canvas behind the steps < elevated step card < tinted inner groups.
   timelineFlowCanvas: '#E1E9EF', timelineStepShadow: '0 2px 4px rgba(27, 62, 85, .18), 0 8px 20px rgba(27, 62, 85, .14)',
-  timelineStepGap: '40px', timelineDayGap: '48px', timelineSectionGap: '24px', timelineDivider: '#6C8294',
+  timelineCanvasInset: '12px', timelineStepGap: '40px', timelineDayGap: '48px', timelineSectionGap: '24px', timelineDivider: '#6C8294',
   timelineSourceSurface: '#EAF0F4',
 } as const;
 // ECharts' typed function adapter evaluates exactly the shared CSS curve.
