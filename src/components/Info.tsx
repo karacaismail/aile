@@ -13,9 +13,10 @@ export function FactList({ label, items, tone = 'plain', className = '' }: { lab
     </div>)}</dl>
   </div>;
 }
-export function SectionHeading({ title, description, actions, level = 2 }: { title: string; description?: ReactNode; actions?: ReactNode; level?: 2 | 3 | 4 }) {
+/** `focusTarget` makes the heading the modal's initial focus (Mantine FocusTrap `data-autofocus`) for a section-specific entry. */
+export function SectionHeading({ title, description, actions, level = 2, focusTarget = false }: { title: string; description?: ReactNode; actions?: ReactNode; level?: 2 | 3 | 4; focusTarget?: boolean }) {
   const Heading = `h${level}` as const;
-  return <div className="info-heading"><div><Heading>{title}</Heading>{description && <p>{description}</p>}</div>{actions && <div className="info-actions">{actions}</div>}</div>;
+  return <div className="info-heading"><div><Heading {...(focusTarget ? { tabIndex: -1, 'data-autofocus': true } : {})}>{title}</Heading>{description && <p>{description}</p>}</div>{actions && <div className="info-actions">{actions}</div>}</div>;
 }
 export function SourceNote({ label = 'Kaynak ve kapsam', children }: { label?: string; children: ReactNode }) {
   return <div className="info-source">{label && <strong>{label}</strong>}<div>{children}</div></div>;

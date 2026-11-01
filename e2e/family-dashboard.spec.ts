@@ -272,3 +272,159 @@ test('record cards read identity, status, attention and amount in order with rea
   await expect(dialog.getByRole('group', { name: 'Faz' })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath(`record-form-error-${browserName}-320.png`) });
 });
+
+// Round 3 closing: record detail entry and return journeys (RED executed before the product fix).
+const returnItem = { id: 'focus-record', tip: 'satinalma', ad: 'Uzun isimli salon koltuğu', durum: 'karar', faz: '1', oda: 'salon', gercek_tl: 24000, fiyat_guven: 'dogrulandi' };
+const keyboard = (browserName: string) => browserName === 'webkit' ? 'Alt+Tab' : 'Tab';
+
+test('a cold record deep link fills the form with the record that arrives later', async ({ page }) => {
+  await mockApi(page, { items: [returnItem], settings: [], cash: [] });
+  await page.route('**/macros/s/**', async route => { await new Promise(resolve => setTimeout(resolve, 250)); await route.fallback(); });
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.goto('/aile/#/satinalma/focus-record');
+  const form = page.getByTestId('item-detail');
+  await expect(form).toBeVisible();
+  await expect(form.getByLabel(/^Ad\s*\*?$/)).toHaveValue(returnItem.ad);
+  await expect(form.getByLabel('Gerçek', { exact: true })).toHaveValue(/24[.]000/);
+});
+
+for (const close of ['Escape', 'Vazgeç', 'Kaydet'] as const) {
+  test(`closing a record with ${close} returns keyboard focus to the record that opened it`, async ({ page, browserName }) => {
+    await mockApi(page, { items: [returnItem], settings: [], cash: [] });
+    await page.setViewportSize({ width: 320, height: 740 });
+    await page.goto('/aile/#/satinalma');
+    const origin = page.getByRole('link', { name: `${returnItem.ad} detayı`, exact: true });
+    await expect(origin).toBeVisible();
+    await page.keyboard.press(keyboard(browserName));
+    await origin.focus();
+    await page.keyboard.press('Enter');
+    const form = page.getByTestId('item-detail');
+    await expect(form).toBeVisible();
+    if (close === 'Escape') await page.keyboard.press('Escape');
+    else {
+      if (close === 'Kaydet') await form.getByLabel('Not').fill('Yeni not');
+      await form.getByRole('button', { name: close, exact: true }).focus();
+      await page.keyboard.press('Enter');
+    }
+    await expect(form).toHaveCount(0);
+    await expect(origin).toBeFocused();
+    await expect(origin).toBeInViewport();
+    // One visible, non-enclosing keyboard indicator on the returned focus.
+    expect(await origin.evaluate(el => ({ outline: getComputedStyle(el).outlineStyle, line: getComputedStyle(el).textDecorationLine }))).toEqual({ outline: 'none', line: 'underline' });
+  });
+}
+
+test('closing a record opened from a deep link lands focus on that record in the list', async ({ page, browserName }) => {
+  await mockApi(page, { items: [returnItem], settings: [], cash: [] });
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.goto('/aile/#/satinalma/focus-record');
+  await expect(page.getByTestId('item-detail')).toBeVisible();
+  await page.keyboard.press(keyboard(browserName));
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('item-detail')).toHaveCount(0);
+  await expect(page.getByRole('link', { name: `${returnItem.ad} detayı`, exact: true })).toBeFocused();
+});
+
+test('the named price action opens the record at its price section and returns to that action', async ({ page, browserName }, testInfo) => {
+  await mockApi(page, { items: [{ ...returnItem, gercek_tl: undefined, fiyat_guven: undefined }], settings: [], cash: [] });
+  for (const width of [320, 1440]) {
+    await page.setViewportSize({ width, height: width === 320 ? 740 : 900 });
+    await page.goto('/aile/#/satinalma');
+    const action = page.getByRole('link', { name: 'Fiyat ekle', exact: true });
+    await expect(action).toBeVisible();
+    await page.keyboard.press(keyboard(browserName));
+    await action.focus();
+    await page.keyboard.press('Enter');
+    const pricing = page.getByTestId('item-detail').getByRole('region', { name: 'Fiyat ve teyit' });
+    await expect(pricing).toBeVisible();
+    await expect.poll(() => pricing.evaluate(el => el.contains(document.activeElement))).toBe(true);
+    await expect(pricing).toBeInViewport();
+    // The section starts in view: its first price field is visible above the sticky footer, not just the heading.
+    await expect.poll(() => page.evaluate(() => {
+      const field = [...document.querySelectorAll<HTMLElement>('[data-testid="item-detail"] [data-path="tahmini_tl_min"]')][0];
+      const footer = document.querySelector<HTMLElement>('[data-testid="form-errors"]')!.parentElement!;
+      const box = field.getBoundingClientRect();
+      return box.top >= 0 && box.bottom <= footer.getBoundingClientRect().top;
+    })).toBe(true);
+    // No price is invented: estimate and actual fields stay empty, and the empty-vs-zero rule is stated.
+    await expect(pricing.getByLabel('Gerçek', { exact: true })).toHaveValue('');
+    await expect(pricing).toContainText('Boş bırakılan fiyat bilinmiyor demektir');
+    await page.screenshot({ path: testInfo.outputPath(`price-action-${browserName}-${width}.png`) });
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('item-detail')).toHaveCount(0);
+    await expect(action).toBeFocused();
+  }
+});
+
+test('with reduced motion, closing a record still returns keyboard focus to the action that opened it at every width', async ({ page, browserName }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await mockApi(page, { items: [{ ...returnItem, gercek_tl: undefined, fiyat_guven: undefined }], settings: [], cash: [] });
+  for (const width of [320, 1440]) {
+    await page.setViewportSize({ width, height: width === 320 ? 740 : 900 });
+    await page.goto('/aile/#/satinalma');
+    const action = page.getByRole('link', { name: 'Fiyat ekle', exact: true });
+    await expect(action).toBeVisible();
+    await page.keyboard.press(keyboard(browserName));
+    await action.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByTestId('item-detail')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('item-detail')).toHaveCount(0);
+    await expect(action, `focus returns at ${width}`).toBeFocused();
+  }
+});
+
+test('keyboard focus is already on the opener in the same moment the record dialog leaves the page', async ({ page, browserName }) => {
+  await mockApi(page, { items: [returnItem], settings: [], cash: [] });
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.goto('/aile/#/satinalma');
+  const origin = page.getByRole('link', { name: `${returnItem.ad} detayı`, exact: true });
+  await expect(origin).toBeVisible();
+  await page.keyboard.press(keyboard(browserName));
+  await origin.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByTestId('item-detail')).toBeVisible();
+  // Record the focused element synchronously when the dialog is removed, independent of animation frames.
+  await page.evaluate(() => {
+    const w = window as unknown as { focusAtRemoval?: string };
+    new MutationObserver((_, observer) => {
+      if (document.querySelector('[data-testid="item-detail"]')) return;
+      w.focusAtRemoval = document.activeElement?.getAttribute('aria-label') ?? document.activeElement?.tagName ?? 'none';
+      observer.disconnect();
+    }).observe(document.body, { childList: true, subtree: true });
+  });
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('item-detail')).toHaveCount(0);
+  expect(await page.evaluate(() => (window as unknown as { focusAtRemoval?: string }).focusAtRemoval)).toBe(`${returnItem.ad} detayı`);
+});
+
+test('the sticky record form footer stays above field decorations that scroll beneath it', async ({ page }) => {
+  await mockApi(page, { items: [{ ...returnItem, gercek_tl: undefined, fiyat_guven: undefined }], settings: [], cash: [] });
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.goto('/aile/#/satinalma/focus-record/fiyat');
+  await expect(page.getByTestId('item-detail')).toBeVisible();
+  // Every sampled point inside the footer hits the footer itself, not a select chevron or input section scrolled under it.
+  // Input sections are pointer-events:none in Mantine; make them hit-testable here so the hit test follows paint order.
+  await page.addStyleTag({ content: '.mantine-Input-section, .mantine-Input-section * { pointer-events: auto !important; }' });
+  const leaks = async () => page.evaluate(() => {
+    const footer = document.querySelector<HTMLElement>('[data-testid="form-errors"]')!.parentElement!;
+    const box = footer.getBoundingClientRect();
+    const out: string[] = [];
+    for (let fx = 0.04; fx < 0.97; fx += 0.08) for (let fy = 0.05; fy < 1; fy += 0.1) {
+      const hit = document.elementFromPoint(box.left + box.width * fx, box.top + box.height * fy);
+      if (hit && !footer.contains(hit)) out.push(`${hit.tagName}.${String(hit.className).split(' ')[0]}@${fx.toFixed(2)},${fy.toFixed(2)}`);
+    }
+    return out;
+  });
+  const scroller = await page.evaluate(() => {
+    let el = document.querySelector<HTMLElement>('[data-testid="form-errors"]')!.parentElement!.parentElement;
+    while (el && !/(auto|scroll)/.test(getComputedStyle(el).overflowY)) el = el.parentElement;
+    return !!el;
+  });
+  expect(scroller).toBe(true);
+  const max = await page.evaluate(() => { let el = document.querySelector<HTMLElement>('[data-testid="form-errors"]')!.parentElement!.parentElement; while (el && !/(auto|scroll)/.test(getComputedStyle(el).overflowY)) el = el.parentElement; return el!.scrollHeight - el!.clientHeight; });
+  for (let step = 0; step <= max; step += 60) {
+    await page.evaluate(top => { let el = document.querySelector<HTMLElement>('[data-testid="form-errors"]')!.parentElement!.parentElement; while (el && !/(auto|scroll)/.test(getComputedStyle(el).overflowY)) el = el.parentElement; el!.scrollTop = top; }, step);
+    expect(await leaks(), `footer covered at scrollTop ${step}`).toEqual([]);
+  }
+});

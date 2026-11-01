@@ -40,7 +40,7 @@ function DailyTable({ steps }: { steps: LedgerStep[] }) {
       <tbody>{steps.map(step => { const { event } = step, account = movedAccount(step); return <tr key={event.id}>
         {/* Narrow scroll planes show only this cell: a glance repeats what happened, how much and which account moved (the cells keep the semantics). */}
         <td><time dateTime={event.date}>{dateLabel(event.date)}</time><span className="finance-glance" aria-hidden="true"><strong>{event.title}</strong><span>Nakit etkisi <span className={event.cashChange < 0 ? 'negative' : undefined}>{signedMoney(event.cashChange)}</span></span>{account && <span>{account} anaparası değişti</span>}</span></td>
-        <td className="finance-event"><span className="muted">{event.type}</span><strong>{event.title}</strong><span>Nakit etkisi <span className={event.cashChange < 0 ? 'negative' : undefined}>{signedMoney(event.cashChange)}</span></span></td>
+        <td className="finance-event"><span className="muted">{event.type}</span><strong>{event.title}</strong><span>Nakit etkisi <span className={event.cashChange < 0 ? 'negative' : undefined}>{signedMoney(event.cashChange)}</span></span>{account && <span>{account} anaparası değişti</span>}</td>
         <td className="numeric" data-balance="cash"><Amount value={event.cash} /></td>
         <td className="numeric" data-balance="required"><Amount value={event.requiredBalance} /></td>
         <td><PrincipalAndCost principal={event.kmhPrincipal} cost={event.kmhCost} /></td>

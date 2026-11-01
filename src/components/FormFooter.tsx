@@ -83,7 +83,7 @@ export function FormFooter({ errors, onCancel, onDelete }: { errors: Errors; onC
     }));
   }, [key]);
   return (
-    <Stack ref={ref} gap={tokens.spaceDense} mt="sm" pt={tokens.spaceTight} style={{ position: 'sticky', bottom: 0, background: 'var(--mantine-color-body)' }}>
+    <Stack ref={ref} gap={tokens.spaceDense} mt="sm" pt={tokens.spaceTight} style={{ position: 'sticky', bottom: 0, zIndex: tokens.layerSticky, background: 'var(--mantine-color-body)' }}>
       <Text component="p" role="status" aria-live="polite" size="sm" c="var(--mantine-color-error)" m={0} data-testid="form-errors">{count ? `${count} alan düzeltilmeli` : ''}</Text>
       {fields.length > 0 && <div className="form-error-fields" role="group" aria-label="Düzeltilecek alanlar">
         {fields.map((field) => field.reachable

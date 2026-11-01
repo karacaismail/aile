@@ -350,7 +350,8 @@ describe('Tur 3: kayıt kartı okuma sırası, form ve çakışma', () => {
     render(withRouter(<ItemCard item={{ ...item, tahmini_tl_min: undefined, tahmini_tl_max: undefined }} onToggleDone={vi.fn()} />));
     const facts = screen.getByRole('group', { name: `${item.ad} alım bilgileri` });
     expect(facts).toHaveTextContent('Fiyat girilmedi');
-    expect(within(facts).getByRole('link', { name: 'Fiyat ekle' })).toHaveAttribute('href', '/satinalma/A');
+    // The action opens the record at its price section (round 3 closing), not at identity.
+    expect(within(facts).getByRole('link', { name: 'Fiyat ekle' })).toHaveAttribute('href', '/satinalma/A/fiyat');
     expect(screen.queryByText('₺0')).not.toBeInTheDocument();
   });
 
@@ -403,5 +404,19 @@ describe('Tur 3: kayıt kartı okuma sırası, form ve çakışma', () => {
     expect(banner).toHaveTextContent('Araştırma');
     expect(banner).not.toHaveTextContent('tahmini_tl_min');
     expect(banner).not.toHaveTextContent('arastirma');
+  });
+});
+
+describe('Tur 3 kapanış: arka plan yenilemesi düzenlemeyi ezmez (koruma testi; düzeltmeden önce de geçer)', () => {
+  it('açık formdaki değiştirilmiş alan, aynı kaydın yeni okuması gelince korunur; yeni okuma formu yeniden kurmaz', async () => {
+    setState({ hydrated: true, status: 'synced' });
+    applyRead({ ok: true, fingerprint: 'f', serverTime: 't', schemaVersion: 1, items: [item], settings: [] });
+    const loc = memoryLocation({ path: '/satinalma/A', static: false, record: true });
+    render(<Router hook={loc.hook}><Route path="/satinalma" nest><PurchaseList /></Route></Router>);
+    const form = await screen.findByTestId('item-detail');
+    await userEvent.type(within(form).getByLabelText('Not'), 'Benim notum');
+    act(() => { applyRead({ ok: true, fingerprint: 'g', serverTime: 't2', schemaVersion: 1, items: [{ ...item, durum: 'siparis', version: 2 }], settings: [] }); });
+    expect(within(screen.getByTestId('item-detail')).getByLabelText('Not')).toHaveValue('Benim notum');
+    expect(within(screen.getByTestId('item-detail')).getByLabelText(/^Ad\b/)).toHaveValue(item.ad);
   });
 });

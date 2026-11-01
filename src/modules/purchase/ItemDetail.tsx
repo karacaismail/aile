@@ -1,5 +1,5 @@
 import { SectionHeading } from '@/components/Info';
-import { useMemo, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Modal, Stack, TextInput, SegmentedControl, Switch, NumberInput, Textarea, Text, Alert, SimpleGrid } from '@mantine/core';
 import { DatePickerInput } from '@mantine/dates';
 import { useForm, schemaResolver } from '@mantine/form';
@@ -19,6 +19,7 @@ import { FormFooter, focusFirstError } from '@/components/FormFooter';
 import { ConflictBanner } from './ConflictBanner';
 import { DetailSkeleton } from '@/components/DetailSkeleton';
 import { selectFirstLoad } from '@/data/selectors';
+import { tokens } from '@/dashboard/tokens';
 
 const schema = z.object({
   ad: z.string().trim().min(1, 'Ad gerekli'),
@@ -69,18 +70,69 @@ export function toPatch(v: FormValues, prev?: Item): Record<string, unknown> {
 // Temizle düğmesi de dokunma hedefi (≥44); sağ bölüm ona göre genişler.
 const dateProps = { valueFormat: 'D MMM YYYY', dropdownType: 'modal' as const, clearable: true, clearButtonProps: { size: 'xl' as const, 'aria-label': 'Tarihi temizle' }, rightSectionWidth: 44 };
 
-export function ItemDetail({ id, defaults, onSaved }: { id: string; defaults?: NewItemDefaults; onSaved?: (saved: Item, isNew: boolean) => void }) {
+/**
+ * Where keyboard focus goes after the route modal unmounts (Mantine's return focus needs a closing transition the route
+ * unmount skips): the element that opened it, else this record's link in the list, else the page heading.
+ */
+function returnFocus(origin: Element | null, id: string) {
+  const record = document.querySelector<HTMLElement>(`[data-item-id="${CSS.escape(id)}"] [role="link"]`);
+  const heading = document.querySelector<HTMLElement>('.page-header h1');
+  const target = origin instanceof HTMLElement && origin.isConnected && origin !== document.body ? origin : record ?? heading;
+  if (!target) return;
+  if (target === heading && !heading.hasAttribute('tabindex')) heading.setAttribute('tabindex', '-1');
+  target.focus({ preventScroll: true });
+  target.scrollIntoView?.({ block: 'nearest' });
+}
+
+/** Route modal shell: waits for the record, remembers the opener and returns focus there when the route leaves this record. */
+export function ItemDetail({ id, section, defaults, onSaved }: { id: string; section?: 'fiyat'; defaults?: NewItemDefaults; onSaved?: (saved: Item, isNew: boolean) => void }) {
   const [, navigate] = useLocation();
   const isNew = id === 'yeni';
   const item = useAppStore((s) => (isNew ? undefined : s.items.find((i) => i.id === id)));
   const firstLoad = useAppStore(selectFirstLoad);
   const isMobile = useMediaQuery('(max-width: 48em)', true);
-  const initial = useMemo(() => toForm(item, defaults), [item, defaults]);
-  // Not: bileşen `key={id}` ile yeniden kurulur; sunucudan gelen güncellemeler düzenleme sırasında formu ezmez (çakışma bandı gösterir).
+  // The opener is still focused on the first render, before the modal's focus trap moves focus inside.
+  const [origin] = useState(() => (typeof document === 'undefined' ? null : document.activeElement));
+  // Layout cleanup runs in the same commit that removes the dialog, so focus never rests on <body> in between.
+  useLayoutEffect(() => () => {
+    // StrictMode's trial unmount keeps the URL on this record; only a real close (any path: Escape, Vazgeç, Kaydet, Sil, back) returns focus.
+    if (window.location.hash.includes(`/satinalma/${id}`)) return;
+    returnFocus(origin, id);
+    // A record that leaves the list in the same commit (saved outside the filter, deleted) is re-resolved once rendering settles.
+    requestAnimationFrame(() => { if (document.activeElement === document.body) returnFocus(origin, id); });
+  }, [origin, id]);
+  const close = () => navigate('~/satinalma');
+
+  if (!isNew && !item) {
+    return (
+      <Modal opened onClose={close} title="Kalem" fullScreen={isMobile} closeButtonProps={{ size: 'xl', 'aria-label': 'Kapat' }}>
+        {firstLoad ? <DetailSkeleton testId="item-detail-loading" /> : <Alert color="yellow">Kalem bulunamadı (silinmiş ya da henüz eşitlenmemiş olabilir).</Alert>}
+      </Modal>
+    );
+  }
+  // The form mounts only once the record exists, so a cold deep link starts from the real record; a later background
+  // refresh does not re-initialise it, so edits in progress are kept (conflicts show the banner instead).
+  return <ItemForm id={id} item={item} isNew={isNew} section={section} defaults={defaults} onSaved={onSaved} close={close} isMobile={isMobile} />;
+}
+
+function ItemForm({ id, item, isNew, section, defaults, onSaved, close, isMobile }: { id: string; item?: Item; isNew: boolean; section?: 'fiyat'; defaults?: NewItemDefaults; onSaved?: (saved: Item, isNew: boolean) => void; close: () => void; isMobile: boolean }) {
+  const [initial] = useState(() => toForm(item, defaults));
   const form = useForm<FormValues>({ mode: 'controlled', initialValues: initial, validate: schemaResolver(schema, { sync: true }) });
   const formRef = useRef<HTMLFormElement>(null);
+  // Opened for a price: the section starts just under the modal header, so its explanation and first field are visible above the sticky footer.
+  useEffect(() => {
+    if (section !== 'fiyat') return;
+    const frame = requestAnimationFrame(() => {
+      const target = formRef.current?.querySelector<HTMLElement>('[data-section="fiyat"]');
+      let scroller = target?.parentElement ?? null;
+      while (scroller && !/(auto|scroll)/.test(getComputedStyle(scroller).overflowY)) scroller = scroller.parentElement;
+      const header = target?.closest('[role="dialog"]')?.querySelector<HTMLElement>('.mantine-Modal-header');
+      if (!target || !scroller) return;
+      scroller.scrollTop += target.getBoundingClientRect().top - (header?.getBoundingClientRect().bottom ?? scroller.getBoundingClientRect().top) - parseFloat(tokens.spaceSmall);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [section]);
 
-  const close = () => navigate('~/satinalma');
   const save = (values: FormValues) => {
     const patch = toPatch(values, item);
     // Kullanıcı hiçbir alanı değiştirmediyse (ya da fark kırpmayla kayboluyorsa) Sheets'e yazılmaz: sürüm/son güncelleyen/sıralama bozulmaz.
@@ -96,13 +148,6 @@ export function ItemDetail({ id, defaults, onSaved }: { id: string; defaults?: N
     onConfirm: () => { remove('kalemler', id); notifications.show({ message: 'Silindi', color: 'gray', autoClose: 1500 }); close(); },
   });
 
-  if (!isNew && !item) {
-    return (
-      <Modal opened onClose={close} title="Kalem" fullScreen={isMobile} closeButtonProps={{ size: 'xl', 'aria-label': 'Kapat' }}>
-        {firstLoad ? <DetailSkeleton testId="item-detail-loading" /> : <Alert color="yellow">Kalem bulunamadı (silinmiş ya da henüz eşitlenmemiş olabilir).</Alert>}
-      </Modal>
-    );
-  }
   return (
     <Modal opened onClose={close} title={isNew ? 'Yeni kalem' : item!.ad} fullScreen={isMobile} size="lg" closeButtonProps={{ size: 'xl', 'aria-label': 'Kapat' }}
       styles={{ body: { paddingBottom: 96 } }}>
@@ -124,8 +169,9 @@ export function ItemDetail({ id, defaults, onSaved }: { id: string; defaults?: N
               <NumberInput label="Öncelik (1–3)" min={1} max={3} inputMode="numeric" hideControls {...form.getInputProps('oncelik')} key={form.key('oncelik')} />
             </SimpleGrid>
           </Stack>
-          <Stack component="section" aria-label="Fiyat ve teyit" className="record-form-section" gap="sm">
-            <SectionHeading title="Fiyat ve teyit" level={3} description="Boş bırakılan fiyat bilinmiyor demektir; 0 yalnız gerçekten ücretsizse yazılır." />
+          <Stack component="section" aria-label="Fiyat ve teyit" className="record-form-section" gap="sm" data-section="fiyat">
+            {/* "Fiyat ekle" opens here: the section heading takes focus, without choosing between estimate and actual for the user. */}
+            <SectionHeading title="Fiyat ve teyit" level={3} focusTarget={section === 'fiyat'} description="Boş bırakılan fiyat bilinmiyor demektir; 0 yalnız gerçekten ücretsizse yazılır." />
             <SimpleGrid cols={{ base: 1, xs: 2 }} spacing="xs">
               <PriceInput label="Tahmini (min)" data-path="tahmini_tl_min" value={form.getValues().tahmini_tl_min} onChange={(v) => form.setFieldValue('tahmini_tl_min', v)} error={form.errors.tahmini_tl_min} />
               <PriceInput label="Tahmini (max)" data-path="tahmini_tl_max" value={form.getValues().tahmini_tl_max} onChange={(v) => form.setFieldValue('tahmini_tl_max', v)} error={form.errors.tahmini_tl_max} />

@@ -171,3 +171,17 @@ it('names an all-period scope carried from Timeline instead of formatting it as 
   fireEvent.click(within(screen.getByRole('navigation', { name: 'Bu aydan sonraki adım' })).getByRole('link', { name: /Ocak 2098 ödeme adımları/ }));
   expect(screen.getByRole('status', { name: 'Paylaşılan dönem' })).toHaveTextContent('2098-01');
 });
+
+it('states the moved account in the real step cell, not only in the hidden narrow glance', () => {
+  const data = buildFinance(syntheticFinance());
+  data.events[2].denizPrincipal = 80;
+  vi.mocked(useFinance).mockReturnValue({ data, error: null, loading: false, updatedAt: null, refresh: vi.fn() });
+  mount();
+  fireEvent.change(screen.getByRole('combobox', { name: 'Dönem' }), { target: { value: '2098-02' } });
+  const transfer = screen.getByRole('row', { name: /Sentetik iç aktarım/ });
+  const step = within(transfer).getAllByRole('cell')[1];
+  expect(step).toHaveTextContent('Denizbank kartı anaparası değişti');
+  expect(within(step).getByText('Denizbank kartı anaparası değişti').closest('[aria-hidden="true"]')).toBeNull();
+  // The row's accessible name carries it too.
+  expect(transfer).toHaveAccessibleName(/Denizbank kartı anaparası değişti/);
+});

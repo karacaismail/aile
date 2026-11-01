@@ -63,7 +63,7 @@ export function ItemCard({ item, onToggleDone }: { item: Item; onToggleDone: (it
           ...(item.siparis_son_tarih ? [{ label: 'Sipariş son günü', value: formatTr(item.siparis_son_tarih) }] : []),
           ...(item.teslim_tarihi ? [{ label: 'Teslim tarihi', value: formatTr(item.teslim_tarihi) }] : []),
         ]} />
-        {!item.mevcut && est == null && <Link href={`~/satinalma/${item.id}`} className={classes.recordLink}>Fiyat ekle</Link>}
+        {!item.mevcut && est == null && <Link href={`~/satinalma/${item.id}/fiyat`} className={classes.recordLink}>Fiyat ekle</Link>}
         {!item.mevcut && <p className={classes.payment}>
           {done ? 'Teslim durumu ödeme kaydı değildir.' : 'Ödeme kaydı değildir.'}
           {done && <> <Link href="~/butce" className={classes.recordLink}>Harcama kayıtlarına git</Link></>}

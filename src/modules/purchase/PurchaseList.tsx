@@ -236,6 +236,7 @@ export function PurchaseList() {
       </FilterSheet>
       {hasAny && <Fab onClick={() => navigate('~/satinalma/yeni')} label="Kalem ekle" />}
       <Route path="/:id">{(params) => <ItemDetail key={params.id} id={params.id} defaults={newDefaults} onSaved={afterSave} />}</Route>
+      <Route path="/:id/fiyat">{(params) => <ItemDetail key={`${params.id}/fiyat`} id={params.id} section="fiyat" defaults={newDefaults} onSaved={afterSave} />}</Route>
     </Box>
   );
 }
