@@ -466,7 +466,7 @@ test('same-day steps have separate surfaces without oversized inner spacing', as
   for (const width of [320, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     const steps = await day.locator('.timeline-step').evaluateAll(elements => elements.map(el => {
-      const box = el.getBoundingClientRect(), body = el.querySelector('article')!.getBoundingClientRect();
+      const box = el.getBoundingClientRect();
       const style = getComputedStyle(el);
       return { top: box.top, bottom: box.bottom, inset: parseFloat(getComputedStyle(el.querySelector('.timeline-step-context')!).paddingInlineStart), surface: style.backgroundColor, pageSurface: getComputedStyle(document.querySelector('.budget-app')!).backgroundColor, radius: parseFloat(style.borderTopLeftRadius) };
     }));
