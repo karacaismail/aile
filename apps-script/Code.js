@@ -467,12 +467,35 @@ var __aile = (() => {
   function err(id, code, message) {
     return { ok: false, id, error: code, message };
   }
+  function validPrecondition(value, columns) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+    const p = value;
+    if (Object.keys(p).some((k) => k !== "version" && k !== "fields") || !Number.isSafeInteger(p.version) || p.version < 0) return false;
+    if (!p.fields || typeof p.fields !== "object" || Array.isArray(p.fields)) return false;
+    const fields = Object.entries(p.fields);
+    return fields.length > 0 && fields.every(([key, expected]) => {
+      const column = columns.find((c2) => c2.key === key);
+      if (!column) return false;
+      if (expected === null) return true;
+      if (column.type === "sayi") return typeof expected === "number" && Number.isFinite(expected);
+      if (column.type === "bool") return typeof expected === "boolean";
+      if (column.type === "liste" || column.type === "enumliste") return Array.isArray(expected) && expected.every((v) => typeof v === "string");
+      return typeof expected === "string";
+    });
+  }
+  function matchesPrecondition(row, expected) {
+    return !!row && (row.version ?? 0) === expected.version && Object.entries(expected.fields).every(([key, value]) => Array.isArray(value) ? JSON.stringify(row[key]) === JSON.stringify(value) : (row[key] ?? null) === value);
+  }
   function applyUpsert(table, tableName, op, actor, now) {
+    if (op.precondition !== void 0 && !validPrecondition(op.precondition, table.columns)) return err(op.id, "bad_request", "Ge\xE7ersiz yazma \xF6nko\u015Fulu");
     const patch = cleanPatch(op.patch);
     const invalid = validateEnums(table.columns, patch);
     if (invalid) return { ...err(op.id, "invalid_enum", `Ge\xE7ersiz de\u011Fer: ${invalid.field}`), message: `${invalid.field}: izinli de\u011Ferler ${invalid.allowed.join(", ")}` };
     const keys = Object.keys(patch);
     const idx = table.index.get(op.id);
+    const existing = idx === void 0 ? void 0 : table.rows[idx];
+    if (existing?.son_op_id === op.opId) return { ok: true, id: op.id, row: existing, duplicate: true };
+    if (op.precondition && !matchesPrecondition(existing, op.precondition)) return err(op.id, "precondition_failed", "Kay\u0131t de\u011Fi\u015Fti veya art\u0131k yok; yeniden okuyup inceleyin");
     if (idx === void 0) {
       const need = REQUIRED_ON_INSERT[tableName];
       const missing = need.filter((k) => patch[k] === void 0 || patch[k] === "");
@@ -493,7 +516,6 @@ var __aile = (() => {
       return { ok: true, id: op.id, row: rec };
     }
     const row = table.rows[idx];
-    if (row.son_op_id === op.opId) return { ok: true, id: op.id, row, duplicate: true };
     const currentVersion = Number(row.version ?? 0) || 0;
     let conflictKeys = [];
     if (op.baseVersion !== void 0 && op.baseVersion < currentVersion) {
@@ -578,12 +600,14 @@ var __aile = (() => {
   }
   function readState(state, fingerprint, now) {
     const fp = stateFingerprint(state);
-    if (fingerprint && fingerprint === fp) return { ok: true, notModified: true, fingerprint: fp, serverTime: now, schemaVersion: SCHEMA_VERSION };
+    const capabilities = ["conditional_upsert"];
+    if (fingerprint && fingerprint === fp) return { ok: true, notModified: true, fingerprint: fp, serverTime: now, schemaVersion: SCHEMA_VERSION, capabilities };
     return {
       ok: true,
       fingerprint: fp,
       serverTime: now,
       schemaVersion: SCHEMA_VERSION,
+      capabilities,
       items: state.kalemler.rows,
       settings: state.ayarlar.rows,
       ...state.nakit ? { cash: state.nakit.rows } : {},
