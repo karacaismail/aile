@@ -1,5 +1,5 @@
 import { FormSelect } from '@/components/FormSelect';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Modal, Stack, TextInput, Button, Group, Chip, Alert, Text, Box } from '@mantine/core';
 import { DatePickerInput } from '@mantine/dates';
 import { useMediaQuery } from '@mantine/hooks';
@@ -13,13 +13,22 @@ import { PriceInput } from '@/components/PriceInput';
 import { formatTl } from '@/lib/price';
 import { todayIso } from '@/lib/dates';
 import { kalemOptions, quickKalems, normKalem } from './rules';
-import { closeExpense, notifyExpenseSaved, useExpenseTarget, type ExpenseTarget } from './quick';
+import { closeExpense, notifyExpenseRestored, notifyExpenseSaved, onExpenseRestored, useExpenseTarget, type ExpenseTarget } from './quick';
 import classes from './budget.module.css';
 
 /** Tek örnek, kabukta durur: hangi ekrandan açılırsa açılsın aynı form. */
 export function ExpenseHost() {
   const target = useExpenseTarget();
   const isMobile = useMediaQuery('(max-width: 48em)', true);
+  // Geri al bildirimi kapanınca odak: Bütçe sayfası açıksa geri gelen satır, değilse kabuktaki Harcama ekle düğmesi (zamanlayıcı yok; store güncellemesiyle aynı commit).
+  const [restored, setRestored] = useState<string | null>(null);
+  useEffect(() => onExpenseRestored(setRestored), []);
+  useEffect(() => {
+    if (!restored) return;
+    const target = document.querySelector<HTMLElement>(`[data-testid="entry-${CSS.escape(restored)}"]`) ?? document.querySelector<HTMLElement>('[data-testid="topbar-expense"]');
+    target?.focus();
+    setRestored(null);
+  }, [restored]);
   return (
     <Modal
       opened={!!target}
@@ -67,17 +76,18 @@ function ExpenseForm({ target }: { target: ExpenseTarget }) {
     closeExpense();
   };
   // Hızlı giriş ekranında yanlış dokunuş kalıcı olmasın: silme iyimser uygulanır, bildirim ne silindiğini söyler ve Geri al kaydı geri getirir (restore).
+  // Tek geri alma yolu olduğundan bildirim zaman sınırı taşımaz (WCAG 2.2.1): kullanıcı geri alır ya da kapatır.
   const del = () => {
     if (!entry) return;
     remove('nakit', entry.id);
     const nid = `cash-undo-${entry.id}`;
     notifications.show({
-      id: nid, autoClose: 8000, color: 'gray', withCloseButton: true, closeButtonProps: { size: 'xl', 'aria-label': 'Kapat' },
+      id: nid, autoClose: false, color: 'gray', withCloseButton: true, closeButtonProps: { size: 'xl', 'aria-label': 'Kapat' },
       message: (
         <Group justify="space-between" wrap="nowrap" gap="xs">
           {/* Dar bildirimde eylem etiketi küçülmez (kırpılmaz); mesaj metni sarılır. */}
           <span style={{ minWidth: 0 }}>Harcama silindi · {formatTl(entry.tutar)} {entry.kalem}</span>
-          <Button size="sm" h={tokens.targetMin} variant="subtle" color="ember" style={{ flexShrink: 0 }} onClick={() => { restore('nakit', entry.id); notifications.hide(nid); }}>Geri al</Button>
+          <Button size="sm" h={tokens.targetMin} variant="subtle" color="ember" style={{ flexShrink: 0 }} onClick={() => { restore('nakit', entry.id); notifications.hide(nid); notifyExpenseRestored(entry.id); }}>Geri al</Button>
         </Group>
       ),
     });

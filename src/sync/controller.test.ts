@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { ApiErrorCode, BatchRequest, ReadRequest } from '@shared/api';
 import type { Item } from '@shared/schema';
-import { configureController, discardRejected, hydrate, refresh, retryRejected, startSync, stopSync, upsert } from './controller';
+import { configureController, discardRejected, hydrate, refresh, remove, retryRejected, startSync, stopSync, upsert } from './controller';
 import { setApiUrl } from './config';
 import { getState, resetStore, setState } from './store';
 import type { QueuedOp } from './queue';
@@ -71,6 +71,91 @@ beforeEach(() => {
   vi.spyOn(cache, 'loadOutbox').mockResolvedValue([]);
 });
 afterEach(() => { stopSync(); vi.restoreAllMocks(); });
+
+describe('kuyruk kaydının disk kopyası: dürüst ve kurtarılabilir', () => {
+  it('kuyruğu boşaltan temizlik yazımı reddedilirse bayrak false kalır (eski silme kaydı diskte); yenileme depolamayı yeniden dener ve boş kuyruğu yazar', async () => {
+    const api = rejectingApi();
+    configureController({ fetchImpl: api.fetchImpl });
+    setState({ cash: [{ id: 'C1', tarih: '2099-01-01', tutar: 400, kalem: 'Hediye', version: 1 }] });
+    vi.mocked(cache.saveOutbox).mockResolvedValueOnce(true).mockResolvedValue(false); // ilk (silme) yazımı diske gider, sonrakiler reddedilir
+    remove('nakit', 'C1');
+    await vi.waitFor(() => expect(api.batches).toHaveLength(1));
+    await vi.waitFor(() => expect(getState().outbox).toEqual([]));
+    await vi.waitFor(() => expect(getState().queueStored).toBe(false));
+    // Depolama düzeldi: yenileme (Şimdi eşitle / periyodik) boş kuyruğu yeniden yazar, eski silme kaydı diskte kalmaz.
+    vi.mocked(cache.saveOutbox).mockResolvedValue(true);
+    await refresh();
+    expect(getState().queueStored).toBe(true);
+    expect(vi.mocked(cache.saveOutbox).mock.calls.at(-1)?.[0]).toEqual([]);
+  });
+
+  it('yalnız red varken de depolama yeniden denenir: yenileme red kaydını diske yazar ve uyarı çözülür', async () => {
+    const api = rejectingApi({ reject: { A: BAD_ENUM } });
+    configureController({ fetchImpl: api.fetchImpl });
+    vi.mocked(cache.saveOutbox).mockResolvedValue(false);
+    upsert('kalemler', 'A', { tip: 'satinalma', ad: 'Perde', durum: 'yanlis' });
+    await vi.waitFor(() => expect(getState().rejected).toHaveLength(1));
+    await vi.waitFor(() => expect(getState().queueStored).toBe(false));
+    vi.mocked(cache.saveOutbox).mockResolvedValue(true);
+    await refresh();
+    expect(getState().queueStored).toBe(true);
+    const saved = vi.mocked(cache.saveOutbox).mock.calls.at(-1)?.[0] as QueuedOp[];
+    expect(saved.map((q) => q.op.opId)).toEqual([getState().rejected[0].op.opId]);
+  });
+
+  it('eski yazımın geciken başarısı daha yeni başarısız kaydı gizlemez: sonuç kuyruk kaydı sırasına bağlıdır (kontrollü sıra, doğal zamanlama iddiası değil)', async () => {
+    const api = rejectingApi({ offline: true });
+    configureController({ fetchImpl: api.fetchImpl });
+    let releaseFirst: (v: boolean) => void = () => {};
+    vi.mocked(cache.saveOutbox).mockImplementationOnce(() => new Promise<boolean>((r) => { releaseFirst = r; })).mockResolvedValue(false);
+    upsert('kalemler', 'A', { tip: 'satinalma', ad: 'İlk' });
+    upsert('kalemler', 'B', { tip: 'satinalma', ad: 'İkinci' });
+    await vi.waitFor(() => expect(getState().queueStored).toBe(false));
+    releaseFirst(true);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(getState().queueStored).toBe(false);
+    expect(getState().outbox.map((q) => q.op.id)).toEqual(['A', 'B']);
+  });
+});
+
+describe('yerel saklama yeniden denemesi ve yaşam döngüsü', () => {
+  it('yeniden saklama beklerken stopSync gelirse yeni okuma başlamaz; çalışmayan uygulamada açık manuel yenileme yine okur', async () => {
+    const api = rejectingApi({ server: [] });
+    configureController({ fetchImpl: api.fetchImpl });
+    startSync();
+    await vi.waitFor(() => expect(api.reads).toHaveLength(1));
+    let release: (v: boolean) => void = () => {};
+    vi.mocked(cache.saveOutbox).mockImplementationOnce(() => new Promise<boolean>((r) => { release = r; }));
+    setState({ queueStored: false });
+    const pending = refresh(); // retryPersist'te bekliyor
+    await vi.waitFor(() => expect(cache.saveOutbox).toHaveBeenCalled());
+    stopSync();
+    release(true);
+    await pending;
+    expect(api.reads).toHaveLength(1); // durdurulmuş uygulama yeni istek başlatmaz
+    // Uygulama çalışmıyorken açıkça çağrılan yenileme (önceki sözleşme) yine okur.
+    await refresh();
+    expect(api.reads).toHaveLength(2);
+  });
+
+  it('bekleme sırasında hızlı stop→start: yeni oturumun eski yenileme sözüne katılması okumayı yitirmez', async () => {
+    const api = rejectingApi({ server: [] });
+    configureController({ fetchImpl: api.fetchImpl });
+    startSync();
+    await vi.waitFor(() => expect(api.reads).toHaveLength(1));
+    let release: (v: boolean) => void = () => {};
+    vi.mocked(cache.saveOutbox).mockImplementationOnce(() => new Promise<boolean>((r) => { release = r; }));
+    setState({ queueStored: false });
+    const pending = refresh();
+    await vi.waitFor(() => expect(cache.saveOutbox).toHaveBeenCalled());
+    stopSync();
+    startSync(); // yeni oturum: hydrate → refresh() → uçuştaki söze katılır
+    release(true);
+    await pending;
+    await vi.waitFor(() => expect(api.reads).toHaveLength(2));
+    expect(getState().status).toBe('synced');
+  });
+});
 
 describe('kuyruk bu cihazda saklanamazsa', () => {
   it('bekleyen yazım bellekte kalır ve durum saklanamadığını söyler; saklama yeniden başarılı olunca uyarı kalkar', async () => {

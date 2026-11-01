@@ -88,7 +88,7 @@ test('başka modülden de açılır; kayıt düzenlenip silinir', async ({ page 
   await expect(page.getByTestId('month-actual')).toContainText('1.900');
 });
 
-test('silinen harcama bildirimden Geri al ile döner; toplam ve liste eski haline gelir', async ({ page }) => {
+test('silinen harcama bildirimden Geri al ile döner; toplam ve liste eski haline gelir; klavyeyle ulaşılır, odak geri gelen satıra geçer', async ({ page, browserName }) => {
   await open(page);
   await page.getByTestId('entry-E2ECASH03').click();
   await page.getByTestId('expense-delete').click();
@@ -97,13 +97,83 @@ test('silinen harcama bildirimden Geri al ile döner; toplam ve liste eski halin
   const toast = page.getByRole('alert').filter({ hasText: 'Harcama silindi' });
   await expect(toast).toContainText('₺400 Hediye');
   const undo = toast.getByRole('button', { name: 'Geri al' });
-  expect((await undo.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  expect((await undo.boundingBox())!.height).toBeGreaterThanOrEqual(44 - 0.5); // rem ölçeği alt piksel (43,999…) üretebilir; ortak smallTargets toleransı
   // Eylem etiketi dar bildirimde kırpılmaz; mesaj metni gerekirse sarılır.
   expect(await undo.locator('.mantine-Button-label').evaluate((el) => ({ clipped: el.scrollWidth > el.clientWidth, text: el.textContent }))).toEqual({ clipped: false, text: 'Geri al' });
-  await undo.click();
+  // Doğal Tab sırasıyla ulaşılır (WebKit düğmelere yalnız Alt+Tab ile gider); klavye göstergesi tek alt çizgi, çevreleyen halka yok.
+  for (let i = 0; i < 40 && !(await undo.evaluate((el) => el === document.activeElement)); i++) await page.keyboard.press(browserName === 'webkit' ? 'Alt+Tab' : 'Tab');
+  await expect(undo).toBeFocused();
+  expect(await undo.evaluate((el) => ({ outline: getComputedStyle(el).outlineStyle, shadow: getComputedStyle(el).boxShadow, decoration: getComputedStyle(el).textDecorationLine }))).toEqual({ outline: 'none', shadow: 'none', decoration: 'underline' });
+  // Yalnız simge taşıyan Kapat: alt çizgi görünür piksel üretmez; klavye modunda çevrelemeyen tek alt çubuk (::after), işaretçi modunda yok.
+  const close = toast.getByRole('button', { name: 'Kapat' });
+  const indicator = (el: Element) => { const a = getComputedStyle(el, '::after'); return { content: a.content, height: a.height, background: a.backgroundColor, outline: getComputedStyle(el).outlineStyle }; };
+  await page.keyboard.press(browserName === 'webkit' ? 'Alt+Tab' : 'Tab');
+  await expect(close).toBeFocused();
+  expect(await close.evaluate(indicator)).toEqual({ content: '""', height: '3px', background: 'rgb(50, 107, 148)', outline: 'none' });
+  await page.getByTestId('month-label').click(); // işaretçi (etkileşimsiz başlık): klavye modu kapanır
+  await close.focus();
+  expect((await close.evaluate(indicator)).content).toBe('none');
+  await page.keyboard.press(browserName === 'webkit' ? 'Alt+Shift+Tab' : 'Shift+Tab');
+  await expect(undo).toBeFocused();
+  await page.keyboard.press('Enter');
   await expect(page.getByTestId('entry-E2ECASH03')).toBeVisible();
   await expect(page.getByTestId('month-actual')).toContainText('2.300');
   await expect(toast).toBeHidden();
+  // Bildirim kapanınca odak gövdeye düşmez: geri gelen satır odaklı ve görünür göstergeli.
+  const row = page.getByTestId('entry-E2ECASH03');
+  await expect(row).toBeFocused();
+  expect(await row.evaluate((el) => ({ outline: getComputedStyle(el).outlineStyle, decoration: getComputedStyle(el).textDecorationLine }))).toEqual({ outline: 'none', decoration: 'underline' });
+});
+
+test('Bütçe sayfası açık değilken Geri al: odak kabuktaki Harcama ekle düğmesine geçer ve yalnız simgeyken görünür klavye göstergesi taşır', async ({ page, browserName }) => {
+  await open(page);
+  await page.getByTestId('entry-E2ECASH03').click();
+  await page.getByTestId('expense-delete').click();
+  const toast = page.getByRole('alert').filter({ hasText: 'Harcama silindi' });
+  await expect(toast).toBeVisible();
+  // Uygulama içi rota değişimi (menü bağlantısı gibi hash değişimi; page.goto tam yükleme yapar ve bildirim deposunu sıfırlar).
+  await page.evaluate(() => { location.hash = '#/tadilat'; });
+  await expect(page.getByTestId('timeline')).toBeVisible();
+  const undo = toast.getByRole('button', { name: 'Geri al' });
+  await expect(undo).toBeVisible(); // bildirim zaman sınırı yok, rota değişince de durur
+  for (let i = 0; i < 40 && !(await undo.evaluate((el) => el === document.activeElement)); i++) await page.keyboard.press(browserName === 'webkit' ? 'Alt+Tab' : 'Tab');
+  await page.keyboard.press('Enter');
+  const target = page.getByTestId('topbar-expense');
+  await expect(target).toBeFocused();
+  expect(await target.evaluate((el) => { const a = getComputedStyle(el, '::after'); return { content: a.content, height: a.height, outline: getComputedStyle(el).outlineStyle, labelHidden: getComputedStyle(el.querySelector('span')!).display === 'none' }; })).toEqual({ content: '""', height: '3px', outline: 'none', labelHidden: true });
+  await page.goto('/#/butce');
+  await expect(page.getByTestId('entry-E2ECASH03')).toBeVisible();
+});
+
+test('kuyruğu boşaltan depolama yazımı reddedilirse uyarı görünür kalır; depolama dönüp Şimdi eşitle ile yazılınca yenileme geri alınan kaydı korur', async ({ page }) => {
+  await open(page);
+  // Gerçek IndexedDB: ilk kuyruk yazımı (silme) diske gider, sonrakiler (boş kuyruk, geri alma) reddedilir.
+  await page.evaluate(() => {
+    const w = window as Window & { __nativeIdbPut?: typeof IDBObjectStore.prototype.put };
+    const original = IDBObjectStore.prototype.put; w.__nativeIdbPut = original; let first = true;
+    IDBObjectStore.prototype.put = function (...args: Parameters<typeof original>) {
+      if (args[1] === 'aile:outbox:v1') { if (!first) throw new DOMException('Depolama dolu', 'QuotaExceededError'); first = false; }
+      return original.apply(this, args);
+    };
+  });
+  await page.getByTestId('entry-E2ECASH03').click();
+  await page.getByTestId('expense-delete').click();
+  await page.getByRole('alert').filter({ hasText: 'Harcama silindi' }).getByRole('button', { name: 'Geri al' }).click();
+  await expect(page.getByTestId('entry-E2ECASH03')).toBeVisible();
+  const status = page.getByTestId('sync-status');
+  // Kuyruk boş ve sunucu güncel olsa da diskteki eski silme kaydı dürüstçe bildirilir; "Eşitlendi" tek başına yazılmaz.
+  await expect(status).toHaveAttribute('aria-label', /saklanamadı/);
+  await page.evaluate(() => { const w = window as Window & { __nativeIdbPut?: typeof IDBObjectStore.prototype.put }; IDBObjectStore.prototype.put = w.__nativeIdbPut!; });
+  await status.click();
+  const drawer = page.getByRole('dialog', { name: 'Senkron durumu' });
+  await expect(drawer.getByTestId('sync-storage-warning')).toContainText(/yeniden uygulanabilir|yenileme/);
+  await drawer.getByRole('button', { name: 'Şimdi eşitle' }).click();
+  await expect(drawer.getByTestId('sync-storage-warning')).toBeHidden();
+  await expect(status).not.toHaveAttribute('aria-label', /saklanamadı/);
+  await page.keyboard.press('Escape');
+  await page.reload();
+  await expect(page.getByTestId('entry-E2ECASH03')).toBeVisible();
+  await expect(page.getByTestId('month-actual')).toContainText('2.300');
 });
 
 test('ana ekran kısayolu formu açar', async ({ page }) => {

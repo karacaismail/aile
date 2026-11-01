@@ -108,11 +108,15 @@ describe('Bütçe ekranı', () => {
     await userEvent.click(within(await screen.findByTestId('expense-form')).getByTestId('expense-delete'));
     expect(remove).toHaveBeenCalledWith('nakit', 'C1');
     const shown = vi.mocked(notifications.show).mock.calls.at(-1)![0];
+    // Tek geri alma yolu zaman sınırlı olamaz (WCAG 2.2.1): bildirim kullanıcı kapatana ya da geri alana kadar durur.
+    expect(shown.autoClose).toBe(false);
     render(<>{shown.message}</>);
     expect(screen.getByText(/Harcama silindi · ₺120 Market/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Geri al' }));
     expect(restore).toHaveBeenCalledWith('nakit', 'C1');
     expect(notifications.hide).toHaveBeenCalledWith(shown.id);
+    // Bildirim kapanınca odak gövdeye düşmez: geri gelen kayıt satırına geçer.
+    expect(screen.getByTestId('entry-C1')).toHaveFocus();
   });
 
   it('sunucu günlüğü desteklemiyorsa uyarır; /butce/yeni formu doğrudan açar', async () => {

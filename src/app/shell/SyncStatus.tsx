@@ -42,7 +42,7 @@ const patchEntries = (op: Op): Array<[string, string]> => (op.op === 'upsert'
 const describePatch = (op: Op) => patchEntries(op).map(([k, v]) => `${k}: ${v}`).join(' · ');
 const rejectedText = (n: number) => `${n} değişiklik gönderilemedi`;
 const conflictText = (n: number) => `${n} kayıtta çakışma`;
-const UNSTORED_TEXT = 'bekleyenler bu cihazda saklanamadı';
+const UNSTORED_TEXT = 'kuyruk bu cihazda saklanamadı';
 
 /**
  * Onay modalı kapanınca Mantine odağı açan "Vazgeç" düğmesine döndürmeye çalışır; onaylanan silmede o satır DOM'dan
@@ -68,8 +68,10 @@ export function SyncStatus() {
   const [opened, { open, close }] = useDisclosure(false);
   const nRejected = st.rejected.length;
   const nConflicts = st.conflicts.length;
-  // Kuyruk bellekte ama diske yazılamadı: yalnız kaybedilecek bir şey (bekleyen/red) varken kullanıcıyı ilgilendirir.
-  const unstored = st.queueStored === false && (st.pending > 0 || nRejected > 0);
+  // Son kuyruk kaydı diske yazılamadı: bekleyen varsa yalnız bellekte (kapanışta kaybolur); kuyruk boşsa diskte eski bir kayıt
+  // duruyor olabilir ve yenilemede yeniden uygulanır (ör. geri alınan silme). İki durum da kullanıcıya söylenir.
+  const unstored = st.queueStored === false;
+  const atRisk = st.pending + nRejected;
   const attention = nRejected > 0 || nConflicts > 0 || unstored;
   const icon = st.status === 'unconfigured' ? <PlugsIcon size={22} aria-hidden />
     : st.status === 'offline' && !unstored ? <CloudSlashIcon size={22} aria-hidden />
@@ -127,7 +129,11 @@ export function SyncStatus() {
             {st.pending > OUTBOX_WARN && <Text c="dimmed">Kuyruk olağandan uzun ({st.pending} bekleyen). Hiçbir değişiklik atılmaz; bağlantı gelince sırayla gönderilir.</Text>}
             {unstored && (
               <Text c="var(--mantine-color-error)" data-testid="sync-storage-warning">
-                Bekleyen değişiklikler bu cihazın depolamasına yazılamadı (tarayıcı reddetti). Sayfa kapanırsa ya da yenilenirse son başarılı yazımdan sonraki değişiklikler (en fazla {st.pending + nRejected}) kaybolur: bağlantı dönene kadar bu sekmeyi açık tutun, bağlantı varsa Şimdi eşitle ile gönderin.
+                {st.pending > 0
+                  ? `Bekleyen değişiklikler bu cihazın depolamasına yazılamadı (tarayıcı reddetti). Sayfa kapanırsa ya da yenilenirse son başarılı yazımdan sonraki değişiklikler (en fazla ${atRisk}) kaybolur: bağlantı dönene kadar bu sekmeyi açık tutun. Şimdi eşitle yerel saklamayı yeniden dener ve bağlantı varsa bekleyenleri gönderir.`
+                  : nRejected > 0
+                    ? `Reddedilen değişikliklerin kaydı bu cihazın depolamasına yazılamadı (tarayıcı reddetti); sayfa kapanırsa ya da yenilenirse bu kayıtlar (en fazla ${atRisk}) kaybolur. Şimdi eşitle yerel saklamayı yeniden dener ve Sheets'ten okur; reddedilen bir değişikliği Sheets'e göndermek için aşağıdaki Yeniden dene gerekir.`
+                    : 'Kuyruk kaydı bu cihazın depolamasına yazılamadı (tarayıcı reddetti): diskteki eski kayıt yenilemede yeniden uygulanabilir, örneğin geri alınan bir silme tekrar silebilir. Şimdi eşitle depolamayı yeniden dener; uyarı yazım başarılı olunca kalkar.'}
               </Text>
             )}
             {st.lastError && <Text><Text span fw={600}>Son hata:</Text> {st.lastError}</Text>}

@@ -58,14 +58,22 @@
 .home-plan-intro a { color: var(--budget-ink); min-height: var(--budget-targetMin); display: inline-flex; align-items: center; text-underline-offset: var(--budget-focusOffset); }
 .home-plan-search { max-width: var(--budget-timelineFilterWidth); margin-bottom: var(--budget-spacing); }
 
-:where(.aile-app, .mantine-Modal-root, .mantine-Drawer-root, .mantine-Popover-dropdown, .mantine-Combobox-dropdown) :is(button, a, input, textarea, summary, [tabindex]):focus { outline: none; box-shadow: none; }
-html[data-keyboard='true'] :where(.aile-app, .mantine-Modal-root, .mantine-Drawer-root, .mantine-Popover-dropdown, .mantine-Combobox-dropdown) :is(button, a, input, textarea, summary, [tabindex]):focus-visible { text-decoration: underline; text-decoration-thickness: var(--budget-focusThickness); text-underline-offset: var(--budget-focusOffset); }
+/* Bildirim portalı (.mantine-Notifications-root) .aile-app dışındadır; eylem/kapat düğmeleri de aynı odak sözleşmesine girer. */
+:where(.aile-app, .mantine-Modal-root, .mantine-Drawer-root, .mantine-Popover-dropdown, .mantine-Combobox-dropdown, .mantine-Notifications-root) :is(button, a, input, textarea, summary, [tabindex]):focus { outline: none; box-shadow: none; }
+html[data-keyboard='true'] :where(.aile-app, .mantine-Modal-root, .mantine-Drawer-root, .mantine-Popover-dropdown, .mantine-Combobox-dropdown, .mantine-Notifications-root) :is(button, a, input, textarea, summary, [tabindex]):focus-visible { text-decoration: underline; text-decoration-thickness: var(--budget-focusThickness); text-underline-offset: var(--budget-focusOffset); }
 html[data-keyboard='true'] :is(.mantine-Input-input, .mantine-Checkbox-input, .mantine-Switch-input):focus-visible { box-shadow: inset 0 calc(-1 * var(--budget-focusThickness)) 0 var(--budget-blue); }
 html[data-keyboard='true'] .mantine-SegmentedControl-input:focus-visible + .mantine-SegmentedControl-label { outline: none; text-decoration: underline; text-decoration-thickness: var(--budget-focusThickness); text-underline-offset: var(--budget-focusOffset); }
 .mantine-Chip-input:focus-visible + .mantine-Chip-label, .mantine-Switch-input:focus-visible + .mantine-Switch-track, .mantine-SegmentedControl-input:focus-visible + .mantine-SegmentedControl-label { outline: none; box-shadow: none; }
 html[data-keyboard='true'] .mantine-Chip-input:focus-visible + .mantine-Chip-label,
 html[data-keyboard='true'] .mantine-Switch-root:has(input:focus-visible) .mantine-Switch-label { text-decoration: underline; text-decoration-thickness: var(--budget-focusThickness); text-underline-offset: var(--budget-focusOffset); }
-@media (forced-colors: active) { html[data-keyboard='true'] :where(.aile-app, .mantine-Modal-root, .mantine-Drawer-root) :focus-visible { outline: 2px solid CanvasText; } }
+/* Yalnız simge taşıyan kontroller (ActionIcon, bildirim Kapat, dar başlıktaki Harcama ekle): metin alt çizgisi piksel boyamaz;
+   klavye modunda çevrelemeyen tek alt çubuk (kenardan içeride, halka değil). Geniş görünümde Harcama ekle metinli olduğundan alt çizgi yeter. */
+html[data-keyboard='true'] :where(.aile-app, .mantine-Modal-root, .mantine-Drawer-root, .mantine-Notifications-root) :is(.mantine-ActionIcon-root, .mantine-CloseButton-root, .family-expense):focus-visible { position: relative; }
+html[data-keyboard='true'] :where(.aile-app, .mantine-Modal-root, .mantine-Drawer-root, .mantine-Notifications-root) :is(.mantine-ActionIcon-root, .mantine-CloseButton-root, .family-expense):focus-visible::after { content: ''; position: absolute; left: var(--budget-spaceTight); right: var(--budget-spaceTight); bottom: var(--budget-spaceDense); height: var(--budget-focusThickness); background: var(--budget-blue); pointer-events: none; }
+@media (min-width: 48em) { html[data-keyboard='true'] .aile-app .family-expense:focus-visible::after { content: none; } }
+@media (forced-colors: active) { html[data-keyboard='true'] :where(.aile-app, .mantine-Modal-root, .mantine-Drawer-root, .mantine-Notifications-root) :focus-visible { outline: 2px solid CanvasText; } }
+/* forced-colors'ta tek gösterge yukarıdaki CanvasText outline istisnasıdır; çubuk kapanır (iki gösterge olmaz). */
+@media (forced-colors: active) { html[data-keyboard='true'] :where(.aile-app, .mantine-Modal-root, .mantine-Drawer-root, .mantine-Notifications-root) :is(.mantine-ActionIcon-root, .mantine-CloseButton-root, .family-expense):focus-visible::after { content: none; } }
 @media (forced-colors: active) { html[data-keyboard='true'] .mantine-Chip-input:focus-visible + .mantine-Chip-label, html[data-keyboard='true'] .mantine-Switch-input:focus-visible + .mantine-Switch-track, html[data-keyboard='true'] .mantine-SegmentedControl-input:focus-visible + .mantine-SegmentedControl-label { outline: 2px solid CanvasText; } }
 
 @media (prefers-reduced-motion: reduce) { .aile-app *, .aile-app *::before, .aile-app *::after, .mantine-Modal-root *, .mantine-Drawer-root * { transition-duration: 0s !important; animation-duration: 0s !important; } }
