@@ -30,7 +30,7 @@ export default function Charts({ data, selected }: { data: Budget; selected: num
     grid: { left: 12, right: 16, top: 24, bottom: 36, containLabel: true },
     tooltip: { trigger: 'axis', renderMode: 'richText', confine: true, textStyle: { fontFamily: tokens.font, fontSize: 16 }, valueFormatter: v => money(typeof v === 'number' ? v : null) },
     xAxis: { type: 'category', data: names, axisLabel: { fontSize: 14, color: tokens.muted, hideOverlap: true }, axisTick: { show: false }, axisLine: { lineStyle: { color: tokens.line } } },
-    yAxis: { type: 'value', axisLabel: { fontSize: 14, color: tokens.muted, formatter: (n: number) => `${Math.round(n / 1000)} bin` }, splitLine: { lineStyle: { color: tokens.line, type: 'dashed' } } },
+    yAxis: { type: 'value', axisLabel: { fontSize: 14, color: tokens.muted, hideOverlap: true, showMinLabel: true, showMaxLabel: true, formatter: (n: number) => `${Math.round(n / 1000)} bin` }, splitLine: { lineStyle: { color: tokens.line, type: 'dashed' } } },
     aria: { enabled: true },
   };
   const planLine = { name: 'Plan', type: 'line' as const, symbol: 'none', lineStyle: { type: 'dashed' as const, width: 2 }, itemStyle: { color: tokens.muted } };

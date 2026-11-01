@@ -71,3 +71,28 @@ test('the first planned item is reachable on the initial narrow screen before su
   expect((await page.getByRole('region',{name:'Alım planının kapsamı'}).boundingBox())!.y).toBeGreaterThan((await row.boundingBox())!.y);
   await page.screenshot({path:testInfo.outputPath('home-first-screen-320.png')});
 });
+for (const width of [320, 1440]) for (const textScale of [100, 200]) {
+  test(`category chart value labels stay distinct at ${width}px and ${textScale}% text`, async ({ page }, testInfo) => {
+    await source(page);
+    await page.setViewportSize({ width, height: 900 });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/aile/#/pano');
+    await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale}%`; }, textScale);
+    await page.evaluate(() => document.fonts.ready);
+    await page.locator('.charts-host').scrollIntoViewIfNeeded();
+    const chart = page.locator('.chart-section').filter({ has: page.getByRole('heading', { name: 'Kasım 2098 ödemeleri', exact: true }) }).locator('.budget-chart');
+    const valueLabels = chart.locator('svg text').filter({ hasText: /^\d+ bin$/ });
+    await expect.poll(() => valueLabels.count()).toBeGreaterThanOrEqual(2);
+    const overlaps = () => valueLabels.evaluateAll(labels => {
+      const boxes = labels.filter(label => getComputedStyle(label).visibility !== 'hidden' && getComputedStyle(label).display !== 'none').map(label => ({ text: label.textContent, box: label.getBoundingClientRect() }));
+      return boxes.flatMap((current, index) => boxes.slice(index + 1).filter(next => current.box.left < next.box.right && current.box.right > next.box.left && current.box.top < next.box.bottom && current.box.bottom > next.box.top).map(next => [current.text, next.text]));
+    });
+    await chart.screenshot({ path: testInfo.outputPath('category-axis.png'), animations: 'disabled' });
+    await expect.poll(overlaps).toEqual([]);
+    await expect(valueLabels.filter({ hasText: /^0 bin$/ })).toBeVisible();
+    await expect(valueLabels.filter({ hasText: /^4 bin$/ })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    await page.getByRole('button', { name: 'Kalemler ve fark', exact: true }).click();
+    await expect(page.getByRole('table')).toContainText('4.000 ₺');
+  });
+}
