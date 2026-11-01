@@ -70,8 +70,8 @@ test.beforeEach(async ({ page }) => {
 
 test('şerit: sayımlı hızlı çipler; Fiyatsız tek dokunuşla; huni rozeti; toplam "Görünen"', async ({ page }) => {
   const rail = page.getByTestId('filter-rail');
-  await expect(rail.getByRole('checkbox', { name: 'Alınacaklar 7' })).toBeAttached();
-  await expect(page.getByTestId('quick-chip-hideDone')).toBeVisible();
+  await expect(page.getByRole('radio', { name: 'Alınacaklar 7' })).toBeChecked();
+  await expect(page.getByRole('radio', { name: 'Aldıklarımız 0' })).toBeAttached();
   await expect(rail.getByRole('checkbox', { name: 'Fiyatsız 3' })).toBeAttached();
   await expect(rail.getByRole('checkbox', { name: 'Karar bekliyor 1' })).toBeAttached();
   await expect(rail.getByRole('checkbox', { name: 'Son tarih 1' })).toBeAttached();
@@ -140,7 +140,8 @@ test('sayfa: facet seçimi canlı sayım; alt çubuk gövde kaydırılınca da g
   await expect(sheet).toBeHidden();
 });
 
-test('sıralama: Ad seçimi uygulanır ve kapanır; alındı işaretlenen kalem en alta, ayraçla', async ({ page }) => {
+test('sıralama: Tüm kalemlerde alındı en alta, ayraçla; Alınacaklar görünümü açık kalemleri korur', async ({ page }) => {
+  await page.getByText('Tüm kalemler', { exact: true }).click();
   await page.getByTestId('sort-button').click();
   const sheet = page.getByTestId('sort-sheet');
   await expect(sheet).toBeVisible();
@@ -162,7 +163,7 @@ test('sıralama: Ad seçimi uygulanır ve kapanır; alındı işaretlenen kalem 
   const after = await titles();
   expect(after[after.length - 1]).toMatch(/^Bebek güvenlik/);
   // Alınacaklar gizler, boş durum değil
-  await page.getByTestId('quick-chip-hideDone').click();
+  await page.getByText('Alınacaklar', { exact: true }).click();
   await expect(page.getByTestId('item-card')).toHaveCount(6);
   await expect(page.getByTestId('closed-divider')).toHaveCount(0);
 });

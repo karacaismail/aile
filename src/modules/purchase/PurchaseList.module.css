@@ -7,3 +7,7 @@
   background: var(--mantine-color-body);
 }
 .divider { grid-column: 1 / -1; }
+
+.views { padding: var(--budget-spaceTight); background: var(--budget-blueSurface); }
+.viewLabel { display: flex; flex-direction: column; justify-content: center; gap: var(--budget-spaceDense); line-height: var(--budget-lineCompact); white-space: normal; }
+.views :global(.mantine-SegmentedControl-label) { padding-inline: var(--budget-spaceDense); min-height: var(--budget-targetMin); display: flex; align-items: center; justify-content: center; }

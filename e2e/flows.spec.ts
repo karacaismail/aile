@@ -186,3 +186,109 @@ test('API erişilemezken önbellekten açılır, ekleme kuyruğa girer ve bağla
   await page.getByRole('button', { name: 'Şimdi eşitle' }).click();
   await expect(page.getByTestId('sync-status')).toHaveAttribute('aria-label', /Eşitlendi/);
 });
+
+const recoveryName = 'Deneme salonu için uzun isimli koltuk takımı';
+const recoveryData = {
+  settings: [],
+  items: [
+    { id: 'recovery-open', tip: 'satinalma', ad: recoveryName, durum: 'siparis', faz: '1', oda: 'salon', version: 1 },
+    { id: 'recovery-done', tip: 'satinalma', ad: 'Kurulmuş çalışma masası', durum: 'kuruldu', faz: '1', oda: 'salon', version: 1 },
+    { id: 'recovery-cancelled', tip: 'satinalma', ad: 'İptal edilmiş lamba', durum: 'iptal', faz: '1', oda: 'salon', version: 1 },
+  ],
+};
+
+test('alım kurtarma: Alındı sonrası kalıcı Geri al ve klavye odağı kayda döner', async ({ page, browserName }, testInfo) => {
+  await mockApi(page, recoveryData);
+  await page.goto('/#/satinalma');
+  const checkbox = page.getByRole('checkbox', { name: `${recoveryName} alındı` });
+  await expect(checkbox).toBeVisible();
+  await expect(page.getByRole('radio', { name: 'Alınacaklar 1' })).toBeChecked();
+  expect((await page.getByRole('radiogroup', { name: 'Alım listesi' }).boundingBox())!.height, 'view selector remains a compact readable control').toBeLessThanOrEqual(88);
+  await expect(page.getByTestId('item-card')).toHaveCount(1);
+  for (let i = 0; i < 40 && !(await checkbox.evaluate(el => el === document.activeElement)); i++) await page.keyboard.press(browserName === 'webkit' ? 'Alt+Tab' : 'Tab');
+  await expect(checkbox).toBeFocused();
+  await page.keyboard.press('Space');
+  const toast = page.getByRole('alert').filter({ hasText: `${recoveryName} alındı` });
+  const undo = toast.getByRole('button', { name: 'Geri al' });
+  await expect(undo).toBeFocused();
+  if (page.viewportSize()!.width === 320) {
+    const message = toast.getByText(`${recoveryName} alındı olarak işaretlendi.`, { exact: true });
+    const textBox = (await message.boundingBox())!;
+    const actionBox = (await undo.boundingBox())!;
+    expect(actionBox.y, 'narrow toast places action after the full-width message').toBeGreaterThanOrEqual(textBox.y + textBox.height);
+    expect((await toast.boundingBox())!.height, 'long name must not make a tall narrow column').toBeLessThanOrEqual(200);
+  }
+  await expect(page.getByTestId('item-card')).toHaveCount(0);
+  // Persistence is a behavioral requirement: the previous control expired after five seconds.
+  await page.waitForTimeout(6100);
+  await expect(undo).toBeVisible();
+  expect(await undo.locator('.mantine-Button-label').evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  expect(await undo.evaluate(el => getComputedStyle(el).outlineStyle)).toBe('none');
+  expect(await undo.evaluate(el => getComputedStyle(el).textDecorationLine)).toContain('underline');
+  await page.screenshot({ path: testInfo.outputPath('purchase-undo.png'), fullPage: true });
+  await page.keyboard.press('Enter');
+  const returned = page.getByRole('link', { name: `${recoveryName} detayı` });
+  await expect(returned).toBeFocused();
+  await expect(returned).toBeInViewport();
+  await expect(checkbox).not.toBeChecked();
+  await page.screenshot({ path: testInfo.outputPath('purchase-restored.png'), fullPage: true });
+});
+
+test('alım kurtarma: Aldıklarımızdan sonradan kaldırma, ters işlemde Geri al ve çevrimdışı kalıcılık', async ({ page }, testInfo) => {
+  await mockApi(page, recoveryData);
+  await page.goto('/#/satinalma');
+  await expect(page.getByTestId('item-card')).toHaveCount(1);
+  await page.getByText('Aldıklarımız', { exact: true }).click();
+  const checkbox = page.getByRole('checkbox', { name: 'Kurulmuş çalışma masası alındı' });
+  await expect(checkbox).toBeChecked();
+  await expect(page.getByTestId('item-card')).toHaveCount(1);
+  await expect(page.getByText('İptal edilmiş lamba')).toBeHidden();
+  const views = page.getByRole('radiogroup', { name: 'Alım listesi' });
+  await expect.poll(() => views.evaluate(root => {
+    const input = root.querySelector<HTMLInputElement>('input:checked')!;
+    const selected = root.querySelector(`label[for="${CSS.escape(input.id)}"]`)!.getBoundingClientRect();
+    const indicator = root.querySelector('.mantine-SegmentedControl-indicator')!.getBoundingClientRect();
+    return Math.abs(selected.x - indicator.x) + Math.abs(selected.width - indicator.width);
+  }), { message: 'selected surface settles on Aldıklarımız before visual evidence' }).toBeLessThan(2);
+  await page.screenshot({ path: testInfo.outputPath('purchase-completed.png'), fullPage: true });
+  await page.route('**/macros/s/**', route => route.abort('internetdisconnected'));
+  await checkbox.click();
+  const toast = page.getByRole('alert').filter({ hasText: 'Alındı işareti kaldırıldı' });
+  await toast.getByRole('button', { name: 'Geri al' }).click();
+  await expect(checkbox).toBeChecked();
+  await expect(page.getByTestId('item-card').getByText('Kuruldu', { exact: true })).toBeVisible();
+  await checkbox.click();
+  await toast.getByRole('button', { name: 'Kapat' }).click();
+  await page.getByText('Alınacaklar', { exact: true }).click();
+  await expect(page.getByTestId('item-card')).toHaveCount(2);
+  await expect(checkbox).not.toBeChecked();
+  await expect(page.getByTestId('sync-status')).toHaveAttribute('aria-label', /Çevrimdışı/);
+  await page.reload();
+  await expect(checkbox).not.toBeChecked();
+  await expect(page.getByTestId('item-card')).toHaveCount(2);
+  await page.getByText('Tüm kalemler', { exact: true }).click();
+  await expect(page.getByTestId('item-card')).toHaveCount(3);
+  await expect(page.getByText('İptal edilmiş lamba')).toBeVisible();
+});
+
+test('alım kurtarma: 320 görünüm seçicisi ve ilk kayıt birlikte okunur', async ({ page }, testInfo) => {
+  await mockApi(page, recoveryData);
+  await page.goto('/#/satinalma');
+  const group = page.getByRole('radiogroup', { name: 'Alım listesi' });
+  const title = page.getByRole('heading', { name: recoveryName });
+  for (const height of [568, 740]) {
+    await page.setViewportSize({ width: 320, height });
+    await expect(title).toBeVisible();
+    await expect(title).toBeInViewport({ ratio: 1 });
+    expect(await group.evaluate(root => [...root.querySelectorAll('label')].every(label => {
+      const box = label.getBoundingClientRect();
+      return [...label.querySelectorAll('span')].every(span => {
+        const range = document.createRange(); range.selectNodeContents(span);
+        const text = range.getBoundingClientRect();
+        return text.left >= box.left - 1 && text.right <= box.right + 1 && parseFloat(getComputedStyle(span).fontSize) >= 14;
+      });
+    })), 'view names and counts fit their own targets without small text').toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`purchase-320x${height}.png`) });
+  }
+});

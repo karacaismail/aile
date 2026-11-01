@@ -132,24 +132,25 @@ describe('PurchaseList filtre deneyimi', () => {
     const rail = screen.getByTestId('filter-rail');
     expect(within(rail).getByRole('checkbox', { name: 'Fiyatsız 1' })).not.toBeChecked();
     expect(within(rail).getByRole('checkbox', { name: 'Karar bekliyor 1' })).toBeInTheDocument();
-    expect(within(rail).getByRole('checkbox', { name: 'Alınacaklar 2' })).toBeInTheDocument();
-    expect(screen.getByTestId('totals-count')).toHaveTextContent('3 kalem');
+    expect(screen.getByRole('radio', { name: 'Alınacaklar 2' })).toBeChecked();
+    expect(screen.getByTestId('totals-count')).toHaveTextContent('2 kalem');
     await userEvent.click(within(rail).getByText('Fiyatsız'));
     await vi.waitFor(() => expect(within(screen.getByTestId('item-list')).getAllByTestId('item-card')).toHaveLength(1));
     expect(screen.getByText('Perde')).toBeInTheDocument();
     expect(screen.getByTestId('filter-button')).toHaveAccessibleName('Filtrele, 1 etkin');
-    expect(screen.getByTestId('totals-count')).toHaveTextContent('1 / 3 kalem');
+    expect(screen.getByTestId('totals-count')).toHaveTextContent('1 / 2 kalem');
     // Alınacaklar sayımı diğer filtreye göre daralır
-    expect(within(rail).getByRole('checkbox', { name: 'Alınacaklar 1' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Alınacaklar 1' })).toBeChecked();
   });
 
-  it('kapananlar en altta; Alınacaklar gizler; sayfadan oda seçimi şeritte kaldırılabilir çip olur', async () => {
+  it('Tüm kalemlerde kapananlar en altta; Alınacaklar ayırır; oda filtresi görünümden bağımsızdır', async () => {
     seed();
     render(withRouter(<PurchaseList />));
     const cards = () => within(screen.getByTestId('item-list')).getAllByTestId('item-card');
+    await userEvent.click(screen.getByRole('radio', { name: 'Tüm kalemler 3' }));
     expect(cards()).toHaveLength(3);
     expect(cards()[2]).toHaveAttribute('data-done');
-    await userEvent.click(within(screen.getByTestId('filter-rail')).getByText('Alınacaklar'));
+    await userEvent.click(screen.getByRole('radio', { name: 'Alınacaklar 2' }));
     await vi.waitFor(() => expect(cards()).toHaveLength(2));
     // Sayfa: oda
     await userEvent.click(screen.getByTestId('filter-button'));
@@ -160,13 +161,14 @@ describe('PurchaseList filtre deneyimi', () => {
     await vi.waitFor(() => expect(screen.queryByTestId('filter-drawer')).toBeNull());
     const active = screen.getByTestId('active-chip-oda-mutfak');
     expect(within(active).getByRole('checkbox')).toBeChecked();
-    expect(screen.getByTestId('filter-button')).toHaveAccessibleName('Filtrele, 2 etkin');
+    expect(screen.getByTestId('filter-button')).toHaveAccessibleName('Filtrele, 1 etkin');
     await userEvent.click(within(active).getByText('Mutfak'));
     await vi.waitFor(() => expect(screen.queryByTestId('active-chip-oda-mutfak')).toBeNull());
     expect(cards()).toHaveLength(2);
-    // Temizle hepsini sıfırlar
-    await userEvent.click(within(screen.getByTestId('filter-rail')).getByRole('button', { name: /Temizle/ }));
-    await vi.waitFor(() => expect(cards()).toHaveLength(3));
+    // Son oda filtresi kalkınca alım görünümü korunur; tüm kayıtlar ayrı görünümden bulunur.
+    expect(screen.getByTestId('filter-button')).toHaveAccessibleName('Filtrele');
+    await userEvent.click(screen.getByRole('radio', { name: 'Tüm kalemler 3' }));
+    expect(cards()).toHaveLength(3);
   });
 
   it('eski localStorage şeması güvenle okunur; faz uygulanır', () => {
@@ -182,7 +184,7 @@ describe('PurchaseList filtre deneyimi', () => {
     localStorage.setItem('aile:purchase:filters', '{bozuk');
     seed();
     render(withRouter(<PurchaseList />));
-    expect(within(screen.getByTestId('item-list')).getAllByTestId('item-card')).toHaveLength(3);
+    expect(within(screen.getByTestId('item-list')).getAllByTestId('item-card')).toHaveLength(2);
   });
 
   it('sıfır sayımlı hızlı çip devre dışı: boş sonuca götürmez', async () => {
@@ -202,12 +204,13 @@ describe('PurchaseList filtre deneyimi', () => {
     const empty = await screen.findByTestId('empty-state');
     expect(empty).toHaveTextContent('Filtreye uyan kalem yok');
     await userEvent.click(within(empty).getByRole('button', { name: 'Filtreleri temizle' }));
-    await vi.waitFor(() => expect(within(screen.getByTestId('item-list')).getAllByTestId('item-card')).toHaveLength(3));
+    await vi.waitFor(() => expect(within(screen.getByTestId('item-list')).getAllByTestId('item-card')).toHaveLength(2));
   });
 
   it('sıralama düğmesi: Ad seçilince açık kalemler ada göre, kapananlar yine en altta', async () => {
     seed();
     render(withRouter(<PurchaseList />));
+    await userEvent.click(screen.getByRole('radio', { name: 'Tüm kalemler 3' }));
     await userEvent.click(screen.getByTestId('sort-button'));
     const sheet = await screen.findByTestId('sort-sheet');
     await userEvent.click(within(sheet).getByRole('radio', { name: /Ad/ }));
@@ -304,7 +307,7 @@ describe('Kayıt yolculuğu: yeni kalem formu ve kayıt sonrası görünürlük'
     expect(screen.getByTestId('filter-button')).toHaveAccessibleName('Filtrele');
     expect(screen.getByRole('radio', { name: 'Sonra' })).toBeChecked(); // kaydın fazı korunur, yalnız gizleyen filtre kalkar
     // Bildirim kapanınca odak gövdeye düşmez: kayıt listede yoksa (burada upsert sahte) kalan liste kontrolüne gider
-    expect(screen.getByTestId('filter-button')).toHaveFocus();
+    expect(screen.getByRole('radio', { name: /^Alınacaklar/ })).toHaveFocus();
   });
 
   it('var olan kalemde değişiklik yoksa Kaydet Sheets\'e yazmaz ve form kapanır', async () => {

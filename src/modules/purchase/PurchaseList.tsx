@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActionIcon, Box, Button, CloseButton, Divider, EmptyState, Group, Indicator, Paper, SimpleGrid, TextInput, Skeleton } from '@mantine/core';
+import { ActionIcon, Box, Button, CloseButton, Divider, EmptyState, Group, Indicator, Paper, SimpleGrid, TextInput, Skeleton, SegmentedControl } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { ArrowCounterClockwiseIcon } from '@phosphor-icons/react/dist/csr/ArrowCounterClockwise';
 import { FunnelSimpleIcon } from '@phosphor-icons/react/dist/csr/FunnelSimple';
@@ -10,11 +10,11 @@ import { ShoppingCartIcon } from '@phosphor-icons/react/dist/csr/ShoppingCart';
 import { useDebouncedValue, useLocalStorage } from '@mantine/hooks';
 import { Link, Route, useLocation } from 'wouter';
 import type { Item } from '@shared/schema';
-import { useAppStore } from '@/sync/store';
+import { getState, useAppStore } from '@/sync/store';
 import { upsert } from '@/sync/controller';
 import { toDate, todayIso } from '@/lib/dates';
 import {
-  CLOSED_DURUM, DEFAULT_FILTERS, activeFilterCount, countWith, filterPurchases, normalizeFilters, optionCounts, sortItems, totalsOf,
+  CLOSED_DURUM, DONE_DURUM, DEFAULT_FILTERS, activeFilterCount, countWith, filterPurchases, normalizeFilters, optionCounts, sortItems, totalsOf,
   type FacetField, type PurchaseFilters, type SortKey,
 } from '@/data/selectors';
 import { SourceNote } from '@/components/Info';
@@ -47,6 +47,15 @@ function readStored(v: string | undefined): PurchaseFilters {
   try { return normalizeFilters(v ? JSON.parse(v) : undefined); } catch { return { ...DEFAULT_FILTERS }; }
 }
 
+type PurchaseView = 'pending' | 'done' | 'all';
+const PURCHASE_VIEWS = [
+  { value: 'pending', label: 'Alınacaklar' },
+  { value: 'done', label: 'Aldıklarımız' },
+  { value: 'all', label: 'Tüm kalemler' },
+] as const;
+const inView = (durum: string | undefined, view: PurchaseView) => view === 'all' || (view === 'done' ? DONE_DURUM.has(durum ?? '') : !CLOSED_DURUM.has(durum ?? ''));
+const viewFilters = (filters: PurchaseFilters, view: PurchaseView): PurchaseFilters => ({ ...filters, hideDone: false, durum: filters.durum.filter(durum => inView(durum, view)) });
+
 export function PurchaseList() {
   const { items, hydrated, status } = useAppStore(selectItems);
   const [, navigate] = useLocation();
@@ -58,11 +67,18 @@ export function PurchaseList() {
   const [q, setQ] = useState('');
   const [dq] = useDebouncedValue(q, 200);
   const [sheet, setSheet] = useState(false);
+  const [view, setView] = useState<PurchaseView>('pending');
+  const viewRef = useRef<HTMLDivElement>(null);
+  const undoTokens = useRef(new Map<string, symbol>());
+  useEffect(() => {
+    const pending = undoTokens.current;
+    return () => { pending.forEach((_, id) => notifications.hide(`done-${id}`)); pending.clear(); };
+  }, []);
   const todayKey = todayIso(new Date());
   const now = useMemo(() => toDate(todayKey), [todayKey]);
 
   // Arama kalıcı değil (bayat terim "kalemlerim nereye gitti?"nin en sık nedeni); depoda q her zaman boştur.
-  const f: PurchaseFilters = useMemo(() => ({ ...normalizeFilters(stored), q: dq }), [stored, dq]);
+  const f: PurchaseFilters = useMemo(() => viewFilters({ ...normalizeFilters(stored), q: dq }, view), [stored, dq, view]);
   // Şerit/faz değişince liste başa döner (yapışkan araç çubuğu); sayfa açıkken (liste yanda görünür) kaydırma yok.
   const setFilters = useCallback((nf: PurchaseFilters, opts: { scroll?: boolean } = {}) => {
     setStored({ ...nf, q: '' });
@@ -70,9 +86,17 @@ export function PurchaseList() {
   }, [setStored]);
   const setFromSheet = useCallback((nf: PurchaseFilters) => setFilters(nf, { scroll: false }), [setFilters]);
 
-  const list = useMemo(() => sortItems(filterPurchases(items, f, now), sort), [items, f, now, sort]);
+  const chooseView = (next: PurchaseView) => {
+    setView(next);
+    setFilters(viewFilters(f, next));
+  };
+  const viewItems = useMemo(() => items.filter(item => inView(item.durum, view)), [items, view]);
+  const viewCounts = useMemo(() => Object.fromEntries(PURCHASE_VIEWS.map(({ value }) => [value,
+    filterPurchases(items.filter(item => inView(item.durum, value)), viewFilters(f, value), now).length,
+  ])) as Record<PurchaseView, number>, [items, f, now]);
+  const list = useMemo(() => sortItems(filterPurchases(viewItems, f, now), sort), [viewItems, f, now, sort]);
   const totals = useMemo(() => totalsOf(list, now), [list, now]);
-  const baseCount = useMemo(() => filterPurchases(items, { ...DEFAULT_FILTERS, faz: f.faz }, now).length, [items, f.faz, now]);
+  const baseCount = useMemo(() => filterPurchases(viewItems, { ...DEFAULT_FILTERS, faz: f.faz }, now).length, [viewItems, f.faz, now]);
   const nActive = activeFilterCount(f);
   const filtered = nActive > 0 || dq.trim() !== '';
   const hasAny = useMemo(() => items.some((i) => i.tip === 'satinalma' && !i.deleted_at), [items]);
@@ -84,34 +108,55 @@ export function PurchaseList() {
     for (const field of ['oda', 'kategori', 'durum'] as const) {
       const vals = f[field].filter((v) => !(field === 'durum' && v === 'siparis'));
       if (!vals.length) continue;
-      const counts = optionCounts(items, field === 'durum' ? { ...f, hideDone: false } : f, field, now);
+      const counts = optionCounts(viewItems, f, field, now);
       for (const v of vals) out.push({ field, value: v, count: counts.get(v) ?? 0 });
     }
     return out;
-  }, [items, f, now]);
+  }, [viewItems, f, now]);
   const removeFacet = (field: FacetField, value: string) => setFilters({ ...f, [field]: f[field].filter((x) => x !== value) });
 
-  const firstClosed = useMemo(() => (f.hideDone || f.durum.length ? -1 : list.findIndex((i) => CLOSED_DURUM.has(i.durum ?? ''))), [list, f.hideDone, f.durum.length]);
-  const hiddenDone = !f.hideDone ? 0 : countWith(items, f, { hideDone: false }, now) - list.length;
-  const hiddenMevcut = f.mevcutDahil ? 0 : countWith(items, f, { mevcutDahil: true }, now) - list.length;
+  const firstClosed = useMemo(() => (view !== 'all' || f.durum.length ? -1 : list.findIndex((i) => CLOSED_DURUM.has(i.durum ?? ''))), [list, view, f.durum.length]);
+  const hiddenMevcut = f.mevcutDahil ? 0 : countWith(viewItems, f, { mevcutDahil: true }, now) - list.length;
 
   const toggleDone = (item: Item, done: boolean) => {
-    const prev = item.durum;
-    upsert('kalemler', item.id, { durum: done ? 'teslim' : 'karar' });
-    if (done && f.hideDone) {
-      notifications.show({
-        id: `done-${item.id}`, autoClose: 5000, color: 'teal', withCloseButton: true, closeButtonProps: { size: 'xl', 'aria-label': 'Kapat' },
-        message: (
-          <Group justify="space-between" wrap="nowrap" gap="xs">
-            <span>Alındı olarak işaretlendi</span>
-            <Button size="compact-sm" variant="subtle" color="ember" leftSection={<ArrowCounterClockwiseIcon size={16} aria-hidden />}
-              onClick={() => { upsert('kalemler', item.id, { durum: prev ?? 'karar' }); notifications.hide(`done-${item.id}`); }}>
-              Geri al
-            </Button>
-          </Group>
-        ),
-      });
-    }
+    const current = getState().items.find(candidate => candidate.id === item.id && !candidate.deleted_at);
+    if (!current || current.durum === 'iptal') return;
+    const previous = current.durum;
+    const token = Symbol(item.id);
+    undoTokens.current.set(item.id, token);
+    const nid = `done-${item.id}`;
+    notifications.hide(nid);
+    const keyboard = document.documentElement.dataset.keyboard === 'true';
+    const next = done ? 'teslim' : 'karar';
+    upsert('kalemler', item.id, { durum: next });
+    let undoButton: HTMLButtonElement | null = null;
+    notifications.show({
+      id: nid, autoClose: false, color: 'teal', withCloseButton: true, closeButtonProps: { size: 'xl', 'aria-label': 'Kapat' },
+      onOpen: () => { if (keyboard) undoButton?.focus(); },
+      onClose: () => { if (undoTokens.current.get(item.id) === token) undoTokens.current.delete(item.id); },
+      message: (
+        <Group wrap="wrap" gap="xs">
+          <span style={{ minWidth: 0, flexBasis: '100%' }}>{current.ad} {done ? 'alındı olarak işaretlendi.' : 'için Alındı işareti kaldırıldı.'}</span>
+          <Button ref={node => { undoButton = node; }} size="sm" h={tokens.targetMin} style={{ flexShrink: 0 }} variant="subtle" color="ember"
+            leftSection={<ArrowCounterClockwiseIcon size={16} aria-hidden />} onClick={() => {
+              if (undoTokens.current.get(item.id) !== token) return;
+              undoTokens.current.delete(item.id);
+              notifications.hide(nid);
+              const latest = getState().items.find(candidate => candidate.id === item.id && !candidate.deleted_at);
+              if (!latest || latest.durum !== next) {
+                notifications.show({ message: 'Kayıt değişti; eski işaretleme geri alınmadı.', color: 'yellow' });
+                setFocusAfterShow(item.id);
+                return;
+              }
+              // Yalnız bizim durum değişikliğimiz geri alınır; yeni fiyat, not ve diğer alanlar korunur.
+              upsert('kalemler', item.id, { durum: previous ?? null });
+              setFocusAfterShow(item.id);
+            }}>
+            Geri al
+          </Button>
+        </Group>
+      ),
+    });
   };
 
   // Yeni kalem kullanıcının baktığı yere eklenir: etkin faz ve tek seçili oda/kategori ön değer olur.
@@ -128,14 +173,15 @@ export function PurchaseList() {
     const card = listRef.current?.querySelector<HTMLElement>(`[data-item-id="${CSS.escape(focusAfterShow)}"] [role="link"]`);
     // Arama temizlendi ama gecikmeli terim henüz yetişmediyse liste eski; yeniden çizilince tekrar denenir.
     if (!card && q !== dq) return;
-    (card ?? filterRef.current)?.focus();
+    (card ?? viewRef.current?.querySelector<HTMLInputElement>('input:checked') ?? filterRef.current)?.focus();
     setFocusAfterShow(null);
   }, [focusAfterShow, list, q, dq]);
   const afterSave = (saved: Item, isNew: boolean) => {
     const base = isNew ? 'Kalem eklendi' : 'Kaydedildi';
-    if (filterPurchases([saved], f, now).length > 0) { notifications.show({ message: base, color: 'green', autoClose: 1500 }); return; }
+    if (inView(saved.durum, view) && filterPurchases([saved], f, now).length > 0) { notifications.show({ message: base, color: 'green', autoClose: 1500 }); return; }
     const nid = `saved-${saved.id}`;
     const show = () => {
+      setView(DONE_DURUM.has(saved.durum ?? '') ? 'done' : saved.durum === 'iptal' ? 'all' : 'pending');
       setQ('');
       setFilters({ ...DEFAULT_FILTERS, faz: f.faz === 'hepsi' || f.faz === saved.faz ? f.faz : (saved.faz ?? 'hepsi'), mevcutDahil: !!saved.mevcut });
       notifications.hide(nid);
@@ -153,11 +199,15 @@ export function PurchaseList() {
     });
   };
 
-  const emptyAllDone = hasAny && list.length === 0 && f.hideDone && hiddenDone > 0 && nActive === 1 && !dq;
+  const emptyAllDone = hasAny && list.length === 0 && view === 'pending' && viewCounts.done > 0 && nActive === 0 && !dq;
   const emptyByFaz = hasAny && list.length === 0 && nActive === 0 && !dq && f.faz !== 'hepsi';
 
   return (
     <Box pb={96}>
+      {hasAny && <div ref={viewRef} className={classes.views}>
+        <SegmentedControl fullWidth value={view} onChange={value => chooseView(value as PurchaseView)} aria-label="Alım listesi"
+          data={PURCHASE_VIEWS.map(({ value, label }) => ({ value, label: <span className={classes.viewLabel}><span>{label}</span> <span className="tabular">{viewCounts[value]}</span></span> }))} />
+      </div>}
       <TotalsBar faz={f.faz} onFaz={(faz) => setFilters({ ...f, faz })} totals={totals} count={list.length} total={baseCount} filtered={filtered} />
       {hasAny && (
         <Paper className={classes.toolbar} px="sm" pt={4} pb={6} radius={0} data-testid="filter-toolbar">
@@ -167,7 +217,7 @@ export function PurchaseList() {
               leftSection={<MagnifyingGlassIcon size={18} aria-hidden />} type="search" enterKeyHint="search"
               rightSection={q ? <CloseButton size="xl" aria-label="Aramayı temizle" onClick={() => setQ('')} /> : undefined} rightSectionWidth={q ? 44 : undefined} rightSectionPointerEvents="all"
             />
-            <SortControl value={sort} options={SORT_OPTIONS} onChange={setSort} defaultValue="oncelik" hint="Alınan ve iptal edilenler her sıralamada en altta." />
+            <SortControl value={sort} options={SORT_OPTIONS} onChange={setSort} defaultValue="oncelik" hint={view === 'all' ? "Alınan ve iptal edilenler her sıralamada en altta." : undefined} />
             <Indicator disabled={nActive === 0} label={nActive} size={22} offset={4} color="ember" autoContrast>
               <ActionIcon ref={filterRef} variant={nActive ? 'light' : 'subtle'} color={nActive ? 'ember' : 'gray'} aria-label={nActive ? `Filtrele, ${nActive} etkin` : 'Filtrele'}
                 aria-haspopup="dialog" aria-expanded={sheet} onClick={() => setSheet(true)} data-testid="filter-button">
@@ -186,7 +236,7 @@ export function PurchaseList() {
                 <FilterChip label="Mevcut dahil" checked icon="x" onChange={() => setFilters({ ...f, mevcutDahil: false })} data-testid="active-chip-mevcut" />
               )}
               {(activeFacets.length > 0 || f.mevcutDahil) && <Divider orientation="vertical" h={28} style={{ alignSelf: 'center', flexShrink: 0 }} />}
-              <QuickChips items={items} filters={f} onChange={setFilters} now={now} />
+              <QuickChips items={viewItems} filters={f} onChange={setFilters} now={now} />
               {nActive > 0 && (
                 <Button variant="subtle" color="ember" size="compact-sm" onClick={() => setFilters(clearedFilters(f))} style={{ flexShrink: 0 }}>Temizle</Button>
               )}
@@ -203,12 +253,12 @@ export function PurchaseList() {
           <EmptyState
             style={{ gridColumn: '1 / -1' }}
             icon={<ShoppingCartIcon size={40} aria-hidden />}
-            title={emptyAllDone ? 'Bu kapsamda hepsi alındı' : emptyByFaz ? 'Bu fazda kalem yok' : hasAny ? 'Filtreye uyan kalem yok' : 'Henüz kalem yok'}
-            description={emptyAllDone ? `${hiddenDone} kalem alındı ya da kapandı.` : emptyByFaz ? 'Başka fazlarda kalem var.' : hasAny ? 'Filtreyi gevşetin ya da aramayı temizleyin.' : status === 'unconfigured' ? 'Sheets bağlantısını Ayarlar\'dan kurun ya da + ile kalem ekleyin.' : 'İlk kalemi + ile ekleyin.'}
+            title={emptyAllDone ? 'Alınacak kalem kalmadı' : emptyByFaz ? 'Bu fazda kalem yok' : hasAny && !filtered && view === 'done' ? 'Henüz alınmış kalem yok' : hasAny ? 'Filtreye uyan kalem yok' : 'Henüz kalem yok'}
+            description={emptyAllDone ? `${viewCounts.done} kalem Aldıklarımız listesinde. Yanlış işaretlenen kalemin Alındı seçimini oradan kaldırabilirsiniz.` : emptyByFaz ? 'Başka fazlarda kalem var.' : hasAny && !filtered && view === 'done' ? 'Alındı olarak işaretlediğiniz kalemler burada görünecek.' : hasAny ? 'Filtreyi gevşetin ya da aramayı temizleyin.' : status === 'unconfigured' ? 'Sheets bağlantısını Ayarlar\'dan kurun ya da + ile kalem ekleyin.' : 'İlk kalemi + ile ekleyin.'}
             data-testid="empty-state"
           >
             <EmptyState.Actions>
-              {emptyAllDone && <Button onClick={() => setFilters({ ...f, hideDone: false })}>Alınanları göster</Button>}
+              {emptyAllDone && <Button onClick={() => chooseView('done')}>Aldıklarımızı göster</Button>}
               {emptyByFaz && <Button onClick={() => setFilters({ ...f, faz: 'hepsi' })}>Tüm fazları göster</Button>}
               {!emptyAllDone && nActive > 0 && <Button onClick={() => setFilters(clearedFilters(f))}>Filtreleri temizle</Button>}
               {dq && <Button variant="default" onClick={() => setQ('')}>Aramayı temizle</Button>}
@@ -223,7 +273,7 @@ export function PurchaseList() {
           list.map((item, idx) => (
             <Box key={item.id} display="contents">
               {idx === firstClosed && idx > 0 && (
-                <Divider className={classes.divider} label={`Alınan ve bitenler · ${list.length - idx}`} labelPosition="left" data-testid="closed-divider" />
+                <Divider className={classes.divider} label={`Alınan ve iptal edilenler · ${list.length - idx}`} labelPosition="left" data-testid="closed-divider" />
               )}
               <ItemCard item={item} onToggleDone={toggleDone} />
             </Box>
@@ -232,7 +282,7 @@ export function PurchaseList() {
       </SimpleGrid>
       <Box px="sm" id="purchase-total-scope"><SourceNote label="Toplamın kapsamı">Mevcut eşyalar ve iptal edilenler hariç kayıtlı ve tahmini bedellerdir; yapılmış ödeme toplamı değildir.</SourceNote></Box>
       <FilterSheet opened={sheet} onClose={() => setSheet(false)} resultCount={list.length} activeCount={nActive} onClear={() => setFilters(clearedFilters(f))}>
-        <PurchaseFilterSections items={items} filters={f} onChange={setFromSheet} now={now} />
+        <PurchaseFilterSections items={viewItems} filters={f} onChange={setFromSheet} now={now} />
       </FilterSheet>
       {hasAny && <Fab onClick={() => navigate('~/satinalma/yeni')} label="Kalem ekle" />}
       <Route path="/:id">{(params) => <ItemDetail key={params.id} id={params.id} defaults={newDefaults} onSaved={afterSave} />}</Route>

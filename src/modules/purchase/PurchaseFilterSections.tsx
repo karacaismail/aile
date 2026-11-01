@@ -9,7 +9,6 @@ import { DEFAULT_FILTERS, countWith, optionCounts, type PurchaseFilters, type Qu
 
 /** Şeritteki sabit hızlı çipler: kısa etiket, erişilebilir ad = görünen metin. Sıra sabit (kas hafızası). */
 export const QUICK_CHIPS: ReadonlyArray<{ key: QuickKey; label: string }> = [
-  { key: 'hideDone', label: 'Alınacaklar' },
   { key: 'fiyatsiz', label: 'Fiyatsız' },
   { key: 'kararBekliyor', label: 'Karar bekliyor' },
   { key: 'siparisYakin', label: 'Son tarih' },
@@ -53,7 +52,7 @@ export function QuickChips({ items, filters, onChange, now = new Date(), testIdP
 export function PurchaseFilterSections({ items, filters, onChange, now = new Date() }: SectionsProps) {
   const oda = useMemo(() => optionCounts(items, filters, 'oda', now), [items, filters, now]);
   const kategori = useMemo(() => optionCounts(items, filters, 'kategori', now), [items, filters, now]);
-  // Durum: Alınacaklar açıkken de kapalı durumlar seçilebilsin (seçilince o durum görünür)
+  // Durum seçenekleri seçili alım listesinin kapsamından gelir.
   const durum = useMemo(() => optionCounts(items, { ...filters, hideDone: false }, 'durum', now), [items, filters, now]);
   const set = <K extends keyof PurchaseFilters>(k: K, v: PurchaseFilters[K]) => onChange({ ...filters, [k]: v });
   const quickActive = QUICK_CHIPS.filter((q) => filters[q.key]).length + (filters.durum.includes('siparis') ? 1 : 0);
