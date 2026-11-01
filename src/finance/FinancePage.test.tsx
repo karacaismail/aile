@@ -8,6 +8,8 @@ import { useFinance } from './useFinance';
 import { FinancePeriodProvider, useFinancePeriod } from '../app/family/FinancePeriod';
 import { useEffect } from 'react';
 
+vi.mock('../dashboard/Charts', () => ({ Chart: () => <div aria-label="Sentetik çizim" /> }));
+
 vi.mock('./useFinance', () => ({ useFinance: vi.fn() }));
 vi.mock('../dashboard/Select', () => ({ Select: (props: { value: string; onChange: (value: string) => void; data: { value: string; label: string }[] }) => <select aria-label="Dönem" value={props.value} onChange={event => props.onChange(event.target.value)}>{props.data.map(option => <option value={option.value} key={option.value}>{option.label}</option>)}</select> }));
 const mount = () => render(<MantineProvider><FinancePage /></MantineProvider>);
@@ -184,4 +186,21 @@ it('states the moved account in the real step cell, not only in the hidden narro
   expect(within(step).getByText('Denizbank kartı anaparası değişti').closest('[aria-hidden="true"]')).toBeNull();
   // The row's accessible name carries it too.
   expect(transfer).toHaveAccessibleName(/Denizbank kartı anaparası değişti/);
+});
+
+it('adds source-backed monthly trends only in the monthly view, with exact selected values and the complete source table', async () => {
+  mount();
+  expect(screen.queryByRole('region', { name: 'Nakit ve borcun seyri' })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('tab', { name: 'Aylık özet' }));
+  const trends = screen.getByRole('region', { name: 'Nakit ve borcun seyri' });
+  expect(within(trends).getByRole('group', { name: 'Harcanabilir nakit' })).toHaveTextContent('Ocak 2098500 ₺');
+  expect(within(trends).getByRole('group', { name: 'Toplam kart borcu' })).toHaveTextContent('Ocak 2098155 ₺');
+  expect(within(trends).getByRole('group', { name: 'KMH anaparası' })).toHaveTextContent('Ocak 20980 ₺');
+  expect(trends).toHaveTextContent(/ortak TL ölçeği/);
+  expect(screen.getByRole('table', { name: 'Aylık finansman özeti' })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Sonraki ay · Şubat 2098' }));
+  expect(within(trends).getByRole('group', { name: 'Harcanabilir nakit' })).toHaveTextContent('Şubat 20981.400 ₺');
+  expect(within(trends).getByRole('group', { name: 'Toplam kart borcu' })).toHaveTextContent('Şubat 2098305 ₺');
+  expect(screen.getByText(/banka oranı ve geçmiş faiz teyitsiz/)).toBeInTheDocument();
+  await screen.findAllByLabelText('Sentetik çizim');
 });

@@ -8,6 +8,7 @@ import { useFinance } from './useFinance';
 import { PageHeader } from '../app/family/PageHeader';
 import { DataStatus } from '../app/family/DataStatus';
 import { FactList, JourneyLinks, SectionHeading, SourceNote } from '../components/Info';
+import FinanceTrends from './FinanceTrends';
 import './finance.css';
 
 const monthLabel = (value: string) => new Intl.DateTimeFormat('tr-TR', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${value}-01T00:00:00Z`));
@@ -15,8 +16,8 @@ const dateLabel = (value: string) => new Intl.DateTimeFormat('tr-TR', { day: 'nu
 const signedMoney = (value: number) => `${value > 0 ? '+' : ''}${money(value)}`;
 const pageSize = 50;
 function Amount({ value }: { value: number }) { return <span className={value < 0 ? 'negative' : undefined}>{money(value)}</span>; }
-function ScrollTable({ label, children }: { label: string; children: ReactNode }) {
-  return <div className="table-scroll finance-table-scroll" tabIndex={0} role="region" aria-label={label} onKeyDown={event => {
+function ScrollTable({ label, children, id }: { label: string; children: ReactNode; id?: string }) {
+  return <div id={id} className="table-scroll finance-table-scroll" tabIndex={0} role="region" aria-label={label} onKeyDown={event => {
     if (event.target === event.currentTarget && ['ArrowLeft', 'ArrowRight'].includes(event.key)) {
       event.preventDefault(); event.currentTarget.scrollLeft += event.currentTarget.clientWidth / 2 * (event.key === 'ArrowRight' ? 1 : -1);
     }
@@ -108,8 +109,9 @@ function FinanceContent({ data }: { data: FinanceLedger }) {
         <p className="finance-explanation">Gerekli bakiye KMH kullanımını da içeren net nakit konumudur. Negatif değer harcanabilir para değildir. Nakit etkisi, adımlar arasındaki bu bakiye değişimidir.</p>
       </Tabs.Panel>
       <Tabs.Panel value="monthly">
+        <FinanceTrends months={data.months} selected={selected.month} tableId="finance-monthly-table" />
         <SectionHeading title="Aydan aya finansman" description="Google Sheets’teki ay sonu sonuçları. Seçili dönem tabloda vurgulanır." />
-        <ScrollTable label="Aylık finansman tablosu; yatay kaydırılabilir"><table className="finance-table" aria-label="Aylık finansman özeti"><thead><tr><th scope="col">Ay</th>{['Harcanabilir nakit', 'KMH anapara', 'KMH faiz + vergi', 'Kart borcu', 'Gelecek taksit', 'Birikimde kalan', 'Net nakit ve borç', 'Fon eksiği'].map(label => <th scope="col" key={label}>{label}</th>)}</tr></thead><tbody>{data.months.map(month => <tr key={month.month} data-selected={month.month === selected.month}><th scope="row">{monthLabel(month.month)}</th>{(['cash', 'kmhPrincipal', 'kmhCost', 'cardDebt', 'futureInstalments', 'reserve', 'knownNetAssets', 'fundingGap'] as const).map(key => <td className="numeric" key={key}><Amount value={month[key]} /></td>)}</tr>)}</tbody></table></ScrollTable>
+        <ScrollTable id="finance-monthly-table" label="Aylık finansman tablosu; yatay kaydırılabilir"><table className="finance-table" aria-label="Aylık finansman özeti"><thead><tr><th scope="col">Ay</th>{['Harcanabilir nakit', 'KMH anapara', 'KMH faiz + vergi', 'Kart borcu', 'Gelecek taksit', 'Birikimde kalan', 'Net nakit ve borç', 'Fon eksiği'].map(label => <th scope="col" key={label}>{label}</th>)}</tr></thead><tbody>{data.months.map(month => <tr key={month.month} data-selected={month.month === selected.month}><th scope="row">{monthLabel(month.month)}</th>{(['cash', 'kmhPrincipal', 'kmhCost', 'cardDebt', 'futureInstalments', 'reserve', 'knownNetAssets', 'fundingGap'] as const).map(key => <td className="numeric" key={key}><Amount value={month[key]} /></td>)}</tr>)}</tbody></table></ScrollTable>
       </Tabs.Panel>
     </Tabs>
   </>;

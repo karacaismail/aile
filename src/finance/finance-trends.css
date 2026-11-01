@@ -1,0 +1,12 @@
+.finance-trends { margin-bottom: var(--budget-spaceSection); }
+.finance-trends-heading { display: grid; gap: var(--budget-spaceTight); margin-bottom: var(--budget-spacing); }
+.finance-trends-heading p, .finance-trend-zero, .finance-trend-value span { color: var(--budget-muted); }
+.finance-trend-panels { display: grid; gap: var(--budget-spacing); }
+.finance-trend-panel { min-width: 0; background: var(--budget-paper); border-radius: var(--budget-radius); padding: var(--budget-spaceSmall); }
+.finance-trend-caption { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: start; gap: var(--budget-spaceSmall); }
+.finance-trend-caption h3 { margin: 0; font-size: var(--budget-fontSection); }
+.finance-trend-value { display: grid; gap: var(--budget-spaceDense); }
+.finance-trend-value strong { font-size: var(--budget-chartValueSize); font-variant-numeric: tabular-nums; }
+.finance-trend-panel .budget-chart { height: var(--budget-chartTrendHeight); }
+.finance-trend-context { margin-top: var(--budget-spacing); display: grid; gap: var(--budget-spaceTight); background: var(--budget-blueSurface); padding: var(--budget-spaceSmall); border-radius: var(--budget-radius); }
+.finance-trend-context a { width: fit-content; text-underline-offset: var(--budget-spaceDense); }
