@@ -1,0 +1,209 @@
+[
+  {
+    "key": "listing",
+    "label": "Liste",
+    "supported_kinds": [
+      "purchase_need",
+      "lighting_spec",
+      "work_order",
+      "layout_item",
+      "provider",
+      "inspection",
+      "automation_scene",
+      "milestone",
+      "payment",
+      "budget_observation",
+      "forecast_event"
+    ],
+    "required_fields": [
+      "id",
+      "label"
+    ],
+    "sort_fields": [
+      "label"
+    ],
+    "aggregation": null,
+    "capabilities": [
+      "filter",
+      "search",
+      "sort",
+      "open_detail"
+    ]
+  },
+  {
+    "key": "table",
+    "label": "Tablo",
+    "supported_kinds": [
+      "purchase_need",
+      "lighting_spec",
+      "work_order",
+      "layout_item",
+      "provider",
+      "inspection",
+      "automation_scene",
+      "milestone",
+      "payment",
+      "budget_observation",
+      "forecast_event",
+      "forecast_month"
+    ],
+    "required_fields": [
+      "id"
+    ],
+    "sort_fields": [
+      "label",
+      "provenance.row"
+    ],
+    "aggregation": null,
+    "capabilities": [
+      "filter",
+      "search",
+      "sort",
+      "column_selection",
+      "open_detail"
+    ],
+    "primary_field_by_kind": {
+      "forecast_month": "period"
+    }
+  },
+  {
+    "key": "gantt_chart",
+    "label": "Gantt",
+    "supported_kinds": [
+      "work_order",
+      "milestone"
+    ],
+    "required_fields": [
+      "id",
+      "label",
+      "dates.planned_on",
+      "dates.end_on"
+    ],
+    "sort_fields": [
+      "dates.planned_on"
+    ],
+    "aggregation": null,
+    "capabilities": [
+      "filter",
+      "dependency_links",
+      "open_detail"
+    ],
+    "missing_data_policy": "Exclude records missing either explicit date; never invent a duration or actual completion"
+  },
+  {
+    "key": "pivot",
+    "label": "Pivot",
+    "supported_kinds": [
+      "budget_observation",
+      "payment"
+    ],
+    "required_fields": [
+      "id"
+    ],
+    "sort_fields": [
+      "period",
+      "occurred_on"
+    ],
+    "aggregation": {
+      "allowed": [
+        "count",
+        "sum"
+      ],
+      "sum_measures": {
+        "payment": "amount.amount",
+        "budget_observation": "value.decimal"
+      },
+      "required_dimensions": [
+        "currency",
+        "basis",
+        "source"
+      ],
+      "ownership_rule": "Only an explicit leaf-row ownership mapping may enable summation; source subtotals and forecasts cannot be combined with payment records"
+    },
+    "capabilities": [
+      "filter",
+      "group",
+      "open_detail"
+    ]
+  },
+  {
+    "key": "kanban",
+    "label": "Kanban",
+    "supported_kinds": [
+      "purchase_need",
+      "work_order",
+      "inspection",
+      "provider"
+    ],
+    "required_fields": [
+      "id",
+      "label"
+    ],
+    "sort_fields": [
+      "label"
+    ],
+    "aggregation": null,
+    "capabilities": [
+      "filter",
+      "group_by_single_state_axis",
+      "open_detail"
+    ],
+    "state_axes": {
+      "purchase_need": [
+        "decision",
+        "fulfillment"
+      ],
+      "work_order": [
+        "decision",
+        "fulfillment"
+      ],
+      "inspection": [
+        "inspection"
+      ],
+      "provider": [
+        "provider"
+      ]
+    },
+    "missing_data_policy": "Unknown states remain an explicit unknown column; no transition is applied by this export"
+  },
+  {
+    "key": "timeline",
+    "label": "Zaman çizelgesi",
+    "supported_kinds": [
+      "purchase_need",
+      "work_order",
+      "milestone",
+      "payment",
+      "forecast_event"
+    ],
+    "required_fields": [
+      "id",
+      "label"
+    ],
+    "sort_fields": [
+      "dates.planned_on",
+      "occurred_on"
+    ],
+    "aggregation": null,
+    "capabilities": [
+      "filter",
+      "sort",
+      "open_detail"
+    ],
+    "date_field_by_kind": {
+      "purchase_need": "dates.planned_on",
+      "work_order": "dates.planned_on",
+      "milestone": "dates.planned_on",
+      "payment": "occurred_on",
+      "forecast_event": "occurred_on"
+    },
+    "missing_data_policy": "Undated records remain in an explicit undated group; planned dates are not actual transaction dates",
+    "date_basis_by_kind": {
+      "forecast_event": "forecast",
+      "payment": "user_recorded_payment",
+      "purchase_need": "planned",
+      "work_order": "planned",
+      "milestone": "planned"
+    }
+  }
+]

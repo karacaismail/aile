@@ -1,0 +1,411 @@
+{
+  "schemaVersion": 1,
+  "kind": "task_template_dictionary",
+  "status": "proposed_template",
+  "description": "Önerilen görev türleri. Gerçek aile görevi, kişi ataması, son tarih, satın alma veya ödeme olayı içermez.",
+  "dependency_policy": "Dependencies are template references, not automatically instantiated tasks. During instantiation mark already-satisfied or non-applicable dependencies explicitly; never require renting when the household already has a home.",
+  "guard_policy": "Guard names are declarative requirements for a future allowlisted validator, not executable code or a currently running workflow engine.",
+  "templates": [
+    {
+      "id": "define_project_scope",
+      "status": "proposed_template",
+      "title": "Ev ve taşınma kapsamını belirle",
+      "workflow_key": "task",
+      "applies_when": "Yeni veya kapsamı değişen ev projesi",
+      "dependencies": [],
+      "required_data": [
+        "project_id",
+        "property_or_candidate_reference",
+        "household_requirements"
+      ],
+      "guards": [
+        "project_scope_confirmed"
+      ],
+      "acceptance_criteria": [
+        "Kapsamdaki oda, iş ve alım ihtiyaçları kaynaklarıyla listelenmiş.",
+        "Bilinen ve belirsiz gereksinimler ayrı; olmayan tarih veya bütçe uydurulmamış."
+      ],
+      "instantiation_policy": "Create an actual task only for an explicitly selected project need; resolve applicable dependencies, owner and dates from evidence. This template does not assert assignment, completion, payment or provider selection."
+    },
+    {
+      "id": "select_rental_home",
+      "status": "proposed_template",
+      "title": "Kiralık ev adayını seç",
+      "workflow_key": "task",
+      "applies_when": "Kiralanacak ev henüz seçilmemiş",
+      "dependencies": [
+        "define_project_scope"
+      ],
+      "required_data": [
+        "candidate_references",
+        "room_requirements",
+        "recurring_costs",
+        "upfront_costs"
+      ],
+      "guards": [
+        "candidate_evidence_present",
+        "decision_recorded"
+      ],
+      "acceptance_criteria": [
+        "Seçilen aday ve karar gerekçesi kayıtlı.",
+        "Kira, aidat, depozito ve taşınma masrafı farklı anlamlarla belirtilmiş.",
+        "Seçim sözleşme veya ödeme yapılmış sayılmıyor."
+      ],
+      "instantiation_policy": "Create an actual task only for an explicitly selected project need; resolve applicable dependencies, owner and dates from evidence. This template does not assert assignment, completion, payment or provider selection."
+    },
+    {
+      "id": "review_lease",
+      "status": "proposed_template",
+      "title": "Kira sözleşmesini ve teslim koşullarını kaydet",
+      "workflow_key": "task",
+      "applies_when": "Kiralama kararı ve gerçek sözleşme belgesi var",
+      "dependencies": [
+        "select_rental_home"
+      ],
+      "required_data": [
+        "lease_document_reference",
+        "parties",
+        "property_reference",
+        "agreed_terms",
+        "handover_terms"
+      ],
+      "guards": [
+        "document_reference_present",
+        "terms_verified_by_user"
+      ],
+      "acceptance_criteria": [
+        "Belge, taraflar, başlangıç ve teslim koşulları doğrulanmış kaynakla bağlı.",
+        "Gerçek imza veya ödeme kanıtı olmadan imzalandı/ödendi yazılmıyor.",
+        "Belirsiz koşullar açık soruna dönüştürülmüş."
+      ],
+      "instantiation_policy": "Create an actual task only for an explicitly selected project need; resolve applicable dependencies, owner and dates from evidence. This template does not assert assignment, completion, payment or provider selection."
+    },
+    {
+      "id": "measure_room",
+      "status": "proposed_template",
+      "title": "Oda ölçülerini ve geçişleri doğrula",
+      "workflow_key": "task",
+      "applies_when": "Bir odaya ürün yerleşimi veya iş planlanıyor",
+      "dependencies": [
+        "define_project_scope"
+      ],
+      "required_data": [
+        "space_id",
+        "measurement_values",
+        "measurement_units",
+        "measurement_source"
+      ],
+      "guards": [
+        "space_identified",
+        "measurement_units_valid"
+      ],
+      "acceptance_criteria": [
+        "Ölçü, birim, kapı/geçiş ve gerekiyorsa priz noktaları kayıtlı.",
+        "Fotoğraf/çizim varsa kaynakla bağlı, olmayan ölçü tahmin diye işaretli."
+      ],
+      "instantiation_policy": "Create an actual task only for an explicitly selected project need; resolve applicable dependencies, owner and dates from evidence. This template does not assert assignment, completion, payment or provider selection."
+    },
+    {
+      "id": "find_and_compare_providers",
+      "status": "proposed_template",
+      "title": "Usta adaylarını bul ve tekliflerini karşılaştır",
+      "workflow_key": "task",
+      "applies_when": "Dış hizmet gerektiren bir iş seçilmiş",
+      "dependencies": [
+        "define_project_scope"
+      ],
+      "required_data": [
+        "work_scope",
+        "required_trade",
+        "candidate_references",
+        "quote_scope",
+        "quote_amounts",
+        "quote_timing"
+      ],
+      "guards": [
+        "scope_defined",
+        "provider_claims_not_assumed_verified"
+      ],
+      "acceptance_criteria": [
+        "Aday, teklif bedeli, iş kapsamı ve hariç tutulanlar ayrı kayıtlarda.",
+        "Usta bulundu, anlaşıldı, iş tamamlandı ve ödendi durumları birbirine çevrilmiyor.",
+        "Teklif seçiminin gerekçesi veya bekleyen karar açık."
+      ],
+      "instantiation_policy": "Create an actual task only for an explicitly selected project need; resolve applicable dependencies, owner and dates from evidence. This template does not assert assignment, completion, payment or provider selection."
+    },
+    {
+      "id": "plan_funding",
+      "status": "proposed_template",
+      "title": "Alımın ödeme ve finansman kaynağını doğrula",
+      "workflow_key": "task",
+      "applies_when": "Bütçe veya ödeme gerektiren bir ihtiyaç var",
+      "dependencies": [
+        "define_project_scope"
+      ],
+      "required_data": [
+        "purchase_or_obligation_reference",
+        "planned_amount",
+        "currency",
+        "candidate_accounts_or_agreements",
+        "known_available_funds"
+      ],
+      "guards": [
+        "available_amount_not_credit_limit",
+        "funding_evidence_present",
+        "same_currency_or_explicit_fx"
+      ],
+      "acceptance_criteria": [
+        "Nakit, birikim, kart, KMH ve kredi kullanımı doğru hesap/sözleşme türüne bağlı.",
+        "Kullanılmış limit yeni para sayılmamış; belirsiz kullanılabilir tutar açık.",
+        "Birden çok kaynak varsa tutarlar alım/ödeme planıyla uzlaşmış."
+      ],
+      "instantiation_policy": "Create an actual task only for an explicitly selected project need; resolve applicable dependencies, owner and dates from evidence. This template does not assert assignment, completion, payment or provider selection."
+    },
+    {
+      "id": "record_deposit",
+      "status": "proposed_template",
+      "title": "Kapora veya depozito koşullarını ve kaydını doğrula",
+      "workflow_key": "task",
+      "applies_when": "Gerçek bir kapora/depozito yükümlülüğü mevcut",
+      "dependencies": [
+        "plan_funding"
+      ],
+      "required_data": [
+        "agreement_reference",
+        "counterparty_reference",
+        "amount",
+        "currency",
+        "refundable_or_advance_terms",
+        "payment_evidence_if_paid"
+      ],
+      "guards": [
+        "deposit_classification_confirmed",
+        "actual_payment_requires_record"
+      ],
+      "acceptance_criteria": [
+        "Kapora, geri alınabilir depozito ve nihai gider birbirinden ayrılmış.",
+        "Ödendi deniyorsa gerçek ödeme kaydına bağlantı var.",
+        "İade/mahsup koşulları ve bilinmeyenler açık."
+      ],
+      "instantiation_policy": "Create an actual task only for an explicitly selected project need; resolve applicable dependencies, owner and dates from evidence. This template does not assert assignment, completion, payment or provider selection."
+    },
+    {
+      "id": "select_and_order_product",
+      "status": "proposed_template",
+      "title": "Ürün teklifini seç ve siparişini kaydet",
+      "workflow_key": "task",
+      "applies_when": "Satın alınması kararlaştırılan ihtiyaç var",
+      "dependencies": [
+        "plan_funding"
+      ],
+      "required_data": [
+        "purchase_need_id",
+        "product_variant",
+        "supplier_reference",
+        "offer_amount",
+        "currency",
+        "order_evidence_if_ordered",
+        "space_fit_if_relevant"
+      ],
+      "guards": [
+        "decision_recorded",
+        "variant_confirmed",
+        "dimensions_checked_if_required"
+      ],
+      "acceptance_criteria": [
+        "Ürün/varyant, teklif ve satıcı doğru ilişkilendirilmiş.",
+        "Sipariş bedeli, tahmini fiyat ve ödenen tutar ayrı.",
+        "Sipariş ve teslim tarihi yalnız kaynakta varsa dolu."
+      ],
+      "instantiation_policy": "Create an actual task only for an explicitly selected project need; resolve applicable dependencies, owner and dates from evidence. This template does not assert assignment, completion, payment or provider selection."
+    },
+    {
+      "id": "plan_plaster_materials",
+      "status": "proposed_template",
+      "title": "Alçı ve yüzey hazırlığı malzemelerini belirle",
+      "workflow_key": "task",
+      "applies_when": "Ölçülmüş yüzey için alçı/onarım işi planlanıyor",
+      "dependencies": [
+        "measure_room"
+      ],
+      "required_data": [
+        "work_scope",
+        "surface_measurements",
+        "selected_material_spec",
+        "quantity",
+        "unit",
+        "provider_or_user_estimate_source"
+      ],
+      "guards": [
+        "quantity_basis_recorded",
+        "unit_valid"
+      ],
+      "acceptance_criteria": [
+        "Malzeme, miktar, birim ve hesabın kaynağı kayıtlı.",
+        "Uzman değerlendirmesi gereken uygunluk varsayılmamış.",
+        "Planlanan alım gerçek satın alma veya ödeme sayılmıyor."
+      ],
+      "instantiation_policy": "Create an actual task only for an explicitly selected project need; resolve applicable dependencies, owner and dates from evidence. This template does not assert assignment, completion, payment or provider selection."
+    },
+    {
+      "id": "confirm_electrical_scope",
+      "status": "proposed_template",
+      "title": "Elektrik işinin kapsamını ve sorumlusunu doğrula",
+      "workflow_key": "task",
+      "applies_when": "Elektrik veya aydınlatma tesisatı işi mevcut",
+      "dependencies": [
+        "measure_room"
+      ],
+      "required_data": [
+        "space_id",
+        "device_or_circuit_requirements",
+        "work_scope",
+        "qualified_responsibility_reference",
+        "inspection_requirements"
+      ],
+      "guards": [
+        "qualified_work_responsibility_confirmed",
+        "safety_requirements_recorded"
+      ],
+      "acceptance_criteria": [
+        "Cihaz ihtiyacı ile tesisat işi ayrılmış; iş kapsamı ve yetkili sorumluluk belirli.",
+        "Gerekli keşif/izin/kabul kontrolleri belirtilmiş.",
+        "Şablon tehlikeli işi kullanıcının kendisinin yapmasına otomatik karar vermiyor."
+      ],
+      "instantiation_policy": "Create an actual task only for an explicitly selected project need; resolve applicable dependencies, owner and dates from evidence. This template does not assert assignment, completion, payment or provider selection."
+    },
+    {
+      "id": "decide_diy_or_provider",
+      "status": "proposed_template",
+      "title": "İşi kendin yapma veya ustaya verme kararını kaydet",
+      "workflow_key": "task",
+      "applies_when": "İşin uygulanma yöntemi henüz belirlenmemiş",
+      "dependencies": [
+        "define_project_scope"
+      ],
+      "required_data": [
+        "work_scope",
+        "required_skills",
+        "safety_constraints",
+        "tools_and_time",
+        "decision_evidence"
+      ],
+      "guards": [
+        "risk_and_skill_reviewed",
+        "specialist_required_work_not_auto_diy"
+      ],
+      "acceptance_criteria": [
+        "Kendin yap/uzmana ver kararı ve gerekçe kayıtlı.",
+        "Güvenlik/izin gerektiren iş otomatik DIY önerisine dönüşmüyor.",
+        "Karar işin tamamlandığı veya ücret ödendiği anlamına gelmiyor."
+      ],
+      "instantiation_policy": "Create an actual task only for an explicitly selected project need; resolve applicable dependencies, owner and dates from evidence. This template does not assert assignment, completion, payment or provider selection."
+    },
+    {
+      "id": "receive_and_check_delivery",
+      "status": "proposed_template",
+      "title": "Ürün veya malzemeyi teslim al ve kontrol et",
+      "workflow_key": "task",
+      "applies_when": "Sipariş için gerçek teslimat gerçekleşmiş",
+      "dependencies": [
+        "select_and_order_product"
+      ],
+      "required_data": [
+        "order_line_reference",
+        "received_quantity",
+        "unit",
+        "delivery_evidence",
+        "damage_or_missing_notes"
+      ],
+      "guards": [
+        "order_reference_present",
+        "delivered_quantity_valid"
+      ],
+      "acceptance_criteria": [
+        "Teslim edilen, eksik ve hasarlı miktarlar ayrılmış.",
+        "Kısmi teslimat tam teslim sayılmıyor.",
+        "Kontrol sonucu ve varsa fotoğraf/teslim belgesi bağlı."
+      ],
+      "instantiation_policy": "Create an actual task only for an explicitly selected project need; resolve applicable dependencies, owner and dates from evidence. This template does not assert assignment, completion, payment or provider selection."
+    },
+    {
+      "id": "install_or_complete_work",
+      "status": "proposed_template",
+      "title": "Kurulumu veya işi tamamla",
+      "workflow_key": "task",
+      "applies_when": "Malzeme ve iş önkoşulları sağlanmış",
+      "dependencies": [
+        "receive_and_check_delivery",
+        "decide_diy_or_provider"
+      ],
+      "required_data": [
+        "task_or_work_order_id",
+        "applicable_dependencies",
+        "responsible_reference",
+        "completion_evidence_if_claimed"
+      ],
+      "guards": [
+        "applicable_dependencies_satisfied",
+        "required_permissions_confirmed"
+      ],
+      "acceptance_criteria": [
+        "İlgili alım/oda/usta ve yapılan iş bağlı.",
+        "İşin tamamlanması için kaynak kanıtı var; olmayan bitiş tarihi üretilmiyor.",
+        "Açık eksikler kabul kontrolüne veya yeni göreve aktarılmış."
+      ],
+      "instantiation_policy": "Create an actual task only for an explicitly selected project need; resolve applicable dependencies, owner and dates from evidence. This template does not assert assignment, completion, payment or provider selection."
+    },
+    {
+      "id": "inspect_and_accept",
+      "status": "proposed_template",
+      "title": "İşin kabul kontrolünü kaydet",
+      "workflow_key": "task",
+      "applies_when": "Teslimat veya tamamlanan iş kabul gerektiriyor",
+      "dependencies": [
+        "install_or_complete_work"
+      ],
+      "required_data": [
+        "inspection_target",
+        "criteria",
+        "observations",
+        "result",
+        "evidence_references"
+      ],
+      "guards": [
+        "inspection_criteria_defined",
+        "result_recorded"
+      ],
+      "acceptance_criteria": [
+        "Kontrol yapıldı ve kontrol geçti ayrı alanlar.",
+        "Başarısız/eksik sonuçta tamamlandı etiketiyle sorun saklanmıyor.",
+        "Ödeme durumu kontrol sonucundan türetilmiyor."
+      ],
+      "instantiation_policy": "Create an actual task only for an explicitly selected project need; resolve applicable dependencies, owner and dates from evidence. This template does not assert assignment, completion, payment or provider selection."
+    },
+    {
+      "id": "register_warranty_and_maintenance",
+      "status": "proposed_template",
+      "title": "Garanti ve bakım bilgilerini kaydet",
+      "workflow_key": "task",
+      "applies_when": "Bir ürün/iş için garanti veya bakım bilgisi mevcut",
+      "dependencies": [
+        "inspect_and_accept"
+      ],
+      "required_data": [
+        "asset_or_work_reference",
+        "document_reference_if_available",
+        "warranty_terms_if_known",
+        "maintenance_requirements_if_known"
+      ],
+      "guards": [
+        "no_invented_warranty_period"
+      ],
+      "acceptance_criteria": [
+        "Belge ve ürün/varyant doğru eşleşmiş.",
+        "Başlangıç/süre/servis yalnız kaynakta varsa kayıtlı; bilinmeyenler açık.",
+        "Bakım şablonu otomatik bildirim veya zamanlanmış iş kurmuyor."
+      ],
+      "instantiation_policy": "Create an actual task only for an explicitly selected project need; resolve applicable dependencies, owner and dates from evidence. This template does not assert assignment, completion, payment or provider selection."
+    }
+  ]
+}

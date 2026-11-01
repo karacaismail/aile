@@ -1,0 +1,710 @@
+{
+  "items": [
+    {
+      "key": "id",
+      "label": "Kimlik",
+      "type": "metin",
+      "group": "kimlik"
+    },
+    {
+      "key": "tip",
+      "label": "Tip",
+      "type": "enum",
+      "group": "kimlik"
+    },
+    {
+      "key": "kod",
+      "label": "Kod",
+      "type": "metin",
+      "group": "kimlik"
+    },
+    {
+      "key": "ad",
+      "label": "Ad",
+      "type": "metin",
+      "group": "ortak"
+    },
+    {
+      "key": "oda",
+      "label": "Oda",
+      "type": "enum",
+      "group": "ortak"
+    },
+    {
+      "key": "kategori",
+      "label": "Kategori",
+      "type": "enum",
+      "group": "ortak"
+    },
+    {
+      "key": "faz",
+      "label": "Faz",
+      "type": "enum",
+      "group": "ortak"
+    },
+    {
+      "key": "durum",
+      "label": "Durum",
+      "type": "enum",
+      "group": "ortak"
+    },
+    {
+      "key": "karar_bekliyor",
+      "label": "Karar bekliyor",
+      "type": "bool",
+      "group": "ortak"
+    },
+    {
+      "key": "oncelik",
+      "label": "Öncelik",
+      "type": "sayi",
+      "group": "ortak"
+    },
+    {
+      "key": "adet",
+      "label": "Adet",
+      "type": "sayi",
+      "group": "ortak"
+    },
+    {
+      "key": "birim",
+      "label": "Birim",
+      "type": "enum",
+      "group": "ortak"
+    },
+    {
+      "key": "tahmini_tl_min",
+      "label": "Tahmini TL (min)",
+      "type": "sayi",
+      "group": "ortak"
+    },
+    {
+      "key": "tahmini_tl_max",
+      "label": "Tahmini TL (max)",
+      "type": "sayi",
+      "group": "ortak"
+    },
+    {
+      "key": "gercek_tl",
+      "label": "Gerçek TL",
+      "type": "sayi",
+      "group": "ortak"
+    },
+    {
+      "key": "fiyat_guven",
+      "label": "Fiyat güveni",
+      "type": "enum",
+      "group": "ortak"
+    },
+    {
+      "key": "linkler",
+      "label": "Linkler",
+      "type": "liste",
+      "group": "ortak"
+    },
+    {
+      "key": "not",
+      "label": "Not",
+      "type": "uzunmetin",
+      "group": "ortak"
+    },
+    {
+      "key": "mevcut",
+      "label": "Mevcut (elimizde)",
+      "type": "bool",
+      "group": "ortak"
+    },
+    {
+      "key": "bagli_idler",
+      "label": "Bağlı kalemler",
+      "type": "liste",
+      "group": "ortak"
+    },
+    {
+      "key": "nereden",
+      "label": "Nereden",
+      "type": "metin",
+      "group": "satinalma"
+    },
+    {
+      "key": "siparis_son_tarih",
+      "label": "Sipariş son tarih",
+      "type": "tarih",
+      "group": "satinalma"
+    },
+    {
+      "key": "teslim_suresi_gun",
+      "label": "Teslim süresi (gün)",
+      "type": "sayi",
+      "group": "satinalma"
+    },
+    {
+      "key": "teslim_tarihi",
+      "label": "Teslim tarihi",
+      "type": "tarih",
+      "group": "satinalma"
+    },
+    {
+      "key": "odeme_tarihi",
+      "label": "Ödeme tarihi",
+      "type": "tarih",
+      "group": "satinalma"
+    },
+    {
+      "key": "katman_tur",
+      "label": "Katman türü",
+      "type": "enum",
+      "group": "aydinlatma"
+    },
+    {
+      "key": "katman_ad",
+      "label": "Katman adı",
+      "type": "metin",
+      "group": "aydinlatma"
+    },
+    {
+      "key": "amac",
+      "label": "Amaç",
+      "type": "metin",
+      "group": "aydinlatma"
+    },
+    {
+      "key": "lux_min",
+      "label": "Lux min",
+      "type": "sayi",
+      "group": "aydinlatma"
+    },
+    {
+      "key": "lux_max",
+      "label": "Lux max",
+      "type": "sayi",
+      "group": "aydinlatma"
+    },
+    {
+      "key": "lux_duzlem",
+      "label": "Lux düzlemi",
+      "type": "enum",
+      "group": "aydinlatma"
+    },
+    {
+      "key": "cct_mod",
+      "label": "CCT modu",
+      "type": "enum",
+      "group": "aydinlatma"
+    },
+    {
+      "key": "cct_min",
+      "label": "CCT min (K)",
+      "type": "sayi",
+      "group": "aydinlatma"
+    },
+    {
+      "key": "cct_max",
+      "label": "CCT max (K)",
+      "type": "sayi",
+      "group": "aydinlatma"
+    },
+    {
+      "key": "dim_min_pct",
+      "label": "Dim min (%)",
+      "type": "sayi",
+      "group": "aydinlatma"
+    },
+    {
+      "key": "cri_min",
+      "label": "CRI min",
+      "type": "sayi",
+      "group": "aydinlatma"
+    },
+    {
+      "key": "r9_min",
+      "label": "R9 min",
+      "type": "sayi",
+      "group": "aydinlatma"
+    },
+    {
+      "key": "flicker",
+      "label": "Flicker",
+      "type": "enum",
+      "group": "aydinlatma"
+    },
+    {
+      "key": "kontrol_cihaz",
+      "label": "Kontrol cihazı",
+      "type": "enum",
+      "group": "aydinlatma"
+    },
+    {
+      "key": "urun_sinifi",
+      "label": "Ürün sınıfı",
+      "type": "metin",
+      "group": "aydinlatma"
+    },
+    {
+      "key": "uzunluk_m",
+      "label": "Uzunluk (m)",
+      "type": "sayi",
+      "group": "aydinlatma"
+    },
+    {
+      "key": "w_per_m",
+      "label": "W/m",
+      "type": "sayi",
+      "group": "aydinlatma"
+    },
+    {
+      "key": "surucu_model",
+      "label": "Sürücü modeli",
+      "type": "metin",
+      "group": "aydinlatma"
+    },
+    {
+      "key": "surucu_w",
+      "label": "Sürücü (W)",
+      "type": "sayi",
+      "group": "aydinlatma"
+    },
+    {
+      "key": "montaj_yukseklik_cm",
+      "label": "Montaj yüksekliği (cm)",
+      "type": "sayi",
+      "group": "aydinlatma"
+    },
+    {
+      "key": "acikta",
+      "label": "Açıkta",
+      "type": "bool",
+      "group": "aydinlatma"
+    },
+    {
+      "key": "adim",
+      "label": "Adım",
+      "type": "enum",
+      "group": "aydinlatma"
+    },
+    {
+      "key": "kim",
+      "label": "Kim (E/B/M/K)",
+      "type": "enumliste",
+      "group": "aydinlatma"
+    },
+    {
+      "key": "is_kim",
+      "label": "İşi yapan",
+      "type": "enumliste",
+      "group": "tadilat"
+    },
+    {
+      "key": "planlanan_tarih",
+      "label": "Planlanan tarih",
+      "type": "tarih",
+      "group": "tadilat"
+    },
+    {
+      "key": "bitis_tarihi",
+      "label": "Bitiş tarihi",
+      "type": "tarih",
+      "group": "tadilat"
+    },
+    {
+      "key": "sure_gun",
+      "label": "Süre (gün)",
+      "type": "sayi",
+      "group": "tadilat"
+    },
+    {
+      "key": "bagimlilik",
+      "label": "Bağımlılık (kodlar)",
+      "type": "liste",
+      "group": "tadilat"
+    },
+    {
+      "key": "izin_gerekli",
+      "label": "İzin gerekli",
+      "type": "bool",
+      "group": "tadilat"
+    },
+    {
+      "key": "izin_durumu",
+      "label": "İzin durumu",
+      "type": "enum",
+      "group": "tadilat"
+    },
+    {
+      "key": "sartname",
+      "label": "Şartname",
+      "type": "uzunmetin",
+      "group": "tadilat"
+    },
+    {
+      "key": "meslek",
+      "label": "Meslek",
+      "type": "enum",
+      "group": "usta"
+    },
+    {
+      "key": "telefon",
+      "label": "Telefon",
+      "type": "metin",
+      "group": "usta"
+    },
+    {
+      "key": "myk_no",
+      "label": "MYK no",
+      "type": "metin",
+      "group": "usta"
+    },
+    {
+      "key": "myk_dogrulandi",
+      "label": "MYK doğrulandı",
+      "type": "bool",
+      "group": "usta"
+    },
+    {
+      "key": "teklif_tl",
+      "label": "Teklif (TL)",
+      "type": "sayi",
+      "group": "usta"
+    },
+    {
+      "key": "teklif_sure_gun",
+      "label": "Teklif süresi (gün)",
+      "type": "sayi",
+      "group": "usta"
+    },
+    {
+      "key": "garanti_ay",
+      "label": "Garanti (ay)",
+      "type": "sayi",
+      "group": "usta"
+    },
+    {
+      "key": "uyum_pct",
+      "label": "Şartname uyumu (%)",
+      "type": "sayi",
+      "group": "usta"
+    },
+    {
+      "key": "kontrol_tur",
+      "label": "Kontrol türü",
+      "type": "enum",
+      "group": "kontrol"
+    },
+    {
+      "key": "olcum_deger",
+      "label": "Ölçüm değeri",
+      "type": "sayi",
+      "group": "kontrol"
+    },
+    {
+      "key": "olcum_birim",
+      "label": "Ölçüm birimi",
+      "type": "metin",
+      "group": "kontrol"
+    },
+    {
+      "key": "esik",
+      "label": "Eşik",
+      "type": "metin",
+      "group": "kontrol"
+    },
+    {
+      "key": "tamam",
+      "label": "Tamam",
+      "type": "bool",
+      "group": "kontrol"
+    },
+    {
+      "key": "tetik",
+      "label": "Tetik",
+      "type": "enum",
+      "group": "sahne"
+    },
+    {
+      "key": "seviyeler",
+      "label": "Seviyeler (katman:pct:cct)",
+      "type": "liste",
+      "group": "sahne"
+    },
+    {
+      "key": "senaryo",
+      "label": "Senaryo",
+      "type": "enum",
+      "group": "kilometre"
+    },
+    {
+      "key": "kilometre_tur",
+      "label": "Kilometre taşı türü",
+      "type": "enum",
+      "group": "kilometre"
+    },
+    {
+      "key": "en_cm",
+      "label": "En (cm)",
+      "type": "sayi",
+      "group": "yerlesim"
+    },
+    {
+      "key": "boy_cm",
+      "label": "Boy (cm)",
+      "type": "sayi",
+      "group": "yerlesim"
+    },
+    {
+      "key": "yuk_cm",
+      "label": "Yükseklik (cm)",
+      "type": "sayi",
+      "group": "yerlesim"
+    },
+    {
+      "key": "duvar",
+      "label": "Duvar",
+      "type": "enum",
+      "group": "yerlesim"
+    },
+    {
+      "key": "x_cm",
+      "label": "X (cm)",
+      "type": "sayi",
+      "group": "yerlesim"
+    },
+    {
+      "key": "y_cm",
+      "label": "Y (cm)",
+      "type": "sayi",
+      "group": "yerlesim"
+    },
+    {
+      "key": "donus",
+      "label": "Dönüş",
+      "type": "sayi",
+      "group": "yerlesim"
+    },
+    {
+      "key": "priz_ihtiyaci",
+      "label": "Priz ihtiyacı",
+      "type": "sayi",
+      "group": "yerlesim"
+    },
+    {
+      "key": "isik_ihtiyaci",
+      "label": "Işık ihtiyacı",
+      "type": "metin",
+      "group": "yerlesim"
+    },
+    {
+      "key": "kanal_m",
+      "label": "Kanal (m)",
+      "type": "sayi",
+      "group": "yerlesim"
+    },
+    {
+      "key": "created_at",
+      "label": "Oluşturma",
+      "type": "tarihsaat",
+      "group": "meta"
+    },
+    {
+      "key": "updated_at",
+      "label": "Güncelleme",
+      "type": "tarihsaat",
+      "group": "meta"
+    },
+    {
+      "key": "deleted_at",
+      "label": "Silinme",
+      "type": "tarihsaat",
+      "group": "meta"
+    },
+    {
+      "key": "updated_by",
+      "label": "Güncelleyen",
+      "type": "metin",
+      "group": "meta"
+    },
+    {
+      "key": "version",
+      "label": "Sürüm",
+      "type": "sayi",
+      "group": "meta"
+    },
+    {
+      "key": "son_op_id",
+      "label": "Son işlem",
+      "type": "metin",
+      "group": "meta"
+    },
+    {
+      "key": "son_degisen_alanlar",
+      "label": "Son değişen alanlar",
+      "type": "liste",
+      "group": "meta"
+    }
+  ],
+  "settings": [
+    {
+      "key": "id",
+      "label": "Kimlik",
+      "type": "metin",
+      "group": "kimlik"
+    },
+    {
+      "key": "tip",
+      "label": "Tip",
+      "type": "enum",
+      "group": "kimlik"
+    },
+    {
+      "key": "anahtar",
+      "label": "Anahtar",
+      "type": "metin",
+      "group": "kimlik"
+    },
+    {
+      "key": "deger",
+      "label": "Değer",
+      "type": "uzunmetin",
+      "group": "ortak"
+    },
+    {
+      "key": "etiket",
+      "label": "Etiket",
+      "type": "metin",
+      "group": "ortak"
+    },
+    {
+      "key": "sira",
+      "label": "Sıra",
+      "type": "sayi",
+      "group": "ortak"
+    },
+    {
+      "key": "not",
+      "label": "Not",
+      "type": "uzunmetin",
+      "group": "ortak"
+    },
+    {
+      "key": "created_at",
+      "label": "Oluşturma",
+      "type": "tarihsaat",
+      "group": "meta"
+    },
+    {
+      "key": "updated_at",
+      "label": "Güncelleme",
+      "type": "tarihsaat",
+      "group": "meta"
+    },
+    {
+      "key": "deleted_at",
+      "label": "Silinme",
+      "type": "tarihsaat",
+      "group": "meta"
+    },
+    {
+      "key": "updated_by",
+      "label": "Güncelleyen",
+      "type": "metin",
+      "group": "meta"
+    },
+    {
+      "key": "version",
+      "label": "Sürüm",
+      "type": "sayi",
+      "group": "meta"
+    },
+    {
+      "key": "son_op_id",
+      "label": "Son işlem",
+      "type": "metin",
+      "group": "meta"
+    },
+    {
+      "key": "son_degisen_alanlar",
+      "label": "Son değişen alanlar",
+      "type": "liste",
+      "group": "meta"
+    }
+  ],
+  "cash": [
+    {
+      "key": "id",
+      "label": "Kimlik",
+      "type": "metin",
+      "group": "kimlik"
+    },
+    {
+      "key": "tarih",
+      "label": "Tarih",
+      "type": "tarih",
+      "group": "ortak"
+    },
+    {
+      "key": "tutar",
+      "label": "Tutar (TL)",
+      "type": "sayi",
+      "group": "ortak"
+    },
+    {
+      "key": "kalem",
+      "label": "Bütçe kalemi",
+      "type": "metin",
+      "group": "ortak"
+    },
+    {
+      "key": "not",
+      "label": "Not",
+      "type": "metin",
+      "group": "ortak"
+    },
+    {
+      "key": "kalem_id",
+      "label": "Bağlı satınalma",
+      "type": "metin",
+      "group": "ortak"
+    },
+    {
+      "key": "created_at",
+      "label": "Oluşturma",
+      "type": "tarihsaat",
+      "group": "meta"
+    },
+    {
+      "key": "updated_at",
+      "label": "Güncelleme",
+      "type": "tarihsaat",
+      "group": "meta"
+    },
+    {
+      "key": "deleted_at",
+      "label": "Silinme",
+      "type": "tarihsaat",
+      "group": "meta"
+    },
+    {
+      "key": "updated_by",
+      "label": "Güncelleyen",
+      "type": "metin",
+      "group": "meta"
+    },
+    {
+      "key": "version",
+      "label": "Sürüm",
+      "type": "sayi",
+      "group": "meta"
+    },
+    {
+      "key": "son_op_id",
+      "label": "Son işlem",
+      "type": "metin",
+      "group": "meta"
+    },
+    {
+      "key": "son_degisen_alanlar",
+      "label": "Son değişen alanlar",
+      "type": "liste",
+      "group": "meta"
+    }
+  ]
+}

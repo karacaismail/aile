@@ -1,0 +1,14 @@
+{
+ "phase":{"before_move":"Taşınma öncesi","after_move":"Taşınma sonrası"},
+ "life_context":{"baby_preparation":"Bebek hazırlığı"},
+ "decision_state":{"idea":"Fikir","researching":"Araştırılıyor","pending":"Karar bekliyor","decided":"Karar verildi","cancelled":"İptal"},
+ "fulfillment_state":{"planned":"Alınacak","ordered":"Sipariş edildi","delivered":"Teslim edildi","installed":"Kuruldu","cancelled":"İptal"},
+ "inspection_state":{"pending":"Kontrol bekliyor","completed":"Kontrol tamamlandı"},
+ "payment_state":{"planned":"Planlandı","partially_paid":"Kısmen ödendi","paid":"Ödendi","reversed":"Geri alındı"},
+ "funding_type":{"savings":"Birikim","credit_card":"Kredi kartı","overdraft":"KMH","personal_loan":"Bireysel kredi","borrowed_funds":"Borç","cash_advance":"Nakit avans","income":"Gelir"},
+ "payment_method":{"cash":"Nakit","bank_transfer":"Banka transferi","card":"Kart","mail_order":"Mail order"},
+ "financial_event":{"purchase":"Satın alma","payment":"Ödeme","borrowing":"Borçlanma","repayment":"Borç geri ödeme","transfer":"Hesaplar arası aktarım","interest":"Faiz","fee":"Ücret","tax":"Vergi","refund":"İade"},
+ "task_state":{"open":"Yapılacak","in_progress":"Sürüyor","blocked":"Engelli","done":"Tamamlandı","cancelled":"İptal"},
+ "provider_state":{"searching":"Usta aranıyor","shortlisted":"Aday belirlendi","selected":"Usta bulundu","contracted":"Anlaşıldı"},
+ "legacy_status":{"fikir":"Fikir","arastirma":"Araştırma","karar":"Karar","siparis":"Sipariş","teslim":"Teslim","kuruldu":"Kuruldu","iptal":"İptal"}
+}

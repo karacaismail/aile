@@ -1,0 +1,14 @@
+[
+ ["mobilya","Mobilya",null],["tekstil","Tekstil",null],["beyaz_esya","Beyaz eşya",null],
+ ["group:mutfak","Mutfak",null],["group:kucuk_ev_aletleri","Küçük ev aletleri","group:mutfak"],
+ ["mutfak_kahve","Kahve ve espresso ekipmanı","group:kucuk_ev_aletleri"],["mutfak_kucuk_ev_aleti","Diğer küçük ev aletleri","group:kucuk_ev_aletleri"],
+ ["mutfak_pisirme","Tencere, tava ve pişirme","group:mutfak"],["mutfak_sofra","Sofra ve servis","group:mutfak"],["mutfak","Diğer mutfak eşyaları","group:mutfak"],
+ ["group:elektrik","Elektrik ve aydınlatma",null],["group:aydinlatma","Aydınlatma","group:elektrik"],
+ ["aydinlatma_led","LED ve armatür","group:aydinlatma"],["aydinlatma_akilli","Akıllı aydınlatma","group:aydinlatma"],
+ ["elektrik_kablolama","Kablo ve tesisat","group:elektrik"],["elektrik_kontrol","Anahtar, priz ve kontrol","group:elektrik"],["elektrik","Diğer elektrik malzemesi","group:elektrik"],
+ ["group:duzenleme","Düzenleme ve saklama",null],["duzenleme_cekmece","Çekmece düzenleyicileri","group:duzenleme"],["duzenleme_balkon","Balkon düzenleyicileri","group:duzenleme"],["duzenleme","Genel düzenleyiciler","group:duzenleme"],
+ ["calisma_elektronigi","Çalışma alanı elektroniği",null],["group:banyo_temizlik","Banyo ve temizlik",null],["banyo_wc","Banyo ve WC gereçleri","group:banyo_temizlik"],["temizlik","Temizlik gereçleri","group:banyo_temizlik"],
+ ["guvenlik","Güvenlik",null],["kopek","Köpek",null],["bebek","Bebek",null],
+ ["group:tadilat","Tadilat",null],["boya","Boya","group:tadilat"],["iscilik","İşçilik","group:tadilat"],
+ ["group:hizmet_masraf","Hizmet ve masraflar",null],["masraf","Masraf","group:hizmet_masraf"],["hizmet","Hizmet","group:hizmet_masraf"],["idari","İdari","group:hizmet_masraf"],["diger","Diğer",null]
+]
