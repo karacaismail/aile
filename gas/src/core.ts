@@ -3,7 +3,7 @@ import type { ColumnDef } from '../../shared/schema.ts';
 import { ITEM_COLUMNS, SETTING_COLUMNS, CASH_COLUMNS, SCHEMA_VERSION, META_KEYS, type BudgetPlan } from '../../shared/schema.ts';
 import { rowToRecord, recordToRow, fingerprintOf, type Rec, type Cell } from '../../shared/convert.ts';
 import { ulid } from '../../shared/ids.ts';
-import type { BatchRequest, BatchResponse, OpResult, ReadResponse, Table, UpsertOp, ApiErrorCode } from '../../shared/api.ts';
+import type { BatchRequest, BatchResponse, OpResult, ReadResponse, Table, UpsertOp, UpsertPrecondition, ApiErrorCode } from '../../shared/api.ts';
 
 export interface TableState {
   columns: readonly ColumnDef[];
@@ -82,12 +82,41 @@ function err(id: string, code: ApiErrorCode, message?: string): OpResult {
   return { ok: false, id, error: code, message };
 }
 
+function validPrecondition(value: unknown, columns: readonly ColumnDef[]): value is UpsertPrecondition {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const p = value as Record<string, unknown>;
+  if (Object.keys(p).some(k => k !== 'version' && k !== 'fields') || !Number.isSafeInteger(p.version) || (p.version as number) < 0) return false;
+  if (!p.fields || typeof p.fields !== 'object' || Array.isArray(p.fields)) return false;
+  const fields = Object.entries(p.fields);
+  return fields.length > 0 && fields.every(([key, expected]) => {
+    const column = columns.find(c => c.key === key);
+    if (!column) return false;
+    if (expected === null) return true;
+    if (column.type === 'sayi') return typeof expected === 'number' && Number.isFinite(expected);
+    if (column.type === 'bool') return typeof expected === 'boolean';
+    if (column.type === 'liste' || column.type === 'enumliste') return Array.isArray(expected) && expected.every(v => typeof v === 'string');
+    return typeof expected === 'string';
+  });
+}
+
+function matchesPrecondition(row: Rec | undefined, expected: UpsertPrecondition): boolean {
+  return !!row && (row.version ?? 0) === expected.version && Object.entries(expected.fields).every(([key, value]) =>
+    Array.isArray(value) ? JSON.stringify(row[key]) === JSON.stringify(value) : (row[key] ?? null) === value);
+}
+
 function applyUpsert(table: TableState, tableName: Table, op: UpsertOp, actor: string, now: string): OpResult {
+  if (op.precondition !== undefined && !validPrecondition(op.precondition, table.columns)) return err(op.id, 'bad_request', 'Geçersiz yazma önkoşulu');
   const patch = cleanPatch(op.patch);
   const invalid = validateEnums(table.columns, patch);
   if (invalid) return { ...err(op.id, 'invalid_enum', `Geçersiz değer: ${invalid.field}`), message: `${invalid.field}: izinli değerler ${invalid.allowed.join(', ')}` };
   const keys = Object.keys(patch);
   const idx = table.index.get(op.id);
+  const existing = idx === undefined ? undefined : table.rows[idx];
+  // A completed operation's replay is already applied: keep the existing idempotency contract without another write.
+  if (existing?.son_op_id === op.opId) return { ok: true, id: op.id, row: existing, duplicate: true };
+  // handle(batch) holds the existing script lock across loadState → applyBatch → flushState.
+  // Check the whole expected record before insert/merge/meta/dirty mutations, including changes hidden by last-field merging.
+  if (op.precondition && !matchesPrecondition(existing, op.precondition)) return err(op.id, 'precondition_failed', 'Kayıt değişti veya artık yok; yeniden okuyup inceleyin');
 
   if (idx === undefined) {
     const need = REQUIRED_ON_INSERT[tableName];
@@ -103,7 +132,6 @@ function applyUpsert(table: TableState, tableName: Table, op: UpsertOp, actor: s
   }
 
   const row = table.rows[idx];
-  if (row.son_op_id === op.opId) return { ok: true, id: op.id, row, duplicate: true };
 
   const currentVersion = Number(row.version ?? 0) || 0;
   let conflictKeys: string[] = [];
@@ -178,12 +206,14 @@ export function stateFingerprint(state: State): string {
 
 export function readState(state: State, fingerprint: string | undefined, now: string): ReadResponse {
   const fp = stateFingerprint(state);
-  if (fingerprint && fingerprint === fp) return { ok: true, notModified: true, fingerprint: fp, serverTime: now, schemaVersion: SCHEMA_VERSION };
+  const capabilities = ['conditional_upsert'] as const;
+  if (fingerprint && fingerprint === fp) return { ok: true, notModified: true, fingerprint: fp, serverTime: now, schemaVersion: SCHEMA_VERSION, capabilities };
   return {
     ok: true,
     fingerprint: fp,
     serverTime: now,
     schemaVersion: SCHEMA_VERSION,
+    capabilities,
     items: state.kalemler.rows as unknown as ReadResponse extends { items: infer I } ? I : never,
     settings: state.ayarlar.rows as never,
     ...(state.nakit ? { cash: state.nakit.rows as never } : {}),

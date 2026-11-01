@@ -3,16 +3,20 @@ import type { BudgetPlan, CashEntry, Item, Setting } from './schema.ts';
 import type { Rec } from './convert.ts';
 
 export type Table = 'kalemler' | 'ayarlar' | 'nakit';
+export type ApiCapability = 'conditional_upsert';
 
 export interface ReadRequest { action: 'read'; key?: string; fingerprint?: string }
 export interface HealthRequest { action: 'health' }
 
+/** Optional atomic compare-and-set for reviewed writes. Null expects an absent cell; fields use stored column values. */
+export interface UpsertPrecondition { version: number; fields: Rec }
 export interface UpsertOp {
   op: 'upsert';
   table: Table;
   id: string;
   opId: string;
   baseVersion?: number;
+  precondition?: UpsertPrecondition;
   patch: Rec;
 }
 export interface DeleteOp { op: 'delete' | 'restore'; table: Table; id: string; opId: string }
@@ -27,6 +31,7 @@ export interface ReadFull {
   fingerprint: string;
   serverTime: string;
   schemaVersion: number;
+  capabilities?: readonly ApiCapability[];
   items: Item[];
   settings: Setting[];
   /** Sunucu harcama günlüğünü destekliyorsa vardır (eski dağıtımda yok). */
@@ -34,7 +39,7 @@ export interface ReadFull {
   /** "Giderler Planlanan" okunabildiyse vardır. */
   plan?: BudgetPlan;
 }
-export interface ReadNotModified { ok: true; notModified: true; fingerprint: string; serverTime: string; schemaVersion: number }
+export interface ReadNotModified { ok: true; notModified: true; fingerprint: string; serverTime: string; schemaVersion: number; capabilities?: readonly ApiCapability[] }
 export type ReadResponse = ReadFull | ReadNotModified;
 
 export interface Conflict { keys: string[]; serverValues: Rec; serverVersion: number; updatedBy?: string; updatedAt?: string }
@@ -69,7 +74,7 @@ export interface HealthResponse {
   warnings?: string[];
 }
 
-export type ApiErrorCode = 'unauthorized' | 'busy' | 'schema' | 'bad_request' | 'not_found' | 'invalid_enum' | 'internal';
+export type ApiErrorCode = 'unauthorized' | 'busy' | 'schema' | 'bad_request' | 'not_found' | 'invalid_enum' | 'precondition_failed' | 'internal';
 
 export interface ErrorResponse {
   ok: false;
