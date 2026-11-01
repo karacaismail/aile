@@ -271,4 +271,50 @@ test.describe('progressive chart enhancement', () => {
     await writeFile(info.outputPath('vehicle-chart-on-demand-requests.json'), JSON.stringify(requests));
   });
 
+  for (const surface of ['Pano', 'Vehicle'] as const) test(`${surface} keeps one live status node from chart loading to failure`, async ({ page }, info) => {
+    await visualizationSource(page);
+    let release!: () => void;
+    const pending = new Promise<void>(resolve => { release = resolve; });
+    await page.route(/\/assets\/Charts-.*\.js$/, async route => { await pending; await route.abort(); });
+    const focusState = () => page.evaluate(() => {
+      const active = document.activeElement, skip = document.querySelector('.skip-link')!;
+      const rect = skip.getBoundingClientRect(), style = getComputedStyle(skip);
+      return { active: { tag: active?.tagName, text: active?.textContent?.slice(0, 100), className: active?.className }, skip: { focused: active === skip, top: rect.top, bottom: rect.bottom, left: rect.left, position: style.position }, viewport: { width: innerWidth, height: innerHeight, dpr: devicePixelRatio }, scrollY };
+    });
+    try {
+      await page.goto(`/aile/#/${surface === 'Pano' ? 'pano' : 'arac'}`);
+      if (surface === 'Pano') await page.locator('.charts-host').scrollIntoViewIfNeeded();
+      else await page.getByRole('button', { name: 'Ödeme grafiğini göster', exact: true }).click();
+      const status = page.getByRole('status').filter({ hasText: surface === 'Pano' ? 'Grafikler hazırlanıyor' : 'Grafik yükleniyor' });
+      await expect(status).toBeVisible();
+      const original = (await status.elementHandle())!;
+      const before = await focusState();
+      release();
+      const failureText = surface === 'Pano' ? 'Grafikler yüklenemedi' : 'Ödeme grafiği yüklenemedi';
+      await expect(page.getByRole('status').filter({ hasText: failureText })).toBeVisible();
+      await writeFile(info.outputPath('chart-fallback-focus.json'), JSON.stringify({ before, after: await focusState() }, null, 2));
+      expect(await original.evaluate(element => element.isConnected)).toBe(true);
+      expect(await original.textContent()).toContain(failureText);
+    } finally { release(); }
+  });
+
+  test('Vehicle starts both optional chart requests without waiting for its presentation chunk', async ({ page }, info) => {
+    await visualizationSource(page);
+    let release!: () => void;
+    const pending = new Promise<void>(resolve => { release = resolve; });
+    const requests: string[] = [];
+    page.on('request', request => { const path = new URL(request.url()).pathname; if (/\/(Charts|PaymentChart)-.*\.js$/.test(path)) requests.push(path); });
+    await page.route(/\/assets\/PaymentChart-.*\.js$/, async route => { await pending; await route.continue(); });
+    try {
+      await page.goto('/aile/#/arac');
+      await expect(page.getByRole('table', { name: 'İki kredinin birleşik ödeme planı' })).toBeVisible();
+      expect(requests).toEqual([]);
+      await page.getByRole('button', { name: 'Ödeme grafiğini göster', exact: true }).click();
+      await expect.poll(() => requests.filter(path => /\/Charts-/.test(path)).length).toBe(1);
+      await writeFile(info.outputPath('parallel-chart-requests.json'), JSON.stringify(requests));
+      release();
+      await expect(page.getByRole('img', { name: 'Birleşik kredi ödeme grafiği' }).locator('svg')).toHaveCount(1);
+    } finally { release(); }
+  });
+
 });
