@@ -1,5 +1,5 @@
 import { Group, Paper, SegmentedControl, Text } from '@mantine/core';
-import type { Faz } from '@shared/schema';
+import { FAZ, label, type Faz } from '@shared/schema';
 import type { Totals } from '@/data/selectors';
 import { formatTl } from '@/lib/price';
 import classes from './TotalsBar.module.css';
@@ -28,7 +28,7 @@ export function TotalsBar({ faz, onFaz, totals, count, total, filtered = false }
     <Paper className={classes.bar} px="sm" py="xs" radius={0} data-testid="totals-bar">
       <SegmentedControl
         fullWidth size="xs" value={faz} onChange={(v) => onFaz(v as Faz | 'hepsi')} aria-label="Faz"
-        data={[{ value: 'hepsi', label: 'Hepsi' }, { value: '1', label: 'Önce' }, { value: '2', label: 'Yerleşme' }, { value: '3', label: 'Bebek' }]}
+        data={[{ value: 'hepsi', label: 'Hepsi' }, ...FAZ.map(value => ({ value, label: label('faz', value) }))]}
       />
       <div className={classes.summary} aria-describedby="purchase-total-scope">
       <Text component="p" fw={500}>Görünen alım bedeli</Text>

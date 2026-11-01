@@ -9,7 +9,7 @@ import { notifications } from '@mantine/notifications';
 import { z } from 'zod';
 import { useLocation } from 'wouter';
 import type { Item } from '@shared/schema';
-import { ODA, KATEGORI, DURUM, BIRIM, FIYAT_GUVEN, label } from '@shared/schema';
+import { ODA, KATEGORI, DURUM, BIRIM, FIYAT_GUVEN, FAZ, label } from '@shared/schema';
 import { useAppStore } from '@/sync/store';
 import { upsert, remove } from '@/sync/controller';
 import { PriceInput } from '@/components/PriceInput';
@@ -216,7 +216,8 @@ function ItemForm({ id, item, isNew, section, defaults, onSaved, close, isMobile
             <TextInput label="Ad" required data-autofocus={isNew || undefined} {...form.getInputProps('ad')} key={form.key('ad')} />
             <fieldset className="record-fieldset">
               <legend>Faz</legend>
-              <SegmentedControl fullWidth data={[{ value: '1', label: 'Önce' }, { value: '2', label: 'Yerleşme' }, { value: '3', label: 'Bebek' }]} {...form.getInputProps('faz')} key={form.key('faz')} />
+              <SegmentedControl fullWidth data={FAZ.map(value => ({ value, label: label('faz', value) }))} {...form.getInputProps('faz')} key={form.key('faz')} />
+              {form.getValues().faz === '2' && <Text size="sm" c="dimmed">{label('fazUzun', '2')}</Text>}
             </fieldset>
             <SimpleGrid cols={{ base: 1, xs: 2 }} spacing="xs">
               <EnumSelect label="Durum" field="durum" options={DURUM} value={form.getValues().durum} onChange={(v) => form.setFieldValue('durum', v)} />
