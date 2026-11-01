@@ -1,6 +1,6 @@
 import { syntheticBridgeResponse } from '../src/dashboard/bridgeFixtures';
 import { writeFile } from 'node:fs/promises';
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page, type Response } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { syntheticSheets, gviz } from '../src/dashboard/fixtures';
 import { syntheticTimeline, timelineResponse } from './timelineFinanceFixture';
@@ -26,11 +26,12 @@ async function mockFamily(page: Page) {
   return { feeds };
 }
 
-test('all family areas share one identity and a complete primary journey', async ({ page }, testInfo) => {
-  await mockFamily(page);
-  await page.emulateMedia({ colorScheme: 'dark' });
-  await page.setViewportSize({ width: 320, height: 740 });
-  for (const route of ['pano', 'timeline', 'finansman', 'ev', 'satinalma', 'aydinlatma', 'tadilat', 'yerlesim', 'butce', 'ayarlar', 'arac']) {
+// Each route has independent identity checks; the linked SPA journey is tested below.
+for (const route of ['pano', 'timeline', 'finansman', 'ev', 'satinalma', 'aydinlatma', 'tadilat', 'yerlesim', 'butce', 'ayarlar', 'arac']) {
+  test(`family area ${route} shares one identity and a complete primary navigation`, async ({ page }, testInfo) => {
+    await mockFamily(page);
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await page.setViewportSize({ width: 320, height: 740 });
     await page.goto(`/aile/#/${route}`);
     await expect(page.locator('.family-primary, .family-context')).toHaveCount(0);
     await expect(page.getByRole('navigation', { name: 'Sayfalar', exact: true })).toHaveCount(0);
@@ -54,8 +55,8 @@ test('all family areas share one identity and a complete primary journey', async
     await page.getByRole('main').focus();
     await page.setViewportSize({ width: 320, height: 740 });
     if (['ev', 'satinalma', 'arac'].includes(route)) await page.screenshot({ path: testInfo.outputPath(`${route}-320.png`), fullPage: true });
-  }
-});
+  });
+}
 
 test('home plan uses budget records and connects to preparation without duplicate accounting', async ({ page }) => {
   const { feeds } = await mockFamily(page);
@@ -198,9 +199,9 @@ test('keyboard intent begins in initial HTML and survives the asynchronous React
 test('planner loads only used icon modules instead of the complete icon catalogue', async ({ page }, testInfo) => {
   await mockFamily(page);
   const icons: string[] = [];
-  const responses: Promise<{ path: string; decodedBytes: number; icon: boolean }>[] = [];
+  const responses: Response[] = [];
   page.on('response', response => {
-    if (response.request().resourceType() === 'script' && response.url().includes('/node_modules/')) responses.push(response.body().then(body => ({ path: new URL(response.url()).pathname, decodedBytes: body.length, icon: response.url().includes('phosphor-icons') || body.toString('utf8').includes('@phosphor-icons/react/') })));
+    if (response.request().resourceType() === 'script' && response.url().includes('/node_modules/')) responses.push(response);
   });
   page.on('request', request => {
     if (request.url().includes('phosphor-icons')) icons.push(new URL(request.url()).pathname);
@@ -210,7 +211,12 @@ test('planner loads only used icon modules instead of the complete icon catalogu
   const catalogue = icons.filter(path => /\/(?:@phosphor-icons_react\.js|@phosphor-icons\/react\/dist\/index\.(?:es|cjs)\.js)$/.test(path));
   expect(catalogue, 'the editor must not download the multi-megabyte barrel of every icon').toEqual([]);
   expect(icons.length, 'the existing visible icons are still loaded').toBeGreaterThan(0);
-  const modules = (await Promise.all(responses)).filter(module => module.icon);
+  // Collect during loading, then read bodies after the editor is ready so evidence
+  // collection does not compete with the dialog's first-render assertion.
+  const modules = (await Promise.all(responses.map(async response => {
+    const body = await response.body();
+    return { path: new URL(response.url()).pathname, decodedBytes: body.length, icon: response.url().includes('phosphor-icons') || body.toString('utf8').includes('@phosphor-icons/react/') };
+  }))).filter(module => module.icon);
   const evidence = testInfo.outputPath('icon-network.json');
   await writeFile(evidence, JSON.stringify({ requests: icons, modules, decodedBytes: modules.reduce((sum, module) => sum + module.decodedBytes, 0) }, null, 2));
   await testInfo.attach('requested-icon-modules', { path: evidence, contentType: 'application/json' });

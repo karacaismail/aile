@@ -568,9 +568,15 @@ test('all-period view bounds rendering and preserves balances through 716 chrono
   await expect(pages).toContainText('1–50 / 716 adım');
   const summary = page.getByRole('region', { name: 'Tüm dönem özeti' });
   await expect(summary).toContainText('654.321 ₺');
-  for (let pageNumber = 1; pageNumber < 15; pageNumber++) {
-    await pages.getByRole('button', { name: 'Sonraki adımlar' }).click();
-    expect(await page.getByRole('article').count()).toBeLessThanOrEqual(50);
+  for (let pageNumber = 0; pageNumber < 15; pageNumber++) {
+    if (pageNumber > 0) await pages.getByRole('button', { name: 'Sonraki adımlar' }).click();
+    const first = pageNumber * 50, last = Math.min(first + 50, table.rows.length);
+    await expect(pages).toContainText(`${first + 1}–${last} / 716 adım`);
+    // Rendering is progressive: do not turn the page while only its first batch exists.
+    const articles = page.getByRole('article');
+    await expect(articles).toHaveCount(last - first);
+    expect(await articles.evaluateAll(elements => elements.map(element => element.getAttribute('aria-label'))))
+      .toEqual(table.rows.slice(first, last).map((row, offset) => `${first + offset + 1}. adım · ${row[4]}`));
   }
   await expect(page.getByRole('article')).toHaveCount(16);
   await expect(page.getByRole('article', { name: /716\. adım/ })).toContainText('1.234.567 ₺');
