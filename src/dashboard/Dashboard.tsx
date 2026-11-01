@@ -11,7 +11,7 @@ import { DataTable, type Column } from './DataTable';
 import { PageHeader } from '../app/family/PageHeader';
 import { DataStatus } from '../app/family/DataStatus';
 import { JourneyLinks, SourceNote, SectionHeading } from '../components/Info';
-import { useFinancePeriod } from '../app/family/FinancePeriod';
+import { periodFallback, useFinancePeriod } from '../app/family/FinancePeriod';
 import './dashboard.css';
 const VehiclePage = lazy(() => import('../vehicle/VehiclePage'));
 const TimelinePage = lazy(() => import('../timeline/TimelinePage'));
@@ -45,11 +45,14 @@ function comparison(key: keyof typeof metricLabels, current: Month, previous?: M
 }
 function BudgetContent({ data, loading, updatedAt, refresh }: { data: Budget } & Freshness) {
   const nowKey = new Intl.DateTimeFormat('sv-SE', { year: 'numeric', month: '2-digit', timeZone: 'Europe/Istanbul' }).format(new Date());
-  const [month, setMonth] = useState(data.months.find(m => m.key === nowKey)?.key ?? data.months[0].key);
+  // The month lives in the shared period, so global navigation and return keep it. Only a month the user
+  // chooses is written; a period this budget cannot show is named, not replaced or overwritten.
+  const [period, setPeriod] = useFinancePeriod();
+  const month = data.months.some(m => m.key === period) ? period : data.months.find(m => m.key === nowKey)?.key ?? data.months[0].key;
+  const fallback = period && period !== month ? periodFallback(period, data.months.find(m => m.key === month)!.label) : null;
   const [view, setView] = useState('overview');
   const [query, setQuery] = useState(''); const [group, setGroup] = useState('Tümü'); const [type, setType] = useState('Tümü');
   const reduced = useReducedMotion();
-  const [, setPeriod] = useFinancePeriod();
   const selectProps = { allowDeselect: false, withScrollArea: false, comboboxProps: { transitionProps: { duration: reduced ? 0 : tokens.duration, timingFunction: tokens.ease, transition: dropdownTransition }, withinPortal: false } };
   const index = Math.max(0, data.months.findIndex(m => m.key === month)), current = data.months[index], previous = data.months[index - 1];
   const categoryCols: Column<Category>[] = [
@@ -73,9 +76,10 @@ function BudgetContent({ data, loading, updatedAt, refresh }: { data: Budget } &
   // Decision order: what is left this month, what the month and the period end with, then the components.
   const metric = (key: keyof typeof metricLabels) => <article className={`metric${key === 'free' ? ' metric-emphasis' : ''}`} key={key}>{key === 'free' && <p className="metric-period">{current.label}</p>}<h2>{metricLabels[key]}</h2><p className="metric-value"><Amount value={current[key].current} /></p><p>Plan <Amount value={current[key].plan} /></p>{(previous || key === 'free') && <p className="muted metric-comparison">{comparison(key, current, previous)}</p>}</article>;
   return <>
-    <PageHeader location="/pano" lead={`${data.months[0].label} — ${data.months.at(-1)!.label}`} actions={<><button className="quiet-button" disabled={loading} onClick={refresh}>Yenile</button><div className="month-picker"><Select label="Gösterilen ay" value={current.key} onChange={v => v && setMonth(v)} data={data.months.map(m => ({ value: m.key, label: m.label }))} {...selectProps} /></div></>}>
+    <PageHeader location="/pano" lead={`${data.months[0].label} — ${data.months.at(-1)!.label}`} actions={<><button className="quiet-button" disabled={loading} onClick={refresh}>Yenile</button><div className="month-picker"><Select label="Gösterilen ay" value={current.key} onChange={v => v && setPeriod(v)} data={data.months.map(m => ({ value: m.key, label: m.label }))} {...selectProps} /></div></>}>
       <DataStatus loading={loading} updatedAt={updatedAt} />
     </PageHeader>
+    {fallback && <p className="budget-period-note" role="note" aria-label="Seçilen dönem">{fallback}</p>}
     <p className="provenance"><strong>{current.label}</strong><span className="source-label">{current.source}</span>{data.bridge && <span>Koşullu hesap</span>}</p>
     <section className="metrics" aria-label="Seçili ay özeti">
       {metric('free')}

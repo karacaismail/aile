@@ -11,7 +11,7 @@ import { StepCard, stepHeadingId, type StepNeighbour } from './StepCard';
 import { StepTable } from './StepTable';
 import { PageHeader } from '../app/family/PageHeader';
 import { DataStatus } from '../app/family/DataStatus';
-import { useFinancePeriod } from '../app/family/FinancePeriod';
+import { periodFallback, useFinancePeriod } from '../app/family/FinancePeriod';
 import './timeline.css';
 
 const stepsPerPage = 50;
@@ -68,7 +68,7 @@ function TimelineJourney({ data }: { data: FinanceLedger }) {
   const changeSelection = (next: string) => { setSelection(next); setPageSelection({ scope: next, page: 0 }); };
   const selected = selection === 'all' || months.includes(selection) ? selection : months[0];
   // A month carried from another page may be outside this ledger: say which month is shown instead.
-  const absent = selection && selection !== selected && /^\d{4}-\d{2}$/.test(selection) ? selection : null;
+  const fallback = selection && selection !== 'all' && selection !== selected ? periodFallback(selection, monthLabel(selected)) : null;
   const events = data.events.filter(event => selected === 'all' || event.date.startsWith(selected));
   const filteredEvents = events.filter(event => matchesFilter(event, filter) && (filter !== 'purchase' || purchaseGroup === 'all' || event.type === `Alışveriş · ${purchaseGroup === 'before' ? 'Taşınma öncesi' : 'Taşınma sonrası'}`));
   const pageScope = `${selected}:${filter}:${purchaseGroup}`;
@@ -119,7 +119,7 @@ function TimelineJourney({ data }: { data: FinanceLedger }) {
   return <div className="timeline-workspace">
     <aside className="timeline-overview" aria-label="Dönem kontrolü">
     <div className="timeline-overview-heading-row"><h2 className="timeline-overview-heading">Dönem sonu</h2><button type="button" ref={jumpRef} className="timeline-jump" onClick={() => reveal(detailsRef.current, 'start')}>Dönem ayrıntıları</button></div>
-    {absent && <p className="timeline-period-note" role="note" aria-label="Seçilen ay">{monthLabel(absent)} bu hesapta yok; {monthLabel(selected)} gösteriliyor.</p>}
+    {fallback && <p className="timeline-period-note" role="note" aria-label="Seçilen dönem">{fallback}</p>}
     <div className="timeline-toolbar">
       <div className="timeline-month"><Select aria-label="Gösterilen dönem" value={selected} onChange={value => value && changeSelection(value)} allowDeselect={false} data={[...months.map(month => ({ value: month, label: monthLabel(month) })), { value: 'all', label: 'Tüm dönem' }]} /></div>
       <div className="button-row timeline-period-buttons"><button className="quiet-button timeline-month-arrow" aria-label="Önceki ay" disabled={index <= 0} onClick={() => changeSelection(months[index - 1])}><MonthArrow /></button><button className="quiet-button timeline-month-arrow" aria-label="Sonraki ay" disabled={index < 0 || index >= months.length - 1} onClick={() => changeSelection(months[index + 1])}><MonthArrow next /></button></div>

@@ -130,3 +130,4 @@ html[data-keyboard='true'] .planner-links a:focus-visible { text-decoration-thic
 .budget-view-nav button { background: transparent; font-weight: var(--budget-headingWeight); }
 .budget-detail { padding-top: var(--budget-spaceSmall); }
 .chart-section { background: var(--budget-paper); border-radius: var(--budget-timelinePanelRadius); padding: var(--budget-spacing); }
+.budget-period-note { margin-bottom: var(--budget-spaceSmall); color: var(--budget-amber); font-weight: var(--budget-labelWeight); }

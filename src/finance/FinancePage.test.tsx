@@ -99,7 +99,10 @@ it('states every month-end figure against the previous month end, and a first mo
   expect(fact('Nakit sonucu', 'Harcanabilir nakit')).toHaveTextContent('Ocak 2098 ay sonuna göre +900 ₺');
   expect(fact('Nakit sonucu', 'Net nakit ve borç')).toHaveTextContent('Ocak 2098 ay sonuna göre +750 ₺');
   expect(fact('Borç ve taahhütler', 'Toplam kart borcu')).toHaveTextContent('Ocak 2098 ay sonuna göre +150 ₺');
-  expect(fact('Borç ve taahhütler', 'KMH anaparası')).toHaveTextContent('Ocak 2098 ay sonuna göre değişmedi');
+  // The principal change is named and sits before the interest, so it cannot read as an interest change.
+  const kmh = fact('Borç ve taahhütler', 'KMH anaparası');
+  expect(kmh).toHaveTextContent('Anapara değişimi: Ocak 2098 ay sonuna göre değişmedi');
+  expect(kmh.textContent!.indexOf('Anapara değişimi')).toBeLessThan(kmh.textContent!.indexOf('Faiz + vergi'));
 });
 
 it('ends the month summary with the month-specific payment steps as the next step', () => {
@@ -113,7 +116,16 @@ it('ends the month summary with the month-specific payment steps as the next ste
 it('says so when the shared month is not in this ledger instead of silently showing another month', () => {
   function Preset() { const [, set] = useFinancePeriod(); useEffect(() => set('2099-05'), [set]); return null; }
   render(<MantineProvider><FinancePeriodProvider><Preset /><FinancePage /></FinancePeriodProvider></MantineProvider>);
-  expect(screen.getByRole('note', { name: 'Seçilen ay' })).toHaveTextContent('Mayıs 2099 bu hesapta yok; Ocak 2098 gösteriliyor.');
+  expect(screen.getByRole('note', { name: 'Seçilen dönem' })).toHaveTextContent('Mayıs 2099 bu hesapta yok; Ocak 2098 gösteriliyor.');
   fireEvent.click(screen.getByRole('button', { name: 'Sonraki ay · Şubat 2098' }));
-  expect(screen.queryByRole('note', { name: 'Seçilen ay' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('note', { name: 'Seçilen dönem' })).not.toBeInTheDocument();
+});
+
+it('names an all-period scope carried from Timeline instead of formatting it as a month, and commits the shown month on the named link', () => {
+  function Preset() { const [period, set] = useFinancePeriod(); useEffect(() => set('all'), [set]); return <output aria-label="Paylaşılan dönem">{period}</output>; }
+  render(<MantineProvider><FinancePeriodProvider><Preset /><FinancePage /></FinancePeriodProvider></MantineProvider>);
+  expect(screen.getByRole('note', { name: 'Seçilen dönem' })).toHaveTextContent('Tüm dönem bu sayfada aylık özet olarak gösterilmez; Ocak 2098 gösteriliyor.');
+  expect(screen.queryByText(/Invalid|NaN/)).not.toBeInTheDocument();
+  fireEvent.click(within(screen.getByRole('navigation', { name: 'Bu aydan sonraki adım' })).getByRole('link', { name: /Ocak 2098 ödeme adımları/ }));
+  expect(screen.getByRole('status', { name: 'Paylaşılan dönem' })).toHaveTextContent('2098-01');
 });

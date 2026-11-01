@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { useFinancePeriod } from '../app/family/FinancePeriod';
+import { periodFallback, useFinancePeriod } from '../app/family/FinancePeriod';
 import { Tabs } from '@mantine/core';
 import { Select } from '../dashboard/Select';
 import { financeMoney as money } from './format';
@@ -46,10 +46,10 @@ function DailyTable({ events }: { events: FinanceEvent[] }) {
   </ScrollTable>;
 }
 /** Month-end change against the previous month end: a plain difference of two source values. */
-function monthChange(key: keyof Omit<FinanceMonth, 'month'>, selected: FinanceMonth, previous?: FinanceMonth) {
+function monthChange(key: keyof Omit<FinanceMonth, 'month'>, selected: FinanceMonth, previous?: FinanceMonth, name?: string) {
   if (!previous) return null;
   const change = Math.round((selected[key] - previous[key]) * 100) / 100;
-  return <span className="finance-change">{monthLabel(previous.month)} ay sonuna göre {change === 0 ? 'değişmedi' : signedMoney(change)}</span>;
+  return <span className="finance-change">{name && `${name}: `}{monthLabel(previous.month)} ay sonuna göre {change === 0 ? 'değişmedi' : signedMoney(change)}</span>;
 }
 function MonthStep({ direction, month, onSelect }: { direction: 'previous' | 'next'; month?: FinanceMonth; onSelect: (month: string) => void }) {
   const label = direction === 'previous' ? 'Önceki ay' : 'Sonraki ay';
@@ -63,15 +63,15 @@ function FinanceContent({ data }: { data: FinanceLedger }) {
   const [page, setPage] = useState(0);
   const selected = data.months.find(month => month.month === selection) ?? data.months[0];
   const position = data.months.indexOf(selected), previous = data.months[position - 1];
-  // A month carried from another page may be outside this ledger: say which month is shown instead.
-  const absent = selection && selection !== selected.month ? selection : null;
+  // A period carried from another page may be outside this ledger (or Timeline's all-period scope): say which month is shown.
+  const fallback = selection && selection !== selected.month ? periodFallback(selection, monthLabel(selected.month)) : null;
   const choose = (month: string) => { setSelection(month); setPage(0); };
   const events = data.events.filter(event => event.date.startsWith(selected.month));
   const activePage = Math.min(page, Math.max(0, Math.ceil(events.length / pageSize) - 1));
   return <>
     <div className="finance-controls"><Select label="Dönem" value={selected.month} onChange={value => { if (value) choose(value); }} data={data.months.map(month => ({ value: month.month, label: monthLabel(month.month) }))} allowDeselect={false} />
       <div className="finance-month-steps" role="group" aria-label="Aylar arasında geç"><MonthStep direction="previous" month={previous} onSelect={choose} /><MonthStep direction="next" month={data.months[position + 1]} onSelect={choose} /></div></div>
-    {absent && <p className="finance-period-note" role="note" aria-label="Seçilen ay">{monthLabel(absent)} bu hesapta yok; {monthLabel(selected.month)} gösteriliyor.</p>}
+    {fallback && <p className="finance-period-note" role="note" aria-label="Seçilen dönem">{fallback}</p>}
     <section className="finance-summary" aria-label={`${monthLabel(selected.month)} ay sonu`}>
       <SectionHeading title={`${monthLabel(selected.month)} · ay sonu`} description={<>Bu ayın son adımındaki nakit ve borç durumu. {previous ? `Değişimler ${monthLabel(previous.month)} ay sonuna göredir.` : 'İlk ay · önceki ayla karşılaştırma yok.'}</>} />
       <div className="finance-summary-groups">
@@ -81,13 +81,13 @@ function FinanceContent({ data }: { data: FinanceLedger }) {
         ]} />
         <FactList label="Borç ve taahhütler" tone="plain" items={[
           { label: 'Toplam kart borcu', value: <Amount value={selected.cardDebt} />, emphasis: true, detail: monthChange('cardDebt', selected, previous) },
-          { label: 'KMH anaparası', value: <Amount value={selected.kmhPrincipal} />, detail: <>Faiz + vergi <Amount value={selected.kmhCost} />{monthChange('kmhPrincipal', selected, previous)}</> },
+          { label: 'KMH anaparası', value: <Amount value={selected.kmhPrincipal} />, detail: <>{monthChange('kmhPrincipal', selected, previous, 'Anapara değişimi')}<span className="finance-change">Faiz + vergi <Amount value={selected.kmhCost} /></span></> },
           { label: 'Gelecek taksit', value: <Amount value={selected.futureInstalments} />, detail: <>Kart borcuna dahildir.{monthChange('futureInstalments', selected, previous)}</> },
         ]} />
       </div>
     </section>
     {selected.fundingGap > 0 && <p className="error-message" role="note">Ay sonunda <strong>{money(selected.fundingGap)}</strong> fon eksiği var. Bu tutar kullanılabilir para değildir.</p>}
-    <JourneyLinks label="Bu aydan sonraki adım" items={[{ href: '#/timeline', label: `${monthLabel(selected.month)} ödeme adımları`, detail: 'Bu ay sonuna götüren nakit, kart ve KMH adımları' }]} />
+    <JourneyLinks label="Bu aydan sonraki adım" items={[{ href: '#/timeline', label: `${monthLabel(selected.month)} ödeme adımları`, detail: 'Bu ay sonuna götüren nakit, kart ve KMH adımları', onSelect: () => setSelection(selected.month) }]} />
     <p className="finance-explanation">Gelecek taksit taahhüdü kart borcuna dahildir; tekrar eklenmez. Net nakit ve borç, kalan TL birikimini içerir; döviz, altın ve eşyaların değerini içermez.</p>
     <Tabs value={view} onChange={setView} unstyled keepMounted={false} className="finance-views">
       <Tabs.List aria-label="Finansman görünümleri" className="finance-view-selector"><Tabs.Tab value="daily">Günlük adımlar</Tabs.Tab><Tabs.Tab value="monthly">Aylık özet</Tabs.Tab></Tabs.List>

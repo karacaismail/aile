@@ -163,3 +163,37 @@ test('narrow purchase rows show what and how much in the visible column, and act
   await expect(table.locator('tbody tr')).toHaveCount(3);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
 });
+
+const navigate = async (page: Page, name: string) => {
+  const menu = page.getByRole('button', { name: 'Sayfalar', exact: true });
+  if (await menu.isVisible()) await menu.click();
+  await page.getByRole('navigation', { name: 'Sayfalar', exact: true }).getByRole('link', { name, exact: true }).click();
+};
+
+test('a named Finance month link takes Timeline to that month even after an all-period Timeline scope', async ({ page }) => {
+  await source(page);
+  await page.goto('/aile/#/timeline');
+  await page.getByRole('combobox', { name: 'Gösterilen dönem' }).click();
+  await page.getByRole('option', { name: 'Tüm dönem', exact: true }).click();
+  await navigate(page, 'Finansman');
+  const month = page.getByRole('combobox', { name: 'Dönem', exact: true });
+  await expect(month).toHaveValue('Kasım 2098');
+  // The all-period scope is named, not formatted as a date and not presented as a selected month.
+  await expect(page.getByRole('note', { name: 'Seçilen dönem' })).toHaveText('Tüm dönem bu sayfada aylık özet olarak gösterilmez; Kasım 2098 gösteriliyor.');
+  await page.getByRole('navigation', { name: 'Bu aydan sonraki adım', exact: true }).getByRole('link', { name: /Kasım 2098 ödeme adımları/ }).click();
+  await expect(page).toHaveURL(/#\/timeline$/);
+  await expect(page.getByRole('combobox', { name: 'Gösterilen dönem' })).toHaveValue('Kasım 2098');
+});
+
+test('global navigation keeps a chosen budget month through financing and back to the budget', async ({ page }) => {
+  await source(page);
+  await page.goto('/aile/#/pano');
+  await page.getByRole('combobox', { name: 'Gösterilen ay' }).click();
+  await page.getByRole('option', { name: 'Aralık 2098', exact: true }).click();
+  await navigate(page, 'Finansman');
+  await expect(page.getByRole('combobox', { name: 'Dönem', exact: true })).toHaveValue('Aralık 2098');
+  await navigate(page, 'Ödeme takvimi');
+  await expect(page.getByRole('combobox', { name: 'Gösterilen dönem' })).toHaveValue('Aralık 2098');
+  await navigate(page, 'Genel bütçe');
+  await expect(page.getByRole('combobox', { name: 'Gösterilen ay' })).toHaveValue('Aralık 2098');
+});

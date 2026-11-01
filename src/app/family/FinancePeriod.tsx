@@ -14,3 +14,14 @@ export function useFinancePeriod(initial = ''): PeriodState {
   const local = useState(initial);
   return shared ?? local;
 }
+
+const monthName = (value: string) => new Intl.DateTimeFormat('tr-TR', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${value}-01T00:00:00Z`));
+/**
+ * Text for a shared period this page cannot show, naming the period actually shown. The Timeline
+ * sentinel `all` is named, never formatted as a date; an unknown value yields no claim.
+ */
+export function periodFallback(requested: string, shownLabel: string) {
+  if (requested === 'all') return `Tüm dönem bu sayfada aylık özet olarak gösterilmez; ${shownLabel} gösteriliyor.`;
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(requested)) return null;
+  return `${monthName(requested)} bu hesapta yok; ${shownLabel} gösteriliyor.`;
+}

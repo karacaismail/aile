@@ -410,5 +410,5 @@ it('shows the actual prior-ledger KMH change beside a transfer without calling r
 it('says so when the shared month is not in this ledger instead of silently showing another month', () => {
   function Preset() { const [, set] = useFinancePeriod(); useEffect(() => set('2099-05'), [set]); return null; }
   render(<MantineProvider><FinancePeriodProvider><Preset /><TimelinePage /></FinancePeriodProvider></MantineProvider>);
-  expect(screen.getByRole('note', { name: 'Seçilen ay' })).toHaveTextContent('Mayıs 2099 bu hesapta yok; Ocak 2098 gösteriliyor.');
+  expect(screen.getByRole('note', { name: 'Seçilen dönem' })).toHaveTextContent('Mayıs 2099 bu hesapta yok; Ocak 2098 gösteriliyor.');
 });

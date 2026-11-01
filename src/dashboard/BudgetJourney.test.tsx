@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { MantineProvider } from '@mantine/core';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
@@ -57,4 +58,24 @@ it('carries the selected month into the payment calendar link without inventing 
   fireEvent.click(link);
   expect(screen.getByRole('status', { name: 'Paylaşılan dönem' })).toHaveTextContent('2098-12');
   expect(within(next).getByRole('link', { name: /Alım planını incele/ })).toHaveAttribute('href', '#/ev');
+});
+
+it('opens on the shared month and writes a chosen month back, so global navigation keeps it', () => {
+  function Preset({ value }: { value: string }) { const [, set] = useFinancePeriod(); useEffect(() => set(value), [set, value]); return null; }
+  const first = render(<MantineProvider><FinancePeriodProvider><Preset value="2098-12" /><Dashboard /><Period /></FinancePeriodProvider></MantineProvider>);
+  expect(screen.getByRole('combobox', { name: 'Gösterilen ay' })).toHaveValue('2098-12');
+  fireEvent.change(screen.getByRole('combobox', { name: 'Gösterilen ay' }), { target: { value: '2099-01' } });
+  expect(screen.getByRole('status', { name: 'Paylaşılan dönem' })).toHaveTextContent('2099-01');
+  first.unmount();
+});
+
+it('names a shared period the budget cannot show and does not overwrite it unless the user chooses a month', () => {
+  function Preset({ value }: { value: string }) { const [, set] = useFinancePeriod(); useEffect(() => set(value), [set, value]); return null; }
+  for (const [value, text] of [['all', 'Tüm dönem bu sayfada aylık özet olarak gösterilmez; Kasım 2098 gösteriliyor.'], ['2099-05', 'Mayıs 2099 bu hesapta yok; Kasım 2098 gösteriliyor.']]) {
+    const view = render(<MantineProvider><FinancePeriodProvider><Preset value={value} /><Dashboard /><Period /></FinancePeriodProvider></MantineProvider>);
+    expect(screen.getByRole('combobox', { name: 'Gösterilen ay' })).toHaveValue('2098-11');
+    expect(screen.getByRole('note', { name: 'Seçilen dönem' })).toHaveTextContent(text);
+    expect(screen.getByRole('status', { name: 'Paylaşılan dönem' })).toHaveTextContent(value);
+    view.unmount();
+  }
 });
