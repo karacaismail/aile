@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
-  testDir: './e2e', testMatch: /(?:finansman|timeline)-dashboard\.spec\.ts$/, workers: 3,
+  testDir: './e2e', testMatch: /(?:(?:finansman|timeline)-dashboard|visualization-production)\.spec\.ts$/, workers: 3,
   metadata: { financeProduction: true },
   outputDir: 'test-results/finansman-production', reporter: [['list']],
   use: { baseURL: 'http://127.0.0.1:5181/aile/', locale: 'tr-TR', timezoneId: 'Europe/Istanbul', trace: 'retain-on-failure', serviceWorkers: 'block' },
