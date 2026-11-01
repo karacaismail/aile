@@ -555,3 +555,42 @@ describe('Tur 3 kapanış 2: aralık çakışmasını çözme', () => {
     expect(vi.mocked(upsert).mock.calls.at(-1)![2]).toEqual({ tip: 'satinalma', tahmini_tl_min: 180, tahmini_tl_max: 200 });
   });
 });
+
+describe('Tur 3 kapanış 3: çakışma bandı karşılaştırılan ve yazılacak değerleri gösterir', () => {
+  const openWith = async (stored: Item) => {
+    setState({ hydrated: true, status: 'synced' });
+    applyRead({ ok: true, fingerprint: 'f', serverTime: 't', schemaVersion: 1, items: [stored], settings: [] });
+    const loc = memoryLocation({ path: '/satinalma/A', static: false, record: true });
+    render(<Router hook={loc.hook}><Route path="/satinalma" nest><PurchaseList /></Route></Router>);
+    const form = await screen.findByTestId('item-detail');
+    vi.mocked(upsert).mockClear();
+    return form;
+  };
+  const setPrice = async (form: HTMLElement, label: string, value: string) => { const input = within(form).getByLabelText(label); await userEvent.clear(input); await userEvent.type(input, value); };
+  it('boş max min değerinden türetildiyse bant yazılacak türetilmiş değeri ve nedenini söyler, "boş" demez', async () => {
+    const stored: Item = { id: 'A', tip: 'satinalma', ad: 'Örnek kalem', faz: '1', tahmini_tl_min: 100, version: 1 };
+    const form = await openWith(stored);
+    await setPrice(form, 'Tahmini (min)', '120');
+    act(() => { applyRead({ ok: true, fingerprint: 'g', serverTime: 't2', schemaVersion: 1, items: [{ ...stored, tahmini_tl_max: 180, version: 2 }], settings: [] }); });
+    await userEvent.click(within(form).getByRole('button', { name: 'Kaydet' }));
+    expect(upsert).not.toHaveBeenCalled();
+    const conflict = within(form).getByTestId('draft-conflict');
+    expect(conflict).toHaveTextContent('Tahmini (max): sizin değeriniz 120');
+    expect(conflict).toHaveTextContent('Tahmini (min) değerinden');
+    expect(conflict).not.toHaveTextContent('sizin değeriniz boş');
+    expect(conflict).toHaveTextContent("Sheets'teki 180");
+  });
+  it('aralık bozulması kimin değeri olursa olsun yansız ve doğru anlatılır (sizin max < Sheets min)', async () => {
+    const stored: Item = { id: 'A', tip: 'satinalma', ad: 'Örnek kalem', faz: '1', tahmini_tl_min: 100, tahmini_tl_max: 200, fiyat_guven: 'tahmini', version: 1 };
+    const form = await openWith(stored);
+    await setPrice(form, 'Tahmini (max)', '150');
+    act(() => { applyRead({ ok: true, fingerprint: 'g', serverTime: 't2', schemaVersion: 1, items: [{ ...stored, tahmini_tl_min: 180, version: 2 }], settings: [] }); });
+    await userEvent.click(within(form).getByRole('button', { name: 'Kaydet' }));
+    expect(upsert).not.toHaveBeenCalled();
+    const conflict = within(form).getByTestId('draft-conflict');
+    expect(conflict).toHaveTextContent('birlikte kaydedilemez');
+    expect(conflict).toHaveTextContent('min 180');
+    expect(conflict).toHaveTextContent('max 150');
+    expect(conflict).not.toHaveTextContent('Sizin Tahmini (min) değeriniz');
+  });
+});

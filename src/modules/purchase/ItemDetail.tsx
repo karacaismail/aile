@@ -75,6 +75,14 @@ export function toPatch(v: FormValues, prev?: Item): Record<string, unknown> {
  * Only owned fields whose result differs from the latest record are written. A same-field server change, or an owned
  * price that would form an invalid range with the latest record, is returned as a conflict and nothing is written.
  */
+// An empty field written with a value derived from another field says so, next to the value that would be written.
+const DERIVED_FROM: Partial<Record<keyof FormValues, string>> = { tahmini_tl_max: 'Tahmini (min) değerinden türetilir', fiyat_guven: 'Tahmini (min) girildiği için türetilir' };
+function persistedValue(key: keyof FormValues, values: FormValues) {
+  const persisted = (toPatch(values) as Record<string, unknown>)[key];
+  const raw = values[key];
+  return { value: persisted, derived: (raw == null || raw === '') && persisted != null ? DERIVED_FROM[key] : undefined };
+}
+
 export function ownedPatch(baseline: FormValues, values: FormValues, latest: Item) {
   const latestValues = toPatch(toForm(latest));
   const local = toPatch(values);
@@ -83,7 +91,7 @@ export function ownedPatch(baseline: FormValues, values: FormValues, latest: Ite
   for (const key of changed) if (key !== 'tip' && JSON.stringify(local[key] ?? null) !== JSON.stringify(latestValues[key] ?? null)) patch[key] = local[key];
   const merged = { ...latestValues, ...patch } as { tahmini_tl_min?: number | null; tahmini_tl_max?: number | null };
   const invalidRange = !conflicts.length && merged.tahmini_tl_min != null && merged.tahmini_tl_max != null && merged.tahmini_tl_min > merged.tahmini_tl_max;
-  return { patch, conflicts: (invalidRange ? ['tahmini_tl_min', 'tahmini_tl_max'] : conflicts) as (keyof FormValues)[], invalidRange };
+  return { patch, conflicts: (invalidRange ? ['tahmini_tl_min', 'tahmini_tl_max'] : conflicts) as (keyof FormValues)[], invalidRange, range: invalidRange ? { min: merged.tahmini_tl_min!, max: merged.tahmini_tl_max! } : null };
 }
 
 // Temizle düğmesi de dokunma hedefi (≥44); sağ bölüm ona göre genişler.
@@ -141,7 +149,7 @@ function ItemForm({ id, item, isNew, section, defaults, onSaved, close, isMobile
   // Ownership baseline: the form as it opened; a resolved conflict moves that field's baseline to the server value.
   const [baseline, setBaseline] = useState(initial);
   const [conflicts, setConflicts] = useState<(keyof FormValues)[]>([]);
-  const [invalidRange, setInvalidRange] = useState(false);
+  const [range, setRange] = useState<{ min: number; max: number } | null>(null);
   const conflictRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => { if (conflicts.length) conflictRef.current?.focus(); }, [conflicts]);
   const resolve = (keep: 'mine' | 'theirs') => {
@@ -168,7 +176,7 @@ function ItemForm({ id, item, isNew, section, defaults, onSaved, close, isMobile
   const save = (values: FormValues) => {
     const owned = item ? ownedPatch(baseline, values, item) : null;
     // Aynı alanı sunucu da değiştirdiyse yazılmaz: çakışma görünür çözülür, taslak korunur.
-    if (owned?.conflicts.length) { setConflicts(owned.conflicts); setInvalidRange(owned.invalidRange); return; }
+    if (owned?.conflicts.length) { setConflicts(owned.conflicts); setRange(owned.range); return; }
     const patch = owned ? owned.patch : toPatch(values);
     // Kullanıcı hiçbir alanı değiştirmediyse (ya da fark kırpmayla kayboluyorsa) Sheets'e yazılmaz: sürüm/son güncelleyen/sıralama bozulmaz.
     if (item && Object.keys(patch).length <= 1) { close(); return; }
@@ -194,8 +202,9 @@ function ItemForm({ id, item, isNew, section, defaults, onSaved, close, isMobile
             {item && conflicts.length > 0 && <Alert color="orange" variant="light" role="alert" data-testid="draft-conflict">
               <Stack gap={6}>
                 <Text component="h4" ref={conflictRef} tabIndex={-1} fw={600} m={0}>Bu alanları siz düzenlerken Sheets'te de değişti</Text>
-                {invalidRange && <Text size="sm">Sizin Tahmini (min) değeriniz Sheets'teki Tahmini (max) değerinden büyük; ikisi birlikte kaydedilemez. Hangisinin kalacağını seçin.</Text>}
-                {conflicts.map((key) => <Text key={key} size="sm"><b>{FIELD_LABELS[key] ?? key}</b>: sizin değeriniz <i>{fieldValue(key, form.getValues()[key])}</i> · Sheets'teki <i>{fieldValue(key, toForm(item)[key])}</i></Text>)}
+                {range && <Text size="sm">Sizin değerleriniz Sheets'teki son değerlerle birleşince min {fieldValue('tahmini_tl_min', range.min)}, max {fieldValue('tahmini_tl_max', range.max)} olur; min max'tan büyük olduğu için birlikte kaydedilemez. Hangisinin kalacağını seçin.</Text>}
+                {/* Both sides show the persisted values that are compared and would be written, with any derivation named. */}
+                {conflicts.map((key) => { const mine = persistedValue(key, form.getValues()), theirs = persistedValue(key, toForm(item)); return <Text key={key} size="sm"><b>{FIELD_LABELS[key] ?? key}</b>: sizin değeriniz <i>{fieldValue(key, mine.value)}</i>{mine.derived && ` (${mine.derived})`} · Sheets'teki <i>{fieldValue(key, theirs.value)}</i>{theirs.derived && ` (${theirs.derived})`}</Text>; })}
                 <Group gap="xs">
                   <Button size="sm" variant="filled" onClick={() => resolve('mine')}>Benim değerim kalsın</Button>
                   <Button size="sm" variant="default" onClick={() => resolve('theirs')}>Sheets'teki kalsın</Button>
