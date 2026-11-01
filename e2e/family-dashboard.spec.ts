@@ -428,3 +428,65 @@ test('the sticky record form footer stays above field decorations that scroll be
     expect(await leaks(), `footer covered at scrollTop ${step}`).toEqual([]);
   }
 });
+
+// Post-implementation browser coverage for field ownership (behaviour RED executed first in purchase.test.tsx).
+async function ownershipApi(page: Page, record: Record<string, unknown>) {
+  await mockApi(page, { items: [record], settings: [], cash: [] });
+  const sent: Array<Record<string, unknown>> = [];
+  let server: Record<string, unknown> | null = null;
+  await page.route('**/macros/s/**', async route => {
+    const body = JSON.parse(route.request().postData() ?? '{}') as { action?: string; ops?: Array<{ patch?: Record<string, unknown> }> };
+    if (body.action === 'batch') { for (const op of body.ops ?? []) sent.push(op.patch ?? {}); return route.fallback(); }
+    if (server && body.action !== 'health') return route.fulfill({ json: { ok: true, fingerprint: `fx-server-${server.version}`, serverTime: new Date().toISOString(), schemaVersion: 2, items: [server], settings: [], cash: [] } });
+    return route.fallback();
+  });
+  return { sent, serverChanges: async (next: Record<string, unknown>) => { server = next; await page.evaluate(() => window.dispatchEvent(new Event('online'))); } };
+}
+
+test('saving a note after a background update writes only the note, never reverting the newer status', async ({ page }) => {
+  const record = { id: 'own-1', tip: 'satinalma', ad: 'Salon koltuğu', faz: '1', durum: 'karar', version: 1 };
+  const api = await ownershipApi(page, record);
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.goto('/aile/#/satinalma/own-1');
+  const form = page.getByTestId('item-detail');
+  await expect(form.getByLabel(/^Ad\s*\*?$/)).toHaveValue('Salon koltuğu');
+  await form.getByLabel('Not').fill('Benim notum');
+  await api.serverChanges({ ...record, durum: 'siparis', version: 2 });
+  await expect(page.getByRole('link', { name: 'Salon koltuğu detayı' }).locator('xpath=ancestor::*[@data-testid="item-card"]')).toContainText('Sipariş');
+  await form.getByRole('button', { name: 'Kaydet', exact: true }).click();
+  await expect(form).toHaveCount(0);
+  await expect.poll(() => api.sent.length).toBeGreaterThan(0);
+  expect(api.sent.at(-1)).toEqual({ tip: 'satinalma', not: 'Benim notum' });
+});
+
+test('a note edited here and on the server is not overwritten: the conflict is named, reachable by keyboard and resolvable', async ({ page, browserName }, testInfo) => {
+  const record = { id: 'own-2', tip: 'satinalma', ad: 'Salon koltuğu', faz: '1', durum: 'karar', not: 'İlk not', version: 1 };
+  const api = await ownershipApi(page, record);
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.goto('/aile/#/satinalma/own-2');
+  const form = page.getByTestId('item-detail');
+  await expect(form.getByLabel('Not')).toHaveValue('İlk not');
+  await form.getByLabel('Not').fill('Benim notum');
+  await api.serverChanges({ ...record, not: 'Sunucudaki yeni not', version: 2 });
+  await expect(page.getByTestId('item-card').filter({ hasText: 'Salon koltuğu' })).toBeVisible();
+  await form.getByRole('button', { name: 'Kaydet', exact: true }).focus();
+  await page.keyboard.press(browserName === 'webkit' ? 'Alt+Shift+Tab' : 'Shift+Tab');
+  await page.keyboard.press(browserName === 'webkit' ? 'Alt+Tab' : 'Tab');
+  await page.keyboard.press('Enter');
+  const conflict = form.getByRole('alert');
+  await expect(conflict).toContainText('Not');
+  await expect(conflict).toContainText('Benim notum');
+  await expect(conflict).toContainText('Sunucudaki yeni not');
+  await expect(conflict.getByRole('heading', { level: 4 })).toBeFocused();
+  await expect(form.getByLabel('Not')).toHaveValue('Benim notum');
+  expect(api.sent).toEqual([]);
+  for (const name of ['Benim değerim kalsın', "Sheets'teki kalsın"]) expect((await conflict.getByRole('button', { name }).boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  expect(await conflict.evaluate(el => [...el.querySelectorAll('*')].filter(n => n.textContent?.trim() && n.children.length === 0 && parseFloat(getComputedStyle(n).fontSize) < 14).length)).toBe(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath(`ownership-conflict-${browserName}-320.png`) });
+  await conflict.getByRole('button', { name: 'Benim değerim kalsın' }).click();
+  await form.getByRole('button', { name: 'Kaydet', exact: true }).click();
+  await expect(form).toHaveCount(0);
+  await expect.poll(() => api.sent.length).toBeGreaterThan(0);
+  expect(api.sent.at(-1)).toEqual({ tip: 'satinalma', not: 'Benim notum' });
+});

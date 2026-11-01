@@ -1,6 +1,6 @@
 import { SectionHeading } from '@/components/Info';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Modal, Stack, TextInput, SegmentedControl, Switch, NumberInput, Textarea, Text, Alert, SimpleGrid } from '@mantine/core';
+import { Modal, Stack, TextInput, SegmentedControl, Switch, NumberInput, Textarea, Text, Alert, SimpleGrid, Button, Group } from '@mantine/core';
 import { DatePickerInput } from '@mantine/dates';
 import { useForm, schemaResolver } from '@mantine/form';
 import { useMediaQuery } from '@mantine/hooks';
@@ -16,7 +16,8 @@ import { PriceInput } from '@/components/PriceInput';
 import { LinksField } from '@/components/LinksField';
 import { EnumSelect } from '@/components/EnumSelect';
 import { FormFooter, focusFirstError } from '@/components/FormFooter';
-import { ConflictBanner } from './ConflictBanner';
+import { ConflictBanner, FIELD_LABELS, fieldValue } from './ConflictBanner';
+import { fieldOwnership } from '@/lib/fieldOwnership';
 import { DetailSkeleton } from '@/components/DetailSkeleton';
 import { selectFirstLoad } from '@/data/selectors';
 import { tokens } from '@/dashboard/tokens';
@@ -65,6 +66,25 @@ export function toPatch(v: FormValues, prev?: Item): Record<string, unknown> {
     }
   }
   return patch;
+}
+
+// Item fields derived from more than one form field are written only when one of their sources is the user's.
+const SOURCES: Partial<Record<string, (keyof FormValues)[]>> = { tahmini_tl_max: ['tahmini_tl_max', 'tahmini_tl_min'], fiyat_guven: ['fiyat_guven', 'tahmini_tl_min'] };
+
+/**
+ * Patch for an existing record: only fields the user changed since the form opened (`baseline`), and only where the
+ * result differs from the latest record. Same-field server changes are returned as conflicts and nothing is written.
+ */
+export function ownedPatch(baseline: FormValues, values: FormValues, latest: Item) {
+  const { changed, conflicts } = fieldOwnership(baseline, values, toForm(latest));
+  const full = toPatch(values);
+  const patch: Record<string, unknown> = { tip: full.tip };
+  for (const [key, value] of Object.entries(full)) {
+    if (key === 'tip') continue;
+    const owned = (SOURCES[key] ?? [key as keyof FormValues]).some((source) => changed.includes(source));
+    if (owned && JSON.stringify(value ?? null) !== JSON.stringify((latest as unknown as Record<string, unknown>)[key] ?? null)) patch[key] = value;
+  }
+  return { patch, conflicts };
 }
 
 // Temizle düğmesi de dokunma hedefi (≥44); sağ bölüm ona göre genişler.
@@ -119,6 +139,18 @@ function ItemForm({ id, item, isNew, section, defaults, onSaved, close, isMobile
   const [initial] = useState(() => toForm(item, defaults));
   const form = useForm<FormValues>({ mode: 'controlled', initialValues: initial, validate: schemaResolver(schema, { sync: true }) });
   const formRef = useRef<HTMLFormElement>(null);
+  // Ownership baseline: the form as it opened; a resolved conflict moves that field's baseline to the server value.
+  const [baseline, setBaseline] = useState(initial);
+  const [conflicts, setConflicts] = useState<(keyof FormValues)[]>([]);
+  const conflictRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => { if (conflicts.length) conflictRef.current?.focus(); }, [conflicts]);
+  const resolve = (keep: 'mine' | 'theirs') => {
+    if (!item) return;
+    const latest = toForm(item);
+    setBaseline((current) => ({ ...current, ...Object.fromEntries(conflicts.map((key) => [key, latest[key]])) }));
+    if (keep === 'theirs') for (const key of conflicts) form.setFieldValue(key, latest[key] as never);
+    setConflicts([]);
+  };
   // Opened for a price: the section starts just under the modal header, so its explanation and first field are visible above the sticky footer.
   useEffect(() => {
     if (section !== 'fiyat') return;
@@ -134,9 +166,12 @@ function ItemForm({ id, item, isNew, section, defaults, onSaved, close, isMobile
   }, [section]);
 
   const save = (values: FormValues) => {
-    const patch = toPatch(values, item);
+    const owned = item ? ownedPatch(baseline, values, item) : null;
+    // Aynı alanı sunucu da değiştirdiyse yazılmaz: çakışma görünür çözülür, taslak korunur.
+    if (owned?.conflicts.length) { setConflicts(owned.conflicts); return; }
+    const patch = owned ? owned.patch : toPatch(values);
     // Kullanıcı hiçbir alanı değiştirmediyse (ya da fark kırpmayla kayboluyorsa) Sheets'e yazılmaz: sürüm/son güncelleyen/sıralama bozulmaz.
-    if (item && (!form.isDirty() || Object.keys(patch).length <= 1)) { close(); return; }
+    if (item && Object.keys(patch).length <= 1) { close(); return; }
     const savedId = upsert('kalemler', isNew ? undefined : id, patch);
     if (onSaved) onSaved({ ...(item ?? { id: savedId, tip: 'satinalma', ad: values.ad.trim() }), ...patch } as Item, isNew);
     else notifications.show({ message: isNew ? 'Kalem eklendi' : 'Kaydedildi', color: 'green', autoClose: 1500 });
@@ -156,6 +191,17 @@ function ItemForm({ id, item, isNew, section, defaults, onSaved, close, isMobile
           <Stack component="section" aria-label="Kalem bilgileri" className="record-form-section" gap="sm">
             <SectionHeading title="Kalem bilgileri" level={3} />
             {item && <ConflictBanner id={item.id} />}
+            {item && conflicts.length > 0 && <Alert color="orange" variant="light" role="alert" data-testid="draft-conflict">
+              <Stack gap={6}>
+                <Text component="h4" ref={conflictRef} tabIndex={-1} fw={600} m={0}>Bu alanları siz düzenlerken Sheets'te de değişti</Text>
+                {conflicts.map((key) => <Text key={key} size="sm"><b>{FIELD_LABELS[key] ?? key}</b>: sizin değeriniz <i>{fieldValue(key, form.getValues()[key])}</i> · Sheets'teki <i>{fieldValue(key, toForm(item)[key])}</i></Text>)}
+                <Group gap="xs">
+                  <Button size="sm" variant="filled" onClick={() => resolve('mine')}>Benim değerim kalsın</Button>
+                  <Button size="sm" variant="default" onClick={() => resolve('theirs')}>Sheets'teki kalsın</Button>
+                </Group>
+                <Text size="sm">Seçimden sonra Kaydet; değiştirmediğiniz alanlar yazılmaz.</Text>
+              </Stack>
+            </Alert>}
             {/* Yeni kayıtta ilk alan odaklanır (Mantine FocusTrap `data-autofocus`); düzenlemede odak modal başlığında kalır. */}
             <TextInput label="Ad" required data-autofocus={isNew || undefined} {...form.getInputProps('ad')} key={form.key('ad')} />
             <fieldset className="record-fieldset">

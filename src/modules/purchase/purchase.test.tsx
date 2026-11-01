@@ -7,7 +7,7 @@ import type { Item } from '@shared/schema';
 import { ItemCard } from './ItemCard';
 import { TotalsBar } from './TotalsBar';
 import { DEFAULT_FILTERS, totalsFor } from '@/data/selectors';
-import { toPatch } from './ItemDetail';
+import { ownedPatch, toPatch } from './ItemDetail';
 import { applyRead, resetStore, setState } from '@/sync/store';
 import { upsert } from '@/sync/controller';
 import { PurchaseList } from './PurchaseList';
@@ -418,5 +418,81 @@ describe('Tur 3 kapanış: arka plan yenilemesi düzenlemeyi ezmez (koruma testi
     act(() => { applyRead({ ok: true, fingerprint: 'g', serverTime: 't2', schemaVersion: 1, items: [{ ...item, durum: 'siparis', version: 2 }], settings: [] }); });
     expect(within(screen.getByTestId('item-detail')).getByLabelText('Not')).toHaveValue('Benim notum');
     expect(within(screen.getByTestId('item-detail')).getByLabelText(/^Ad\b/)).toHaveValue(item.ad);
+  });
+});
+
+describe('Tur 3 kapanış: alan sahipliği — yalnız kullanıcının değiştirdiği alanlar yazılır, aynı alan çakışması görünür çözülür', () => {
+  const base: Item = { id: 'A', tip: 'satinalma', ad: 'Salon koltuğu', faz: '1', durum: 'karar', version: 1 };
+  const open = async (record: Item) => {
+    setState({ hydrated: true, status: 'synced' });
+    applyRead({ ok: true, fingerprint: 'f', serverTime: 't', schemaVersion: 1, items: [record], settings: [] });
+    const loc = memoryLocation({ path: '/satinalma/A', static: false, record: true });
+    render(<Router hook={loc.hook}><Route path="/satinalma" nest><PurchaseList /></Route></Router>);
+    return screen.findByTestId('item-detail');
+  };
+  const refresh = (record: Item) => act(() => { applyRead({ ok: true, fingerprint: 'g', serverTime: 't2', schemaVersion: 1, items: [record], settings: [] }); });
+  beforeEach(() => { localStorage.clear(); vi.mocked(upsert).mockClear(); });
+
+  it('yalnız Not değişince, sunucuda değişen durum ve hiç kaydedilmemiş varsayılanlar (öncelik, adet, birim) yazılmaz', async () => {
+    const form = await open(base);
+    await userEvent.type(within(form).getByLabelText('Not'), 'Benim notum');
+    refresh({ ...base, durum: 'siparis', version: 2 });
+    await userEvent.click(within(form).getByRole('button', { name: 'Kaydet' }));
+    expect(vi.mocked(upsert).mock.calls.at(-1)![2]).toEqual({ tip: 'satinalma', not: 'Benim notum' });
+  });
+
+  it('aynı alanı sunucu da değiştirdiyse sessizce ezmez: yazmaz, taslağı korur ve çakışmayı alan etiketiyle gösterir', async () => {
+    const form = await open({ ...base, not: 'İlk not' });
+    await userEvent.clear(within(form).getByLabelText('Not'));
+    await userEvent.type(within(form).getByLabelText('Not'), 'Benim notum');
+    refresh({ ...base, not: 'Sunucudaki yeni not', version: 2 });
+    await userEvent.click(within(form).getByRole('button', { name: 'Kaydet' }));
+    expect(upsert).not.toHaveBeenCalled();
+    expect(within(form).getByLabelText('Not')).toHaveValue('Benim notum');
+    const conflict = within(form).getByRole('alert');
+    expect(conflict).toHaveTextContent('Not');
+    expect(conflict).toHaveTextContent('Benim notum');
+    expect(conflict).toHaveTextContent('Sunucudaki yeni not');
+    expect(conflict).not.toHaveTextContent(/\bnot:/);
+  });
+
+  it('çakışmada "Benim değerim kalsın" bilerek yazar; "Sheets\'teki kalsın" alanı sunucu değerine alır ve yazmaz', async () => {
+    const form = await open({ ...base, not: 'İlk not' });
+    await userEvent.clear(within(form).getByLabelText('Not'));
+    await userEvent.type(within(form).getByLabelText('Not'), 'Benim notum');
+    refresh({ ...base, not: 'Sunucudaki yeni not', version: 2 });
+    await userEvent.click(within(form).getByRole('button', { name: 'Kaydet' }));
+    await userEvent.click(within(within(form).getByRole('alert')).getByRole('button', { name: "Sheets'teki kalsın" }));
+    expect(within(form).getByLabelText('Not')).toHaveValue('Sunucudaki yeni not');
+    expect(within(form).queryByRole('alert')).not.toBeInTheDocument();
+    await userEvent.clear(within(form).getByLabelText('Not'));
+    await userEvent.type(within(form).getByLabelText('Not'), 'Son notum');
+    await userEvent.click(within(form).getByRole('button', { name: 'Kaydet' }));
+    expect(vi.mocked(upsert).mock.calls.at(-1)![2]).toEqual({ tip: 'satinalma', not: 'Son notum' });
+  });
+
+  it('çakışmada "Benim değerim kalsın" seçilince aynı Kaydet yalnız o alanı yazar', async () => {
+    const form = await open({ ...base, not: 'İlk not' });
+    await userEvent.clear(within(form).getByLabelText('Not'));
+    await userEvent.type(within(form).getByLabelText('Not'), 'Benim notum');
+    refresh({ ...base, not: 'Sunucudaki yeni not', durum: 'siparis', version: 2 });
+    await userEvent.click(within(form).getByRole('button', { name: 'Kaydet' }));
+    await userEvent.click(within(within(form).getByRole('alert')).getByRole('button', { name: 'Benim değerim kalsın' }));
+    await userEvent.click(within(form).getByRole('button', { name: 'Kaydet' }));
+    expect(vi.mocked(upsert).mock.calls.at(-1)![2]).toEqual({ tip: 'satinalma', not: 'Benim notum' });
+  });
+});
+
+// Post-implementation coverage of ownedPatch (RED for the behaviour was executed through the form tests above).
+describe('ownedPatch', () => {
+  const stored: Item = { id: 'A', tip: 'satinalma', ad: 'Salon koltuğu', faz: '1', durum: 'karar', tahmini_tl_min: 100, tahmini_tl_max: 100, fiyat_guven: 'tahmini' };
+  it('writes derived price fields only when their source is the user\'s, and drops results equal to the latest record', () => {
+    const form = (v: Partial<Item>) => ({ ad: v.ad ?? '', oda: v.oda, kategori: v.kategori, faz: v.faz ?? '1', durum: v.durum, karar_bekliyor: false, oncelik: 2, adet: 1, birim: 'adet', tahmini_tl_min: v.tahmini_tl_min ?? null, tahmini_tl_max: v.tahmini_tl_max ?? null, gercek_tl: v.gercek_tl ?? null, fiyat_guven: v.fiyat_guven, nereden: '', siparis_son_tarih: null, teslim_suresi_gun: null, teslim_tarihi: null, linkler: [], not: '', mevcut: false } as Parameters<typeof ownedPatch>[0]);
+    const open = form(stored);
+    expect(ownedPatch(open, { ...open, tahmini_tl_min: 200, tahmini_tl_max: 200 }, stored).patch).toEqual({ tip: 'satinalma', tahmini_tl_min: 200, tahmini_tl_max: 200 });
+    // A trimmed name that equals the latest record is a no-op.
+    expect(ownedPatch(open, { ...open, ad: ' Salon koltuğu ' }, stored).patch).toEqual({ tip: 'satinalma' });
+    // Clearing a price is unknown (null), not zero.
+    expect(ownedPatch(open, { ...open, tahmini_tl_min: null, tahmini_tl_max: null }, stored).patch).toMatchObject({ tahmini_tl_min: null, tahmini_tl_max: null });
   });
 });

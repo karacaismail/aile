@@ -4,17 +4,19 @@ import { label } from '@shared/schema';
 import { useAppStore, dismissConflict } from '@/sync/store';
 import { upsert } from '@/sync/controller';
 
-const FIELD_LABELS: Record<string, string> = {
+export const FIELD_LABELS: Record<string, string> = {
   ad: 'Ad', oda: 'Oda', kategori: 'Kategori', faz: 'Faz', durum: 'Durum', karar_bekliyor: 'Karar bekliyor', oncelik: 'Öncelik', adet: 'Adet', birim: 'Birim',
   tahmini_tl_min: 'Tahmini (min)', tahmini_tl_max: 'Tahmini (max)', gercek_tl: 'Gerçek', fiyat_guven: 'Güven', nereden: 'Nereden',
   siparis_son_tarih: 'Sipariş son tarih', teslim_suresi_gun: 'Teslim süresi (gün)', teslim_tarihi: 'Teslim tarihi', linkler: 'Bağlantılar', not: 'Not', mevcut: 'Elimizde var',
 };
 
+/** The same words the form shows: option labels, never storage keys or enum codes; empty stays "boş", not zero. */
+export const fieldValue = (k: string, v: unknown) => (v == null || v === '' ? 'boş' : Array.isArray(v) ? (v.length ? v.join(', ') : 'boş') : typeof v === 'boolean' ? (v ? 'evet' : 'hayır') : label(k, String(v)));
+
 export function ConflictBanner({ id }: { id: string }) {
   const conflict = useAppStore((s) => s.conflicts.find((c) => c.id === id));
   if (!conflict) return null;
-  // The same words the form shows: field labels and option labels, never storage keys or enum codes.
-  const fmt = (k: string, v: unknown) => (v == null || v === '' ? 'boş' : Array.isArray(v) ? v.join(', ') : typeof v === 'boolean' ? (v ? 'evet' : 'hayır') : label(k, String(v)));
+  const fmt = fieldValue;
   return (
     <Alert color="orange" variant="light" icon={<WarningCircleIcon size={20} aria-hidden />} title="Bu kalem bu arada başka yerde değişti" data-testid="conflict-banner">
       <Stack gap={6}>
