@@ -4,10 +4,11 @@ import AxeBuilder from '@axe-core/playwright';
 import { syntheticSheets, gviz } from '../src/dashboard/fixtures';
 import { horizontalOverflow } from './helpers';
 async function mockSheet(page: Page) {
-  let fail=false; let fresh=true;
+  let fail=false; let fresh=true; let reads=0;
   const raw=syntheticSheets();
   const map={Pano:'summary',Plan:'plan','Gerçekleşen':'actual','Düzensiz giderler':'irregular'} as const;
   await page.route('**/gviz/tq?*',async route=>{
+    reads += 1;
     if(fail)return route.fulfill({status:503,body:'Unavailable'});
     const sheet=new URL(route.request().url()).searchParams.get('sheet') as keyof typeof map;
     const bridge = syntheticBridgeResponse(route.request().url(), fresh);
@@ -17,8 +18,40 @@ async function mockSheet(page: Page) {
     const rows=(key==='plan'||key==='actual')?raw[key].map(r=>r.slice(0,4)):raw[key];
     return route.fulfill({contentType:'application/json',body:gviz(rows,key==='plan'||key==='actual'?['Kalem',...raw.summary.map(r=>String(r[0]))]:undefined)});
   });
-  return {invalidate:()=>{fresh=false;},fail:()=>{fail=true;},restore:()=>{fail=false;},change:()=>{raw.summary[0][3]=12000;raw.summary[0][9]=6000;raw.actual[0][1]=12000;raw.actual[4][1]=12000;}};
+  return {reads:()=>reads,invalidate:()=>{fresh=false;},fail:()=>{fail=true;},restore:()=>{fail=false;},change:()=>{raw.summary[0][3]=12000;raw.summary[0][9]=6000;raw.actual[0][1]=12000;raw.actual[4][1]=12000;}};
 }
+
+test('fresh budget survives page return and focus without new feeds; explicit refresh revalidates', async ({ page }) => {
+  const sheet = await mockSheet(page);
+  await page.goto('/aile/#/pano');
+  const metrics = page.getByRole('region', { name: 'Seçili ay özeti' });
+  const refresh = page.getByRole('button', { name: 'Yenile', exact: true });
+  await expect(metrics).toContainText('10.000 ₺');
+  await expect(refresh).toBeEnabled();
+  const initial = sheet.reads();
+  // The legacy fixture includes schema probes and StrictMode may cancel an initial read.
+  expect(initial).toBeGreaterThan(0);
+  const navigate = async (name: string) => {
+    const trigger = page.getByRole('button', { name: 'Sayfalar', exact: true });
+    if (await trigger.isVisible()) await trigger.click();
+    await page.getByRole('navigation', { name: 'Sayfalar', exact: true }).getByRole('link', { name, exact: true }).click();
+  };
+  await navigate('Hazırlık listesi');
+  await expect(page.getByRole('heading', { name: 'Hazırlık listesi', exact: true })).toBeVisible();
+  await navigate('Genel bütçe');
+  await expect(metrics).toContainText('10.000 ₺');
+  await expect(refresh).toBeEnabled();
+  expect(sheet.reads()).toBe(initial);
+  await page.evaluate(() => { window.dispatchEvent(new Event('focus')); window.dispatchEvent(new Event('online')); });
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await expect(refresh).toBeEnabled();
+  expect(sheet.reads()).toBe(initial);
+  sheet.change();
+  await refresh.click();
+  await expect(metrics).toContainText('12.000 ₺');
+  await expect(refresh).toBeEnabled();
+  expect(sheet.reads()).toBeGreaterThan(initial);
+});
 
 test('live read, manual refresh, failure retention and recovery',async({page})=>{
   const sheet=await mockSheet(page);await page.goto('/aile/#/pano');
