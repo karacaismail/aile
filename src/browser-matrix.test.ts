@@ -37,3 +37,32 @@ describe('Pages yayın kapısı', () => {
     expect(gate).not.toMatch(/--project=(tablet|laptop|desktop)/);
   });
 });
+
+// The complete 716-step journey keeps its own resource budget without competing with other browsers.
+describe('uzun dashboard yolculuğunun CI kaynak ayrımı', () => {
+  const journey = 'all-period view bounds rendering and preserves balances through 716 chronological steps';
+  for (const workflow of ['deploy.yml', 'ci.yml']) {
+    it(`${workflow} aynı tam yolculuğu ayrık seçimle bir kez, tek worker ile koşar`, () => {
+      const source = readFileSync(join(workflowDir, workflow), 'utf8');
+      const gates = source.split('\n').filter(line => /run: pnpm e2e:dashboard\b/.test(line));
+      expect(gates).toHaveLength(2);
+      expect(gates[0]).toContain(`--grep-invert '${journey}'`);
+      expect(gates[1]).toContain(`--grep '${journey}'`);
+      expect(gates[1]).toContain('--workers=1');
+      expect(gates.join('\n')).not.toMatch(/--(?:project|timeout|retries|max-failures)(?:=|\s)/);
+      expect(readFileSync(join(root, 'e2e/timeline-dashboard.spec.ts'), 'utf8')).toContain(`test('${journey}'`);
+    });
+    it(`${workflow} önceki hata sonucunu ve iki geçişin kanıtlarını korur`, () => {
+      const source = readFileSync(join(workflowDir, workflow), 'utf8');
+      expect(source).toContain('- id: dashboard');
+      expect(source).toContain("if: ${{ !cancelled() && (steps.dashboard.outcome == 'success' || steps.dashboard.outcome == 'failure') }}");
+      expect(source).toContain('--output=test-results/dashboard-long');
+      expect(source).toContain('PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/dashboard-long');
+      expect(source).not.toContain('continue-on-error: true');
+      const upload = source.slice(source.indexOf('- uses: actions/upload-artifact@'));
+      expect(upload).toContain('if: failure()');
+      expect(upload).toMatch(/^\s+playwright-report(?:\/dashboard-long)?\s*$/m);
+      expect(upload).toMatch(/^\s+test-results\s*$/m);
+    });
+  }
+});

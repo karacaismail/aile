@@ -186,11 +186,12 @@ for (const longPeriod of [false, true]) test(`calendar axis evidence at 320 CSS 
   await page.goto('/aile/#/pano');
   await page.locator('.charts-host').scrollIntoViewIfNeeded();
   const evidence: unknown[] = [];
-  for (const title of ['Nakit nasıl ilerliyor?', 'Gelir ve ödemeler', 'Birikimin seyri']) {
+  const panels = [['cash', 'Nakit nasıl ilerliyor?'], ['income-payments', 'Gelir ve ödemeler'], ['savings', 'Birikimin seyri']] as const;
+  for (const [fileKey, title] of panels) {
     const panel = page.getByRole('region', { name: title, exact: true });
     await expect(panel.locator('svg')).toBeVisible();
     evidence.push(await panel.evaluate(element => ({ title: element.getAttribute('aria-labelledby'), viewport: innerWidth, dpr: devicePixelRatio, width: element.getBoundingClientRect().width, labels: [...element.querySelectorAll('svg text')].map(label => ({ text: label.textContent, rect: label.getBoundingClientRect().toJSON() })) })));
-    await panel.screenshot({ path: info.outputPath(`pano-${title.replaceAll(' ', '-')}-320.png`) });
+    await panel.screenshot({ path: info.outputPath(`pano-${fileKey}-320.png`) });
   }
   if (longPeriod) {
     await page.goto('/aile/#/finansman');
@@ -206,7 +207,7 @@ for (const longPeriod of [false, true]) test(`calendar axis evidence at 320 CSS 
   await writeFile(info.outputPath('calendar-axis-evidence.json'), JSON.stringify(evidence, null, 2));
   if (longPeriod) await page.goto('/aile/#/pano');
   await page.locator('.charts-host').scrollIntoViewIfNeeded();
-  for (const title of ['Nakit nasıl ilerliyor?', 'Gelir ve ödemeler', 'Birikimin seyri']) {
+  for (const [, title] of panels) {
     const panel = page.getByRole('region', { name: title, exact: true });
     await expect(panel.locator('svg')).toBeVisible();
     const labels = await panel.locator('svg text').allTextContents();

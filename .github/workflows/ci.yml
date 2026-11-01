@@ -22,10 +22,18 @@ jobs:
       - run: pnpm finance:test
       - run: pnpm finance:build
       - run: pnpm exec playwright install --with-deps chromium webkit
-      - run: pnpm e2e:dashboard
+      - id: dashboard
+        run: pnpm e2e:dashboard --grep-invert 'all-period view bounds rendering and preserves balances through 716 chronological steps'
         env:
           CI: 1
           VITE_BUDGET_SHEET_ID: synthetic-budget-sheet-2098
+      # Keep the complete journey; isolate its rendering from concurrent browsers.
+      - run: pnpm e2e:dashboard --grep 'all-period view bounds rendering and preserves balances through 716 chronological steps' --workers=1 --output=test-results/dashboard-long
+        if: ${{ !cancelled() && (steps.dashboard.outcome == 'success' || steps.dashboard.outcome == 'failure') }}
+        env:
+          CI: 1
+          VITE_BUDGET_SHEET_ID: synthetic-budget-sheet-2098
+          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/dashboard-long
       - run: pnpm e2e
         env:
           CI: 1
