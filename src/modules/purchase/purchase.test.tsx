@@ -496,3 +496,62 @@ describe('ownedPatch', () => {
     expect(ownedPatch(open, { ...open, tahmini_tl_min: null, tahmini_tl_max: null }, stored).patch).toMatchObject({ tahmini_tl_min: null, tahmini_tl_max: null });
   });
 });
+
+describe('Tur 3 kapanış 2: sahiplik kalıcı anlamda karşılaştırılır; birleşik aralık geçerliliği korunur', () => {
+  const stored: Item = { id: 'A', tip: 'satinalma', ad: 'Örnek kalem', faz: '1', tahmini_tl_min: 100, tahmini_tl_max: 200, fiyat_guven: 'tahmini', not: 'A' };
+  const initial: Parameters<typeof ownedPatch>[0] = { ad: stored.ad, oda: undefined, kategori: undefined, faz: '1', durum: undefined, karar_bekliyor: false, oncelik: 2, adet: 1, birim: 'adet', tahmini_tl_min: 100, tahmini_tl_max: 200, gercek_tl: null, fiyat_guven: 'tahmini', nereden: '', siparis_son_tarih: null, teslim_suresi_gun: null, teslim_tarihi: null, linkler: [], not: 'A', mevcut: false };
+  it('yalnız min değişince sunucuda güncellenen açık max ve güven geri yazılmaz', () => {
+    const result = ownedPatch(initial, { ...initial, tahmini_tl_min: 120 }, { ...stored, tahmini_tl_max: 250, fiyat_guven: 'dogrulandi' });
+    expect(result.conflicts).toEqual([]);
+    expect(result.patch).toEqual({ tip: 'satinalma', tahmini_tl_min: 120 });
+  });
+  it('yalnız boşluk eklenen not kalıcı anlamda değişmemiştir: çakışma ve yazım yok', () => {
+    const result = ownedPatch(initial, { ...initial, not: ' A ' }, { ...stored, not: 'B' });
+    expect(result.conflicts).toEqual([]);
+    expect(result.patch).toEqual({ tip: 'satinalma' });
+  });
+  it('kendi min değeri ile sunucunun yeni max değeri birlikte geçersiz aralık olursa yazmaz, iki alanı çakışma olarak verir', () => {
+    const result = ownedPatch(initial, { ...initial, tahmini_tl_min: 180 }, { ...stored, tahmini_tl_max: 150 });
+    expect(result.conflicts).toEqual(['tahmini_tl_min', 'tahmini_tl_max']);
+  });
+  it('formda: birleşik geçersiz aralıkta Kaydet yazmaz, taslağı korur ve nedeni alan etiketleriyle söyler', async () => {
+    setState({ hydrated: true, status: 'synced' });
+    applyRead({ ok: true, fingerprint: 'f', serverTime: 't', schemaVersion: 1, items: [stored], settings: [] });
+    const loc = memoryLocation({ path: '/satinalma/A', static: false, record: true });
+    render(<Router hook={loc.hook}><Route path="/satinalma" nest><PurchaseList /></Route></Router>);
+    const form = await screen.findByTestId('item-detail');
+    vi.mocked(upsert).mockClear();
+    const min = within(form).getByLabelText('Tahmini (min)');
+    await userEvent.clear(min);
+    await userEvent.type(min, '180');
+    act(() => { applyRead({ ok: true, fingerprint: 'g', serverTime: 't2', schemaVersion: 1, items: [{ ...stored, tahmini_tl_max: 150, version: 2 }], settings: [] }); });
+    await userEvent.click(within(form).getByRole('button', { name: 'Kaydet' }));
+    expect(upsert).not.toHaveBeenCalled();
+    expect(within(form).getByLabelText('Tahmini (min)')).toHaveValue('₺ 180');
+    const alert = within(form).getByRole('alert');
+    expect(alert).toHaveTextContent('Tahmini (min)');
+    expect(alert).toHaveTextContent('Tahmini (max)');
+    expect(alert).toHaveTextContent('birlikte kaydedilemez');
+  });
+});
+
+// Post-implementation coverage: resolving an invalid merged range.
+describe('Tur 3 kapanış 2: aralık çakışmasını çözme', () => {
+  const stored: Item = { id: 'A', tip: 'satinalma', ad: 'Örnek kalem', faz: '1', tahmini_tl_min: 100, tahmini_tl_max: 200, fiyat_guven: 'tahmini' };
+  it('"Benim değerim kalsın" formda görünen aralığı (min ve max) birlikte yazar; geçersiz aralık yazılmaz', async () => {
+    setState({ hydrated: true, status: 'synced' });
+    applyRead({ ok: true, fingerprint: 'f', serverTime: 't', schemaVersion: 1, items: [stored], settings: [] });
+    const loc = memoryLocation({ path: '/satinalma/A', static: false, record: true });
+    render(<Router hook={loc.hook}><Route path="/satinalma" nest><PurchaseList /></Route></Router>);
+    const form = await screen.findByTestId('item-detail');
+    vi.mocked(upsert).mockClear();
+    const min = within(form).getByLabelText('Tahmini (min)');
+    await userEvent.clear(min);
+    await userEvent.type(min, '180');
+    act(() => { applyRead({ ok: true, fingerprint: 'g', serverTime: 't2', schemaVersion: 1, items: [{ ...stored, tahmini_tl_max: 150, version: 2 }], settings: [] }); });
+    await userEvent.click(within(form).getByRole('button', { name: 'Kaydet' }));
+    await userEvent.click(within(within(form).getByRole('alert')).getByRole('button', { name: 'Benim değerim kalsın' }));
+    await userEvent.click(within(form).getByRole('button', { name: 'Kaydet' }));
+    expect(vi.mocked(upsert).mock.calls.at(-1)![2]).toEqual({ tip: 'satinalma', tahmini_tl_min: 180, tahmini_tl_max: 200 });
+  });
+});

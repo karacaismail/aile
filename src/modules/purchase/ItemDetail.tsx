@@ -68,23 +68,22 @@ export function toPatch(v: FormValues, prev?: Item): Record<string, unknown> {
   return patch;
 }
 
-// Item fields derived from more than one form field are written only when one of their sources is the user's.
-const SOURCES: Partial<Record<string, (keyof FormValues)[]>> = { tahmini_tl_max: ['tahmini_tl_max', 'tahmini_tl_min'], fiyat_guven: ['fiyat_guven', 'tahmini_tl_min'] };
-
 /**
- * Patch for an existing record: only fields the user changed since the form opened (`baseline`), and only where the
- * result differs from the latest record. Same-field server changes are returned as conflicts and nothing is written.
+ * Patch for an existing record. Opening form, local form and latest record are compared in the same persisted
+ * meaning (`toPatch`: trimmed text, empty → null, derived values only where the field is empty), so whitespace is not an
+ * edit and an untouched explicit field (or one the server updated meanwhile) is never written back.
+ * Only owned fields whose result differs from the latest record are written. A same-field server change, or an owned
+ * price that would form an invalid range with the latest record, is returned as a conflict and nothing is written.
  */
 export function ownedPatch(baseline: FormValues, values: FormValues, latest: Item) {
-  const { changed, conflicts } = fieldOwnership(baseline, values, toForm(latest));
-  const full = toPatch(values);
-  const patch: Record<string, unknown> = { tip: full.tip };
-  for (const [key, value] of Object.entries(full)) {
-    if (key === 'tip') continue;
-    const owned = (SOURCES[key] ?? [key as keyof FormValues]).some((source) => changed.includes(source));
-    if (owned && JSON.stringify(value ?? null) !== JSON.stringify((latest as unknown as Record<string, unknown>)[key] ?? null)) patch[key] = value;
-  }
-  return { patch, conflicts };
+  const latestValues = toPatch(toForm(latest));
+  const local = toPatch(values);
+  const { changed, conflicts } = fieldOwnership(toPatch(baseline), local, latestValues);
+  const patch: Record<string, unknown> = { tip: local.tip };
+  for (const key of changed) if (key !== 'tip' && JSON.stringify(local[key] ?? null) !== JSON.stringify(latestValues[key] ?? null)) patch[key] = local[key];
+  const merged = { ...latestValues, ...patch } as { tahmini_tl_min?: number | null; tahmini_tl_max?: number | null };
+  const invalidRange = !conflicts.length && merged.tahmini_tl_min != null && merged.tahmini_tl_max != null && merged.tahmini_tl_min > merged.tahmini_tl_max;
+  return { patch, conflicts: (invalidRange ? ['tahmini_tl_min', 'tahmini_tl_max'] : conflicts) as (keyof FormValues)[], invalidRange };
 }
 
 // Temizle düğmesi de dokunma hedefi (≥44); sağ bölüm ona göre genişler.
@@ -142,6 +141,7 @@ function ItemForm({ id, item, isNew, section, defaults, onSaved, close, isMobile
   // Ownership baseline: the form as it opened; a resolved conflict moves that field's baseline to the server value.
   const [baseline, setBaseline] = useState(initial);
   const [conflicts, setConflicts] = useState<(keyof FormValues)[]>([]);
+  const [invalidRange, setInvalidRange] = useState(false);
   const conflictRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => { if (conflicts.length) conflictRef.current?.focus(); }, [conflicts]);
   const resolve = (keep: 'mine' | 'theirs') => {
@@ -168,7 +168,7 @@ function ItemForm({ id, item, isNew, section, defaults, onSaved, close, isMobile
   const save = (values: FormValues) => {
     const owned = item ? ownedPatch(baseline, values, item) : null;
     // Aynı alanı sunucu da değiştirdiyse yazılmaz: çakışma görünür çözülür, taslak korunur.
-    if (owned?.conflicts.length) { setConflicts(owned.conflicts); return; }
+    if (owned?.conflicts.length) { setConflicts(owned.conflicts); setInvalidRange(owned.invalidRange); return; }
     const patch = owned ? owned.patch : toPatch(values);
     // Kullanıcı hiçbir alanı değiştirmediyse (ya da fark kırpmayla kayboluyorsa) Sheets'e yazılmaz: sürüm/son güncelleyen/sıralama bozulmaz.
     if (item && Object.keys(patch).length <= 1) { close(); return; }
@@ -194,6 +194,7 @@ function ItemForm({ id, item, isNew, section, defaults, onSaved, close, isMobile
             {item && conflicts.length > 0 && <Alert color="orange" variant="light" role="alert" data-testid="draft-conflict">
               <Stack gap={6}>
                 <Text component="h4" ref={conflictRef} tabIndex={-1} fw={600} m={0}>Bu alanları siz düzenlerken Sheets'te de değişti</Text>
+                {invalidRange && <Text size="sm">Sizin Tahmini (min) değeriniz Sheets'teki Tahmini (max) değerinden büyük; ikisi birlikte kaydedilemez. Hangisinin kalacağını seçin.</Text>}
                 {conflicts.map((key) => <Text key={key} size="sm"><b>{FIELD_LABELS[key] ?? key}</b>: sizin değeriniz <i>{fieldValue(key, form.getValues()[key])}</i> · Sheets'teki <i>{fieldValue(key, toForm(item)[key])}</i></Text>)}
                 <Group gap="xs">
                   <Button size="sm" variant="filled" onClick={() => resolve('mine')}>Benim değerim kalsın</Button>
