@@ -29,13 +29,8 @@ var __aile = (() => {
     setup: () => setup
   });
 
-  // shared/schema.ts
-  var SHEETS = { items: "app_kalemler", settings: "app_ayarlar", cash: "app_nakit" };
-  var BUDGET_SHEETS = { plan: "Giderler Planlanan", actual: "Giderler Ger\xE7ekle\u015Fen", pano: "Pano" };
-  var SCHEMA_VERSION = 2;
-  var TIP = ["satinalma", "aydinlatma", "tadilat", "yerlesim", "usta", "kontrol", "sahne", "kilometre"];
-  var ODA = ["salon", "cocuk", "ebeveyn", "calisma", "mutfak", "banyo", "wc", "hol", "balkon1", "balkon2", "genel"];
-  var KATEGORI = [
+  // shared/purchaseCategoryOptions.ts
+  var PURCHASE_CATEGORIES = [
     "mobilya",
     "tekstil",
     "beyaz_esya",
@@ -51,8 +46,28 @@ var __aile = (() => {
     "masraf",
     "hizmet",
     "idari",
-    "diger"
+    "diger",
+    "elektrik_kablolama",
+    "elektrik_kontrol",
+    "duzenleme",
+    "duzenleme_cekmece",
+    "duzenleme_balkon",
+    "calisma_elektronigi",
+    "mutfak_kucuk_ev_aleti",
+    "mutfak_kahve",
+    "mutfak_pisirme",
+    "mutfak_sofra",
+    "banyo_wc",
+    "temizlik"
   ];
+
+  // shared/schema.ts
+  var SHEETS = { items: "app_kalemler", settings: "app_ayarlar", cash: "app_nakit" };
+  var BUDGET_SHEETS = { plan: "Giderler Planlanan", actual: "Giderler Ger\xE7ekle\u015Fen", pano: "Pano" };
+  var SCHEMA_VERSION = 2;
+  var TIP = ["satinalma", "aydinlatma", "tadilat", "yerlesim", "usta", "kontrol", "sahne", "kilometre"];
+  var ODA = ["salon", "cocuk", "ebeveyn", "calisma", "mutfak", "banyo", "wc", "hol", "balkon1", "balkon2", "genel"];
+  var KATEGORI = PURCHASE_CATEGORIES;
   var FAZ = ["1", "2", "3"];
   var DURUM = ["fikir", "arastirma", "karar", "siparis", "teslim", "kuruldu", "iptal"];
   var BIRIM = ["adet", "m", "rulo", "set"];

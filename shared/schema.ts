@@ -1,7 +1,7 @@
 // Tek kaynak: sekme adları, sütunlar, enum'lar ve Türkçe etiketler.
 // Hem uygulama (src), hem Apps Script (gas), hem tohumlama (scripts) buradan okur.
 
-import { PURCHASE_CATEGORIES, PURCHASE_CATEGORY_LABELS } from './purchaseCategories.ts';
+import { PURCHASE_CATEGORIES, PURCHASE_CATEGORY_LABELS } from './purchaseCategoryOptions.ts';
 
 export const SHEETS = { items: 'app_kalemler', settings: 'app_ayarlar', cash: 'app_nakit' } as const;
 /** Elle tutulan bütçe sekmeleri: uygulama planı okur (salt okunur), gerçekleşen sekmesi günlüğe bağlanır. */
