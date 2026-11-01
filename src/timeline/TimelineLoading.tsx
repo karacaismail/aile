@@ -1,11 +1,16 @@
+import type { AnimationEvent } from 'react';
 import { PageHeader } from '../app/family/PageHeader';
 import './timeline-shell.css';
 
 /** Only layout placeholders are shared with the route shell; no finance data or route logic. */
+// The CSS bar runs from the document timeline origin, so the page skeleton that replaces the route fallback continues its motion instead of restarting.
+const continuePhase = (event: AnimationEvent<HTMLDivElement>) => event.currentTarget.getAnimations?.({ subtree: true }).forEach(animation => { animation.startTime = 0; });
+
 export function TimelineLoading() {
   return <section className="timeline-loading" aria-label="Ödeme takvimi yükleniyor" aria-busy="true">
     <p className="timeline-loading-status" role="status">Ödeme takvimi ve bakiyeler kontrol ediliyor…</p>
-    <div className="timeline-loading-activity" aria-hidden="true" />
+    {/* Route fallback and the page skeleton that replaces it share one continuous bar phase. */}
+    <div className="timeline-loading-activity" aria-hidden="true" onAnimationStart={continuePhase} />
     <div className="timeline-workspace" aria-hidden="true">
       <div className="timeline-overview timeline-loading-overview">
         <span className="timeline-loading-shape" />

@@ -51,7 +51,14 @@ test('initial loading presents an immediate accessible skeleton without invented
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
       expect(await skeleton.locator('*').evaluateAll(elements => elements.filter(el => el.textContent?.trim() && el.getBoundingClientRect().width > 0 && parseFloat(getComputedStyle(el).fontSize) < 14).length)).toBe(0);
     }
+    // The route fallback skeleton is replaced by the page's own skeleton when the route chunk arrives (the ledger is
+    // still pending). Measure the motion only on the final instance; the model note link is rendered by the page only.
+    await expect(page.getByRole('link', { name: 'Aylık özet ve ayrıntılı tablo', exact: true })).toBeVisible();
+    await expect(skeleton).toHaveAttribute('aria-busy', 'true');
     const activity = skeleton.locator('.timeline-loading-activity');
+    // The replacement must not restart the bar: once it runs, its progress follows document time, not the moment it was mounted.
+    const drift = await activity.evaluate(async el => { const [animation] = el.getAnimations({ subtree: true }); await animation.ready; await new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done))); return Math.abs(Number(animation.currentTime) - Number(animation.effect!.getTiming().delay) - Number(document.timeline.currentTime)); });
+    expect(drift, 'loading bar keeps its phase across the route-to-page skeleton swap').toBeLessThan(100);
     const motion = await activity.evaluate(el => { const style = getComputedStyle(el, '::after'); return { duration: style.animationDuration, easing: style.animationTimingFunction, direction: style.animationDirection }; });
     expect(parseFloat(motion.duration)).toBeGreaterThan(0);
     expect(motion.easing).toBe('cubic-bezier(0.65, 0, 0.35, 1)');
