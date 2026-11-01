@@ -1,4 +1,4 @@
-// Both optional entry points share the first import and its observed same-origin resources.
+// Optional chart entry points share the first import and its observed same-origin resources.
 const preloadResources = () => [...document.querySelectorAll<HTMLLinkElement>('link[rel="modulepreload"], link[rel="stylesheet"]')].map(link => link.href).filter(href => new URL(href).origin === location.origin);
 let request: Promise<typeof import('./Charts')> | undefined;
 let failedResources: string[] = [];

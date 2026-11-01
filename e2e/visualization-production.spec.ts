@@ -204,4 +204,71 @@ test.describe('progressive chart enhancement', () => {
     await expect(page.locator('.finance-trends svg')).toHaveCount(3);
   });
 
+  test('a chart request started by Vehicle can fail and still recover from Finance', async ({ page }, info) => {
+    await visualizationSource(page);
+    let release!: () => void, blocked = true;
+    const pending = new Promise<void>(resolve => { release = resolve; });
+    const requests: string[] = [];
+    await page.route(/\/assets\/Charts-.*\.js$/, async route => {
+      requests.push(route.request().resourceType());
+      if (blocked) { await pending; await route.abort(); } else await route.continue();
+    });
+    try {
+      await page.goto('/aile/#/arac');
+      const start = page.waitForRequest(/\/assets\/Charts-.*\.js$/);
+      await page.getByRole('button', { name: 'Ödeme grafiğini göster', exact: true }).click();
+      await start;
+      await page.evaluate(() => { window.location.hash = '/finansman'; });
+      await page.getByRole('tab', { name: 'Aylık özet', exact: true }).click();
+      release();
+      await expect(page.getByRole('status').filter({ hasText: 'Grafik yüklenemedi' })).toHaveCount(3);
+      blocked = false;
+      await Promise.all([page.waitForEvent('load'), page.getByRole('button', { name: 'Sayfayı yenile', exact: true }).click()]);
+      await expect(page.locator('.finance-trends svg')).toHaveCount(3);
+    } finally { release(); await writeFile(info.outputPath('vehicle-chart-recovery-requests.json'), JSON.stringify(requests)); }
+  });
+
+  test('completed Vehicle chart failure keeps the calculator, photo, table and navigation usable', async ({ page }, info) => {
+    await visualizationSource(page);
+    let blocked = true;
+    await page.route(/\/assets\/Charts-.*\.js$/, route => blocked ? route.abort() : route.continue());
+    await page.goto('/aile/#/arac');
+    const summary = page.getByTestId('finance-result');
+    const before = await summary.innerText();
+    await page.getByRole('button', { name: 'Ödeme grafiğini göster', exact: true }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Ödeme grafiği yüklenemedi' })).toBeVisible();
+    await expect(summary).toHaveText(before, { useInnerText: true });
+    await expect(page.getByRole('img', { name: 'Toyota Corolla · Ön görünüm' })).toBeVisible();
+    await expect(page.getByRole('table', { name: 'İki kredinin birleşik ödeme planı' })).toBeVisible();
+    await page.screenshot({ path: info.outputPath('vehicle-chart-fallback-320.png'), fullPage: true });
+    await page.getByRole('button', { name: 'Ayarları düzenle' }).click();
+    await expect(page.getByRole('combobox', { name: 'Model', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Sayfalar', exact: true }).click();
+    await page.getByRole('navigation', { name: 'Sayfalar' }).getByRole('link', { name: 'Finansman', exact: true }).click();
+    await page.getByRole('tab', { name: 'Aylık özet', exact: true }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Grafik yüklenemedi' })).toHaveCount(3);
+    blocked = false;
+    await Promise.all([page.waitForEvent('load'), page.getByRole('button', { name: 'Sayfayı yenile', exact: true }).click()]);
+    await expect(page.locator('.finance-trends svg')).toHaveCount(3);
+  });
+
+  test('Vehicle loads its optional chart only when opened and preserves the payment table', async ({ page }, info) => {
+    await visualizationSource(page);
+    const requests: string[] = [];
+    page.on('request', request => { const path = new URL(request.url()).pathname; if (/\/(Charts|PaymentChart)-/.test(path)) requests.push(path); });
+    await page.goto('/aile/#/arac');
+    const table = page.getByRole('table', { name: 'İki kredinin birleşik ödeme planı' });
+    await expect(table).toBeVisible();
+    const before = await table.innerText();
+    expect(requests).toEqual([]);
+    await page.getByRole('button', { name: 'Ödeme grafiğini göster', exact: true }).click();
+    await expect(page.getByRole('img', { name: 'Birleşik kredi ödeme grafiği' }).locator('svg')).toHaveCount(1);
+    expect(requests.filter(path => /\/Charts-.*\.js$/.test(path))).toHaveLength(1);
+    await expect(table).toHaveText(before, { useInnerText: true });
+    await page.getByRole('button', { name: 'Grafiği kapat', exact: true }).click();
+    await expect(page.getByRole('img', { name: 'Birleşik kredi ödeme grafiği' })).toHaveCount(0);
+    await expect(table).toBeVisible();
+    await writeFile(info.outputPath('vehicle-chart-on-demand-requests.json'), JSON.stringify(requests));
+  });
+
 });
