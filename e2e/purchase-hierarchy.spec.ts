@@ -219,3 +219,77 @@ test('empty results retain full available width before and after the first respo
   await expect(page.getByRole('complementary', { name:'Hazırlık listesi filtreleri' })).toHaveCount(0);
   await expect.poll(async () => (await list.boundingBox())!.width / (await workspace.boundingBox())!.width).toBeGreaterThan(0.9);
 });
+
+const refinementItems = [
+  { id: 'refine-led', ad: 'Örnek LED armatür', kategori: 'aydinlatma_led' },
+  { id: 'refine-smart', ad: 'Örnek akıllı lamba', kategori: 'aydinlatma_akilli' },
+  { id: 'refine-wire', ad: 'Örnek kablo', kategori: 'elektrik_kablolama' },
+  { id: 'refine-control', ad: 'Örnek anahtar', kategori: 'elektrik_kontrol' },
+  { id: 'refine-other', ad: 'Örnek diğer elektrik', kategori: 'elektrik' },
+].map(item => ({ ...item, tip: 'satinalma', oda: 'salon', faz: '2', durum: 'teslim' }));
+
+for (const width of [320, 1440]) test(`explicit category narrowing preserves the journey at ${width}px`, async ({ page, browserName }, info) => {
+  await mockApi(page, { items: refinementItems, settings: [] });
+  await page.setViewportSize({ width, height: 900 });
+  await page.goto('/#/satinalma');
+  await page.getByRole('radiogroup', { name: 'Alım listesi' }).getByText('Aldıklarımız', { exact: true }).click();
+  await page.getByTestId('totals-bar').getByText('Sonra', { exact: true }).click();
+  await page.getByRole('searchbox', { name: 'Kalem ara' }).fill('Örnek');
+  await expect(page.getByTestId('item-card')).toHaveCount(5);
+  if (width === 320) await page.getByTestId('filter-button').click();
+  const panel = width === 320 ? page.getByRole('dialog') : page.getByRole('complementary', { name: 'Hazırlık listesi filtreleri' });
+  await panel.getByTestId('facet-oda-salon').locator('label').click();
+  await panel.getByRole('checkbox', { name: 'Elektrik ve aydınlatma 5' }).check();
+  const electricalContent = page.locator(`[id="${await panel.getByRole('button', { name: 'Elektrik ve aydınlatma alt kategorileri', exact: true }).getAttribute('aria-controls')}"]`);
+  await expect.poll(() => electricalContent.evaluate(el => (el as HTMLElement).style.height)).toBe('');
+  const lightingOnly = panel.getByRole('button', { name: 'Yalnız bunu göster: Aydınlatma' });
+  await panel.getByRole('checkbox', { name: 'Aydınlatma 2' }).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: info.outputPath(`refinement-parent-${width}.png`) });
+  await expect(lightingOnly).toBeVisible();
+  const actionBox = await lightingOnly.boundingBox();
+  expect(actionBox!.height).toBeGreaterThanOrEqual(44);
+  expect(actionBox!.width).toBeGreaterThanOrEqual(44);
+  await expect(lightingOnly).toHaveCSS('transition-duration', '0.24s');
+  await expect(lightingOnly).toHaveCSS('transition-timing-function', 'cubic-bezier(0.65, 0, 0.35, 1)');
+  await lightingOnly.click();
+  if (browserName === 'chromium') {
+    await expect(panel.getByRole('checkbox', { name: 'Aydınlatma 2' })).toBeFocused();
+    await expect(page.locator('html')).toHaveAttribute('data-keyboard', 'false');
+  }
+  await expect(panel.getByRole('checkbox', { name: 'Aydınlatma 2' })).toBeChecked();
+  await expect(panel.getByRole('checkbox', { name: 'Kablo ve tesisat 1' })).not.toBeChecked();
+  await expect(page.getByTestId('item-card')).toHaveCount(2);
+  await expect(lightingOnly).toHaveCount(0);
+  const lightingContent = page.locator(`[id="${await panel.getByRole('button', { name: 'Aydınlatma alt kategorileri', exact: true }).getAttribute('aria-controls')}"]`);
+  await expect.poll(() => lightingContent.evaluate(el => (el as HTMLElement).style.height)).toBe('');
+  const led = panel.getByRole('checkbox', { name: 'LED / armatür 1' });
+  const ledOnly = panel.getByRole('button', { name: 'Yalnız bunu göster: LED / armatür' });
+  // WebKit's desktop default uses Option+Tab for every control; no browser/user setting is changed.
+  // Start from the newly selected parent, then reach the action through actual keyboard navigation.
+  // Chromium continues directly from the pointer result; WebKit does not focus native buttons on click.
+  if (browserName === 'webkit') await panel.getByRole('checkbox', { name: 'Aydınlatma 2' }).focus();
+  for (let step = 0; step < 8 && !(await ledOnly.evaluate(el => el === document.activeElement)); step++) await page.keyboard.press(browserName === 'webkit' && width === 1440 ? 'Alt+Tab' : 'Tab');
+  await expect(ledOnly).toBeFocused();
+  await expect.poll(() => ledOnly.evaluate(el => ({ focused: el === document.activeElement, keyboard: document.documentElement.dataset.keyboard, visible: el.matches(':focus-visible'), outline: getComputedStyle(el).outlineStyle, decoration: getComputedStyle(el).textDecorationLine }))).toEqual({ focused: true, keyboard: 'true', visible: true, outline: 'none', decoration: 'underline' });
+  await page.keyboard.press('Enter');
+  await expect(led).toBeFocused();
+  expect(await panel.locator('[data-autofocus]').count()).toBeLessThanOrEqual(1);
+  await expect(led).toBeChecked();
+  await expect(page.getByTestId('item-card')).toHaveCount(1);
+  await expect(ledOnly).toHaveCount(0);
+  await panel.getByRole('checkbox', { name: 'Kablo ve tesisat 1' }).check();
+  await expect(page.getByTestId('item-card')).toHaveCount(2);
+  await expect(panel.getByRole('checkbox', { name: 'Elektrik ve aydınlatma 5' })).toHaveJSProperty('indeterminate', true);
+  await expect(panel.getByRole('checkbox', { name: 'Salon 2' })).toBeChecked();
+  await led.scrollIntoViewIfNeeded();
+  expect(await horizontalOverflow(page)).toEqual([]);
+  expect(await smallText(page)).toEqual([]);
+  expect(await smallTargets(page)).toEqual([]);
+  await page.screenshot({ path: info.outputPath(`refinement-result-${width}.png`) });
+  if (width === 320) await page.getByTestId('filter-apply').click();
+  await expect(page.getByRole('radio', { name: /^Aldıklarımız/ })).toBeChecked();
+  await expect(page.getByRole('radio', { name: 'Sonra', exact: true })).toBeChecked();
+  await expect(page.getByRole('searchbox', { name: 'Kalem ara' })).toHaveValue('Örnek');
+  await expect(page.getByRole('link', { name: 'Örnek LED armatür detayı' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Örnek kablo detayı' })).toBeVisible();
+});

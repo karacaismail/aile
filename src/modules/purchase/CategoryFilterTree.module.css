@@ -9,5 +9,6 @@
 .label { display: flex; align-items: center; justify-content: space-between; gap: var(--budget-spaceTight); padding-block: var(--budget-spaceTight); line-height: var(--budget-lineCompact); }
 .count { font-variant-numeric: tabular-nums; color: var(--budget-muted); flex-shrink: 0; }
 .expand { flex: 0 0 var(--budget-targetMin); min-height: var(--budget-targetMin); display: grid; place-items: center; color: var(--budget-blue); border-radius: var(--budget-radius); transition: background-color var(--budget-duration) var(--budget-ease); }
-.expand:hover { background: var(--budget-timelineViewSelectedSurface); }
-@media (prefers-reduced-motion: reduce) { .row, .expand { transition-duration: 0s; } }
+.narrow { display: block; min-height: var(--budget-targetMin); max-width: 100%; padding: var(--budget-spaceTight); margin-inline-start: var(--budget-spaceDense); color: var(--budget-blue); font-size: var(--budget-fontSmall); line-height: var(--budget-lineCompact); border-radius: var(--budget-radius); transition: background-color var(--budget-duration) var(--budget-ease); }
+.narrow:hover, .expand:hover { background: var(--budget-timelineViewSelectedSurface); }
+@media (prefers-reduced-motion: reduce) { .row, .expand, .narrow { transition-duration: 0s; } }

@@ -18,6 +18,17 @@ export interface FilterSheetProps {
   initialFocusKey?: string | null;
 }
 
+/** Stable mount ref: changing filters must not reattach Mantine's active focus trap. */
+function initializeContentFocus(node: HTMLDivElement | null) {
+  const initialKey = node?.dataset.initialFocusKey;
+  if (!node || !initialKey) return;
+  const key = CSS.escape(initialKey);
+  const target = node.querySelector(`[data-filter-key="${key}"], [data-testid="${key}"] input, [data-testid="${key}"] button`);
+  if (!target) return;
+  node.querySelectorAll('[data-autofocus]').forEach(element => element.removeAttribute('data-autofocus'));
+  target.setAttribute('data-autofocus', 'true');
+}
+
 /**
  * Filtre sayfası: 320'de alttan tam yükseklik, ≥48em sağdan 360 px panel. Gövde kayar, alt çubuk sabittir.
  * Filtreler anında uygulanır; "N kalemi göster" yalnız kapatır (işlevsiz "Uygula" yok).
@@ -33,11 +44,7 @@ export function FilterSheet({ opened, onClose, title = 'Filtrele', resultCount, 
       transitionProps={{ duration: reduced ? 0 : tokens.duration, timingFunction: tokens.ease }}
     >
       <Drawer.Overlay backgroundOpacity={0.55} />
-      <Drawer.Content data-purchase-filters={side === 'left' || undefined} inert={!opened} aria-hidden={!opened} ref={node => {
-        if (!node || !initialFocusKey) return;
-        const key = CSS.escape(initialFocusKey);
-        node.querySelector(`[data-filter-key="${key}"], [data-testid="${key}"] input, [data-testid="${key}"] button`)?.setAttribute('data-autofocus', 'true');
-      }}>
+      <Drawer.Content data-purchase-filters={side === 'left' || undefined} inert={!opened} aria-hidden={!opened} data-initial-focus-key={initialFocusKey ?? undefined} ref={initializeContentFocus}>
         <Drawer.Header>
           <Drawer.Title component="h2" className={classes.sheetTitle}>{title}</Drawer.Title>
           <Drawer.CloseButton size="xl" aria-label="Kapat" />
