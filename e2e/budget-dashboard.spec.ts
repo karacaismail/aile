@@ -1,5 +1,5 @@
 import { syntheticBridgeResponse } from '../src/dashboard/bridgeFixtures';
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, errors, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { syntheticSheets, gviz } from '../src/dashboard/fixtures';
 import { horizontalOverflow } from './helpers';
@@ -31,6 +31,16 @@ test('fresh budget survives page return and focus without new feeds; explicit re
   const initial = sheet.reads();
   // The legacy fixture includes schema probes and StrictMode may cancel an initial read.
   expect(initial).toBeGreaterThan(0);
+  const noFurtherReads = async () => {
+    expect(sheet.reads()).toBe(initial);
+    // Observe absence over a bounded window, including requests queued after React commits.
+    const unexpected = await page.waitForRequest('**/gviz/tq?*', { timeout: 500 }).then(() => true, error => {
+      if (error instanceof errors.TimeoutError) return false;
+      throw error;
+    });
+    expect(unexpected).toBe(false);
+    expect(sheet.reads()).toBe(initial);
+  };
   const navigate = async (name: string) => {
     const trigger = page.getByRole('button', { name: 'Sayfalar', exact: true });
     if (await trigger.isVisible()) await trigger.click();
@@ -41,11 +51,11 @@ test('fresh budget survives page return and focus without new feeds; explicit re
   await navigate('Genel bütçe');
   await expect(metrics).toContainText('10.000 ₺');
   await expect(refresh).toBeEnabled();
-  expect(sheet.reads()).toBe(initial);
+  await noFurtherReads();
   await page.evaluate(() => { window.dispatchEvent(new Event('focus')); window.dispatchEvent(new Event('online')); });
   await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   await expect(refresh).toBeEnabled();
-  expect(sheet.reads()).toBe(initial);
+  await noFurtherReads();
   sheet.change();
   await refresh.click();
   await expect(metrics).toContainText('12.000 ₺');
