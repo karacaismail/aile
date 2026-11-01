@@ -56,13 +56,17 @@ describe('uzun dashboard yolculuğunun CI kaynak ayrımı', () => {
       const source = readFileSync(join(workflowDir, workflow), 'utf8');
       expect(source).toContain('- id: dashboard');
       expect(source).toContain("if: ${{ !cancelled() && (steps.dashboard.outcome == 'success' || steps.dashboard.outcome == 'failure') }}");
-      expect(source).toContain('--output=test-results/dashboard-long');
-      expect(source).toContain('PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/dashboard-long');
+      const steps = source.split(/(?=^      - )/m).filter(step => /run: pnpm e2e:dashboard\b/.test(step));
+      const paths = steps.flatMap(step => [step.match(/--output=(\S+)/)?.[1], step.match(/PLAYWRIGHT_HTML_OUTPUT_DIR: (\S+)/)?.[1]]);
+      expect(paths).toEqual(['test-results-dashboard', 'playwright-report-dashboard', 'test-results-dashboard-long', 'playwright-report-dashboard-long']);
+      // Later legacy/production runners clean their root output folders. Dashboard
+      // evidence must be sibling directories, never children of either root.
+      for (const path of paths) expect(path).not.toMatch(/^(?:test-results|playwright-report)(?:\/|$)/);
       expect(source).not.toContain('continue-on-error: true');
       const upload = source.slice(source.indexOf('- uses: actions/upload-artifact@'));
       expect(upload).toContain('if: failure()');
-      expect(upload).toMatch(/^\s+playwright-report(?:\/dashboard-long)?\s*$/m);
-      expect(upload).toMatch(/^\s+test-results\s*$/m);
+      const uploadedPaths = upload.split('\n').map(line => line.trim());
+      for (const path of [...paths, 'playwright-report', 'test-results']) expect(uploadedPaths).toContain(path);
     });
   }
 });
