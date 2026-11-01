@@ -1,0 +1,13 @@
+.tree, .children { list-style: none; padding: 0; margin: 0; }
+.children { padding-inline-start: var(--budget-spacing); margin-block-end: var(--budget-spaceTight); }
+.node { min-width: 0; }
+.row { display: flex; align-items: flex-start; gap: var(--budget-spaceDense); border-radius: var(--budget-radius); transition: background-color var(--budget-duration) var(--budget-ease); }
+.row[data-selected] { background: var(--budget-blueSurface); }
+.checkbox { flex: 1; min-width: 0; padding-inline: var(--budget-spaceDense); }
+.checkbox :global(.mantine-Checkbox-body) { min-height: var(--budget-targetMin); }
+.checkbox :global(.mantine-Checkbox-labelWrapper) { flex: 1; min-width: 0; }
+.label { display: flex; align-items: center; justify-content: space-between; gap: var(--budget-spaceTight); padding-block: var(--budget-spaceTight); line-height: var(--budget-lineCompact); }
+.count { font-variant-numeric: tabular-nums; color: var(--budget-muted); flex-shrink: 0; }
+.expand { flex: 0 0 var(--budget-targetMin); min-height: var(--budget-targetMin); display: grid; place-items: center; color: var(--budget-blue); border-radius: var(--budget-radius); transition: background-color var(--budget-duration) var(--budget-ease); }
+.expand:hover { background: var(--budget-timelineViewSelectedSurface); }
+@media (prefers-reduced-motion: reduce) { .row, .expand { transition-duration: 0s; } }

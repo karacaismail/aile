@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ActionIcon, Box, Button, CloseButton, Divider, EmptyState, Group, Indicator, Paper, SimpleGrid, TextInput, Skeleton, SegmentedControl } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { ArrowCounterClockwiseIcon } from '@phosphor-icons/react/dist/csr/ArrowCounterClockwise';
@@ -7,7 +7,7 @@ import { GearSixIcon } from '@phosphor-icons/react/dist/csr/GearSix';
 import { MagnifyingGlassIcon } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import { PlusIcon } from '@phosphor-icons/react/dist/csr/Plus';
 import { ShoppingCartIcon } from '@phosphor-icons/react/dist/csr/ShoppingCart';
-import { useDebouncedValue, useLocalStorage } from '@mantine/hooks';
+import { useDebouncedValue, useLocalStorage, useResizeObserver } from '@mantine/hooks';
 import { Link, Route, useLocation } from 'wouter';
 import type { Item } from '@shared/schema';
 import { getState, subscribe, useAppStore } from '@/sync/store';
@@ -27,7 +27,7 @@ import { DURUM_COLOR } from '@/components/badges';
 import { ItemCard } from './ItemCard';
 import { TotalsBar } from './TotalsBar';
 import { ItemDetail, type NewItemDefaults } from './ItemDetail';
-import { PurchaseFilterSections, QuickChips, clearedFilters } from './PurchaseFilterSections';
+import { PurchaseFilterSections, QUICK_CHIPS, clearedFilters } from './PurchaseFilterSections';
 import { Fab } from '@/app/shell/Fab';
 import { tokens } from '@/dashboard/tokens';
 import classes from './PurchaseList.module.css';
@@ -68,6 +68,26 @@ export function PurchaseList() {
   const [q, setQ] = useState('');
   const [dq] = useDebouncedValue(q, 200);
   const [sheet, setSheet] = useState(false);
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
+  const categoryExpansion = { expanded: expandedCategories, onExpand: (key: string, open: boolean) => setExpandedCategories(previous => ({ ...previous, [key]: open })) };
+  const [workspaceRef, workspaceSize] = useResizeObserver<HTMLDivElement>();
+  const wide = workspaceSize.width >= tokens.purchaseWorkspaceMin;
+  const previousWide = useRef(wide);
+  const filterFocus = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    if (previousWide.current === wide) return;
+    previousWide.current = wide;
+    const key = filterFocus.current;
+    if (wide) setSheet(false);
+    else if (key) setSheet(true);
+    if (!key) return;
+    const frame = requestAnimationFrame(() => {
+      const panel = document.querySelector('[data-purchase-filters]');
+      const target = panel?.querySelector<HTMLElement>(`[data-filter-key="${CSS.escape(key)}"], [data-testid="${CSS.escape(key)}"] input, [data-testid="${CSS.escape(key)}"] button`);
+      target?.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [wide]);
   const [view, setView] = useState<PurchaseView>('pending');
   const viewRef = useRef<HTMLDivElement>(null);
   const [completion, setCompletion] = useState<CompletionAction | null>(null);
@@ -212,7 +232,11 @@ export function PurchaseList() {
   const emptyByFaz = hasAny && list.length === 0 && nActive === 0 && !dq && f.faz !== 'hepsi';
 
   return (
-    <Box pb={96}>
+    <Box pb={96} ref={workspaceRef} data-testid="purchase-workspace" onFocusCapture={event => {
+      const target = event.target as HTMLElement;
+      filterFocus.current = target.closest('[data-purchase-filters]')
+        ? (target.dataset.filterKey ?? target.closest<HTMLElement>('[data-testid]')?.dataset.testid ?? null) : null;
+    }}>
       {hasAny && <div ref={viewRef} className={classes.views}>
         <SegmentedControl fullWidth value={view} onChange={value => chooseView(value as PurchaseView)} aria-label="Alım listesi"
           data={PURCHASE_VIEWS.map(({ value, label }) => ({ value, label: <span className={classes.viewLabel}><span>{label}</span> <span className="tabular">{viewCounts[value]}</span></span> }))} />
@@ -228,6 +252,18 @@ export function PurchaseList() {
           className={classes.undoButton} leftSection={<ArrowCounterClockwiseIcon size={16} aria-hidden />} onClick={() => undoCompletion(completion)}>Geri al</Button>
       </div>}
       <TotalsBar faz={f.faz} onFaz={(faz) => setFilters({ ...f, faz })} totals={totals} count={list.length} total={baseCount} filtered={filtered} />
+      <div className={classes.workspace} data-wide={wide && hasAny || undefined}>
+        {hasAny && wide && <aside aria-label="Hazırlık listesi filtreleri" data-purchase-filters className={classes.sidebar}>
+          <div className={classes.sidebarHeading}><h2>Filtreler</h2><p>Kategori seçin, alt kategoriyle daraltın.</p></div>
+          <div className={classes.filterSections}>
+            <PurchaseFilterSections items={viewItems} filters={f} onChange={setFromSheet} now={now} categoryExpansion={categoryExpansion} />
+          </div>
+          <div className={classes.sidebarFooter}>
+            <Button variant="subtle" disabled={nActive === 0} onClick={() => setFilters(clearedFilters(f), { scroll: false })} aria-label="Tüm filtreleri temizle" data-filter-key="clear:all">Temizle{nActive > 0 ? ` (${nActive})` : ''}</Button>
+            <span role="status" className="tabular">{list.length} kalem</span>
+          </div>
+        </aside>}
+        <div className={classes.results}>
       {hasAny && (
         <Paper className={`${classes.toolbar} ${completion ? classes.toolbarWithCompletion : ''}`} px="sm" pt={4} pb={6} radius={0} data-testid="filter-toolbar">
           <Group gap={6} wrap="nowrap">
@@ -237,14 +273,14 @@ export function PurchaseList() {
               rightSection={q ? <CloseButton size="xl" aria-label="Aramayı temizle" onClick={() => setQ('')} /> : undefined} rightSectionWidth={q ? 44 : undefined} rightSectionPointerEvents="all"
             />
             <SortControl value={sort} options={SORT_OPTIONS} onChange={setSort} defaultValue="oncelik" hint={view === 'all' ? "Alınan ve iptal edilenler her sıralamada en altta." : undefined} />
-            <Indicator disabled={nActive === 0} label={nActive} size={22} offset={4} color="ember" autoContrast>
+            {!wide && <Indicator disabled={nActive === 0} label={nActive} size={22} offset={4} color="ember" autoContrast>
               <ActionIcon ref={filterRef} variant={nActive ? 'light' : 'subtle'} color={nActive ? 'ember' : 'gray'} aria-label={nActive ? `Filtrele, ${nActive} etkin` : 'Filtrele'}
                 aria-haspopup="dialog" aria-expanded={sheet} onClick={() => setSheet(true)} data-testid="filter-button">
                 <FunnelSimpleIcon size={22} aria-hidden />
               </ActionIcon>
-            </Indicator>
+            </Indicator>}
           </Group>
-          <Box mt={6}>
+          {nActive > 0 && <Box mt={6}>
             <FilterRail>
               {activeFacets.map((a) => (
                 <FilterChip key={`${a.field}:${a.value}`} label={facetLabel(a.field, a.value, true)} count={a.count} checked icon="x"
@@ -255,15 +291,17 @@ export function PurchaseList() {
                 <FilterChip label="Mevcut dahil" checked icon="x" onChange={() => setFilters({ ...f, mevcutDahil: false })} data-testid="active-chip-mevcut" />
               )}
               {(activeFacets.length > 0 || f.mevcutDahil) && <Divider orientation="vertical" h={28} style={{ alignSelf: 'center', flexShrink: 0 }} />}
-              <QuickChips items={viewItems} filters={f} onChange={setFilters} now={now} />
+              {QUICK_CHIPS.filter(quick => f[quick.key]).map(quick => <FilterChip key={quick.key} label={quick.label} checked icon="x"
+                onChange={() => setFilters({ ...f, [quick.key]: false })} data-testid={`active-chip-${quick.key}`} />)}
+              {f.durum.includes('siparis') && <FilterChip label="Sipariş" checked icon="x" onChange={() => removeFacet('durum', 'siparis')} data-testid="active-chip-siparis" />}
               {nActive > 0 && (
                 <Button variant="subtle" color="ember" size="compact-sm" onClick={() => setFilters(clearedFilters(f))} style={{ flexShrink: 0 }}>Temizle</Button>
               )}
             </FilterRail>
-          </Box>
+          </Box>}
         </Paper>
       )}
-      <SimpleGrid ref={listRef} cols={{ base: 1, sm: 2, lg: 3 }} spacing="xs" p="sm" data-testid="item-list">
+      <SimpleGrid ref={listRef} minColWidth={`min(100%, ${tokens.purchaseCardWidth})`} spacing="sm" p="sm" data-testid="item-list">
         {loading ? (
           <>
             <Skeleton h={72} radius="md" /><Skeleton h={72} radius="md" /><Skeleton h={72} radius="md" />
@@ -300,9 +338,11 @@ export function PurchaseList() {
         )}
       </SimpleGrid>
       <Box px="sm" id="purchase-total-scope"><SourceNote label="Toplamın kapsamı">Mevcut eşyalar ve iptal edilenler hariç kayıtlı ve tahmini bedellerdir; yapılmış ödeme toplamı değildir.</SourceNote></Box>
-      <FilterSheet opened={sheet} onClose={() => setSheet(false)} resultCount={list.length} activeCount={nActive} onClear={() => setFilters(clearedFilters(f))}>
-        <PurchaseFilterSections items={viewItems} filters={f} onChange={setFromSheet} now={now} />
-      </FilterSheet>
+        </div>
+      </div>
+      {!wide && <FilterSheet side="left" initialFocusKey={filterFocus.current} opened={sheet} onClose={() => setSheet(false)} resultCount={list.length} activeCount={nActive} onClear={() => setFilters(clearedFilters(f))}>
+        <div data-purchase-filters className={classes.filterSections}><PurchaseFilterSections items={viewItems} filters={f} onChange={setFromSheet} now={now} categoryExpansion={categoryExpansion} /></div>
+      </FilterSheet>}
       {hasAny && <Fab onClick={() => navigate('~/satinalma/yeni')} label="Kalem ekle" />}
       <Route path="/:id">{(params) => <ItemDetail key={params.id} id={params.id} defaults={newDefaults} onSaved={afterSave} />}</Route>
       <Route path="/:id/fiyat">{(params) => <ItemDetail key={`${params.id}/fiyat`} id={params.id} section="fiyat" defaults={newDefaults} onSaved={afterSave} />}</Route>

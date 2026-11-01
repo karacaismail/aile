@@ -13,7 +13,7 @@ export function FilterSection({ title, selectedCount = 0, onClear, children, hin
           {selectedCount > 0 && <Badge variant="default" className="tabular" aria-label={`${selectedCount} seçili`}>{selectedCount}</Badge>}
         </Group>
         {selectedCount > 0 && onClear && (
-          <Button variant="subtle" color="ember" size="compact-sm" onClick={onClear} aria-label={`Temizle: ${title}`}>Temizle</Button>
+          <Button variant="subtle" color="ember" size="compact-sm" onClick={onClear} aria-label={`Temizle: ${title}`} data-filter-key={`clear:${title}`}>Temizle</Button>
         )}
       </Group>
       {children}

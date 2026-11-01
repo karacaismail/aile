@@ -129,7 +129,8 @@ describe('PurchaseList filtre deneyimi', () => {
   it('hızlı şerit sayımlı çipler; Fiyatsız tek dokunuşla filtreler; huni rozeti ve toplam izler', async () => {
     seed();
     render(withRouter(<PurchaseList />));
-    const rail = screen.getByTestId('filter-rail');
+    await userEvent.click(screen.getByTestId('filter-button'));
+    const rail = screen.getByTestId('filter-drawer');
     expect(within(rail).getByRole('checkbox', { name: 'Fiyatsız 1' })).not.toBeChecked();
     expect(within(rail).getByRole('checkbox', { name: 'Karar bekliyor 1' })).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: 'Alınacaklar 2' })).toBeChecked();
@@ -190,7 +191,8 @@ describe('PurchaseList filtre deneyimi', () => {
   it('sıfır sayımlı hızlı çip devre dışı: boş sonuca götürmez', async () => {
     seed();
     render(withRouter(<PurchaseList />));
-    const rail = screen.getByTestId('filter-rail');
+    await userEvent.click(screen.getByTestId('filter-button'));
+    const rail = screen.getByTestId('filter-drawer');
     await userEvent.click(within(rail).getByText('Fiyatsız'));
     await vi.waitFor(() => expect(within(rail).getByRole('checkbox', { name: 'Karar bekliyor 0' })).toBeDisabled());
     expect(within(screen.getByTestId('item-list')).getAllByTestId('item-card')).toHaveLength(1);

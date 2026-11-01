@@ -10,7 +10,7 @@ const measure = async (page: Page, where: string) => {
 
 /** Çip etiketinin (label[for]) hesaplanmış stili. */
 async function chipStyle(page: Page, name: RegExp) {
-  const input = page.getByTestId('filter-rail').getByRole('checkbox', { name });
+  const input = page.getByTestId('sheet-chip-fiyatsiz').getByRole('checkbox', { name });
   const id = await input.getAttribute('id');
   return page.evaluate((id) => {
     const el = document.querySelector<HTMLElement>(`label[for="${CSS.escape(id!)}"]`)!;
@@ -33,15 +33,24 @@ const contrast = (foreground: string, background: string) => {
 };
 
 /** Shared family identity remains readable and selected state remains distinct in either OS preference. */
+async function openFilters(page: Page) {
+  const trigger = page.getByTestId('filter-button');
+  if (await trigger.isVisible()) { await trigger.click(); return page.getByTestId('filter-drawer'); }
+  return page.getByRole('complementary', { name: 'Hazırlık listesi filtreleri' });
+}
+async function closeFilters(page: Page) {
+  if (await page.getByTestId('filter-apply').isVisible()) await page.getByTestId('filter-apply').click();
+}
 async function expectFamilyChipPalette(page: Page) {
+  const panel = await openFilters(page);
   await expect(page.locator('html')).toHaveAttribute('data-mantine-color-scheme', 'light');
   const off = await chipStyle(page, /^Fiyatsız/);
   expect(off).toEqual({ bg: rgb(tokens.paper), color: rgb(tokens.ink), border: 'rgba(0, 0, 0, 0)', checked: false });
   expect(contrast(off.color, off.bg), 'unselected chip text contrast').toBeGreaterThanOrEqual(4.5);
-  await page.getByTestId('quick-chip-fiyatsiz').click();
-  await expect(page.getByTestId('filter-rail').getByRole('checkbox', { name: /^Fiyatsız/ })).toBeChecked();
-  await expect(page.getByTestId('quick-chip-fiyatsiz').getByTestId('chip-icon-check')).toBeVisible();
-  const frames = await page.getByTestId('quick-chip-fiyatsiz').evaluate(async (element, duration) => {
+  await page.getByTestId('sheet-chip-fiyatsiz').click();
+  await expect(panel.getByRole('checkbox', { name: /^Fiyatsız/ })).toBeChecked();
+  await expect(page.getByTestId('sheet-chip-fiyatsiz').getByTestId('chip-icon-check')).toBeVisible();
+  const frames = await page.getByTestId('sheet-chip-fiyatsiz').evaluate(async (element, duration) => {
     const label = element.querySelector('label')!;
     const samples: { color: string; bg: string }[] = [];
     const started = performance.now();
@@ -68,36 +77,33 @@ test.beforeEach(async ({ page }) => {
   await expect(page.getByTestId('item-card').first()).toBeVisible();
 });
 
-test('şerit: sayımlı hızlı çipler; Fiyatsız tek dokunuşla; huni rozeti; toplam "Görünen"', async ({ page }) => {
-  const rail = page.getByTestId('filter-rail');
-  await expect(page.getByRole('radio', { name: 'Alınacaklar 7' })).toBeChecked();
-  await expect(page.getByRole('radio', { name: 'Aldıklarımız 0' })).toBeAttached();
-  await expect(rail.getByRole('checkbox', { name: 'Fiyatsız 3' })).toBeAttached();
-  await expect(rail.getByRole('checkbox', { name: 'Karar bekliyor 1' })).toBeAttached();
-  await expect(rail.getByRole('checkbox', { name: 'Son tarih 1' })).toBeAttached();
-  await expect(rail.getByRole('checkbox', { name: 'Sipariş 1' })).toBeAttached();
-  await expect(page.getByTestId('totals-count')).toHaveText('7 kalem');
-  await measure(page, 'şerit');
-  await page.getByTestId('quick-chip-fiyatsiz').click();
+test('tek filtre alanı: canlı hızlı sayımlar, aktif seçim ve kalıcı filtre; arama ayrı kalır', async ({ page }) => {
+  let panel = await openFilters(page);
+  await expect(panel.getByRole('checkbox', { name: 'Fiyatsız 3' })).toBeAttached();
+  await expect(panel.getByTestId('sheet-chip-fiyatsiz')).toBeVisible();
+  await expect(panel.getByRole('checkbox', { name: 'Karar bekliyor 1' })).toBeAttached();
+  await expect(panel.getByRole('checkbox', { name: 'Son tarih 1' })).toBeAttached();
+  await expect(panel.getByRole('checkbox', { name: 'Sipariş 1' }).first()).toBeAttached();
+  await page.getByTestId('sheet-chip-fiyatsiz').click();
   await expect(page.getByTestId('item-card')).toHaveCount(3);
   await expect(page.getByTestId('totals-count')).toHaveText('3 / 7 kalem');
-  // Para aralığı hiçbir durumda kırpılmaz
+  await expect(panel.getByRole('checkbox', { name: 'Son tarih 0' })).toBeDisabled();
+  await closeFilters(page);
+  await expect(page.getByTestId('active-chip-fiyatsiz')).toBeVisible();
   const sum = page.getByTestId('totals-sum');
-  expect(await sum.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
-  await expect(page.getByTestId('filter-button')).toHaveAccessibleName('Filtrele, 1 etkin');
-  // Sayımlar diğer filtreye göre daralır; sıfır olan devre dışı
-  await expect(rail.getByRole('checkbox', { name: 'Son tarih 0' })).toBeDisabled();
-  // Temizle her şeyi sıfırlar
-  await rail.getByRole('button', { name: 'Temizle' }).click();
+  expect(await sum.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+  await measure(page, 'sonuçlar');
+  await page.getByTestId('filter-rail').getByRole('button', { name: 'Temizle', exact: true }).click();
   await expect(page.getByTestId('item-card')).toHaveCount(7);
-  await expect(page.getByTestId('filter-button')).toHaveAccessibleName('Filtrele');
-  // Yenilemede kalıcı: Karar aç, yenile, hâlâ açık
-  await page.getByTestId('quick-chip-kararBekliyor').click();
+  panel = await openFilters(page);
+  await panel.getByTestId('sheet-chip-kararBekliyor').click();
+  await closeFilters(page);
   await page.reload();
-  await expect(page.getByTestId('filter-rail').getByRole('checkbox', { name: 'Karar bekliyor 1' })).toBeChecked();
   await expect(page.getByTestId('item-card')).toHaveCount(1);
-  // Arama temizle (X) gerçek dokunuşla çalışır
-  await page.getByTestId('quick-chip-kararBekliyor').click();
+  panel = await openFilters(page);
+  await expect(panel.getByRole('checkbox', { name: 'Karar bekliyor 1' })).toBeChecked();
+  await panel.getByTestId('sheet-chip-kararBekliyor').click();
+  await closeFilters(page);
   await page.getByRole('searchbox', { name: 'Kalem ara' }).fill('espresso');
   await expect(page.getByTestId('item-card')).toHaveCount(1);
   await measure(page, 'arama');
@@ -106,7 +112,8 @@ test('şerit: sayımlı hızlı çipler; Fiyatsız tek dokunuşla; huni rozeti; 
   await expect(page.getByTestId('item-card')).toHaveCount(7);
 });
 
-test('sayfa: facet seçimi canlı sayım; alt çubuk gövde kaydırılınca da görünür; şeritte kaldırılabilir çip; odak huniye döner', async ({ page, browserName }) => {
+test('sol panel: facet seçimi canlı sayım; alt çubuk gövde kaydırılınca da görünür; şeritte kaldırılabilir çip; odak huniye döner', async ({ page, browserName }) => {
+  await page.setViewportSize({ width: 320, height: 740 });
   await page.getByTestId('filter-button').click();
   const sheet = page.getByTestId('filter-drawer');
   await expect(sheet).toBeVisible();
@@ -177,25 +184,21 @@ test.describe('koyu sistem tercihi', () => {
   test('çip renkleri: ortak aile teması korunur; seçili/seçisiz kontrast ve ölçümler', async ({ page }) => {
     await expectFamilyChipPalette(page);
     await measure(page, 'koyu şerit');
-    await page.getByTestId('filter-button').click();
-    await expect(page.getByTestId('filter-drawer')).toBeVisible();
-    await measure(page, 'koyu sayfa');
+    await closeFilters(page);
+    await measure(page, 'koyu sonuçlar');
   });
 });
 
-test('geniş ekran: çipler sarar, sayfa sağdan açılır, sıralama düğmesi etiketli', async ({ page }) => {
-  test.skip(page.viewportSize()!.width < 768, 'yalnız ≥768');
-  const rail = page.getByTestId('filter-rail');
-  const scroll = await rail.evaluate((el) => el.scrollWidth - el.clientWidth);
-  expect(scroll).toBeLessThanOrEqual(1);
+test('geniş ekran: filtreler solda varsayılan açık, sıralama etiketli ve sonuçlar ayrı sütunda', async ({ page }) => {
+  test.skip(page.viewportSize()!.width < 768, 'yalnız geniş ekran profili');
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const panel = page.getByRole('complementary', { name: 'Hazırlık listesi filtreleri' });
+  await expect(panel).toBeVisible();
+  await expect(page.getByTestId('filter-button')).toBeHidden();
+  const box = await panel.boundingBox();
+  expect(box!.x + box!.width).toBeLessThan((await page.getByTestId('item-list').boundingBox())!.x);
   await expect(page.getByTestId('sort-button')).toHaveText(/Sırala: Öncelik/);
-  await page.getByTestId('filter-button').click();
-  const content = page.locator('.mantine-Drawer-content');
-  await expect(content).toBeVisible();
-  const box = await content.boundingBox();
-  expect(box!.x).toBeGreaterThan(page.viewportSize()!.width / 2);
-  await measure(page, 'geniş sayfa');
-  await page.getByTestId('filter-apply').click();
+  await measure(page, 'geniş filtreler');
   await page.getByTestId('sort-button').click();
   await expect(page.getByTestId('sort-sheet')).toBeVisible();
   await page.getByTestId('sort-sheet').getByRole('radio', { name: 'Fiyat (yüksekten düşüğe)' }).click();

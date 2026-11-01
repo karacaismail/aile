@@ -18,3 +18,13 @@
 
 /* One sticky surface at a time: the latest Undo stays in view without covering the filters. */
 .toolbarWithCompletion { position: static; }
+
+.workspace { display: grid; gap: var(--budget-spacing); padding: var(--budget-spaceTight); align-items: start; }
+.workspace[data-wide] { grid-template-columns: var(--budget-purchaseFilterWidth) minmax(0, 1fr); }
+.results { min-width: 0; }
+.sidebar { position: sticky; top: calc(var(--app-shell-header-offset, 0px) + var(--budget-spaceTight)); max-height: calc(100dvh - var(--app-shell-header-offset, 0px) - var(--budget-sidebarViewportInset)); overflow-y: auto; overscroll-behavior: contain; background: var(--budget-paper); border-radius: var(--budget-radius); scrollbar-gutter: stable; }
+.sidebarHeading { padding: var(--budget-spacing); background: var(--budget-blueSurface); }
+.sidebarHeading h2 { font-size: var(--budget-fontSection); margin: 0; }
+.sidebarHeading p { margin: var(--budget-spaceDense) 0 0; color: var(--budget-muted); }
+.filterSections { display: grid; gap: var(--budget-spaceSection); padding: var(--budget-spaceSmall); }
+.sidebarFooter { position: sticky; bottom: 0; display: flex; justify-content: space-between; align-items: center; gap: var(--budget-spaceTight); padding: var(--budget-spaceTight); background: var(--budget-blueSurface); }

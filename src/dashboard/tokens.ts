@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react';
 export const tokens = {
   familyMaxWidth: '1480px', familySidebarWidth: '17rem', familyNavHover: '#264A63', familyOverlayOpacity: 0.5,
   dropdownMaxHeight: '220px',
+  purchaseWorkspaceMin: 896, purchaseFilterWidth: '17rem', purchaseCardWidth: '19rem', purchaseDrawerWidth: '24rem',
   chartTrendHeight: '200px',
   chartValueSize: '1.25rem', chartValueWidth: '12rem',
   chartCategoryNameWidth: '11rem', chartCategoryValueWidth: '7rem',

@@ -1,5 +1,7 @@
 /* Çip içi: etiket kalın, sayım normal; nokta DurumBadge ile aynı */
 .chipLabel { padding-inline: 14px; }
+.chipLabel:not([data-disabled]) { background: var(--budget-paper); color: var(--budget-ink); border-color: transparent; }
+.chipLabel[data-checked]:not([data-disabled]) { background: var(--budget-timelineViewSelectedSurface); }
 .chipInner { display: inline-flex; align-items: center; gap: 6px; }
 .chipLabel[data-checked] { padding-inline: 10px 14px; }
 .chipIconWrap { width: 16px; max-width: 16px; height: 16px; display: flex; align-items: center; margin-inline-end: 6px; }

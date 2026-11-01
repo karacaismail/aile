@@ -6,8 +6,9 @@ import { FilterSection } from '@/components/filter/FilterSection';
 import { FacetChips } from '@/components/filter/FacetChips';
 import { FilterChip } from '@/components/filter/FilterChip';
 import { DEFAULT_FILTERS, countWith, optionCounts, type PurchaseFilters, type QuickKey } from '@/data/selectors';
+import { CategoryFilterTree, type CategoryExpansion } from './CategoryFilterTree';
 
-/** Şeritteki sabit hızlı çipler: kısa etiket, erişilebilir ad = görünen metin. Sıra sabit (kas hafızası). */
+/** Filtre panelindeki hızlı seçenekler: kısa etiket, erişilebilir ad = görünen metin. Sıra sabit (kas hafızası). */
 export const QUICK_CHIPS: ReadonlyArray<{ key: QuickKey; label: string }> = [
   { key: 'fiyatsiz', label: 'Fiyatsız' },
   { key: 'kararBekliyor', label: 'Karar bekliyor' },
@@ -19,6 +20,7 @@ export interface SectionsProps {
   filters: PurchaseFilters;
   onChange: (next: PurchaseFilters) => void;
   now?: Date;
+  categoryExpansion?: CategoryExpansion;
 }
 
 export function useQuickCounts(items: readonly Item[], f: PurchaseFilters, now: Date) {
@@ -31,7 +33,7 @@ export function useQuickCounts(items: readonly Item[], f: PurchaseFilters, now: 
   }, [items, f, now]);
 }
 
-/** Hızlı çipler (şeritte ve sayfanın "Hızlı" bölümünde aynı bileşen, aynı durum, aynı sayım). */
+/** Hızlı filtreler aynı veri ve sayım kurallarını kullanır. */
 export function QuickChips({ items, filters, onChange, now = new Date(), testIdPrefix = 'quick-chip' }: SectionsProps & { testIdPrefix?: string }) {
   const counts = useQuickCounts(items, filters, now);
   const siparisOn = filters.durum.includes('siparis');
@@ -48,8 +50,8 @@ export function QuickChips({ items, filters, onChange, now = new Date(), testIdP
   );
 }
 
-/** Sayfa bölümleri: Hızlı → Oda → Kategori → Durum → Diğer (iş sıklığına göre). */
-export function PurchaseFilterSections({ items, filters, onChange, now = new Date() }: SectionsProps) {
+/** Kategori hiyerarşisi, hızlı seçenekler, oda, durum ve mevcut eşyalar. */
+export function PurchaseFilterSections({ items, filters, onChange, now = new Date(), categoryExpansion }: SectionsProps) {
   const oda = useMemo(() => optionCounts(items, filters, 'oda', now), [items, filters, now]);
   const kategori = useMemo(() => optionCounts(items, filters, 'kategori', now), [items, filters, now]);
   // Durum seçenekleri seçili alım listesinin kapsamından gelir.
@@ -58,6 +60,9 @@ export function PurchaseFilterSections({ items, filters, onChange, now = new Dat
   const quickActive = QUICK_CHIPS.filter((q) => filters[q.key]).length + (filters.durum.includes('siparis') ? 1 : 0);
   return (
     <>
+      <FilterSection title="Kategori" selectedCount={filters.kategori.length} onClear={() => set('kategori', [])}>
+        <CategoryFilterTree counts={kategori} value={filters.kategori} onChange={v => set('kategori', v)} expansion={categoryExpansion} />
+      </FilterSection>
       <FilterSection title="Hızlı" selectedCount={quickActive}
         onClear={() => onChange({ ...filters, hideDone: false, fiyatsiz: false, kararBekliyor: false, siparisYakin: false, durum: filters.durum.filter((d) => d !== 'siparis') })}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -68,15 +73,11 @@ export function PurchaseFilterSections({ items, filters, onChange, now = new Dat
         {oda.size === 0 && filters.oda.length === 0 ? <Text>Bu filtreyle seçenek kalmadı.</Text>
           : <FacetChips field="oda" options={oda} value={filters.oda} onChange={(v) => set('oda', v)} testIdPrefix="facet-oda" />}
       </FilterSection>
-      <FilterSection title="Kategori" selectedCount={filters.kategori.length} onClear={() => set('kategori', [])}>
-        {kategori.size === 0 && filters.kategori.length === 0 ? <Text>Bu filtreyle seçenek kalmadı.</Text>
-          : <FacetChips field="kategori" options={kategori} value={filters.kategori} onChange={(v) => set('kategori', v)} testIdPrefix="facet-kategori" />}
-      </FilterSection>
       <FilterSection title="Durum" selectedCount={filters.durum.length} onClear={() => set('durum', [])}>
         <FacetChips field="durum" options={durum} value={filters.durum} onChange={(v) => set('durum', v)} dotOf={(v) => DURUM_COLOR[v]} testIdPrefix="facet-durum" />
       </FilterSection>
       <FilterSection title="Diğer" selectedCount={filters.mevcutDahil ? 1 : 0} onClear={() => set('mevcutDahil', false)} hint="Mevcut eşyalar toplama girmez.">
-        <Switch label="Mevcut eşyaları da göster" checked={filters.mevcutDahil} onChange={(e) => set('mevcutDahil', e.currentTarget.checked)} />
+        <Switch data-filter-key="existing" label="Mevcut eşyaları da göster" checked={filters.mevcutDahil} onChange={(e) => set('mevcutDahil', e.currentTarget.checked)} />
       </FilterSection>
     </>
   );

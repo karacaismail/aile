@@ -62,7 +62,9 @@ test('etkin faz yeni kaleme ön değer olur ve kayıt görünümde kalır; filtr
   await expect(page.getByText('Yerleşme için yeni kalem')).toBeVisible();
   await expect(page.getByTestId('item-card')).toHaveCount(2);
   // Fiyatsız hızlı filtresi açıkken fiyatlı kalem: listede görünmez, bildirim söyler, Göster gizleyen filtreyi kaldırır
-  await page.getByTestId('quick-chip-fiyatsiz').click();
+  if (await page.getByTestId('filter-button').isVisible()) await page.getByTestId('filter-button').click();
+  await page.getByTestId('sheet-chip-fiyatsiz').click();
+  if (await page.getByTestId('filter-apply').isVisible()) await page.getByTestId('filter-apply').click();
   await page.getByTestId('fab').click();
   await form.getByLabel(/^Ad\b/).fill('Fiyatlı yeni kalem');
   await form.getByLabel('Tahmini (min)').fill('500');
@@ -78,7 +80,7 @@ test('etkin faz yeni kaleme ön değer olur ve kayıt görünümde kalır; filtr
   await page.keyboard.press('Enter');
   await expect(toast).toBeHidden();
   await expect(page.getByText('Fiyatlı yeni kalem')).toBeVisible();
-  await expect(page.getByTestId('filter-button')).toHaveAccessibleName('Filtrele');
+  await expect(page.getByTestId('active-chip-fiyatsiz')).toHaveCount(0);
   const card = page.getByRole('link', { name: 'Fiyatlı yeni kalem detayı' });
   await expect(card).toBeFocused();
   await expect(card).toBeInViewport();
@@ -115,17 +117,22 @@ test('arama ve filtre', async ({ page }) => {
   await page.getByRole('searchbox', { name: 'Kalem ara' }).fill('');
   await expect(page.getByTestId('item-card')).toHaveCount(7);
   // Hızlı şerit: tek dokunuş
-  await page.getByTestId('quick-chip-fiyatsiz').click();
+  if (await page.getByTestId('filter-button').isVisible()) await page.getByTestId('filter-button').click();
+  await page.getByTestId('sheet-chip-fiyatsiz').click();
+  if (await page.getByTestId('filter-apply').isVisible()) await page.getByTestId('filter-apply').click();
   await expect(page.getByTestId('item-card')).toHaveCount(3);
   for (const t of await page.getByTestId('item-card').allInnerTexts()) expect(t).not.toContain('₺');
-  await expect(page.getByTestId('filter-button')).toHaveAccessibleName('Filtrele, 1 etkin');
-  // Sayfa aynı durumu gösterir; "N kalemi göster" kapatır
-  await page.getByTestId('filter-button').click();
-  await expect(page.getByTestId('filter-drawer')).toBeVisible();
-  await expect(page.getByTestId('sheet-chip-fiyatsiz').getByRole('checkbox')).toBeChecked();
-  await expect(page.getByTestId('filter-apply')).toHaveText('3 kalemi göster');
-  await page.getByTestId('filter-apply').click();
-  await expect(page.getByTestId('filter-drawer')).toBeHidden();
+  await expect(page.getByTestId('active-chip-fiyatsiz')).toBeVisible();
+  if (await page.getByTestId('filter-button').isVisible()) {
+    await page.getByTestId('filter-button').click();
+    await expect(page.getByTestId('filter-drawer')).toBeVisible();
+    await expect(page.getByTestId('sheet-chip-fiyatsiz').getByRole('checkbox')).toBeChecked();
+    await expect(page.getByTestId('filter-apply')).toHaveText('3 kalemi göster');
+    await page.getByTestId('filter-apply').click();
+    await expect(page.getByTestId('filter-drawer')).toBeHidden();
+  } else {
+    await expect(page.getByTestId('sheet-chip-fiyatsiz').getByRole('checkbox')).toBeChecked();
+  }
   await expect(page.getByTestId('item-card')).toHaveCount(3);
 });
 
