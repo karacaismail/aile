@@ -146,17 +146,34 @@ test('shared navigation and planner forms preserve keyboard access and readable 
   expect(violations.map(violation => `${violation.id}: ${violation.nodes.map(node => node.target).join(',')}`)).toEqual([]);
 });
 
+async function focusPriceFilter(page: Page) {
+  await expect(page.getByTestId('filter-toolbar')).toBeVisible();
+  const trigger = page.getByTestId('filter-button');
+  if (await trigger.isVisible()) {
+    await trigger.focus();
+    await trigger.press('Enter');
+    await expect(page.getByRole('dialog', { name: 'Filtrele', exact: true })).toBeVisible();
+  }
+  const chip = page.getByTestId('sheet-chip-fiyatsiz').getByRole('checkbox');
+  await chip.focus();
+  await expect(chip).toBeFocused();
+  return chip;
+}
+
 test('planner chip and switch focus use one visible underline without a surrounding ring', async ({ page }) => {
   await mockFamily(page);
   await page.goto('/aile/#/satinalma');
-  const chip = page.getByTestId('quick-chip-fiyatsiz').getByRole('checkbox');
   await page.keyboard.press('Tab');
-  await chip.focus();
-  const chipFocus = await chip.evaluate(input => {
+  const chip = await focusPriceFilter(page);
+  await expect.poll(() => chip.evaluate(input => {
     const label = input.nextElementSibling!;
-    return { outline: getComputedStyle(label).outlineStyle, underline: getComputedStyle(label).textDecorationLine };
-  });
-  expect(chipFocus).toEqual({ outline: 'none', underline: 'underline' });
+    return { focused: document.activeElement === input, keyboard: document.documentElement.dataset.keyboard, focusVisible: input.matches(':focus-visible'), outline: getComputedStyle(label).outlineStyle, underline: getComputedStyle(label).textDecorationLine };
+  })).toEqual({ focused: true, keyboard: 'true', focusVisible: true, outline: 'none', underline: 'underline' });
+  const drawer = page.getByRole('dialog', { name: 'Filtrele', exact: true });
+  if (await drawer.isVisible()) {
+    await page.keyboard.press('Escape');
+    await expect(drawer).toHaveCount(0);
+  }
   await page.getByTestId('fab').click();
   const toggle = page.getByRole('dialog').getByRole('switch', { name: 'Karar bekliyor' });
   await page.keyboard.press('Tab');
@@ -181,8 +198,7 @@ test('keyboard intent begins in initial HTML and survives the asynchronous React
     await page.keyboard.press('Tab');
     await expect(page.locator('html')).toHaveAttribute('data-keyboard', 'true');
     releaseMount();
-    const chip = page.getByTestId('quick-chip-fiyatsiz').getByRole('checkbox');
-    await chip.focus();
+    const chip = await focusPriceFilter(page);
     await expect(page.locator('html')).toHaveAttribute('data-keyboard', 'true');
     expect(await chip.evaluate(input => getComputedStyle(input.nextElementSibling!).textDecorationLine)).toBe('underline');
     await page.mouse.click(0, 0);
