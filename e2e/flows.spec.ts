@@ -339,3 +339,51 @@ test('alım kurtarma: dört işlemden sonra son Geri al görünür ve klavyeyle 
   await expect(page.getByRole('radio', { name: 'Aldıklarımız 2' })).not.toBeFocused();
   expect(await page.evaluate(() => document.documentElement.dataset.keyboard)).toBe('false');
 });
+
+test('alım kurtarma: uzun listede aşağıdaki pointer işleminin Geri al eylemi ekranda kalır', async ({ page }, testInfo) => {
+  test.skip(page.viewportSize()!.width > 400, 'This regression covers the narrow single-column list.');
+  const items = Array.from({ length: 12 }, (_, i) => ({ id: `long-${i}`, tip: 'satinalma', ad: `${String(i + 1).padStart(2, '0')} Salon için geniş oturumlu uzun isimli koltuk takımı ve berjer`, durum: 'siparis', faz: '1', oda: 'salon', adet: 2, tahmini_tl_min: 12500, not: 'Teslim ve ölçü teyidi bekleniyor', version: 1 }));
+  await mockApi(page, { settings: [], items });
+  await page.goto('/#/satinalma');
+  const checkbox = page.getByRole('checkbox', { name: `${items[8].ad} alındı` });
+  await checkbox.scrollIntoViewIfNeeded();
+  const before = await page.evaluate(() => window.scrollY);
+  expect(before, 'the action occurs well below the list header').toBeGreaterThan(1000);
+  if (testInfo.project.use.hasTouch) await checkbox.tap(); else await checkbox.click();
+  const panel = page.getByRole('region', { name: 'Son alım işlemi' });
+  const undo = panel.getByRole('button', { name: 'Geri al' });
+  await expect(undo).toBeVisible();
+  const geometry = await undo.evaluate(el => {
+    const r = el.getBoundingClientRect();
+    return { top: r.top, bottom: r.bottom, height: window.innerHeight, scrollY: window.scrollY, keyboard: document.documentElement.dataset.keyboard, focused: el === document.activeElement };
+  });
+  await testInfo.attach('pointer-undo-geometry', { body: JSON.stringify({ before, ...geometry }), contentType: 'application/json' });
+  await page.screenshot({ path: testInfo.outputPath('purchase-long-pointer.png') });
+  expect(geometry.top, 'Undo remains inside the viewport after a lower-list pointer action').toBeGreaterThanOrEqual(0);
+  expect(geometry.bottom).toBeLessThanOrEqual(geometry.height);
+  expect(geometry.scrollY, 'the list is not forced back to its beginning').toBeGreaterThan(before - 500);
+  expect(geometry.keyboard).toBe('false');
+  expect(geometry.focused, 'pointer completion does not steal focus').toBe(false);
+  expect(await undo.evaluate(el => { const r = el.getBoundingClientRect(); return el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)); }), 'Undo is not covered by the toolbar').toBe(true);
+  const fab = page.getByTestId('fab');
+  const panelBox = (await panel.boundingBox())!;
+  const fabBox = (await fab.boundingBox())!;
+  const following = page.getByRole('link', { name: `${items[9].ad} detayı` });
+  await expect(following).toBeInViewport();
+  expect((await following.boundingBox())!.y, 'the following record remains readable below the recovery area').toBeGreaterThanOrEqual(panelBox.y + panelBox.height);
+  expect(panelBox.y + panelBox.height, 'completion does not overlap the add action').toBeLessThanOrEqual(fabBox.y);
+  await fab.click();
+  await expect(page.getByTestId('item-detail')).toBeVisible();
+  expect(await panel.evaluate(el => { const r = el.getBoundingClientRect(); return el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)); }), 'completion remains below the record dialog').toBe(false);
+  await page.getByRole('button', { name: 'Vazgeç' }).click();
+  await expect(page.getByTestId('item-detail')).toBeHidden();
+  await expect(undo).toBeInViewport({ ratio: 1 });
+  // Move the document further without focusing another element; mobile WebKit does not support wheel input.
+  await page.evaluate(() => window.scrollBy(0, 400));
+  await expect(undo).toBeInViewport({ ratio: 1 });
+  await undo.click();
+  await expect(checkbox).not.toBeChecked();
+  await expect(page.getByRole('link', { name: `${items[8].ad} detayı` })).toBeFocused();
+  await expect(page.getByRole('link', { name: `${items[8].ad} detayı` })).toBeInViewport({ ratio: 1 });
+  expect(await page.evaluate(() => window.scrollY), 'Undo restores the lower-list record context').toBeGreaterThan(1000);
+});

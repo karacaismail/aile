@@ -181,6 +181,8 @@ export function PurchaseList() {
     // Arama temizlendi ama gecikmeli terim henüz yetişmediyse liste eski; yeniden çizilince tekrar denenir.
     if (!card && q !== dq) return;
     (card ?? viewRef.current?.querySelector<HTMLInputElement>('input:checked') ?? filterRef.current)?.focus();
+    // WebKit can focus an offscreen restored record without revealing it after a pointer Undo.
+    card?.scrollIntoView?.({ block: 'center' });
     setFocusAfterShow(null);
   }, [focusAfterShow, list, q, dq]);
   const afterSave = (saved: Item, isNew: boolean) => {
@@ -227,7 +229,7 @@ export function PurchaseList() {
       </div>}
       <TotalsBar faz={f.faz} onFaz={(faz) => setFilters({ ...f, faz })} totals={totals} count={list.length} total={baseCount} filtered={filtered} />
       {hasAny && (
-        <Paper className={classes.toolbar} px="sm" pt={4} pb={6} radius={0} data-testid="filter-toolbar">
+        <Paper className={`${classes.toolbar} ${completion ? classes.toolbarWithCompletion : ''}`} px="sm" pt={4} pb={6} radius={0} data-testid="filter-toolbar">
           <Group gap={6} wrap="nowrap">
             <TextInput
               style={{ flex: 1, minWidth: 0 }} placeholder="Ara" value={q} onChange={(e) => setQ(e.currentTarget.value)} aria-label="Kalem ara"
