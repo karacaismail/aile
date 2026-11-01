@@ -18,3 +18,8 @@ export interface SavedExpense { id?: string; tarih: string }
 const savedListeners = new Set<(e: SavedExpense) => void>();
 export function notifyExpenseSaved(e: SavedExpense): void { for (const l of savedListeners) l(e); }
 export function onExpenseSaved(listener: (e: SavedExpense) => void): () => void { savedListeners.add(listener); return () => { savedListeners.delete(listener); }; }
+
+/** Geri alınan silme: bildirim kapanınca odak gövdeye düşmesin diye kabuk, liste yeniden çizildikten sonra geri gelen satıra odaklanır. */
+const restoredListeners = new Set<(id: string) => void>();
+export function notifyExpenseRestored(id: string): void { for (const l of restoredListeners) l(id); }
+export function onExpenseRestored(listener: (id: string) => void): () => void { restoredListeners.add(listener); return () => { restoredListeners.delete(listener); }; }

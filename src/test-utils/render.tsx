@@ -3,6 +3,8 @@ import { MantineProvider } from '@mantine/core';
 import { ModalsProvider } from '@mantine/modals';
 import { DatesProvider } from '@mantine/dates';
 import type { ReactElement, ReactNode } from 'react';
+// Uygulama (LegacyApp) tarih yerelini yükler; testler aynı yerelle çalışsın ki görünen tarih metinleri üretimle aynı olsun.
+import 'dayjs/locale/tr';
 import { theme } from '../theme';
 
 export function Providers({ children }: { children: ReactNode }) {

@@ -72,6 +72,7 @@ test('etkin faz yeni kaleme ön değer olur ve kayıt görünümde kalır; filtr
   await expect(page.getByText('Fiyatlı yeni kalem')).toBeHidden();
   // Klavye: Tab ile Göster'e (WebKit düğmelere yalnız Alt+Tab ile gider), Enter; bildirim kaybolunca odak gövdeye düşmez, görünür hale gelen kayda geçer
   const show = toast.getByRole('button', { name: 'Göster' });
+  expect(await show.locator('.mantine-Button-label').evaluate((el) => el.scrollWidth > el.clientWidth), 'Göster etiketi kırpılmaz').toBe(false);
   for (let i = 0; i < 40 && !(await show.evaluate((el) => el === document.activeElement)); i++) await page.keyboard.press(browserName === 'webkit' ? 'Alt+Tab' : 'Tab');
   await expect(show).toBeFocused();
   await page.keyboard.press('Enter');
@@ -126,6 +127,42 @@ test('arama ve filtre', async ({ page }) => {
   await page.getByTestId('filter-apply').click();
   await expect(page.getByTestId('filter-drawer')).toBeHidden();
   await expect(page.getByTestId('item-card')).toHaveCount(3);
+});
+
+test('tarayıcı depolaması kuyruğu yazamazsa bekleyen kayıt "bu cihazda saklanamadı" diye bildirilir; depolama dönünce uyarı kalkar', async ({ page }) => {
+  await mockApi(page);
+  await page.goto('/#/satinalma');
+  await expect(page.getByTestId('item-card').first()).toBeVisible();
+  // Gerçek IndexedDB: yalnız yazma reddedilir (idb-keyval `set` → put); okuma dokunulmaz.
+  await page.evaluate(() => {
+    const w = window as Window & { __nativeIdbPut?: typeof IDBObjectStore.prototype.put };
+    w.__nativeIdbPut = IDBObjectStore.prototype.put;
+    IDBObjectStore.prototype.put = function () { throw new DOMException('Depolama dolu', 'QuotaExceededError'); };
+  });
+  await page.route('**/macros/s/**', (route) => route.abort('internetdisconnected'));
+  await page.getByTestId('fab').click();
+  await page.getByTestId('item-detail').getByLabel(/^Ad\b/).fill('Saklanamayan kalem');
+  await page.getByRole('button', { name: 'Kaydet' }).click();
+  await expect(page.getByText('Saklanamayan kalem')).toBeVisible();
+  const status = page.getByTestId('sync-status');
+  await expect(status).toHaveAttribute('aria-label', /bu cihazda saklanamadı/);
+  await expect(page.getByTestId('sync-live')).toContainText('saklanamadı');
+  await status.click();
+  const drawer = page.getByRole('dialog', { name: 'Senkron durumu' });
+  await expect(drawer.getByTestId('sync-storage-warning')).toBeVisible();
+  await expect(drawer.getByTestId('sync-storage-warning')).toContainText(/kapanırsa|yenilenirse/);
+  await page.keyboard.press('Escape');
+  await expect(drawer).toBeHidden();
+  // Depolama geri gelir: sonraki yazım kuyruğu saklar, uyarı kalkar; iki kayıt da bekler.
+  await page.evaluate(() => {
+    const w = window as Window & { __nativeIdbPut?: typeof IDBObjectStore.prototype.put };
+    IDBObjectStore.prototype.put = w.__nativeIdbPut!;
+  });
+  await page.getByTestId('fab').click();
+  await page.getByTestId('item-detail').getByLabel(/^Ad\b/).fill('İkinci kalem');
+  await page.getByRole('button', { name: 'Kaydet' }).click();
+  await expect(status).toHaveAttribute('aria-label', /Çevrimdışı · 2 bekleyen$/);
+  await expect(status).not.toHaveAttribute('aria-label', /saklanamadı/);
 });
 
 test('API erişilemezken önbellekten açılır, ekleme kuyruğa girer ve bağlantı dönünce gider', async ({ page }) => {

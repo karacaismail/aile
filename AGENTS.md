@@ -132,3 +132,45 @@ silme başarısızsa parmak izi değiştirilmez ve yenileme başlatılmaz. Sonu�
 sunulmaz. Kapılar: `src/sync/cache.test.ts`, `src/modules/settings/SettingsPage.test.tsx`
 ve `e2e/settings-cache.spec.ts`. Sonuncusu PR testlerinde ve Pages yayını öncesinde
 Chromium 320 px / WebKit ile kuyruk koruması, gerçek IndexedDB reddi ve yeniden denemeyi doğrular.
+
+Senkron kurtarma sözleşmesi (`src/sync/controller.ts`, `queue.ts`, `store.ts`, `src/app/shell/SyncStatus.tsx`): sunucunun kalıcı
+reddettiği yazım (`busy`/`internal` dışındaki işlem kodları, ör. `not_found`, `invalid_enum`, `bad_request`) kuyruğu tıkamaz ve atılmaz — `AppState.rejected` içinde kayıt adı,
+kod, neden ve zamanla saklanır, kuyruk dosyasında bekleyenlerle birlikte yazılır, okuma/yenileme/reload silmez; arkasındaki işlemler
+aynı turda gönderilir. Çekmece "Gönderilemeyen değişiklikler" bölümünde neden → eylem → kaydedilen değerler sırasıyla listeler;
+"Yeniden dene" aynı opId'yi geri kuyruklar (otomatik döngü yok), "Vazgeç" yalnız silinecek değerleri yazan onaydan sonra siler.
+Kuyruk sınırsızdır (`OUTBOX_WARN` yalnız uyarı); sessiz kırpma yoktur. `hydrate` yalnız soğuk açılışta diski okur; sıcak yeniden
+girişte bellek diskten günceldir. Başarılı uzlaştırma okuması bekleyen bir gönderimin hata/çevrimdışı durumunu "Eşitlendi"ye
+çevirmez; durum bir sonraki gönderim sonucuyla güncellenir. Çıkış sonrası (`stopSync`) hydrate'in devam yenilemesi, retry ve
+uzlaştırma okuması başlatılamaz (uçuştaki disk okuması tamamlanır). Depolama yazım hatası sınırı: `saveOutbox` IndexedDB reddini
+`false` olarak döner; `persistOutbox` sonucu yalnız en son kuyruk kaydına uygular (sıra sayacı: eski bir yazımın geciken başarısı
+daha yeni başarısızlığı gizleyemez) ve `AppState.queueStored=false` olur. SyncStatus `queueStored === false` iken — bekleyen olsun
+olmasın — etiket, `role="status"` ve çekmecede "kuyruk bu cihazda saklanamadı" der: bekleyen/red varsa kayıp riski ("son başarılı
+yazımdan sonrakiler, en fazla N", sekmeyi açık tut), kuyruk boşsa diskteki eski kaydın yenilemede yeniden uygulanabileceği (ör. geri
+alınan silmenin tekrar silebileceği) söylenir; yalnız red varken metin, Şimdi eşitle'nin yalnız yerel saklamayı yeniden denediğini ve
+sunucu reddi için kayda özel Yeniden dene gerektiğini ayırır. Her yenileme (`Şimdi eşitle`, görünürlük, periyodik) API ayarından bağımsız
+önce `retryPersist` ile güncel kaydı yeniden yazar; başarılı olunca uyarı kalkar ve yenileme eski kaydı yeniden göndermez. Bu bekleme
+sırasında uygulama durursa (`stopSync`) yeni okuma başlamaz; hızlı stop→start'ta sürüyorsa okuma yeni oturuma hizmet eder; çalışmayan
+uygulamada açık manuel yenileme eskisi gibi okur. Bilinen sınırlar:
+tarayıcı yazmayı sürekli reddederken kalıcılık garanti edilemez (sekme kapanırsa bekleyenler kaybolur; eski kayıt yeniden uygulanabilir)
+— bu gizlenmez; sunucu yalnız kaydın son `op_id`'sini eler (`gas/src/core.ts`), silme→geri alma→eski silme dizisi yinelenen sayılmaz;
+`saveCache` reddi sessizdir (veri Sheets'ten yeniden okunur, yalnız soğuk açılış kopyası eskir). Kapılar: `controller.test.ts`, `queue.test.ts`,
+`SyncStatus.test.tsx`, `cache.test.ts`, `e2e/sync-recovery.spec.ts`, `e2e/flows.spec.ts` (gerçek IndexedDB `put` reddi).
+
+Geri alınabilir silme ve çıkmaz sokak yok: harcama silme (`ExpenseForm`) iyimser uygulanır ve bildirim "Harcama silindi · tutar
+kalem" + "Geri al" (`restore('nakit', id)`, `targetMin`; tek geri alma yolu olduğundan bildirim zaman sınırı taşımaz
+(`autoClose: false`, WCAG 2.2.1), Kapat ile kapanır; eylem etiketi dar bildirimde küçülmez, mesaj sarılır) verir; onay modalı yoktur.
+Geri al'dan sonra odak gövdeye düşmez: kabuk (`ExpenseHost`, `onExpenseRestored`) yeniden çizim sonrası geri gelen satıra, Bütçe
+sayfası açık değilse başlıktaki Harcama ekle düğmesine odaklanır. Bildirim portalı (`.mantine-Notifications-root`) `.aile-app` dışında
+olduğundan ortak odak kuralına (`family.css`: halka yok, klavye modunda tek alt çizgi, forced-colors istisnası) açıkça dahildir. Yalnız
+simge taşıyan kontroller (bu kapsamlardaki ActionIcon ve bildirim Kapat, dar görünümde Harcama ekle) metin alt çizgisi boyamadığı için
+klavye modunda çevrelemeyen tek alt çubuk (`::after`, `focusThickness`/`blue`, kenardan içeride) gösterir; işaretçi modunda yoktur;
+forced-colors'ta çubuk kapanır, tek gösterge mevcut CanvasText outline istisnasıdır. Bilinen boşluk: `Fab` Mantine `Affix` portalında
+(kapsam dışı, tam yuvarlak) olduğundan bu kurala girmez. Kapı: `budget.spec.ts` (Kapat ve Harcama ekle göstergesi, işaretçi modu ayrımı,
+Geri al sonrası odak). Uygulamanın kendi yönlendirmeleri var olan bir ayara
+gider: Ayarlar › Ev planı "Taşınma tarihi" (`tarih/tasinma`, Takvim sayacının okuduğu kayıt; temizlenebilir, `deger: null`);
+aydınlatma oda sayfasındaki "Köpek erişimi ayarlanmadı" bağlantısı Yerleşim oda ölçülerine (`~/yerlesim/<oda>`) gider. Kapılar:
+`budget.test.tsx`/`budget.spec.ts` (Geri al), `SettingsPage.test.tsx`/`renovation.spec.ts` (taşınma tarihi → sayaç), `lighting.test.tsx`.
+
+Pages yayın kapısı (`deploy.yml`, main): tam altı projeli legacy matrisi yalnız PR/CI'da (`ci.yml` `pnpm e2e`); yayın öncesi
+hedefli tarayıcı kapısı `e2e/flows.spec.ts`, `e2e/budget.spec.ts`, `e2e/settings-cache.spec.ts`, `e2e/sync-recovery.spec.ts`'yi
+Chromium 320 (`iphone4`) + WebKit (`iphone12-webkit`) ile koşar; `src/browser-matrix.test.ts` bu satırı ve Firefox yokluğunu denetler.

@@ -24,8 +24,22 @@ let deps: ControllerDeps = {};
 export function configureController(d: ControllerDeps) { deps = d; }
 const now = () => (deps.now ? deps.now() : new Date().toISOString());
 
-/** Kuyruk dosyası bekleyenlerle birlikte reddedilenleri de taşır; red kaydı yeniden yüklemede ve okumada kaybolmaz. */
-async function persistOutbox() { const s = getState(); await saveOutbox([...s.outbox, ...s.rejected]); }
+/**
+ * Kuyruk dosyası bekleyenlerle birlikte reddedilenleri de taşır; red kaydı yeniden yüklemede ve okumada kaybolmaz.
+ * Yazım sonucu store'a işlenir: depolama reddederse kuyruk bellekte kalır, arayüz "bu cihazda saklanamadı" der; bir sonraki yazım başarılıysa uyarı kalkar.
+ */
+let persistSeq = 0;
+async function persistOutbox() {
+  const seq = ++persistSeq;
+  const s = getState();
+  const stored = await saveOutbox([...s.outbox, ...s.rejected]);
+  // Sonuç yalnız en son kuyruk kaydı için geçerlidir: eski bir yazımın geciken başarısı daha yeni bir başarısızlığı gizleyemez.
+  if (seq !== persistSeq) return;
+  if (getState().queueStored !== stored) setState({ queueStored: stored });
+}
+
+/** Disk kopyası güncel değilse (depolama reddetmişti) yeniden saklamayı dener; bağlantıdan ve API ayarından bağımsızdır. */
+async function retryPersist() { if (getState().queueStored === false) await persistOutbox(); }
 async function persistCache() {
   const s = getState();
   await saveCache({ items: s.items, settings: s.settings, cash: s.cashSupported ? s.cash : undefined, plan: s.plan, fingerprint: s.fingerprint, savedAt: now(), schemaVersion: SCHEMA_VERSION });
@@ -59,6 +73,12 @@ async function readOnce(): Promise<void> {
 export async function refresh(): Promise<void> {
   if (refreshing) return refreshing;
   refreshing = (async () => {
+    // Şimdi eşitle / görünürlük / periyodik yenileme önce diski toparlar: boş kuyruk ya da yalnız red varken de eski kayıt yeniden yazılır.
+    const wasStarted = started;
+    await retryPersist();
+    // Bekleme sırasında uygulama durduysa (çıkış) yeni istek başlatılmaz. Hızlı stop→start'ta `started` yine true olur ve okuma
+    // sürer: yeni oturumun bu söze katılan yenilemesi okumasını yitirmez. Çalışmayan uygulamada açık manuel yenileme eskisi gibi okur.
+    if (wasStarted && !started) return;
     if (!isApiConfigured()) { setState({ status: 'unconfigured' }); return; }
     setState((s) => ({ status: s.outbox.length ? 'syncing' : 'loading' }));
     const generation = rejectionGeneration;

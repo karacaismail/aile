@@ -24,6 +24,49 @@ const openDrawer = async () => { await userEvent.click(statusButton()); return s
 beforeEach(() => { resetStore(); setState({ hydrated: true, status: 'synced', lastSync: '2099-01-01T10:00:00Z' }); });
 afterEach(() => { resetStore(); vi.clearAllMocks(); });
 
+describe('SyncStatus · kuyruk bu cihazda saklanamadı', () => {
+  const pending: QueuedOp = { op: { op: 'upsert', table: 'kalemler', id: 'A', opId: 'op-a', patch: { tip: 'satinalma', ad: 'Perde' } }, ts: 't', attempts: 0 };
+  it('bekleyen varken saklama başarısızsa etiket, programatik durum ve çekmece riski söyler; "Çevrimdışı · 1 bekleyen" tek başına yazılmaz', async () => {
+    setState({ status: 'offline', outbox: [pending], queueStored: false });
+    render(<SyncStatus />);
+    expect(statusButton()).toHaveAttribute('aria-label', expect.stringMatching(/bu cihazda saklanamadı/));
+    expect(screen.getByRole('status')).toHaveTextContent(/saklanamadı/);
+    const drawer = await openDrawer();
+    expect(within(drawer).getByTestId('sync-storage-warning')).toHaveTextContent(/kapanırsa|yenilenirse/);
+  });
+  it('bekleyen yokken de kuyruk kaydı yazılamadıysa söyler: diskteki eski kayıt yenilemede yeniden uygulanabilir (geri alınan silme gibi)', async () => {
+    setState({ status: 'synced', outbox: [], queueStored: false });
+    render(<SyncStatus />);
+    expect(statusButton()).toHaveAttribute('aria-label', expect.stringMatching(/saklanamadı/));
+    expect(statusButton()).not.toHaveAttribute('aria-label', 'Senkron: Eşitlendi');
+    expect(screen.getByRole('status')).toHaveTextContent(/saklanamadı/);
+    const drawer = await openDrawer();
+    expect(within(drawer).getByTestId('sync-storage-warning')).toHaveTextContent(/yenileme|yeniden uygulanabilir/);
+    expect(within(drawer).getByTestId('sync-storage-warning')).toHaveTextContent(/Şimdi eşitle/);
+  });
+  it('yalnız red varken metin doğru yolu söyler: Şimdi eşitle yerel saklamayı yeniden dener, sunucu reddi için Yeniden dene gerekir', async () => {
+    setState({ status: 'synced', outbox: [], rejected: [rejectedPerde], queueStored: false });
+    render(<SyncStatus />);
+    const drawer = await openDrawer();
+    const warning = within(drawer).getByTestId('sync-storage-warning');
+    expect(warning).toHaveTextContent(/Yeniden dene/);
+    expect(warning).toHaveTextContent(/yerel/i);
+    expect(warning).not.toHaveTextContent(/Şimdi eşitle ile gönderin/);
+  });
+  it('bekleyen varken Şimdi eşitle hem yerel saklamayı yeniden dener hem bağlantı varsa gönderir', async () => {
+    setState({ status: 'offline', outbox: [pending], queueStored: false });
+    render(<SyncStatus />);
+    const drawer = await openDrawer();
+    expect(within(drawer).getByTestId('sync-storage-warning')).toHaveTextContent(/yeniden dener/);
+  });
+  it('kuyruk kaydı diske yazıldıysa uyarı yok', () => {
+    setState({ status: 'synced', outbox: [], queueStored: true });
+    render(<SyncStatus />);
+    expect(statusButton()).toHaveAttribute('aria-label', 'Senkron: Eşitlendi');
+    expect(screen.getByRole('status')).toHaveTextContent('');
+  });
+});
+
 describe('SyncStatus · gönderilemeyen değişiklikler', () => {
   it('red varken yeşil "Eşitlendi" tek başına yazılmaz; rozet, etiket ve programatik durum reddi söyler', () => {
     setState({ rejected: [rejectedPerde] });
