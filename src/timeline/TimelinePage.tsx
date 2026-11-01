@@ -7,7 +7,7 @@ import { dateLabel, monthLabel } from './data';
 import { useFinance } from '../finance/useFinance';
 import { TimelineLoading } from './TimelineLoading';
 import { isPurchase, purchaseDetails } from './purchase';
-import { StepCard } from './StepCard';
+import { StepCard, stepHeadingId, type StepNeighbour } from './StepCard';
 import { StepTable } from './StepTable';
 import { PageHeader } from '../app/family/PageHeader';
 import { DataStatus } from '../app/family/DataStatus';
@@ -91,6 +91,28 @@ function TimelineJourney({ data }: { data: FinanceLedger }) {
   const detailsRef = useRef<HTMLElement>(null);
   const jumpRef = useRef<HTMLButtonElement>(null);
   const reveal = (target: HTMLElement | null, block: ScrollLogicalPosition) => { target?.scrollIntoView({ block }); target?.focus({ preventScroll: true }); };
+  // Step links follow the visible (filtered) journey and may cross a 50-step page. The destination
+  // heading receives focus once progressive rendering has committed it; nothing else is reset.
+  const [stepFocus, setStepFocus] = useState<{ scope: string; selected: string | null; pending: string | null }>({ scope: '', selected: null, pending: null });
+  // A step move belongs to one period/filter/view; changing any of them cancels a pending focus and the highlight.
+  const focusScope = `${pageScope}:${view}`;
+  const focusCurrent = stepFocus.scope === focusScope;
+  const neighbour = (event?: FinanceEvent): StepNeighbour | undefined => event && { id: event.id, number: eventNumbers.get(event.id)!, title: event.title, date: event.date };
+  const filteredIndex = new Map(filteredEvents.map((event, i) => [event.id, i]));
+  const goToStep = (id: string) => {
+    const target = Math.floor(filteredIndex.get(id)! / stepsPerPage);
+    if (target !== page) changePage(target);
+    setStepFocus({ scope: focusScope, selected: id, pending: id });
+  };
+  useEffect(() => {
+    if (!stepFocus.pending) return;
+    if (!focusCurrent) { setStepFocus(current => ({ ...current, pending: null })); return; }
+    const heading = document.getElementById(stepHeadingId(stepFocus.pending));
+    if (!heading) return;
+    heading.closest('article')?.scrollIntoView({ block: 'start' });
+    heading.focus({ preventScroll: true });
+    setStepFocus(current => ({ ...current, pending: null }));
+  });
   return <div className="timeline-workspace">
     <aside className="timeline-overview" aria-label="Dönem kontrolü">
     <div className="timeline-overview-heading-row"><h2 className="timeline-overview-heading">Dönem sonu</h2><button type="button" ref={jumpRef} className="timeline-jump" onClick={() => reveal(detailsRef.current, 'start')}>Dönem ayrıntıları</button></div>
@@ -117,7 +139,7 @@ function TimelineJourney({ data }: { data: FinanceLedger }) {
     {filteredEvents.length === 0 && <div className="timeline-empty"><h3>Bu dönemde {filter === 'purchase' ? purchaseGroup === 'all' ? 'alışveriş adımı' : purchaseGroup === 'before' ? 'taşınma öncesi alımı' : 'taşınma sonrası alımı' : filter === 'payment' ? 'ödeme adımı' : 'gelir adımı'} yok.</h3><p>Başka bir ay seçebilir veya tüm adımları görüntüleyebilirsin.</p></div>}
     {filteredEvents.length > stepsPerPage && <StepPages position="üst" page={page} count={filteredEvents.length} onChange={changePage} />}
     <Tabs.Panel value="timeline" aria-busy={rendering}><div className="timeline-journey" aria-label="Kronolojik ödeme adımları">
-      {[...dates].map(([date, day]) => <section className="timeline-day" key={date} aria-labelledby={`timeline-date-${date}`}><DayHeading date={date} count={day.length} /><ol>{day.map(event => <StepCard key={event.id} event={event} number={eventNumbers.get(event.id)!} purchase={purchases.get(event.id) ?? null} previous={data.events[eventNumbers.get(event.id)! - 2]} />)}</ol></section>)}
+      {[...dates].map(([date, day]) => <section className="timeline-day" key={date} aria-labelledby={`timeline-date-${date}`}><DayHeading date={date} count={day.length} /><ol>{day.map(event => <StepCard key={event.id} event={event} number={eventNumbers.get(event.id)!} purchase={purchases.get(event.id) ?? null} previous={data.events[eventNumbers.get(event.id)! - 2]} selected={focusCurrent && stepFocus.selected === event.id} links={{ previous: neighbour(filteredEvents[filteredIndex.get(event.id)! - 1]), next: neighbour(filteredEvents[filteredIndex.get(event.id)! + 1]), onStep: goToStep, onEnd: () => reveal(detailsRef.current, 'start') }} />)}</ol></section>)}
     </div></Tabs.Panel>
     <Tabs.Panel value="table" aria-busy={rendering}>{visibleEvents.length > 0 && <StepTable events={visibleEvents} eventNumbers={eventNumbers} purchases={purchases} allEvents={data.events} />}</Tabs.Panel>
     {filteredEvents.length > stepsPerPage && <StepPages position="alt" page={page} count={filteredEvents.length} onChange={changePage} />}

@@ -33,6 +33,8 @@ export const tokens = {
   timelineTableDateWidth: '9rem', timelineTableEventWidth: '20rem', timelineTableAmountWidth: '10rem',
   timelineTableNoteWidth: '25rem',
   timelineViewSelectedSurface: '#C9DBE7', timelineViewTabWidth: '3.5rem',
+  timelineOverviewPositive: '#BFE3D2', timelineSelectedShadow: '0 8px 24px rgba(27, 62, 85, .2)',
+  timelineBankNameWidth: '11rem',
 } as const;
 // ECharts' typed function adapter evaluates exactly the shared CSS curve.
 export function budgetEasing(progress: number) {

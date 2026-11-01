@@ -76,6 +76,25 @@ Karşılaştırma filtrelenmiş görünümdeki önceki kartla yapılmaz; tam def
 hemen önceki olay kullanılır. Hesaplar, şema, Sheet formülleri ve iki istekli
 SHA doğrulaması değişmez; ek okuma ve finansman hesabı yapılmaz.
 
+Motorun genel `Kart alışverişi` türü bir aile alım kategorisi değildir; Alışveriş ve
+Ödemeler filtrelerine girmez. `cardCharge` yalnız nakit ve KMH anaparası değişmemişken,
+tam defterdeki hemen önceki olaya göre tek bir kartın anaparası pozitif artmışsa
+tutarı ("Karta eklenen anapara") ve o kartı ("Borcun eklendiği kart") gösterir. İki
+kart birlikte hareket ederse, hiçbiri hareket etmezse, nakit değişirse veya önceki
+olay yoksa tutar ve kart "doğrulanamadı" kalır; taksit, yöntem veya banka başlıktan
+tahmin edilmez. Toplam borç, faiz ve gelecek taksit bu tutar sayılmaz.
+
+Adım anatomisi: tür tonu (gelir yeşil, nakit çıkışı kırmızı, kart mavi, aktarım
+amber, diğer nötr) her zaman görünür tür etiketiyle birlikte adımın açılış şeridini
+ve aynı tondaki kapanış bağlantı şeridini boyar. Adım sonrası nakit ve toplam kart
+borcu, tam defterdeki önceki olaya göre farkı ("Bu adımda ±X" / "Değişmedi") taşır;
+yalnız nakit farkı renklendirilir. Anaparası değişen banka satırı aynı farkla kağıt
+yüzeye alınır. İlk defter olayında fark iddiası yoktur. Adım sonu "Önceki adım /
+Sonraki adım" bağlantıları hedef adımın numarası, tarihi ve başlığıyla görünür
+(filtrelenmiş) sırayı izler, 50'lik sayfa sınırını geçer, odağı hedef adımın
+başlığına verir ve hedef adımı `data-selected` ile işaretler; dönem, filtre, görünüm
+ve rota değişmez. Görünen son adım dönem ayrıntılarına götürür.
+
 Regresyon: `purchase.test.ts`, `TimelinePage.test.tsx` ve `purchase cards answer`
 E2E; kuruş, nakit/kart ayrımı, yanlış banka, karışık hareket, eksik bilgi,
 filtreleme, iki görünümde eşit içerik, 320–1440 px ve metin büyütme.

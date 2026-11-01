@@ -79,7 +79,6 @@ html[data-keyboard='true'] .budget-app .timeline-table-scroll:focus-visible { te
 .timeline-date-month { font-size: var(--budget-fontSection); font-weight: var(--budget-headingWeight); }
 .timeline-weekday, .timeline-day-count { color: var(--budget-muted); font-size: var(--budget-fontSmall); font-weight: var(--budget-labelWeight); }
 .timeline-day-count { flex-shrink: 0; }
-.timeline-day ol { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--budget-spaceSmall); }
 .timeline-step { padding: 0; border-radius: var(--budget-timelineStepRadius); background: var(--budget-paper); }
 .timeline-step article { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
 .timeline-step-context { min-width: 0; padding: var(--budget-spaceSmall) var(--budget-spacing); }
@@ -149,9 +148,6 @@ html[data-keyboard='true'] .budget-app .timeline-table-scroll:focus-visible { te
 .timeline-net-position > div { display: flex; flex-wrap: wrap; gap: var(--budget-spaceDense) var(--budget-spaceTight); }
 .timeline-net-position dd { margin: 0; color: var(--budget-ink); font-variant-numeric: tabular-nums; font-weight: var(--budget-labelWeight); }
 .timeline-account-breakdown { display: grid; gap: var(--budget-spaceTight); padding: var(--budget-spaceSmall) var(--budget-spacing); background: var(--budget-timelineStepSurface); }
-.timeline-bank-group { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--budget-spaceDense) var(--budget-spacing); }
-.timeline-bank-group h5 { flex: 1 1 var(--budget-timelinePurchaseFactWidth); font-weight: var(--budget-labelWeight); }
-.timeline-bank-group dl { flex: 2 1 var(--budget-timelineTableEventWidth); display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--budget-timelineMetricWidth)), 1fr)); gap: var(--budget-spaceTight) var(--budget-spaceSmall); margin: 0; }
 .timeline-bank-group dl > div { min-width: 0; }
 .timeline-bank-group dt { color: var(--budget-muted); }
 .timeline-bank-group dd { margin: 0; font-weight: var(--budget-labelWeight); font-variant-numeric: tabular-nums; }
@@ -169,14 +165,69 @@ html[data-keyboard='true'] .budget-app .timeline-table-scroll:focus-visible { te
 .timeline-result :is(dt,.timeline-net-position) { color: var(--budget-timelineOverviewMuted); }
 .timeline-result dd.negative { color: var(--budget-timelineOverviewNegative); }
 .timeline-result .timeline-net-position { font-size: var(--budget-fontSmall); }
-.timeline-bank-group dl { text-align: end; }
 .timeline-step-effect { margin: var(--budget-spaceTight) 0 0; }
 .timeline-step-effect > div { display: flex; flex-wrap: wrap; gap: var(--budget-spaceDense) var(--budget-spaceSmall); }
 .timeline-step-effect dt { color: var(--budget-muted); }
 .timeline-step-effect dd { margin: 0; font-weight: var(--budget-headingWeight); font-variant-numeric: tabular-nums; }
-.timeline-step .timeline-kind { display: inline-flex; padding: 0 var(--budget-spaceTight); background: var(--budget-blueSurface); border-radius: var(--budget-radius); }
-.timeline-step .timeline-meta { justify-content: space-between; }
 .timeline-table-note .info-source { margin: 0; }
 
-.timeline-bank-group dl > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 var(--budget-spaceDense); }
 .timeline-bank-group dd { margin: 0; }
+
+/* Step anatomy: a kind-toned opening band and a matching closing link band bracket every step
+   (common region + closure). Inside, spacing groups the facts, the movement, the result and the
+   bank rows; colour always accompanies the visible kind label and signed text, never alone. */
+.timeline-day ol { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--budget-spacing); }
+.timeline-step article { --step-tone-surface: var(--budget-timelineSurface); --step-tone-ink: var(--budget-ink); border-radius: var(--budget-timelineStepRadius); scroll-margin-top: var(--budget-spaceSmall); transition: box-shadow var(--budget-duration) var(--budget-ease); }
+.timeline-step article[data-tone='income'] { --step-tone-surface: var(--budget-greenSurface); --step-tone-ink: var(--budget-green); }
+.timeline-step article[data-tone='outflow'] { --step-tone-surface: var(--budget-redSurface); --step-tone-ink: var(--budget-red); }
+.timeline-step article[data-tone='card'] { --step-tone-surface: var(--budget-blueSurface); --step-tone-ink: var(--budget-blue); }
+.timeline-step article[data-tone='transfer'] { --step-tone-surface: var(--budget-amberSurface); --step-tone-ink: var(--budget-amber); }
+.timeline-step article[data-selected='true'] { box-shadow: var(--budget-timelineSelectedShadow); }
+.timeline-step-identity { margin: calc(-1 * var(--budget-spaceSmall)) calc(-1 * var(--budget-spacing)) 0; padding: var(--budget-spaceSmall) var(--budget-spacing); background: var(--step-tone-surface); border-radius: var(--budget-timelineStepRadius) var(--budget-timelineStepRadius) 0 0; }
+.timeline-step .timeline-meta { justify-content: space-between; }
+.timeline-step .timeline-kind { display: inline-flex; padding: 0 var(--budget-spaceTight); background: var(--budget-paper); color: var(--step-tone-ink); border-radius: var(--budget-radius); }
+.timeline-step-number { color: var(--budget-muted); font-weight: var(--budget-labelWeight); font-variant-numeric: tabular-nums; }
+.timeline-step-identity h3 { margin-bottom: 0; }
+.timeline-immediate-effect { margin-top: var(--budget-spaceSmall); padding-top: var(--budget-spaceSmall); border-top: var(--budget-ruleWidth) solid var(--budget-line); }
+.timeline-immediate-effect strong { color: var(--step-tone-ink); }
+/* Result: every balance carries its change against the preceding unfiltered ledger step. */
+.timeline-balances > div { display: grid; align-content: start; }
+[data-step-part='after'] .timeline-result dd.timeline-balance-change { margin-top: var(--budget-spaceDense); font-size: var(--budget-fontSmall); font-weight: var(--budget-labelWeight); color: var(--budget-timelineOverviewMuted); }
+[data-step-part='after'] .timeline-result dd.timeline-balance-change[data-tone='inflow'] { color: var(--budget-timelineOverviewPositive); }
+[data-step-part='after'] .timeline-result dd.timeline-balance-change[data-tone='outflow'] { color: var(--budget-timelineOverviewNegative); }
+[data-step-part='after'] .timeline-result .timeline-net-position dd.timeline-balance-change { margin-top: 0; }
+/* Bank rows share columns so equal facts line up; the bank that moved in this step is lifted onto the paper surface. */
+.timeline-bank-group { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--budget-spaceDense) var(--budget-spaceSmall); margin-inline: calc(-1 * var(--budget-spaceTight)); padding: var(--budget-spaceTight); border-radius: var(--budget-radius); }
+.timeline-bank-group[data-moved='true'] { background: var(--budget-paper); }
+.timeline-bank-group h5 { font-weight: var(--budget-headingWeight); }
+.timeline-bank-group dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--budget-spaceDense) var(--budget-spaceSmall); margin: 0; }
+.timeline-bank-group dl > div { display: grid; align-content: start; }
+.timeline-bank-group .timeline-balance-change { color: var(--budget-blue); }
+@container (min-width: 36em) {
+  .timeline-bank-group { grid-template-columns: var(--budget-timelineBankNameWidth) minmax(0, 1fr); align-items: start; }
+  /* Wide rows read as one line per bank: label and value side by side in shared columns. */
+  .timeline-bank-group { align-items: baseline; padding-block: var(--budget-spaceDense); }
+  .timeline-bank-group dl > div { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--budget-spaceTight); }
+  [data-step-part='after'] .timeline-bank-group dd.timeline-balance-change { margin: 0; }
+  .timeline-step-link { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--budget-spaceTight); }
+  .timeline-step-link[data-direction='next'] { justify-content: flex-end; }
+}
+/* Step end: destination-named links to the neighbouring visible steps on the step's own tone. */
+.timeline-step-links { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--budget-timelinePurchaseFactWidth)), 1fr)); gap: var(--budget-spaceTight); padding: var(--budget-spaceSmall) var(--budget-spacing); background: var(--step-tone-surface); border-radius: 0 0 var(--budget-timelineStepRadius) var(--budget-timelineStepRadius); }
+.timeline-step-link { display: grid; align-content: center; gap: var(--budget-spaceDense); min-height: var(--budget-targetMin); min-width: 0; padding: var(--budget-spaceTight) var(--budget-spaceSmall); border: 0; border-radius: var(--budget-radius); background: var(--budget-paper); color: var(--budget-ink); font: inherit; text-align: start; cursor: pointer; transition: background-color var(--budget-duration) var(--budget-ease); }
+.timeline-step-link[data-direction='next'] { text-align: end; }
+.timeline-step-link:hover { background: var(--budget-canvas); }
+.timeline-step-link-label { color: var(--budget-muted); }
+.timeline-step-link-target { font-weight: var(--budget-headingWeight); overflow-wrap: break-word; }
+.timeline-step-link-edge { align-self: center; padding: var(--budget-spaceTight) var(--budget-spaceSmall); color: var(--budget-muted); }
+.timeline-balance-change .timeline-amount { white-space: nowrap; }
+@container (min-width: 48em) {
+  /* Wide identity reads as one line: kind, title, then the step number; DOM order stays kind → number → title. */
+  .timeline-step-identity { display: flex; flex-wrap: wrap; align-items: center; gap: var(--budget-spaceDense) var(--budget-spaceSmall); padding-block: var(--budget-spaceTight); }
+  .timeline-step-identity .timeline-meta { display: contents; }
+  .timeline-step-identity h3 { order: 1; flex: 1 1 0; min-width: 0; margin: 0; }
+  .timeline-step-identity .timeline-step-number { order: 2; }
+  .timeline-bank-group:not([data-moved='true']) { padding-block: 0; }
+  .timeline-step-links { padding-block: var(--budget-spaceTight); }
+  .timeline-account-breakdown { gap: var(--budget-spaceDense); }
+}

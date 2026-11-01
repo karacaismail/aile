@@ -960,3 +960,48 @@ test('the selected month follows the user between payment flow and financing', a
   await page.getByRole('link',{name:'Ödeme takvimine git',exact:true}).click();
   await expect(page.getByRole('combobox',{name:'Gösterilen dönem'})).toHaveValue('Aralık 2098');
 });
+
+test('step links name the destination, cross the 50-step page and land visible keyboard focus on the destination heading', async ({ page, browserName }, testInfo) => {
+  const table = syntheticLongTimeline();
+  await page.route('**/gviz/tq?*', route => route.fulfill({ contentType: 'application/json', body: timelineResponse(route.request().url(), table) }));
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.goto('/aile/#/timeline');
+  await page.getByRole('combobox', { name: 'Gösterilen dönem' }).click();
+  await page.getByRole('option', { name: 'Tüm dönem' }).click();
+  const pages = page.getByRole('navigation', { name: 'Adım sayfaları üst' });
+  const fifty = page.getByRole('article', { name: /^50\. adım/ });
+  const next = fifty.getByRole('group', { name: '50. adımdan geçiş' }).getByRole('button', { name: /Sonraki adım.*Adım 51.*Örnek adım 51/ });
+  await expect(next).toBeVisible();
+  expect((await next.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  // Enter keyboard mode, then activate the link from the keyboard.
+  await next.focus();
+  await page.keyboard.press(browserName === 'webkit' ? 'Alt+Tab' : 'Tab');
+  await page.keyboard.press(browserName === 'webkit' ? 'Alt+Shift+Tab' : 'Shift+Tab');
+  await expect(next).toBeFocused();
+  await page.keyboard.press('Enter');
+  const fiftyOne = page.getByRole('article', { name: /^51\. adım/ });
+  const heading = fiftyOne.getByRole('heading', { level: 3 });
+  await expect(heading).toBeFocused();
+  await expect(heading).toBeInViewport();
+  await expect(fiftyOne).toHaveAttribute('data-selected', 'true');
+  await expect(pages).toContainText('51–100 / 716 adım');
+  await expect(page.getByRole('combobox', { name: 'Gösterilen dönem' })).toHaveValue('Tüm dönem');
+  expect(page.url()).toMatch(/#\/timeline$/);
+  // The focus marker is the single heading underline; no ring or outline on the rounded step.
+  expect(await heading.evaluate(el => ({ outline: getComputedStyle(el).outlineStyle, line: getComputedStyle(el).textDecorationLine, shadow: getComputedStyle(el.closest('article')!).boxShadow !== 'none' }))).toEqual({ outline: 'none', line: 'underline', shadow: true });
+  // Start and end of the step share its kind tone, distinct from the facts surface.
+  const surfaces = await fiftyOne.evaluate(el => ({ start: getComputedStyle(el.querySelector('[data-step-part="identity"]')!).backgroundColor, end: getComputedStyle(el.querySelector('.timeline-step-links')!).backgroundColor, facts: getComputedStyle(el.closest('li')!).backgroundColor }));
+  expect(surfaces.start).toBe(surfaces.end);
+  expect(surfaces.start).not.toBe(surfaces.facts);
+  await page.screenshot({ path: testInfo.outputPath(`step-link-${browserName}-320.png`) });
+  await fiftyOne.getByRole('button', { name: /Önceki adım.*Adım 50.*Örnek adım 50/ }).press('Enter');
+  const back = page.getByRole('article', { name: /^50\. adım/ }).getByRole('heading', { level: 3 });
+  await expect(back).toBeFocused();
+  await expect(back).toBeInViewport();
+  await expect(pages).toContainText('1–50 / 716 adım');
+  for (const width of [320, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    expect(await page.getByRole('article', { name: /^50\. adım/ }).locator('.timeline-step-links *').evaluateAll(els => els.filter(el => el.textContent?.trim() && parseFloat(getComputedStyle(el).fontSize) < 14).length)).toBe(0);
+  }
+});

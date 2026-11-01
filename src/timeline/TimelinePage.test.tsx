@@ -27,6 +27,125 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
+it('moves to the named next step and focuses its identity without changing the ledger or route', () => {
+  const scroll = vi.spyOn(HTMLElement.prototype, 'scrollIntoView').mockImplementation(() => {});
+  mount();
+  const first = screen.getAllByRole('article')[0];
+  const second = screen.getAllByRole('article')[1];
+  const totals = screen.getByRole('region', { name: 'Ocak 2098 özeti' }).textContent;
+  fireEvent.click(within(first).getByRole('button', { name: /Sonraki adım.*Örnek adım 2/ }));
+  expect(within(second).getByRole('heading', { level: 3 })).toHaveFocus();
+  expect(second).toHaveAttribute('data-selected', 'true');
+  expect(scroll).toHaveBeenCalled();
+  expect(screen.getByRole('region', { name: 'Ocak 2098 özeti' }).textContent).toBe(totals);
+  fireEvent.click(within(second).getByRole('button', { name: /Önceki adım.*Örnek adım 1/ }));
+  expect(within(first).getByRole('heading', { level: 3 })).toHaveFocus();
+});
+
+it('crosses a fifty-step page boundary and returns to the exact preceding step', () => {
+  vi.spyOn(HTMLElement.prototype, 'scrollIntoView').mockImplementation(() => {});
+  mount(); selectPeriod('all'); advanceFrame(); advanceFrame(); advanceFrame();
+  fireEvent.click(within(screen.getByRole('article', { name: /^50\. adım/ })).getByRole('button', { name: /Sonraki adım.*Örnek adım 51/ }));
+  const next = screen.getByRole('article', { name: /^51\. adım/ });
+  expect(within(next).getByRole('heading', { level: 3 })).toHaveFocus();
+  fireEvent.click(within(next).getByRole('button', { name: /Önceki adım.*Örnek adım 50/ }));
+  advanceFrame(); advanceFrame(); advanceFrame();
+  expect(within(screen.getByRole('article', { name: /^50\. adım/ })).getByRole('heading', { level: 3 })).toHaveFocus();
+});
+
+it('states a generic card purchase as the principal added to the one card that moved, in flow and table, outside purchase and payment filters', () => {
+  const data = buildFinance(syntheticLongFinance());
+  // Only İşbank principal moves against the immediately preceding full-ledger step; cash does not move.
+  Object.assign(data.events[4], { type: 'Kart alışverişi', title: 'İşbank · Okul yemeği', isPrincipal: 650, cardDebt: 862, source: 'Finansman motoru · Okul yemek kartı' });
+  vi.mocked(useFinance).mockReturnValue({ data, loading: false, error: null, updatedAt: null, refresh: vi.fn() });
+  mount();
+  const step = screen.getByRole('article', { name: '5. adım · İşbank · Okul yemeği' });
+  const facts = within(step).getByRole('group', { name: 'Kart harcaması bilgileri' });
+  expect(within(facts).getByText('Karta eklenen anapara').nextElementSibling).toHaveTextContent('350 ₺');
+  expect(facts).toHaveTextContent('5 Ocak 2098');
+  expect(within(facts).getByText('Borcun eklendiği kart').nextElementSibling).toHaveTextContent('İşbank kredi kartı');
+  expect(facts).toHaveTextContent('Kasadan çıkan 0 ₺');
+  expect(within(step).queryByText('Net nakit etkisi')).not.toBeInTheDocument();
+  expect(facts).not.toHaveTextContent('taksit');
+  const expected = facts.textContent;
+  fireEvent.click(screen.getByRole('tab', { name: 'Tablo' }));
+  expect(within(screen.getByRole('row', { name: /Okul yemeği/ })).getByRole('group', { name: 'Kart harcaması bilgileri' }).textContent).toBe(expected);
+  fireEvent.click(screen.getByRole('tab', { name: 'Zaman akışı' }));
+  for (const filter of ['Alışveriş', 'Ödemeler']) {
+    fireEvent.click(screen.getByRole('button', { name: filter }));
+    expect(screen.queryByRole('article', { name: /Okul yemeği/ })).not.toBeInTheDocument();
+  }
+});
+
+it('keeps an ambiguous or unmoved generic card purchase unknown instead of zero or a guessed card', () => {
+  const data = buildFinance(syntheticLongFinance());
+  Object.assign(data.events[4], { type: 'Kart alışverişi', title: 'Belirsiz kart alımı', isPrincipal: 650, denizPrincipal: 260 });
+  Object.assign(data.events[6], { type: 'Kart alışverişi', title: 'Hareketsiz kart alımı' });
+  Object.assign(data.events[8], { type: 'Kart alışverişi', title: 'Nakitli kart alımı', isPrincipal: 650, cashChange: -10 });
+  vi.mocked(useFinance).mockReturnValue({ data, loading: false, error: null, updatedAt: null, refresh: vi.fn() });
+  mount(); advanceFrame();
+  for (const title of ['Belirsiz kart alımı', 'Hareketsiz kart alımı', 'Nakitli kart alımı']) {
+    const facts = within(screen.getByRole('article', { name: new RegExp(title) })).getByRole('group', { name: 'Kart harcaması bilgileri' });
+    expect(within(facts).getByText('Karta eklenen anapara').nextElementSibling).toHaveTextContent('Tutar doğrulanamadı');
+    expect(within(facts).getByText('Borcun eklendiği kart').nextElementSibling).toHaveTextContent('Kart doğrulanamadı');
+    expect(facts).not.toHaveTextContent(/kredi kartı|0 ₺ ·/);
+  }
+});
+
+it('pairs each after-step balance and the moved bank with its change against the preceding full-ledger step', () => {
+  const data = buildFinance(syntheticLongFinance());
+  Object.assign(data.events[4], { type: 'Kart alışverişi', title: 'İşbank · Okul yemeği', isPrincipal: 650, cardDebt: 862 });
+  vi.mocked(useFinance).mockReturnValue({ data, loading: false, error: null, updatedAt: null, refresh: vi.fn() });
+  mount();
+  const after = within(screen.getByRole('article', { name: /^5\. adım/ })).getByRole('group', { name: 'Adım sonrası · tüm hesaplar' });
+  expect(within(after).getByText('Toplam kart borcu').nextElementSibling).toHaveTextContent('862 ₺');
+  expect(within(after).getByText('Toplam kart borcu').parentElement).toHaveTextContent('Bu adımda +350 ₺');
+  expect(within(after).getByText('Harcanabilir nakit').parentElement).toHaveTextContent('Değişmedi');
+  expect(within(after).getByRole('group', { name: 'İşbank kredi kartı' })).toHaveTextContent('Bu adımda +350 ₺');
+  expect(within(after).getByRole('group', { name: 'Denizbank kredi kartı' })).not.toHaveTextContent('Bu adımda');
+  // The ledger's first step has no predecessor: no movement is claimed.
+  const opening = within(screen.getByRole('article', { name: /^1\. adım/ })).getByRole('group', { name: 'Adım sonrası · tüm hesaplar' });
+  expect(opening).not.toHaveTextContent(/Bu adımda|Değişmedi/);
+  // A filter never changes the predecessor: the movement still compares with step 4.
+  fireEvent.click(screen.getByRole('button', { name: 'Ödemeler' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Tüm adımlar' }));
+  expect(within(screen.getByRole('article', { name: /^5\. adım/ })).getByText('Toplam kart borcu').parentElement).toHaveTextContent('Bu adımda +350 ₺');
+});
+
+it('marks where each step begins and ends: a kind-toned identity with the step number, then destination-named step links', () => {
+  mount();
+  const [first, second] = screen.getAllByRole('article');
+  expect(first.querySelector('[data-step-part="identity"]')).toHaveAttribute('data-tone', 'neutral');
+  expect(within(first).queryByRole('button', { name: /Önceki adım/ })).not.toBeInTheDocument();
+  const links = within(second).getByRole('group', { name: '2. adımdan geçiş' });
+  expect(within(links).getByRole('button', { name: /Önceki adım.*Örnek adım 1/ })).toBeVisible();
+  expect(within(links).getByRole('button', { name: /Sonraki adım.*Örnek adım 3/ })).toHaveTextContent('3 Ocak');
+});
+
+it('compares a filtered step with its hidden full-ledger predecessor and links only to visible neighbours', () => {
+  const data = buildFinance(syntheticLongFinance());
+  // Steps 6 and 10 are payments; 7-9 stay hidden under Ödemeler. Step 5 (hidden) is the predecessor of 6.
+  Object.assign(data.events[5], { title: 'Ödeme A', cashChange: -100, cash: 654221, requiredBalance: 654221 });
+  for (const event of data.events.slice(6)) Object.assign(event, { cash: 654221, requiredBalance: 654221 });
+  Object.assign(data.events[9], { title: 'Ödeme B', cashChange: -50, cash: 654171, requiredBalance: 654171 });
+  vi.mocked(useFinance).mockReturnValue({ data, loading: false, error: null, updatedAt: null, refresh: vi.fn() });
+  vi.spyOn(HTMLElement.prototype, 'scrollIntoView').mockImplementation(() => {});
+  mount();
+  fireEvent.click(screen.getByRole('button', { name: 'Ödemeler' }));
+  const payment = screen.getByRole('article', { name: '6. adım · Ödeme A' });
+  const after = within(payment).getByRole('group', { name: 'Adım sonrası · tüm hesaplar' });
+  expect(within(after).getByText('Harcanabilir nakit').parentElement).toHaveTextContent('Bu adımda -100 ₺');
+  expect(within(after).getByText('Net nakit konumu').parentElement).toHaveTextContent('Bu adımda -100 ₺');
+  expect(within(payment).queryByRole('button', { name: /Önceki adım/ })).not.toBeInTheDocument();
+  fireEvent.click(within(payment).getByRole('button', { name: /Sonraki adım · Adım 10 .*Ödeme B/ }));
+  expect(within(screen.getByRole('article', { name: '10. adım · Ödeme B' })).getByRole('heading', { level: 3 })).toHaveFocus();
+  // Changing the filter clears the step highlight; nothing is re-focused later.
+  fireEvent.click(screen.getByRole('button', { name: 'Tüm adımlar' }));
+  advanceFrame();
+  expect(screen.getByRole('article', { name: '10. adım · Ödeme B' })).not.toHaveAttribute('data-selected');
+  expect(document.activeElement).not.toBe(within(screen.getByRole('article', { name: '6. adım · Ödeme A' })).getByRole('heading', { level: 3 }));
+});
+
 it('renders the first eight verified steps immediately, then sixteen per frame without changing source totals', () => {
   mount();
   expect(rows()).toBe(8);

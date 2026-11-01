@@ -26,3 +26,27 @@ export function purchaseDetails(event: FinanceEvent, previous?: FinanceEvent): P
   const instalments = terms ? Number(terms[1]) : undefined;
   return { amount: Math.round(amount * 100) / 100, method: `${bank} kredi kartı`, ...(Number.isSafeInteger(instalments) ? { instalments } : {}) };
 }
+
+/** The engine's generic card purchase type; it is not a household Alışveriş category. */
+export const isCardCharge = (event: FinanceEvent) => event.type === 'Kart alışverişi';
+export type CardCharge = { amount: number; card: string };
+
+/**
+ * A generic card purchase leaves cash unchanged and adds its price to exactly one
+ * card's committed principal. The amount is that card's principal delta against the
+ * immediately preceding *unfiltered* ledger step: never total debt, accrued cost or
+ * future instalments. Any other movement pattern is ambiguous and stays unknown;
+ * instalment count and payment terms are not stated by this event.
+ */
+export function cardCharge(event: FinanceEvent, previous?: FinanceEvent): CardCharge | null {
+  if (!isCardCharge(event) || !previous || previous.date > event.date || !zero(event.cashChange) || !zero(event.kmhPrincipal - previous.kmhPrincipal)) return null;
+  const moved = ([['Denizbank kredi kartı', event.denizPrincipal - previous.denizPrincipal], ['İşbank kredi kartı', event.isPrincipal - previous.isPrincipal]] as const).filter(([, delta]) => !zero(delta));
+  if (moved.length !== 1 || !(moved[0][1] > 0) || !Number.isFinite(moved[0][1])) return null;
+  return { amount: Math.round(moved[0][1] * 100) / 100, card: moved[0][0] };
+}
+
+/** Balance change against the preceding unfiltered ledger step; null when there is no predecessor. */
+export function stepChange(event: FinanceEvent, previous: FinanceEvent | undefined, key: { [K in keyof FinanceEvent]: FinanceEvent[K] extends number ? K : never }[keyof FinanceEvent]) {
+  if (!previous || previous.date > event.date) return null;
+  return Math.round((event[key] - previous[key]) * 100) / 100;
+}
