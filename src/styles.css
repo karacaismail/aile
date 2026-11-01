@@ -3,6 +3,8 @@
   --aile-safe-top: env(safe-area-inset-top, 0px);
   --aile-fab-bottom: max(var(--budget-spaceSection), var(--aile-safe-bottom));
   --aile-fab-right: var(--budget-spacing);
+  /* The floating add button's ActionIcon size (`Fab.tsx`); pages that end under it reserve this much. */
+  --aile-fab-size: 56px;
 }
 .tabular { font-variant-numeric: tabular-nums; }
 .aile-planner { min-width: 0; color: var(--budget-ink); }

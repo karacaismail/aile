@@ -1,10 +1,9 @@
 import { SectionHeading } from '@/components/Info';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Modal, Stack, TextInput, SegmentedControl, Switch, NumberInput, Textarea, Text, Alert, SimpleGrid, Button, Group } from '@mantine/core';
+import { useEffect, useRef, useState } from 'react';
+import { Modal, Stack, TextInput, SegmentedControl, Switch, NumberInput, Textarea, Text, Alert, SimpleGrid } from '@mantine/core';
 import { DatePickerInput } from '@mantine/dates';
 import { useForm, schemaResolver } from '@mantine/form';
 import { useMediaQuery } from '@mantine/hooks';
-import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
 import { z } from 'zod';
 import { useLocation } from 'wouter';
@@ -17,8 +16,12 @@ import { LinksField } from '@/components/LinksField';
 import { EnumSelect } from '@/components/EnumSelect';
 import { FormFooter, focusFirstError } from '@/components/FormFooter';
 import { ConflictBanner, FIELD_LABELS, fieldValue } from './ConflictBanner';
-import { fieldOwnership } from '@/lib/fieldOwnership';
+import { ownedChanges } from '@/lib/fieldOwnership';
 import { DetailSkeleton } from '@/components/DetailSkeleton';
+import { DraftConflict } from '@/components/DraftConflict';
+import { useDraftOwnership } from '@/lib/useDraftOwnership';
+import { confirmDelete, unlessConfirming } from '@/components/confirmDelete';
+import { useRouteModalFocusReturn } from '@/lib/routeModalFocus';
 import { selectFirstLoad } from '@/data/selectors';
 import { tokens } from '@/dashboard/tokens';
 
@@ -84,11 +87,7 @@ function persistedValue(key: keyof FormValues, values: FormValues) {
 }
 
 export function ownedPatch(baseline: FormValues, values: FormValues, latest: Item) {
-  const latestValues = toPatch(toForm(latest));
-  const local = toPatch(values);
-  const { changed, conflicts } = fieldOwnership(toPatch(baseline), local, latestValues);
-  const patch: Record<string, unknown> = { tip: local.tip };
-  for (const key of changed) if (key !== 'tip' && JSON.stringify(local[key] ?? null) !== JSON.stringify(latestValues[key] ?? null)) patch[key] = local[key];
+  const { patch, conflicts, latestValues } = ownedChanges((v: FormValues) => toPatch(v), baseline, values, toForm(latest));
   const merged = { ...latestValues, ...patch } as { tahmini_tl_min?: number | null; tahmini_tl_max?: number | null };
   const invalidRange = !conflicts.length && merged.tahmini_tl_min != null && merged.tahmini_tl_max != null && merged.tahmini_tl_min > merged.tahmini_tl_max;
   return { patch, conflicts: (invalidRange ? ['tahmini_tl_min', 'tahmini_tl_max'] : conflicts) as (keyof FormValues)[], invalidRange, range: invalidRange ? { min: merged.tahmini_tl_min!, max: merged.tahmini_tl_max! } : null };
@@ -97,20 +96,6 @@ export function ownedPatch(baseline: FormValues, values: FormValues, latest: Ite
 // Temizle düğmesi de dokunma hedefi (≥44); sağ bölüm ona göre genişler.
 const dateProps = { valueFormat: 'D MMM YYYY', dropdownType: 'modal' as const, clearable: true, clearButtonProps: { size: 'xl' as const, 'aria-label': 'Tarihi temizle' }, rightSectionWidth: 44 };
 
-/**
- * Where keyboard focus goes after the route modal unmounts (Mantine's return focus needs a closing transition the route
- * unmount skips): the element that opened it, else this record's link in the list, else the page heading.
- */
-function returnFocus(origin: Element | null, id: string) {
-  const record = document.querySelector<HTMLElement>(`[data-item-id="${CSS.escape(id)}"] [role="link"]`);
-  const heading = document.querySelector<HTMLElement>('.page-header h1');
-  const target = origin instanceof HTMLElement && origin.isConnected && origin !== document.body ? origin : record ?? heading;
-  if (!target) return;
-  if (target === heading && !heading.hasAttribute('tabindex')) heading.setAttribute('tabindex', '-1');
-  target.focus({ preventScroll: true });
-  target.scrollIntoView?.({ block: 'nearest' });
-}
-
 /** Route modal shell: waits for the record, remembers the opener and returns focus there when the route leaves this record. */
 export function ItemDetail({ id, section, defaults, onSaved }: { id: string; section?: 'fiyat'; defaults?: NewItemDefaults; onSaved?: (saved: Item, isNew: boolean) => void }) {
   const [, navigate] = useLocation();
@@ -118,16 +103,8 @@ export function ItemDetail({ id, section, defaults, onSaved }: { id: string; sec
   const item = useAppStore((s) => (isNew ? undefined : s.items.find((i) => i.id === id)));
   const firstLoad = useAppStore(selectFirstLoad);
   const isMobile = useMediaQuery('(max-width: 48em)', true);
-  // The opener is still focused on the first render, before the modal's focus trap moves focus inside.
-  const [origin] = useState(() => (typeof document === 'undefined' ? null : document.activeElement));
-  // Layout cleanup runs in the same commit that removes the dialog, so focus never rests on <body> in between.
-  useLayoutEffect(() => () => {
-    // StrictMode's trial unmount keeps the URL on this record; only a real close (any path: Escape, Vazgeç, Kaydet, Sil, back) returns focus.
-    if (window.location.hash.includes(`/satinalma/${id}`)) return;
-    returnFocus(origin, id);
-    // A record that leaves the list in the same commit (saved outside the filter, deleted) is re-resolved once rendering settles.
-    requestAnimationFrame(() => { if (document.activeElement === document.body) returnFocus(origin, id); });
-  }, [origin, id]);
+  // Any close path (Escape, Vazgeç, Kaydet, Sil, back) returns focus to the opener, else this record in the list.
+  useRouteModalFocusReturn(() => window.location.hash.includes(`/satinalma/${id}`), () => document.querySelector<HTMLElement>(`[data-item-id="${CSS.escape(id)}"] [role="link"]`));
   const close = () => navigate('~/satinalma');
 
   if (!isNew && !item) {
@@ -147,18 +124,8 @@ function ItemForm({ id, item, isNew, section, defaults, onSaved, close, isMobile
   const form = useForm<FormValues>({ mode: 'controlled', initialValues: initial, validate: schemaResolver(schema, { sync: true }) });
   const formRef = useRef<HTMLFormElement>(null);
   // Ownership baseline: the form as it opened; a resolved conflict moves that field's baseline to the server value.
-  const [baseline, setBaseline] = useState(initial);
-  const [conflicts, setConflicts] = useState<(keyof FormValues)[]>([]);
+  const { baseline, conflicts, setConflicts, resolve } = useDraftOwnership(initial, () => item && toForm(item), (key, value) => form.setFieldValue(key, value as never));
   const [range, setRange] = useState<{ min: number; max: number } | null>(null);
-  const conflictRef = useRef<HTMLHeadingElement>(null);
-  useEffect(() => { if (conflicts.length) conflictRef.current?.focus(); }, [conflicts]);
-  const resolve = (keep: 'mine' | 'theirs') => {
-    if (!item) return;
-    const latest = toForm(item);
-    setBaseline((current) => ({ ...current, ...Object.fromEntries(conflicts.map((key) => [key, latest[key]])) }));
-    if (keep === 'theirs') for (const key of conflicts) form.setFieldValue(key, latest[key] as never);
-    setConflicts([]);
-  };
   // Opened for a price: the section starts just under the modal header, so its explanation and first field are visible above the sticky footer.
   useEffect(() => {
     if (section !== 'fiyat') return;
@@ -185,33 +152,25 @@ function ItemForm({ id, item, isNew, section, defaults, onSaved, close, isMobile
     else notifications.show({ message: isNew ? 'Kalem eklendi' : 'Kaydedildi', color: 'green', autoClose: 1500 });
     close();
   };
-  const del = () => modals.openConfirmModal({
-    title: 'Kalemi sil?', children: <Text size="sm">"{item?.ad}" listeden kaldırılır (Sheets'te silinmiş olarak işaretlenir).</Text>,
-    labels: { confirm: 'Sil', cancel: 'Vazgeç' }, confirmProps: { color: 'red' },
-    onConfirm: () => { remove('kalemler', id); notifications.show({ message: 'Silindi', color: 'gray', autoClose: 1500 }); close(); },
+  const del = () => confirmDelete({
+    title: 'Kalemi sil?', body: <>"{item?.ad}" listeden kaldırılır (Sheets'te silinmiş olarak işaretlenir).</>,
+    onDelete: () => { remove('kalemler', id); notifications.show({ message: 'Silindi', color: 'gray', autoClose: 1500 }); }, onClosed: close,
   });
 
   return (
-    <Modal opened onClose={close} title={isNew ? 'Yeni kalem' : item!.ad} fullScreen={isMobile} size="lg" closeButtonProps={{ size: 'xl', 'aria-label': 'Kapat' }}
+    <Modal opened onClose={unlessConfirming(close)} title={isNew ? 'Yeni kalem' : item!.ad} fullScreen={isMobile} size="lg" closeButtonProps={{ size: 'xl', 'aria-label': 'Kapat' }}
       styles={{ body: { paddingBottom: 96 } }}>
       <form ref={formRef} onSubmit={form.onSubmit(save, (errors) => focusFirstError(formRef.current, errors))} noValidate data-testid="item-detail">
         <Stack gap="sm">
           <Stack component="section" aria-label="Kalem bilgileri" className="record-form-section" gap="sm">
             <SectionHeading title="Kalem bilgileri" level={3} />
             {item && <ConflictBanner id={item.id} />}
-            {item && conflicts.length > 0 && <Alert color="orange" variant="light" role="alert" data-testid="draft-conflict">
-              <Stack gap={6}>
-                <Text component="h4" ref={conflictRef} tabIndex={-1} fw={600} m={0}>Bu alanları siz düzenlerken Sheets'te de değişti</Text>
-                {range && <Text size="sm">Sizin değerleriniz Sheets'teki son değerlerle birleşince min {fieldValue('tahmini_tl_min', range.min)}, max {fieldValue('tahmini_tl_max', range.max)} olur; min max'tan büyük olduğu için birlikte kaydedilemez. Hangisinin kalacağını seçin.</Text>}
-                {/* Both sides show the persisted values that are compared and would be written, with any derivation named. */}
-                {conflicts.map((key) => { const mine = persistedValue(key, form.getValues()), theirs = persistedValue(key, toForm(item)); return <Text key={key} size="sm"><b>{FIELD_LABELS[key] ?? key}</b>: sizin değeriniz <i>{fieldValue(key, mine.value)}</i>{mine.derived && ` (${mine.derived})`} · Sheets'teki <i>{fieldValue(key, theirs.value)}</i>{theirs.derived && ` (${theirs.derived})`}</Text>; })}
-                <Group gap="xs">
-                  <Button size="sm" variant="filled" onClick={() => resolve('mine')}>Benim değerim kalsın</Button>
-                  <Button size="sm" variant="default" onClick={() => resolve('theirs')}>Sheets'teki kalsın</Button>
-                </Group>
-                <Text size="sm">Seçimden sonra Kaydet; değiştirmediğiniz alanlar yazılmaz.</Text>
-              </Stack>
-            </Alert>}
+            {/* Both sides show the persisted values that are compared and would be written, with any derivation named. */}
+            {item && <DraftConflict fields={conflicts} label={(key) => FIELD_LABELS[key] ?? key} onResolve={resolve}
+              mine={(key) => { const v = persistedValue(key as keyof FormValues, form.getValues()); return { value: fieldValue(key, v.value), derived: v.derived }; }}
+              theirs={(key) => { const v = persistedValue(key as keyof FormValues, toForm(item)); return { value: fieldValue(key, v.value), derived: v.derived }; }}>
+              {range && <Text size="sm">Sizin değerleriniz Sheets'teki son değerlerle birleşince min {fieldValue('tahmini_tl_min', range.min)}, max {fieldValue('tahmini_tl_max', range.max)} olur; min max'tan büyük olduğu için birlikte kaydedilemez. Hangisinin kalacağını seçin.</Text>}
+            </DraftConflict>}
             {/* Yeni kayıtta ilk alan odaklanır (Mantine FocusTrap `data-autofocus`); düzenlemede odak modal başlığında kalır. */}
             <TextInput label="Ad" required data-autofocus={isNew || undefined} {...form.getInputProps('ad')} key={form.key('ad')} />
             <fieldset className="record-fieldset">

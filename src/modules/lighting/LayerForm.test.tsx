@@ -164,3 +164,71 @@ describe('toLayerPatch', () => {
     expect(toLayerPatch(v, 'salon', existing)).toEqual({ tip: 'aydinlatma', cct_min: 3000 });
   });
 });
+
+describe('Tur 5: LayerForm alan sahipliği — yalnız kullanıcının değiştirdiği alanlar yazılır', () => {
+  const settings = [{ id: 'S1', tip: 'oda' as const, anahtar: 'salon', deger: JSON.stringify({ kopek_erisim: 'serbest' }) }];
+  const refresh = (record: Item) => act(() => { applyRead({ ok: true, fingerprint: 'g', serverTime: 't2', schemaVersion: 1, items: [purchase, record], settings }); });
+  const noCct: Item = { ...existing, cct_min: undefined, cct_max: undefined, cct_mod: undefined };
+  const openWith = (record: Item) => {
+    resetStore();
+    setState({ hydrated: true, status: 'synced' });
+    applyRead({ ok: true, fingerprint: 'f', serverTime: 't', schemaVersion: 1, items: [purchase, record], settings });
+    return mount('L1');
+  };
+
+  it('dokunulmamış alan sunucuda değişince korunur: yalnız Amaç yazılır, eski lux geri yazılmaz', async () => {
+    openWith(existing);
+    await userEvent.type(screen.getByLabelText('Amaç'), 'Okuma');
+    refresh({ ...existing, lux_min: 300, version: 2 });
+    await userEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
+    expect(vi.mocked(upsert).mock.calls.at(-1)![2]).toEqual({ tip: 'aydinlatma', amac: 'Okuma' });
+  });
+
+  it('kayıtta CCT yokken sunucuya yeni CCT gelirse dokunulmamış varsayılan kaydırıcı (2700–4000) onu ezmez', async () => {
+    openWith(noCct);
+    expect(screen.getByTestId('cct-value')).toHaveTextContent('2700–4000 K');
+    await userEvent.type(screen.getByLabelText('Amaç'), 'Okuma');
+    refresh({ ...noCct, cct_mod: 'sabit', cct_min: 3000, cct_max: 3000, version: 2 });
+    await userEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
+    expect(vi.mocked(upsert).mock.calls.at(-1)![2]).toEqual({ tip: 'aydinlatma', amac: 'Okuma' });
+  });
+
+  it('aynı alan sunucuda da değiştiyse yazmaz, taslağı korur ve çakışmayı gösterir; "Benim değerim kalsın" sonra yazar', async () => {
+    openWith({ ...existing, amac: 'Genel' });
+    await userEvent.clear(screen.getByLabelText('Amaç'));
+    await userEvent.type(screen.getByLabelText('Amaç'), 'Benim amacım');
+    refresh({ ...existing, amac: 'Sunucudaki amaç', version: 2 });
+    await userEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
+    expect(upsert).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('Amaç')).toHaveValue('Benim amacım');
+    const conflict = screen.getByRole('alert');
+    expect(conflict).toHaveTextContent('Amaç');
+    expect(conflict).toHaveTextContent('Benim amacım');
+    expect(conflict).toHaveTextContent('Sunucudaki amaç');
+    await userEvent.click(within(conflict).getByRole('button', { name: 'Benim değerim kalsın' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
+    expect(vi.mocked(upsert).mock.calls.at(-1)![2]).toEqual({ tip: 'aydinlatma', amac: 'Benim amacım' });
+  });
+
+  it('"Sheets\'teki kalsın" alanı sunucu değerine alır; sonraki Kaydet yazmaz', async () => {
+    const loc = openWith({ ...existing, amac: 'Genel' });
+    await userEvent.clear(screen.getByLabelText('Amaç'));
+    await userEvent.type(screen.getByLabelText('Amaç'), 'Benim amacım');
+    refresh({ ...existing, amac: 'Sunucudaki amaç', version: 2 });
+    await userEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
+    await userEvent.click(within(screen.getByRole('alert')).getByRole('button', { name: "Sheets'teki kalsın" }));
+    expect(screen.getByLabelText('Amaç')).toHaveValue('Sunucudaki amaç');
+    await userEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
+    expect(upsert).not.toHaveBeenCalled();
+    expect(loc.history.at(-1)).toBe('/aydinlatma/salon');
+  });
+
+  it('yalnız boşluk eklemek düzenleme sayılmaz: sunucu başka alanı değiştirmiş olsa da hiçbir şey yazılmaz', async () => {
+    const loc = openWith(existing);
+    await userEvent.type(screen.getByLabelText('Katman adı'), '  ');
+    refresh({ ...existing, lux_min: 300, version: 2 });
+    await userEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
+    expect(upsert).not.toHaveBeenCalled();
+    expect(loc.history.at(-1)).toBe('/aydinlatma/salon');
+  });
+});

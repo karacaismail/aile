@@ -48,3 +48,24 @@ html[data-keyboard='true'] :is(.budget-app, .aile-app) .info-journey a:focus-vis
 .form-error-field { min-height: var(--budget-targetMin); padding: 0 var(--budget-spaceSmall); border: 0; border-radius: var(--budget-radius); background: var(--budget-redSurface); color: var(--budget-red); font: inherit; font-weight: var(--budget-labelWeight); cursor: pointer; transition: background-color var(--budget-duration) var(--budget-ease); }
 .form-error-field:hover { background: var(--budget-canvas); }
 .form-error-field[data-unreachable] { display: inline-flex; align-items: center; cursor: default; }
+/* Record card grammar (shared by Hazırlık, aydınlatma, tadilat, yerleşim): identity → status row → attention → facts.
+   The status row holds at most one coloured tag (the record's status/kind); every other attribute is plain text
+   separated by middots. Attention items are text with an icon, never colour alone. Only the facts group has a surface. */
+.record-card { display: flex; flex-direction: column; gap: var(--budget-spaceTight); min-width: 0; }
+.record-title { margin: 0; color: var(--budget-ink); font-size: var(--budget-fontSection); font-weight: var(--budget-headingWeight); line-height: var(--budget-lineCompact); overflow-wrap: break-word; }
+.record-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--budget-spaceDense) var(--budget-spaceTight); margin: 0; color: var(--budget-muted); }
+/* The separator ends the previous item, so a wrapped line never starts with a dot. */
+.record-scope:not(:last-child)::after { content: ' ·'; color: var(--budget-muted); }
+.record-attention { display: flex; flex-wrap: wrap; gap: var(--budget-spaceDense) var(--budget-spaceSmall); margin: 0; padding: 0; list-style: none; color: var(--budget-ink); }
+.record-attention > li { display: inline-flex; align-items: center; gap: var(--budget-spaceDense); }
+.record-attention > li > svg { flex-shrink: 0; }
+.record-attention > li[data-tone='danger'] { color: var(--budget-red); }
+.record-attention > li[data-tone='warn'] { color: var(--budget-amber); }
+.record-attention > li[data-tone='ok'] { color: var(--budget-green); }
+.record-facts { display: grid; gap: var(--budget-spaceDense); padding: var(--budget-spaceSmall); border-radius: var(--budget-radius); background: var(--budget-blueSurface); min-width: 0; }
+.record-facts dl > div:not([data-emphasis]) { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0 var(--budget-spaceTight); }
+.record-facts dl > div:not([data-emphasis]) > dd { margin-top: 0; }
+/* A group heading inside a list (month, wall, room group): plain heading text plus its summary, no box. */
+.record-group-heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--budget-spaceDense) var(--budget-spaceSmall); margin: var(--budget-spaceSection) 0 var(--budget-spaceTight); }
+.record-group-heading :is(h2, h3, h4) { margin: 0; color: var(--budget-ink); font-size: var(--budget-fontSection); font-weight: var(--budget-headingWeight); line-height: var(--budget-lineCompact); }
+.record-group-heading p { margin: 0; color: var(--budget-muted); }

@@ -24,7 +24,7 @@ function StepBody({ step, purchases, now }: { step: StepGroup; purchases: readon
               const soon = isDueSoon(p.siparis_son_tarih, now);
               return (
                 <Text component="span" key={p.id} size="xs" c={soon ? 'red.8' : 'dimmed'} fw={soon ? 600 : undefined} className={classes.stepLine} data-due={soon ? 'soon' : undefined}>
-                  {p.ad}{p.siparis_son_tarih ? ` · son sipariş ${formatTr(p.siparis_son_tarih)}` : ''}
+                  Bağlı ürün: {p.ad}{p.siparis_son_tarih ? ` · son sipariş ${formatTr(p.siparis_son_tarih)}` : ''}
                 </Text>
               );
             })}
@@ -44,8 +44,11 @@ export function RoadmapTab({ now = new Date() }: { now?: Date }) {
   return (
     <Box p="sm" className={classes.roadmap} data-testid="roadmap">
       <Paper p="md" radius="md" className={classes.roadmapSummary}>
-        <FactList label="Aydınlatma bütçesi" tone="subtle" items={[{ label: 'Toplam tahmini', value: <span data-testid="roadmap-total">{formatTlRange(est.min, est.max)}</span>, emphasis: true }]} />
-        <Text size="xs" c="dimmed">{est.priced}/{est.total} katman fiyatlı · {layers.length} katman, {purchases.length} satınalma kalemi</Text>
+        <FactList label="Aydınlatma bütçesi" tone="subtle" items={[
+          { label: 'Toplam tahmini', value: <span data-testid="roadmap-total">{formatTlRange(est.min, est.max)}</span>, emphasis: true },
+          { label: 'Fiyatı girilmiş katman', value: `${est.priced} / ${est.total}`, detail: est.priced < est.total ? 'Fiyatsız katmanlar toplama girmez.' : undefined },
+          { label: 'Satınalma kalemi', value: String(purchases.length) },
+        ]} />
         <SourceNote label="Kapsam">Katman bedelleri tahminidir; ödeme kaydı değildir.</SourceNote>
       </Paper>
       <Stepper active={active} orientation="vertical" iconSize={44} size="sm" allowNextStepsSelect={false} data-testid="roadmap-steps" className={classes.roadmapSteps}>

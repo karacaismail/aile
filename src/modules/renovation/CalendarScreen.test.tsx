@@ -75,3 +75,81 @@ describe('Takvim', () => {
     expect(within(d2).getByRole('button', { name: 'İşi aç' })).toBeInTheDocument();
   });
 });
+
+describe('Takvim: okuma düzeni (Tur 5)', () => {
+  const entryNamed = (name: RegExp) => within(screen.getByTestId('timeline')).getByRole('button', { name });
+  it('olaylar ay başlıkları altında gruplanır; bugün işareti kendi ayında kalır', () => {
+    applyRead(readFull());
+    mount();
+    const months = within(screen.getByTestId('timeline')).getAllByRole('heading', { level: 2 }).map((h) => h.textContent);
+    expect(months).toEqual(['Şubat 2027', 'Mart 2027', 'Ocak 2099', 'Mart 2099']);
+    const jan = screen.getByRole('region', { name: 'Ocak 2099' });
+    expect(within(jan).getByTestId('timeline-today')).toHaveTextContent('Bugün');
+    expect(within(jan).getByRole('button', { name: /T1 Elektrik altyapı/ })).toBeInTheDocument();
+  });
+  it('tür tarihin yanında yazıyla görünür; rozet yoktur', () => {
+    applyRead(readFull());
+    mount();
+    expect(entryNamed(/Anahtar teslim/)).toHaveTextContent('20 Oca 2099 · Kilometre taşı · Senaryo A');
+    expect(entryNamed(/T1 Elektrik altyapı/)).toHaveTextContent('İş · Planlandı');
+    expect(entryNamed(/Mobilya siparişi/)).toHaveTextContent('Sipariş son günü');
+    expect(entryNamed(/Hedef bitiş/)).toHaveTextContent('Hedef');
+    expect(entryNamed(/Ramazan 2027/)).toHaveTextContent('Dönem');
+    expect(screen.getByTestId('timeline').querySelector('.mantine-Badge-root')).toBeNull();
+  });
+  it('geçmiş olay soluk ama okunur ve "Geçti" yazar', () => {
+    applyRead(readFull());
+    mount();
+    const past = entryNamed(/Mobilya siparişi/);
+    expect(past).toHaveAttribute('data-past', 'true');
+    expect(past).toHaveTextContent('Geçti');
+  });
+  it('sayaç tr-TR binlik ayırıcıyla yazılır', () => {
+    applyRead(readFull({ settings: [{ id: 's-tasinma', tip: 'tarih', anahtar: 'tasinma', deger: '2102-01-01' }] }));
+    mount();
+    expect(screen.getByTestId('countdown-days')).toHaveTextContent(/^1\.086$/);
+  });
+  it('senaryo seçicisinin anlamı görünür satırda yazar ve seçiciye bağlıdır', () => {
+    applyRead(readFull());
+    mount();
+    const group = screen.getByRole('radiogroup', { name: 'Senaryo' });
+    const id = group.getAttribute('aria-describedby');
+    expect(id).toBeTruthy();
+    const line = document.getElementById(id!)!;
+    expect(line).toBeVisible();
+    expect(line).toHaveTextContent('A: anahtar ≤ 8 Ocak');
+    expect(line).toHaveTextContent(/bu senaryonun ve tüm senaryolara ortak/);
+  });
+  it('çekmece bilgileri rozet yerine etiketli bilgi listesidir', async () => {
+    applyRead(readFull());
+    mount();
+    await userEvent.click(entryNamed(/T1 Elektrik altyapı/));
+    const drawer = await screen.findByTestId('timeline-drawer');
+    const facts = within(drawer).getByRole('group', { name: /bilgileri/ });
+    expect(within(facts).getByText('Tarih')).toBeInTheDocument();
+    expect(within(facts).getByText('15 Oca 2099 – 18 Oca 2099')).toBeInTheDocument();
+    expect(within(facts).getByText('Tür')).toBeInTheDocument();
+    expect(within(facts).getByText('İş · Planlandı')).toBeInTheDocument();
+    expect(within(facts).getByText('İşi yapan')).toBeInTheDocument();
+    expect(within(facts).getByText('Elektrikçi')).toBeInTheDocument();
+    expect(drawer.querySelector('.mantine-Badge-root')).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Kapat' }));
+    await userEvent.click(entryNamed(/Anahtar teslim/));
+    const d2 = await screen.findByTestId('timeline-drawer');
+    const f2 = within(d2).getByRole('group', { name: /bilgileri/ });
+    expect(within(f2).getByText('Senaryo')).toBeInTheDocument();
+    expect(within(f2).getByText('A: anahtar ≤ 8 Ocak')).toBeInTheDocument();
+  });
+  it('takvimden açılan iş kapanınca takvime ve aynı olayın çekmecesine döner (liste değil)', async () => {
+    applyRead(readFull());
+    mount();
+    await userEvent.click(entryNamed(/T1 Elektrik altyapı/));
+    await userEvent.click(within(await screen.findByTestId('timeline-drawer')).getByRole('button', { name: 'İşi aç' }));
+    const form = await screen.findByTestId('task-detail');
+    await userEvent.click(within(form).getByRole('button', { name: 'Vazgeç' }));
+    expect(screen.queryByTestId('task-list')).not.toBeInTheDocument();
+    expect(screen.getByTestId('timeline')).toBeInTheDocument();
+    expect(await screen.findByTestId('timeline-drawer')).toBeInTheDocument();
+    expect(screen.getByRole('dialog')).toHaveTextContent('T1 Elektrik altyapı');
+  });
+});

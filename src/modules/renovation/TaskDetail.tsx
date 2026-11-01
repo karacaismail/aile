@@ -1,11 +1,11 @@
 import { SectionHeading } from '@/components/Info';
 import { FormSelect } from '@/components/FormSelect';
-import { useMemo, useRef } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Alert, Chip, Group, Modal, NumberInput, SimpleGrid, Stack, Switch, Text, TextInput, Textarea } from '@mantine/core';
 import { DatePickerInput } from '@mantine/dates';
 import { useForm, schemaResolver } from '@mantine/form';
 import { useMediaQuery } from '@mantine/hooks';
-import { modals } from '@mantine/modals';
+import { confirmDelete, unlessConfirming } from '@/components/confirmDelete';
 import { notifications } from '@mantine/notifications';
 import { z } from 'zod';
 import { useLocation } from 'wouter';
@@ -17,6 +17,11 @@ import { selectFirstLoad } from '@/data/selectors';
 import { EnumSelect } from '@/components/EnumSelect';
 import { DetailSkeleton } from '@/components/DetailSkeleton';
 import { FormFooter, focusFirstError } from '@/components/FormFooter';
+import { DraftConflict } from '@/components/DraftConflict';
+import { ownedChanges } from '@/lib/fieldOwnership';
+import { useDraftOwnership } from '@/lib/useDraftOwnership';
+import { useRouteModalFocusReturn } from '@/lib/routeModalFocus';
+import { formatTr } from '@/lib/dates';
 import { TASK_DURUM_LABEL } from './rules';
 
 const schema = z.object({
@@ -62,15 +67,39 @@ const modalCloseProps = { size: 'xl' as const, 'aria-label': 'Kapat' };
 // Temizle düğmesi de dokunma hedefi (≥44); sağ bölüm ona göre genişler.
 const dateProps = { valueFormat: 'D MMM YYYY', dropdownType: 'modal' as const, clearable: true, clearButtonProps: { size: 'xl' as const, 'aria-label': 'Tarihi temizle' }, rightSectionWidth: 44 };
 
+const FIELD_LABELS: Record<string, string> = {
+  kod: 'Kod', ad: 'Ad', is_kim: 'İşi yapan', planlanan_tarih: 'Planlanan tarih', bitis_tarihi: 'Bitiş tarihi', sure_gun: 'Süre (gün)',
+  bagimlilik: 'Bağımlılık', izin_gerekli: 'İzin gerekli', izin_durumu: 'İzin durumu', sartname: 'Şartname', durum: 'Durum', not: 'Not',
+};
+/** Çakışmada formun gösterdiği sözcükler: seçenek etiketleri, tarih ve gün; boş "boş" kalır, 0 değildir. */
+function conflictValue(key: string, v: unknown): string {
+  if (v == null || v === '' || (Array.isArray(v) && !v.length)) return 'boş';
+  if (key === 'is_kim') return (v as string[]).map((k) => label('is_kim', k)).join(', ');
+  if (Array.isArray(v)) return v.join(', ');
+  if (typeof v === 'boolean') return v ? 'evet' : 'hayır';
+  if (key === 'durum') return TASK_DURUM_LABEL[String(v)] ?? String(v);
+  if (key === 'izin_durumu') return label('izin_durumu', String(v));
+  if (key === 'planlanan_tarih' || key === 'bitis_tarihi') return formatTr(String(v));
+  if (key === 'sure_gun') return `${v} gün`;
+  return String(v);
+}
+
+/** Kaydet/Vazgeç sonrası dönülecek yer: liste (varsayılan) ya da işin açıldığı takvim olayı. */
+export type TaskReturn = { href: string; afterDelete?: string; focus?: () => HTMLElement | null };
+
 /** Kayıt çözülmeden form kurulmaz: yükleniyorsa iskelet, bulunamadıysa uyarı; aksi halde gövde `key` = kayıt kimliği. */
-export function TaskDetail({ id }: { id: string }) {
+export function TaskDetail({ id, back }: { id: string; back?: TaskReturn }) {
   const [, navigate] = useLocation();
   const isNew = id === 'yeni';
   const selectItem = useMemo(() => (s: AppState) => (isNew ? undefined : s.items.find((i) => i.id === id)), [isNew, id]);
   const item = useAppStore(selectItem);
   const loading = useAppStore(selectFirstLoad);
   const isMobile = useMediaQuery('(max-width: 48em)', true);
-  const close = () => navigate('~/tadilat/isler');
+  // Her kapanış yolu odağı açan öğeye, o sayfadan gittiyse listedeki aynı işe (ya da takvimdeki olaya), o da yoksa h1'e verir.
+  useRouteModalFocusReturn(() => new RegExp(`/is(ler)?/${id}$`).test(window.location.hash),
+    () => back?.focus?.() ?? document.querySelector<HTMLElement>(`[data-task-id="${CSS.escape(id)}"] [role="link"]`));
+  const close = () => navigate(back?.href ?? '~/tadilat/isler');
+  const closeAfterDelete = () => navigate(back?.afterDelete ?? back?.href ?? '~/tadilat/isler');
   if (!isNew && !item) {
     return (
       <Modal opened onClose={close} title="İş" fullScreen={isMobile} closeButtonProps={modalCloseProps}>
@@ -78,39 +107,50 @@ export function TaskDetail({ id }: { id: string }) {
       </Modal>
     );
   }
-  return <TaskDetailBody key={item?.id ?? 'yeni'} item={item} onClose={close} />;
+  return <TaskDetailBody key={item?.id ?? 'yeni'} item={item} onClose={close} onDeleted={closeAfterDelete} />;
 }
 
-function TaskDetailBody({ item, onClose }: { item?: Item; onClose: () => void }) {
+function TaskDetailBody({ item, onClose, onDeleted }: { item?: Item; onClose: () => void; onDeleted: () => void }) {
   const isNew = !item;
   const isMobile = useMediaQuery('(max-width: 48em)', true);
   // initialValues yalnız mount'ta okunur; bileşen kayıt kimliğiyle anahtarlandığından sunucu güncellemesi düzenlemeyi ezmez.
-  const form = useForm<TaskFormValues>({ mode: 'controlled', initialValues: toForm(item), validate: schemaResolver(schema, { sync: true }) });
+  const [initial] = useState(() => toForm(item));
+  const form = useForm<TaskFormValues>({ mode: 'controlled', initialValues: initial, validate: schemaResolver(schema, { sync: true }) });
   const formRef = useRef<HTMLFormElement>(null);
+  // Sahiplik dayanağı formun açılış hâlidir; çözülen çakışma o alanın dayanağını sunucu değerine taşır.
+  const { baseline, conflicts, setConflicts, resolve } = useDraftOwnership(initial, () => item && toForm(item), (key, value) => form.setFieldValue(key, value as never));
+  const persisted = (values: TaskFormValues) => toTaskPatch(values);
 
   const save = (values: TaskFormValues) => {
-    const patch = toTaskPatch(values, item);
-    // Kullanıcı hiçbir alanı değiştirmediyse (ya da fark kırpmayla kayboluyorsa) Sheets'e yazılmaz.
-    if (!isNew && (!form.isDirty() || Object.keys(patch).length <= 1)) { onClose(); return; }
-    upsert('kalemler', item?.id, patch);
+    if (item) {
+      // Yalnız kullanıcının açılıştan değiştirdiği ve son kayıttan farklı alanlar yazılır; aynı alan sunucuda da değiştiyse çakışmadır.
+      const owned = ownedChanges(persisted, baseline, values, toForm(item));
+      if (owned.conflicts.length) { setConflicts(owned.conflicts); return; }
+      if (!owned.writes) { onClose(); return; }
+      upsert('kalemler', item.id, owned.patch);
+    } else {
+      upsert('kalemler', undefined, toTaskPatch(values));
+    }
     notifications.show({ message: isNew ? 'İş eklendi' : 'Kaydedildi', color: 'green', autoClose: 1500 });
     onClose();
   };
-  const del = () => modals.openConfirmModal({
-    title: 'İşi sil?', children: <Text size="sm">"{item?.ad}" listeden kaldırılır (Sheets'te silinmiş olarak işaretlenir).</Text>,
-    labels: { confirm: 'Sil', cancel: 'Vazgeç' }, confirmProps: { color: 'red' },
-    onConfirm: () => { if (item) remove('kalemler', item.id); notifications.show({ message: 'Silindi', color: 'gray', autoClose: 1500 }); onClose(); },
+  const del = () => confirmDelete({
+    title: 'İşi sil?', body: <>"{item?.ad}" listeden kaldırılır (Sheets'te silinmiş olarak işaretlenir).</>,
+    onDelete: () => { if (item) remove('kalemler', item.id); notifications.show({ message: 'Silindi', color: 'gray', autoClose: 1500 }); }, onClosed: onDeleted,
   });
 
   const v = form.getValues();
   const depsInput = form.getInputProps('bagimlilik');
   return (
-    <Modal opened onClose={onClose} title={isNew ? 'Yeni iş' : 'İş'} fullScreen={isMobile} size="lg"
+    <Modal opened onClose={unlessConfirming(onClose)} title={isNew ? 'Yeni iş' : 'İş'} fullScreen={isMobile} size="lg"
       closeButtonProps={modalCloseProps} styles={{ body: { paddingBottom: 96 } }}>
       <form ref={formRef} onSubmit={form.onSubmit(save, (errors) => focusFirstError(formRef.current, errors))} noValidate data-testid="task-detail">
         <Stack gap="sm">
           <Stack component="section" aria-label="İş ve sorumlular" className="record-form-section" gap="sm">
             <SectionHeading title="İş ve sorumlular" level={3} />
+            {item && <DraftConflict fields={conflicts} label={(key) => FIELD_LABELS[key] ?? key} onResolve={resolve}
+              mine={(key) => ({ value: conflictValue(key, persisted(form.getValues())[key]) })}
+              theirs={(key) => ({ value: conflictValue(key, persisted(toForm(item))[key]) })} />}
             <Group gap="xs" wrap="nowrap" align="flex-start">
               <TextInput label="Kod" placeholder="T1" w={88} style={{ flexShrink: 0 }} {...form.getInputProps('kod')} key={form.key('kod')} />
               {/* Yeni işte zorunlu ilk alan odaklanır (Mantine FocusTrap `data-autofocus`); düzenlemede odak modal başlığında kalır. */}

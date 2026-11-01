@@ -132,6 +132,14 @@ export function roomBadges(layers: readonly LayerLike[]): { gece: boolean; gorev
   };
 }
 
+/** Core layer coverage as one sentence: what exists when complete, otherwise only what is missing. */
+export function coverageText(layers: readonly LayerLike[]): { text: string; complete: boolean } {
+  const { missing } = roomBadges(layers);
+  const names = (list: readonly string[]) => list.map((t, i) => { const n = label('katman_tur', t); return i ? n.toLocaleLowerCase('tr') : n; }).join(', ');
+  if (!missing.length) return { text: `${names(CORE_LAYERS)} var`, complete: true };
+  return { text: `Eksik: ${missing.map((t) => label('katman_tur', t).toLocaleLowerCase('tr')).join(', ')}`, complete: false };
+}
+
 export function estimateRange(layers: readonly LayerLike[]): { min: number; max: number; priced: number; total: number } {
   let min = 0; let max = 0; let priced = 0;
   for (const l of layers) {

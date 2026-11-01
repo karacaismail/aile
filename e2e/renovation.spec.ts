@@ -43,7 +43,7 @@ test('takvim: sayaç, bantlar, senaryo değişince taşlar ve ayar kalıcı', as
   await mockApi(page, data);
   await page.goto('/#/tadilat');
   await expect(page.getByTestId('countdown')).toContainText('Taşınmaya');
-  await expect(page.getByTestId('countdown-days')).toHaveText(/^\d+$/);
+  await expect(page.getByTestId('countdown-days')).toHaveText(/^\d{1,3}(\.\d{3})*$/);
   const tl = page.getByTestId('timeline');
   await expect(tl).toContainText('Ramazan 2027');
   await expect(tl).toContainText('Bugün');

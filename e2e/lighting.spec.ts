@@ -15,10 +15,15 @@ test('Odalar sekmesi: oda kartları, rozetler, taşma yok, hedefler ≥44px', as
   const salon = page.locator('[data-testid="room-card"][data-oda="salon"]');
   await expect(salon).toContainText('3 katman');
   await expect(salon).toContainText('gece');
-  await expect(salon).toContainText('görev CRI≥90');
+  // Tur 5: kapsam tek cümle; katmansız odalar "Henüz katman yok" grubunda (önce: 'görev CRI≥90' ve her odada 'ana yok' rozetleri).
+  await expect(salon).toContainText('Ana, görev, gece var');
+  await expect(salon).toContainText('Görev katmanında CRI ≥ 90');
   const cocuk = page.locator('[data-testid="room-card"][data-oda="cocuk"]');
-  await expect(cocuk).toContainText('görev CRI≥90');
-  await expect(page.locator('[data-testid="room-card"][data-oda="wc"]')).toContainText('ana yok');
+  await expect(cocuk).toContainText('Görev katmanında CRI ≥ 90');
+  const empty = page.getByRole('region', { name: 'Henüz katman yok' });
+  await expect(empty.locator('[data-testid="room-card"][data-oda="wc"]')).toContainText('WC');
+  // The group still says what is missing in those rooms (before: an "ana yok / görev yok / gece yok" pill set on every card).
+  await expect(empty).toContainText('ana, görev ve gece katmanları eksik');
   // İlk ekranda gerçek içerik: ilk oda kartı görüntü alanında
   const box = await cards.first().boundingBox();
   expect(box!.y + box!.height).toBeLessThanOrEqual(page.viewportSize()!.height);
@@ -34,9 +39,9 @@ test('Oda sayfası: başlık, köpek rozeti, katman kartları ve uyarılar', asy
   await expect(page.getByTestId('dog-badge')).toContainText('köpek serbest');
   await expect(page.getByTestId('layer-card')).toHaveCount(3);
   await expect(page.getByText('Tavan çizgisel')).toBeVisible();
-  await expect(page.getByText('sürücü payı %50')).toBeVisible();
-  await expect(page.getByText('köpek kuralı')).toBeVisible();
-  await expect(page.getByText('2 ürün')).toBeVisible();
+  await expect(page.getByText('Sürücü payı %50')).toBeVisible();
+  await expect(page.getByText('Köpek kuralı: açıkta montaj 15 cm, en az 90 cm olmalı')).toBeVisible();
+  await expect(page.getByText('2 ürün bağlı')).toBeVisible();
   expect(await horizontalOverflow(page)).toEqual([]);
   expect(await smallTargets(page)).toEqual([]);
   expect(await smallText(page), 'metin < 1rem').toEqual([]);
@@ -90,8 +95,8 @@ test('Sahneler sekmesi: sahne kartı ve seviyeler; sahne formu', async ({ page }
   const card = page.getByTestId('scene-card');
   await expect(card).toHaveCount(1);
   await expect(card).toContainText('Akşam filmi');
-  await expect(card).toContainText('Düğme');
-  await expect(card.getByTestId('scene-level').first()).toHaveText('Salon · Tavan çizgisel · %20 · 2700 K');
+  await expect(card).toContainText('Tetik: Düğme');
+  await expect(card.getByRole('group', { name: 'Salon seviyeleri' }).getByTestId('scene-level').first()).toHaveText('Tavan çizgiselParlaklık %20 · 2700 K');
   expect(await horizontalOverflow(page)).toEqual([]);
   expect(await smallTargets(page)).toEqual([]);
   expect(await smallText(page), 'metin < 1rem').toEqual([]);

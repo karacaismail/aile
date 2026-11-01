@@ -1,14 +1,14 @@
 import { useMemo } from 'react';
-import { Badge, Box, Card, Group, SimpleGrid, Skeleton, Stack, Text } from '@mantine/core';
+import { Box, Card, Group, SimpleGrid, Skeleton, Stack, Text } from '@mantine/core';
 import { CaretRightIcon } from '@phosphor-icons/react/dist/csr/CaretRight';
+import { WarningIcon } from '@phosphor-icons/react/dist/csr/Warning';
 import { Link } from 'wouter';
 import type { Item, Oda, Setting } from '@shared/schema';
 import { label } from '@shared/schema';
 import { useAppStore, type AppState } from '@/sync/store';
 import { FactList } from '@/components/Info';
-import { WarnBadge } from '@/components/badges';
 import { DogAccessBadge } from '@/components/DogAccessBadge';
-import { ROOMS, formatDims, parseRoomSetting, roomItems, wallSummary, type RoomDims } from './rules';
+import { ROOMS, formatDims, parseRoomSetting, roomItems, wallLabel, wallSummary, type RoomDims } from './rules';
 import classes from './layout.module.css';
 
 const selectState = (s: AppState) => ({ items: s.items, settings: s.settings, hydrated: s.hydrated, status: s.status });
@@ -20,6 +20,7 @@ export function roomSetting(settings: readonly Setting[], oda: string): Setting 
 function RoomCard({ oda, dims, items }: { oda: Oda; dims: RoomDims; items: Item[] }) {
   const size = formatDims({ en_cm: dims.en_cm, boy_cm: dims.boy_cm }, ' × ');
   const walls = wallSummary(dims, items);
+  const over = walls.filter((w) => w.remaining !== undefined && w.remaining < 0);
   return (
     <Card component={Link} href={`~/yerlesim/${oda}`} radius="md" p="md" className={classes.card} data-testid="room-card">
       <Group justify="space-between" wrap="nowrap" gap="xs">
@@ -29,14 +30,18 @@ function RoomCard({ oda, dims, items }: { oda: Oda; dims: RoomDims; items: Item[
             { label: 'Oda ölçüsü', value: size || 'ölçü gir' },
             { label: 'Yerleşim', value: `${items.length} kalem` },
           ]} />
-          <Group gap={4} wrap="wrap">
-            <DogAccessBadge value={dims.kopek_erisim} />
-            {size && walls.map((w) => (
-              w.remaining !== undefined && w.remaining < 0
-                ? <WarnBadge key={w.wall} tone="danger" className="tabular">{w.wall} −{-w.remaining}</WarnBadge>
-                : <Badge key={w.wall} size="xs" variant="default" className="tabular">{w.wall} {w.remaining ?? '?'}</Badge>
-            ))}
-          </Group>
+          {dims.kopek_erisim && <div><DogAccessBadge value={dims.kopek_erisim} /></div>}
+          {over.length > 0 && (
+            <ul className="record-attention">
+              {over.map((w) => <li key={w.wall} data-tone="danger"><WarningIcon size={18} aria-hidden /><span>{wallLabel(w.wall)} duvarı {-w.remaining!} cm taşıyor</span></li>)}
+            </ul>
+          )}
+          {size && (
+            <p className="record-meta tabular">
+              <span className="record-scope">Duvarda kalan (cm)</span>
+              {walls.map((w) => <span key={w.wall} className="record-scope">{w.remaining !== undefined && w.remaining < 0 ? `${w.wall} −${-w.remaining}` : `${w.wall} ${w.remaining ?? '?'}`}</span>)}
+            </p>
+          )}
         </Stack>
         <CaretRightIcon size={18} aria-hidden style={{ flexShrink: 0, color: 'var(--mantine-color-dimmed)' }} />
       </Group>

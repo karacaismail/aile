@@ -1,6 +1,5 @@
 .card { cursor: pointer; min-height: var(--budget-targetMin); background: var(--budget-paper); }
 .title { margin: 0; font-size: var(--budget-fontSection); line-height: var(--budget-lineCompact); overflow-wrap: break-word; }
-.strip { height: 4px; border-radius: 2px; }
 .miniStrip { display: inline-block; width: 40px; height: 4px; border-radius: 2px; vertical-align: middle; margin-inline-start: 6px; }
 .sticky {
   position: sticky;
@@ -25,6 +24,26 @@
 .tabs .tabsLabel { min-height: 44px; padding-inline: 6px; }
 .stepLine { display: block; }
 
+/* Record identity row: icon or back control, then the name; the name takes the remaining width and wraps. */
+.identity { display: flex; align-items: flex-start; gap: var(--budget-spaceSmall); min-width: 0; }
+.identity > :global(.record-title) { flex: 1; min-width: 0; }
+.purpose { margin: var(--budget-spaceDense) 0 0; color: var(--budget-muted); }
+.roomHeader { display: flex; flex-direction: column; gap: var(--budget-spaceTight); padding: var(--budget-spaceSmall); }
+.roomHeader .identity { align-items: center; }
+.roomTitle.roomTitle { font-size: var(--budget-fontMetric); }
+.levelRoom { margin: 0 0 var(--budget-spaceDense); color: var(--budget-ink); font-size: inherit; font-weight: var(--budget-headingWeight); }
+
+/* Rooms without layers: one group of compact rows, each a full-width link with a 44px target. */
+.emptyRooms { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr)); gap: var(--budget-spaceDense) var(--budget-spaceSmall); margin: 0; padding: 0; list-style: none; }
+.emptyRow {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--budget-spaceTight);
+  min-height: var(--budget-targetMin); padding: 0 var(--budget-spaceSmall); border-radius: var(--budget-radius);
+  background: var(--budget-paper); color: var(--budget-ink); cursor: pointer;
+  transition: background-color var(--budget-duration) var(--budget-ease);
+}
+.emptyRow:hover { background: var(--budget-canvas); }
+@media (prefers-reduced-motion: reduce) { .emptyRow { transition: none; } }
+
 /* Yol haritası: 320'de dikey akış; ≥64em özet sağda yapışkan, adımlar solda */
 .roadmap { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--mantine-spacing-sm); align-items: start; }
 @media (min-width: 64em) {
@@ -33,3 +52,6 @@
   .roadmapSummary { grid-column: 2; grid-row: 1; position: sticky; top: calc(var(--app-shell-header-offset, 0px) + 60px); }
   .roadmapNote { grid-column: 2; grid-row: 2; }
 }
+
+/* Attention icons keep their size when the sentence wraps (the li is a flex row). */
+.card :global(.record-attention) svg, .roomHeader :global(.record-attention) svg { flex-shrink: 0; align-self: flex-start; margin-top: 0.15em; }

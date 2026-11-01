@@ -3,7 +3,7 @@ import { useMemo, useRef, useState } from 'react';
 import { Alert, Checkbox, Group, Modal, NumberInput, ScrollArea, SegmentedControl, SimpleGrid, Stack, Switch, Text, TextInput, Textarea } from '@mantine/core';
 import { useForm, schemaResolver } from '@mantine/form';
 import { useMediaQuery } from '@mantine/hooks';
-import { modals } from '@mantine/modals';
+import { confirmDelete, unlessConfirming } from '@/components/confirmDelete';
 import { notifications } from '@mantine/notifications';
 import { MagnifyingGlassIcon } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import { z } from 'zod';
@@ -16,7 +16,10 @@ import { selectFirstLoad } from '@/data/selectors';
 import { DetailSkeleton } from '@/components/DetailSkeleton';
 import { FormFooter, focusFirstError } from '@/components/FormFooter';
 import { OdaBadge } from '@/components/badges';
-import { WALL_KEYS, toFormValues, toItemPatch, type LayoutFormValues, type WallKey } from './rules';
+import { DraftConflict } from '@/components/DraftConflict';
+import { useDraftOwnership } from '@/lib/useDraftOwnership';
+import { useRouteModalFocusReturn } from '@/lib/routeModalFocus';
+import { WALL_KEYS, ownedItemPatch, toFormValues, toItemPatch, wallLabel, type LayoutFormValues, type WallKey } from './rules';
 import classes from './layout.module.css';
 
 const schema = z.object({
@@ -78,6 +81,11 @@ function PurchasePicker({ oda, value, onChange }: { oda: Oda; value: string[]; o
   );
 }
 
+const FIELD_LABELS: Record<keyof LayoutFormValues, string> = {
+  ad: 'Ad', duvar: 'Duvar', en_cm: 'En (cm)', boy_cm: 'Boy (cm)', yuk_cm: 'Yük. (cm)', mevcut: 'Elimizde var', priz_ihtiyaci: 'Priz ihtiyacı',
+  isik_ihtiyaci: 'Işık ihtiyacı', kanal_m: 'Kanal (m)', bagli_idler: 'Bağlı satınalma kalemleri', not: 'Not',
+};
+
 type NumKey = 'en_cm' | 'boy_cm' | 'yuk_cm' | 'priz_ihtiyaci' | 'kanal_m';
 
 const modalCloseProps = { size: 'xl' as const, 'aria-label': 'Kapat' };
@@ -90,6 +98,9 @@ export function ItemForm({ oda, id }: { oda: Oda; id: string }) {
   const item = useAppStore(selectItem);
   const loading = useAppStore(selectFirstLoad);
   const isMobile = useMediaQuery('(max-width: 48em)', true);
+  // Her kapanış yolu (Escape, Vazgeç, Kaydet, Sil, geri) odağı açan karta, yoksa listedeki aynı kayda, o da yoksa h1'e verir.
+  useRouteModalFocusReturn(() => window.location.hash.includes(`/yerlesim/${oda}/${id}`),
+    () => document.querySelector<HTMLElement>(`[data-testid="layout-item-card"][href$="/${CSS.escape(id)}"]`));
   const close = () => navigate(`~/yerlesim/${oda}`);
   if (!isNew && !item) {
     return (
@@ -105,22 +116,35 @@ function ItemFormBody({ oda, item, onClose }: { oda: Oda; item?: Item; onClose: 
   const isNew = !item;
   const isMobile = useMediaQuery('(max-width: 48em)', true);
   // initialValues yalnız mount'ta okunur; bileşen kayıt kimliğiyle anahtarlandığından sunucu güncellemesi düzenlemeyi ezmez.
-  const form = useForm<LayoutFormValues>({ mode: 'controlled', initialValues: toFormValues(item), validate: schemaResolver(schema, { sync: true }) });
+  const [initial] = useState(() => toFormValues(item));
+  const form = useForm<LayoutFormValues>({ mode: 'controlled', initialValues: initial, validate: schemaResolver(schema, { sync: true }) });
   const formRef = useRef<HTMLFormElement>(null);
+  // Sahiplik dayanağı formun açılış hâlidir; çözülen çakışma o alanın dayanağını sunucu değerine taşır.
+  const { baseline, conflicts, setConflicts, resolve } = useDraftOwnership(initial, () => item && toFormValues(item), (key, value) => form.setFieldValue(key, value as never));
+  const purchases = useAppStore(selectPurchases);
+  const shown = (key: string, values: LayoutFormValues): string => {
+    const v = (toItemPatch(values, oda) as Record<string, unknown>)[key];
+    if (v == null) return 'boş';
+    if (key === 'bagli_idler') return (v as string[]).map((pid) => purchases.find((p) => p.id === pid)?.ad ?? pid).join(', ');
+    if (key === 'duvar') return wallLabel(v as WallKey);
+    if (typeof v === 'boolean') return v ? 'evet' : 'hayır';
+    return typeof v === 'number' ? String(v).replace('.', ',') : String(v);
+  };
 
   const save = (values: LayoutFormValues) => {
-    const patch = toItemPatch(values, oda, item);
+    const owned = item ? ownedItemPatch(oda, baseline, values, item) : null;
+    // Aynı alanı sunucu da değiştirdiyse yazılmaz: çakışma görünür çözülür, taslak korunur.
+    if (owned?.conflicts.length) { setConflicts(owned.conflicts as (keyof LayoutFormValues)[]); return; }
     // Kullanıcı hiçbir alanı değiştirmediyse (ya da fark kırpmayla kayboluyorsa) Sheets'e yazılmaz: sürüm/son güncelleyen bozulmaz.
-    if (item && (!form.isDirty() || Object.keys(patch).length <= 1)) { onClose(); return; }
+    if (owned && !owned.writes) { onClose(); return; }
+    const patch = owned ? owned.patch : toItemPatch(values, oda);
     upsert('kalemler', item?.id, patch);
     notifications.show({ message: isNew ? 'Kalem eklendi' : 'Kaydedildi', color: 'green', autoClose: 1500 });
     onClose();
   };
-  const del = () => modals.openConfirmModal({
-    title: 'Kalemi sil?',
-    children: <Text size="sm">"{item?.ad}" yerleşimden kaldırılır (Sheets'te silinmiş olarak işaretlenir).</Text>,
-    labels: { confirm: 'Sil', cancel: 'Vazgeç' }, confirmProps: { color: 'red' },
-    onConfirm: () => { if (item) remove('kalemler', item.id); notifications.show({ message: 'Silindi', color: 'gray', autoClose: 1500 }); onClose(); },
+  const del = () => confirmDelete({
+    title: 'Kalemi sil?', body: <>"{item?.ad}" yerleşimden kaldırılır (Sheets'te silinmiş olarak işaretlenir).</>,
+    onDelete: () => { if (item) remove('kalemler', item.id); notifications.show({ message: 'Silindi', color: 'gray', autoClose: 1500 }); }, onClosed: onClose,
   });
 
   const num = (k: NumKey, lbl: string, mode: 'numeric' | 'decimal' = 'numeric') => (
@@ -131,11 +155,13 @@ function ItemFormBody({ oda, item, onClose }: { oda: Oda; item?: Item; onClose: 
   );
 
   return (
-    <Modal opened onClose={onClose} title={isNew ? `Yeni kalem · ${label('oda', oda)}` : label('oda', oda)} fullScreen={isMobile} size="lg"
+    <Modal opened onClose={unlessConfirming(onClose)} title={isNew ? `Yeni kalem · ${label('oda', oda)}` : label('oda', oda)} fullScreen={isMobile} size="lg"
       closeButtonProps={modalCloseProps} styles={{ body: { paddingBottom: 96 } }}>
       <form ref={formRef} onSubmit={form.onSubmit(save, (errors) => focusFirstError(formRef.current, errors))} noValidate data-testid="layout-item-form">
         <Stack gap="sm">
           <Stack component="section" aria-label="Eşya ve konum" className="record-form-section" gap="sm"><SectionHeading title="Eşya ve konum" level={3} />
+            {item && <DraftConflict fields={conflicts} label={(key) => FIELD_LABELS[key as keyof LayoutFormValues] ?? key} onResolve={resolve}
+              mine={(key) => ({ value: shown(key, form.getValues()) })} theirs={(key) => ({ value: shown(key, toFormValues(item)) })} />}
             {/* Yeni kalemde zorunlu ilk alan odaklanır (Mantine FocusTrap `data-autofocus`); düzenlemede odak modal başlığında kalır. */}
             <TextInput label="Ad" required data-autofocus={isNew || undefined} {...form.getInputProps('ad')} key={form.key('ad')} />
             <div>

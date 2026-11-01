@@ -3,3 +3,5 @@
 .thumb.thumb { border-width: 3px; }
 /* 44 px tutamaç rayın 22 px altına taşar; işaret etiketleri onun altına alınır. */
 .markLabel.markLabel { margin-top: 20px; }
+/* Keyboard focus on a thumb: the shared single focus bar under it (a thumb has no text to underline; no ring). */
+:global(html[data-keyboard='true']) .thumb:focus-visible::after { content: ''; position: absolute; left: var(--budget-spaceTight); right: var(--budget-spaceTight); bottom: calc(-1 * var(--budget-spaceTight)); height: var(--budget-focusThickness); background: var(--budget-blue); }

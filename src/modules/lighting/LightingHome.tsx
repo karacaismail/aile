@@ -1,4 +1,5 @@
 import { Box, Paper, SegmentedControl } from '@mantine/core';
+import { useEffect } from 'react';
 import { useLocalStorage } from '@mantine/hooks';
 import { useLocation } from 'wouter';
 import { Fab } from '@/app/shell/Fab';
@@ -17,6 +18,8 @@ export function LightingHome({ forceTab, sceneId }: { forceTab?: LightingTab; sc
   const [, navigate] = useLocation();
   const [tab, setTab] = useLocalStorage<LightingTab>({ key: 'aile:lighting:tab', defaultValue: 'odalar', getInitialValueInEffect: false });
   const current = forceTab ?? tab;
+  // A scene route (also a cold link) shows Sahneler; it becomes the remembered tab, so closing the scene stays there.
+  useEffect(() => { if (forceTab) setTab(forceTab); }, [forceTab, setTab]);
   return (
     <Box pb={96}>
       <Paper className={classes.sticky} px="sm" py={6} radius={0}>

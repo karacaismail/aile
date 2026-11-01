@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { render, screen, userEvent } from '@/test-utils/render';
+import { render, screen, userEvent, within } from '@/test-utils/render';
 import { Router } from 'wouter';
 import { memoryLocation } from 'wouter/memory-location';
 import type { Item } from '@shared/schema';
@@ -31,12 +31,12 @@ describe('LayerCard', () => {
     expect(screen.getByText('Hue Dimmer')).toBeInTheDocument();
     expect(screen.getByText('COB şerit 24V')).toBeInTheDocument();
     expect(screen.getByText('₺1.000–1.500')).toBeInTheDocument();
-    expect(screen.getByText('Elektrik')).toBeInTheDocument();
-    expect(screen.getByText('Elektrikçi')).toBeInTheDocument();
-    expect(screen.getByText('Kendim')).toBeInTheDocument();
-    expect(screen.getByText('2 ürün')).toBeInTheDocument();
-    expect(screen.getByText('sürücü payı %50')).toBeInTheDocument();
-    expect(screen.queryByText(/CRI < 90/)).not.toBeInTheDocument();
+    // Tur 5: adım, kurulum ve ürün sayısı etiketli düz metin; sürücü payı dikkat listesinde (önce: 'Elektrik', 'Elektrikçi', 'Kendim', '2 ürün', 'sürücü payı %50' rozetleri).
+    expect(screen.getByText('Adım: Elektrik')).toBeInTheDocument();
+    expect(screen.getByText('Kurulum: Elektrikçi, Kendim')).toBeInTheDocument();
+    expect(screen.getByText('2 ürün bağlı')).toBeInTheDocument();
+    expect(screen.getByText('Sürücü payı %50')).toBeInTheDocument();
+    expect(screen.queryByText(/en az 90 olmalı/)).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('link'));
     expect(history.at(-1)).toBe('/aydinlatma/salon/L1');
   });
@@ -44,15 +44,44 @@ describe('LayerCard', () => {
     wrap(<LayerCard layer={{ ...base, katman_tur: 'gorev', katman_ad: undefined, cri_min: 80, acikta: true, montaj_yukseklik_cm: 30, uzunluk_m: 6, surucu_w: 40 }} room={{ kopek_erisim: 'serbest' }} />);
     expect(screen.getByText('Görev')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Salon ana/ })).toBeInTheDocument();
-    expect(screen.getByText('CRI < 90')).toBeInTheDocument();
-    expect(screen.getByText('köpek kuralı')).toBeInTheDocument();
-    expect(screen.getByText('sürücü yetersiz')).toBeInTheDocument();
-    expect(screen.getByText('iki uçtan besleme')).toBeInTheDocument();
+    // Tur 5: uyarılar kaydın kendi değeriyle cümle (önce: 'CRI < 90', 'köpek kuralı', 'sürücü yetersiz', 'iki uçtan besleme' rozetleri).
+    expect(screen.getByText('Görev katmanında CRI 80, en az 90 olmalı')).toBeInTheDocument();
+    expect(screen.getByText('Köpek kuralı: açıkta montaj 30 cm, en az 90 cm olmalı')).toBeInTheDocument();
+    expect(screen.getByText(/^Sürücü yetersiz: en az 75 W gerekir/)).toBeInTheDocument();
+    expect(screen.getByText('İki uçtan besleme gerekir (6 m şerit)')).toBeInTheDocument();
   });
   it('alan yoksa satır gizlenir', () => {
     wrap(<LayerCard layer={{ id: 'L2', tip: 'aydinlatma', ad: 'Boş', oda: 'salon' }} />);
     expect(screen.getByText('Boş')).toBeInTheDocument();
     expect(screen.queryByText(/lux/)).not.toBeInTheDocument();
     expect(screen.queryByText(/ürün/)).not.toBeInTheDocument();
+  });
+});
+
+describe('Tur 5: LayerCard kayıt dili', () => {
+  it('tek renkli etiket türdür; kontrol, özellik, adım, kurulum ve ürün sayısı düz metin; bedel ve notu aynı olgu grubunda', () => {
+    wrap(<LayerCard layer={base} room={{ kopek_erisim: 'kapali' }} linkedCount={2} />);
+    const card = screen.getByTestId('layer-card');
+    expect(card.querySelectorAll('.mantine-Badge-root')).toHaveLength(1);
+    const meta = screen.getByRole('group', { name: 'Tür ve kapsam' });
+    expect(meta).toHaveTextContent('Ana');
+    for (const t of ['Hue Dimmer', 'Flicker-free', 'Adım: Elektrik', 'Kurulum: Elektrikçi, Kendim', '2 ürün bağlı']) expect(within(meta).getByText(t)).toBeInTheDocument();
+    const facts = screen.getByRole('group', { name: 'Tavan çizgisel ışık özellikleri ve bedeli' });
+    expect(facts).toHaveTextContent('Tahmini bedel');
+    expect(facts).toHaveTextContent('Ödeme kaydı değildir.');
+    expect(facts).toHaveTextContent('2700–4000 K');
+    expect(screen.getByRole('list', { name: 'Dikkat' })).toHaveTextContent('Sürücü payı %50');
+  });
+  it('uyarılar ikon + cümle olarak dikkat listesinde', () => {
+    wrap(<LayerCard layer={{ ...base, katman_tur: 'gorev', cri_min: 80, acikta: true, montaj_yukseklik_cm: 30, uzunluk_m: 6, surucu_w: 40 }} room={{ kopek_erisim: 'serbest' }} />);
+    const attention = screen.getByRole('list', { name: 'Dikkat' });
+    const texts = within(attention).getAllByRole('listitem').map((li) => li.textContent);
+    expect(texts).toEqual(expect.arrayContaining([
+      'Köpek kuralı: açıkta montaj 30 cm, en az 90 cm olmalı',
+      'Görev katmanında CRI 80, en az 90 olmalı',
+      'Sürücü yetersiz: en az 75 W gerekir, sürücü 40 W',
+      'İki uçtan besleme gerekir (6 m şerit)',
+    ]));
+    for (const li of within(attention).getAllByRole('listitem')) expect(li.querySelector('svg')).not.toBeNull();
   });
 });

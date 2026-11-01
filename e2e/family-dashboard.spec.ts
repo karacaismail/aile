@@ -320,6 +320,20 @@ for (const close of ['Escape', 'Vazgeç', 'Kaydet'] as const) {
   });
 }
 
+// Round 5 (RED first): the delete confirmation's own focus trap must not take the returned focus away while it closes.
+test('deleting a record from its dialog leaves keyboard focus on the page heading, not on the page body', async ({ page }) => {
+  await mockApi(page, { items: [returnItem], settings: [], cash: [] });
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.goto('/aile/#/satinalma');
+  await page.getByRole('link', { name: `${returnItem.ad} detayı`, exact: true }).click();
+  const form = page.getByTestId('item-detail');
+  await form.getByRole('button', { name: 'Sil', exact: true }).click();
+  await page.getByRole('dialog').filter({ hasText: 'Kalemi sil?' }).getByRole('button', { name: 'Sil', exact: true }).click();
+  await expect(form).toHaveCount(0);
+  await expect(page.getByRole('link', { name: `${returnItem.ad} detayı`, exact: true })).toHaveCount(0);
+  await expect(page.getByRole('heading', { level: 1 })).toBeFocused();
+});
+
 test('closing a record opened from a deep link lands focus on that record in the list', async ({ page, browserName }) => {
   await mockApi(page, { items: [returnItem], settings: [], cash: [] });
   await page.setViewportSize({ width: 320, height: 740 });

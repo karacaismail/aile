@@ -20,6 +20,23 @@
   align-items: center;
 }
 
+/* Sayfa sonu FAB'ın üstünde biter: son içerik hiçbir genişlikte FAB'ın altında kalmaz. */
+.page { padding-bottom: calc(var(--aile-fab-bottom) + var(--aile-fab-size) + var(--budget-spaceSection)); }
+
+/* Ölçü özeti: başlık ve düzenle eylemi tek satırda (dar alanda sarılır), değerler olgu grubunda. */
+.dimsSummary { display: grid; gap: var(--budget-spaceTight); padding: var(--budget-spaceSmall); }
+.dimsHead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--budget-spaceTight); }
+.dimsHead h3 { margin: 0; color: var(--budget-ink); font-size: var(--budget-fontSection); font-weight: var(--budget-headingWeight); line-height: var(--budget-lineCompact); }
+.dimsSummary p { margin: 0; }
+/* Dört değer 2×2 olgu ızgarasında (etiket üstte, değer altta); özet zaten yüzeydir, iç kutu yok. 320'de ilk eşya ilk ekranda kalır. */
+.dimsFacts :global(.info-facts) > dl { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--budget-spaceTight) var(--budget-spacing); }
+
+/* Kalem kartında ölçü kaydın olgusudur. */
+.fact { margin: 0; color: var(--budget-ink); font-weight: var(--budget-headingWeight); }
+.wall { min-width: 0; }
+.walls > .wall:first-child :global(.record-group-heading) { margin-top: 0; }
+.attention { margin-bottom: var(--budget-spaceTight); }
+
 /* Oda sayfası: 320'de ölçü → duvarlar → ihtiyaç; ≥64em duvarlar solda, ölçü + ihtiyaç sağda */
 .roomGrid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--mantine-spacing-md); align-items: start; }
 @media (min-width: 64em) {
@@ -28,3 +45,5 @@
   .dims { grid-column: 2; grid-row: 1; }
   .needs { grid-column: 2; grid-row: 2; }
 }
+/* Wall heading: the length and remaining space follow the name on the same baseline (wrapping only when needed), so every wall reads the same way. */
+.wallHeading { justify-content: flex-start; column-gap: var(--budget-spaceSmall); }

@@ -1,14 +1,14 @@
 import { SectionHeading } from '@/components/Info';
-import { useMemo, useRef } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Alert, Modal, NumberInput, SimpleGrid, Stack, Switch, Text, TextInput, Textarea } from '@mantine/core';
 import { useForm, schemaResolver } from '@mantine/form';
 import { useMediaQuery } from '@mantine/hooks';
-import { modals } from '@mantine/modals';
+import { confirmDelete, unlessConfirming } from '@/components/confirmDelete';
 import { notifications } from '@mantine/notifications';
 import { z } from 'zod';
 import { useLocation } from 'wouter';
 import type { Item } from '@shared/schema';
-import { MESLEK } from '@shared/schema';
+import { MESLEK, label } from '@shared/schema';
 import { useAppStore, type AppState } from '@/sync/store';
 import { upsert, remove } from '@/sync/controller';
 import { selectFirstLoad } from '@/data/selectors';
@@ -17,6 +17,11 @@ import { PriceInput } from '@/components/PriceInput';
 import { LinksField } from '@/components/LinksField';
 import { DetailSkeleton } from '@/components/DetailSkeleton';
 import { FormFooter, focusFirstError } from '@/components/FormFooter';
+import { DraftConflict } from '@/components/DraftConflict';
+import { ownedChanges } from '@/lib/fieldOwnership';
+import { useDraftOwnership } from '@/lib/useDraftOwnership';
+import { useRouteModalFocusReturn } from '@/lib/routeModalFocus';
+import { formatTl } from '@/lib/price';
 
 const schema = z.object({
   ad: z.string().trim().min(1, 'Ad gerekli'),
@@ -53,6 +58,21 @@ export function toVendorPatch(v: VendorFormValues, prev?: Item): Record<string, 
 
 const modalCloseProps = { size: 'xl' as const, 'aria-label': 'Kapat' };
 
+const FIELD_LABELS: Record<string, string> = {
+  ad: 'Ad', meslek: 'Meslek', telefon: 'Telefon', myk_no: 'MYK belge no', myk_dogrulandi: 'MYK doğrulandı', teklif_tl: 'Teklif',
+  teklif_sure_gun: 'Süre (gün)', garanti_ay: 'Garanti (ay)', uyum_pct: 'Şartname uyumu (%)', not: 'Not', linkler: 'Bağlantılar',
+};
+/** Çakışmada formun gösterdiği sözcükler; boş "boş" kalır, 0 değildir. */
+function conflictValue(key: string, v: unknown): string {
+  if (v == null || v === '' || (Array.isArray(v) && !v.length)) return 'boş';
+  if (Array.isArray(v)) return v.join(', ');
+  if (typeof v === 'boolean') return v ? 'evet' : 'hayır';
+  if (key === 'meslek') return label('meslek', String(v));
+  if (key === 'teklif_tl') return formatTl(Number(v));
+  if (key === 'uyum_pct') return `%${v}`;
+  return String(v);
+}
+
 /** Kayıt çözülmeden form kurulmaz: yükleniyorsa iskelet, bulunamadıysa uyarı; aksi halde gövde `key` = kayıt kimliği. */
 export function VendorDetail({ id }: { id: string }) {
   const [, navigate] = useLocation();
@@ -61,6 +81,8 @@ export function VendorDetail({ id }: { id: string }) {
   const item = useAppStore(selectItem);
   const loading = useAppStore(selectFirstLoad);
   const isMobile = useMediaQuery('(max-width: 48em)', true);
+  // Her kapanış yolu odağı açan öğeye, o sayfadan gittiyse listedeki aynı ustaya, o da yoksa h1'e verir.
+  useRouteModalFocusReturn(() => window.location.hash.endsWith(`/ustalar/${id}`), () => document.querySelector<HTMLElement>(`[data-vendor-id="${CSS.escape(id)}"] [role="link"]`));
   const close = () => navigate('~/tadilat/ustalar');
   if (!isNew && !item) {
     return (
@@ -76,21 +98,29 @@ function VendorDetailBody({ item, onClose }: { item?: Item; onClose: () => void 
   const isNew = !item;
   const isMobile = useMediaQuery('(max-width: 48em)', true);
   // initialValues yalnız mount'ta okunur; bileşen kayıt kimliğiyle anahtarlandığından sunucu güncellemesi düzenlemeyi ezmez.
-  const form = useForm<VendorFormValues>({ mode: 'controlled', initialValues: toForm(item), validate: schemaResolver(schema, { sync: true }) });
+  const [initial] = useState(() => toForm(item));
+  const form = useForm<VendorFormValues>({ mode: 'controlled', initialValues: initial, validate: schemaResolver(schema, { sync: true }) });
   const formRef = useRef<HTMLFormElement>(null);
+  // Sahiplik dayanağı formun açılış hâlidir; çözülen çakışma o alanın dayanağını sunucu değerine taşır.
+  const { baseline, conflicts, setConflicts, resolve } = useDraftOwnership(initial, () => item && toForm(item), (key, value) => form.setFieldValue(key, value as never));
+  const persisted = (values: VendorFormValues) => toVendorPatch(values);
 
   const save = (values: VendorFormValues) => {
-    const patch = toVendorPatch(values, item);
-    // Kullanıcı hiçbir alanı değiştirmediyse (ya da fark kırpmayla kayboluyorsa) Sheets'e yazılmaz.
-    if (!isNew && (!form.isDirty() || Object.keys(patch).length <= 1)) { onClose(); return; }
-    upsert('kalemler', item?.id, patch);
+    if (item) {
+      // Yalnız kullanıcının açılıştan değiştirdiği ve son kayıttan farklı alanlar yazılır; aynı alan sunucuda da değiştiyse çakışmadır.
+      const owned = ownedChanges(persisted, baseline, values, toForm(item));
+      if (owned.conflicts.length) { setConflicts(owned.conflicts); return; }
+      if (!owned.writes) { onClose(); return; }
+      upsert('kalemler', item.id, owned.patch);
+    } else {
+      upsert('kalemler', undefined, toVendorPatch(values));
+    }
     notifications.show({ message: isNew ? 'Usta eklendi' : 'Kaydedildi', color: 'green', autoClose: 1500 });
     onClose();
   };
-  const del = () => modals.openConfirmModal({
-    title: 'Ustayı sil?', children: <Text size="sm">"{item?.ad}" listeden kaldırılır (Sheets'te silinmiş olarak işaretlenir).</Text>,
-    labels: { confirm: 'Sil', cancel: 'Vazgeç' }, confirmProps: { color: 'red' },
-    onConfirm: () => { if (item) remove('kalemler', item.id); notifications.show({ message: 'Silindi', color: 'gray', autoClose: 1500 }); onClose(); },
+  const del = () => confirmDelete({
+    title: 'Ustayı sil?', body: <>"{item?.ad}" listeden kaldırılır (Sheets'te silinmiş olarak işaretlenir).</>,
+    onDelete: () => { if (item) remove('kalemler', item.id); notifications.show({ message: 'Silindi', color: 'gray', autoClose: 1500 }); }, onClosed: onClose,
   });
 
   const v = form.getValues();
@@ -98,12 +128,15 @@ function VendorDetailBody({ item, onClose }: { item?: Item; onClose: () => void 
     value: v[field] ?? '', onChange: (n: string | number) => form.setFieldValue(field, n === '' ? null : Number(n)), error: form.errors[field], 'data-path': field,
   });
   return (
-    <Modal opened onClose={onClose} title={isNew ? 'Yeni usta' : 'Usta'} fullScreen={isMobile} size="lg"
+    <Modal opened onClose={unlessConfirming(onClose)} title={isNew ? 'Yeni usta' : 'Usta'} fullScreen={isMobile} size="lg"
       closeButtonProps={modalCloseProps} styles={{ body: { paddingBottom: 96 } }}>
       <form ref={formRef} onSubmit={form.onSubmit(save, (errors) => focusFirstError(formRef.current, errors))} noValidate data-testid="vendor-detail">
         <Stack gap="sm">
           <Stack component="section" aria-label="Usta ve iletişim" className="record-form-section" gap="sm">
             <SectionHeading title="Usta ve iletişim" level={3} />
+            {item && <DraftConflict fields={conflicts} label={(key) => FIELD_LABELS[key] ?? key} onResolve={resolve}
+              mine={(key) => ({ value: conflictValue(key, persisted(form.getValues())[key]) })}
+              theirs={(key) => ({ value: conflictValue(key, persisted(toForm(item))[key]) })} />}
             {/* Yeni ustada zorunlu ilk alan odaklanır (Mantine FocusTrap `data-autofocus`); düzenlemede odak modal başlığında kalır. */}
             <TextInput label="Ad" required data-autofocus={isNew || undefined} {...form.getInputProps('ad')} key={form.key('ad')} />
             <SimpleGrid cols={{ base: 1, xs: 2 }} spacing="xs">

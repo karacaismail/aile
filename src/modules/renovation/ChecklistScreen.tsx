@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Accordion, Box, Button, Checkbox, CopyButton, Group, NumberInput, Progress, Stack, Text } from '@mantine/core';
+import { Accordion, Box, Skeleton, Button, Checkbox, CopyButton, Group, NumberInput, Progress, Stack, Text } from '@mantine/core';
 import { CheckIcon } from '@phosphor-icons/react/dist/csr/Check';
 import { CopyIcon } from '@phosphor-icons/react/dist/csr/Copy';
 import type { Item } from '@shared/schema';
@@ -8,16 +8,36 @@ import { useAppStore, type AppState } from '@/sync/store';
 import { FactList, SectionHeading } from '@/components/Info';
 import { upsert } from '@/sync/controller';
 import { KONTROL_TUR_ORDER, checklistProgress, checklistText, groupChecks } from './rules';
+import { DraftConflict } from '@/components/DraftConflict';
 import classes from './renovation.module.css';
 
 const selectChecks = (s: AppState): Item[] => s.items.filter((i) => !i.deleted_at && i.tip === 'kontrol');
+const selectMeta = (s: AppState) => ({ hydrated: s.hydrated, status: s.status });
 
+const measureText = (v: number | null | undefined, unit?: string) => (v == null ? 'boş' : `${String(v).replace('.', ',')}${unit ? ` ${unit}` : ''}`);
+
+/**
+ * Ölçüm odak çıkınca yazılır. Dokunulmamış alan her zaman son kaynak değerini gösterir; düzenleme sırasında kaynak da
+ * farklı bir değere geçtiyse yazılmaz, iki değer yan yana gösterilir ve kullanıcı birini seçer.
+ */
 function CheckRow({ item }: { item: Item }) {
-  const [draft, setDraft] = useState<string | number>(item.olcum_deger ?? '');
+  const latest = item.olcum_deger ?? null;
+  // draft: kullanıcının yazdığı metin ve düzenlemeye başladığında kaynakta olan değer; null = dokunulmamış.
+  const [draft, setDraft] = useState<{ text: string | number; base: number | null } | null>(null);
+  const [conflict, setConflict] = useState<number | null | undefined>(undefined);
+  const parsed = (text: string | number) => (text === '' ? null : Number(text));
   const commit = () => {
-    const n = draft === '' ? null : Number(draft);
+    if (!draft) return;
+    const n = parsed(draft.text);
     if (Number.isNaN(n)) return;
-    if ((n ?? null) !== (item.olcum_deger ?? null)) upsert('kalemler', item.id, { olcum_deger: n });
+    if (n === latest) { setDraft(null); return; }
+    if (latest !== draft.base) { setConflict(n); return; }
+    upsert('kalemler', item.id, { olcum_deger: n });
+    setDraft(null);
+  };
+  const keep = (mine: boolean) => {
+    if (mine) upsert('kalemler', item.id, { olcum_deger: conflict ?? null });
+    setConflict(undefined); setDraft(null);
   };
   return (
     <Stack gap={4}>
@@ -34,7 +54,13 @@ function CheckRow({ item }: { item: Item }) {
       {item.kontrol_tur === 'kabul' && (
         <NumberInput className={classes.measure} aria-label={`Ölçüm: ${item.ad}`} placeholder="Ölçüm" hideControls inputMode="decimal" decimalSeparator="," size="sm"
           rightSection={item.olcum_birim ? <Text size="xs" c="dimmed">{item.olcum_birim}</Text> : undefined} rightSectionWidth={item.olcum_birim ? 44 : undefined}
-          value={draft} onChange={setDraft} onBlur={commit} />
+          value={draft ? draft.text : latest ?? ''} onChange={(text) => setDraft((d) => ({ text, base: d ? d.base : latest }))} onBlur={commit} />
+      )}
+      {conflict !== undefined && (
+        <DraftConflict fields={['olcum_deger']} label={() => `${item.ad} ölçümü`} onResolve={(choice) => keep(choice === 'mine')}
+          mine={() => ({ value: measureText(conflict, item.olcum_birim) })} theirs={() => ({ value: measureText(latest, item.olcum_birim) })}
+          actions={{ mine: `${measureText(conflict, item.olcum_birim)} kalsın`, theirs: `${measureText(latest, item.olcum_birim)} kalsın` }}
+          note="Seçim hemen kaydedilir; yalnız bu ölçüm yazılır." />
       )}
     </Stack>
   );
@@ -43,8 +69,19 @@ function CheckRow({ item }: { item: Item }) {
 /** Kontrol: tür başına akordeon (şartname, kabul, izin, ev seçimi); meslek alt grupları; tamam toggle; kopyalanabilir düz metin. */
 export function ChecklistScreen() {
   const checks = useAppStore(selectChecks);
+  const { hydrated, status } = useAppStore(selectMeta);
+  const loading = !hydrated && status !== 'unconfigured';
   const groups = groupChecks(checks);
   const progress = checklistProgress(checks);
+  // Kaynak okunmadan "Madde yok" ve 0 / 0 doğrulanmış boş liste gibi görünmesin.
+  if (loading) {
+    return (
+      <Box pb={96} px={6} pt="xs" className={classes.checklist} aria-busy="true">
+        <Text role="status" size="sm" c="dimmed" data-testid="checklist-loading">Kontrol listesi yükleniyor…</Text>
+        <Stack gap="xs" mt="sm" aria-hidden><Skeleton h={56} radius="md" /><Skeleton h={56} radius="md" /><Skeleton h={56} radius="md" /></Stack>
+      </Box>
+    );
+  }
   return (
     <Box pb={96} px={6} pt="xs" className={classes.checklist}>
       <FactList label="Kontrol özeti" tone="subtle" items={[{ label: 'Tamamlanan kontroller', value: `${progress.done} / ${progress.total}` }]} />

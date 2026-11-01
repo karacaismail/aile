@@ -21,3 +21,18 @@ export function fieldOwnership<T extends Record<string, unknown>>(initial: T, lo
   }
   return { changed, conflicts };
 }
+
+/**
+ * The write for an existing record from one form, all three states first mapped by the form's own
+ * `persisted` function (trimmed text, empty → null, the record's own derivations), so the comparison
+ * happens in stored meaning. Only owned fields whose result differs from the latest record are written;
+ * `key` (e.g. `tip`) is always carried. Whole-array fields compare as one value (no index merge).
+ */
+export function ownedChanges<F>(persisted: (form: F) => Record<string, unknown>, baseline: F, local: F, latest: F, always: readonly string[] = ['tip']) {
+  const latestValues = persisted(latest);
+  const localValues = persisted(local);
+  const { changed, conflicts } = fieldOwnership(persisted(baseline), localValues, latestValues);
+  const patch: Record<string, unknown> = Object.fromEntries(always.filter((key) => key in localValues).map((key) => [key, localValues[key]]));
+  for (const key of changed) if (!always.includes(key) && !same(localValues[key], latestValues[key])) patch[key] = localValues[key];
+  return { patch, conflicts: conflicts.filter((key) => !always.includes(key)), latestValues, localValues, writes: Object.keys(patch).some((key) => !always.includes(key)) };
+}

@@ -1,6 +1,7 @@
 // Yerleşim modülü saf kuralları: oda ölçüsü ayarı, duvar uzunluğu/kalan, ihtiyaç haritası, satınalma önerisi, form → patch.
 import type { Item, Oda } from '@shared/schema';
 import { DUVAR, KOPEK_ERISIM, ODA, label } from '@shared/schema';
+import { ownedChanges } from '@/lib/fieldOwnership';
 
 export type Wall = (typeof DUVAR)[number];
 export type WallKey = Wall | 'orta';
@@ -42,6 +43,23 @@ export function serializeRoomSetting(dims: RoomDims): string {
   const out: Record<string, unknown> = {};
   for (const k of NUM_KEYS) { const n = toNum(dims[k]); if (n !== undefined) out[k] = n; }
   if (dims.kopek_erisim) out.kopek_erisim = dims.kopek_erisim;
+  return JSON.stringify(out);
+}
+
+/** Ölçü formu → ayarın alt anahtarları kalıcı anlamıyla (boş → null). Alan sahipliği bu değerlerle karşılaştırır. */
+export function roomDimsValues(d: RoomDims): Record<string, unknown> {
+  return { en_cm: toNum(d.en_cm) ?? null, boy_cm: toNum(d.boy_cm) ?? null, yuk_cm: toNum(d.yuk_cm) ?? null, kopek_erisim: d.kopek_erisim ?? null };
+}
+
+/**
+ * Yalnız sahiplenilen alt anahtarları son kayıtlı `deger` JSON'unun üstüne yazar (null → anahtar silinir).
+ * Bayat bütün JSON yazılmaz; sunucuda değişmiş ya da bu formun bilmediği alt anahtarlar korunur.
+ */
+export function mergeRoomSetting(latest: string | undefined | null, patch: Record<string, unknown>): string {
+  let raw: unknown = {};
+  try { raw = latest ? JSON.parse(latest) : {}; } catch { raw = {}; }
+  const out: Record<string, unknown> = raw && typeof raw === 'object' && !Array.isArray(raw) ? { ...(raw as Record<string, unknown>) } : {};
+  for (const [k, v] of Object.entries(patch)) { if (v === null) delete out[k]; else out[k] = v; }
   return JSON.stringify(out);
 }
 
@@ -214,6 +232,11 @@ export function toFormValues(i?: Item): LayoutFormValues {
     ad: i?.ad ?? '', duvar: i ? wallOf(i) : 'orta', en_cm: i?.en_cm ?? null, boy_cm: i?.boy_cm ?? null, yuk_cm: i?.yuk_cm ?? null, mevcut: !!i?.mevcut,
     priz_ihtiyaci: i?.priz_ihtiyaci ?? null, isik_ihtiyaci: i?.isik_ihtiyaci ?? '', kanal_m: i?.kanal_m ?? null, bagli_idler: i?.bagli_idler ?? [], not: i?.not ?? '',
   };
+}
+
+/** Var olan kalemde alan sahipliği: açılış formu, yerel form ve son kayıt `toItemPatch` kalıcı anlamında karşılaştırılır; `bagli_idler` tek değerdir. */
+export function ownedItemPatch(oda: Oda | string, baseline: LayoutFormValues, local: LayoutFormValues, latest: Item) {
+  return ownedChanges((v: LayoutFormValues) => toItemPatch(v, oda), baseline, local, toFormValues(latest));
 }
 
 /** Form → patch: boş alanlar null ile temizlenir; var olan kalemde yalnız değişen alanlar (tip hep kalır). */

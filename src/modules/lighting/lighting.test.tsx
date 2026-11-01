@@ -52,16 +52,16 @@ describe('LightingModule', () => {
     mount('/aydinlatma');
     expect(screen.queryByTestId('empty-state')).not.toBeInTheDocument();
     const salon = screen.getAllByTestId('room-card').find((c) => c.getAttribute('data-oda') === 'salon')!;
-    expect(within(salon).getByText('2 katman')).toBeInTheDocument();
-    expect(within(salon).getByText('gece')).toBeInTheDocument();
-    expect(within(salon).getByText('görev yok')).toBeInTheDocument();
+    // Tur 5: 'gece' ve 'görev yok' rozetleri tek kapsam cümlesine dönüştü.
+    expect(within(salon).getByText('2 katman · 1 tanesi tam tanımlı')).toBeInTheDocument();
+    expect(within(salon).getByText('Eksik: görev')).toBeInTheDocument();
   });
   it('Oda sayfası: başlık, köpek rozeti, katman kartları, bağlı ürün sayısı ve eksik katman düğmesi', () => {
     mount('/aydinlatma/salon');
     expect(within(screen.getByTestId('room-header')).getByText('Salon')).toBeInTheDocument();
     expect(screen.getByTestId('dog-badge')).toHaveTextContent('köpek serbest');
     expect(screen.getAllByTestId('layer-card')).toHaveLength(2);
-    expect(screen.getByText('1 ürün')).toBeInTheDocument();
+    expect(screen.getByText('1 ürün bağlı')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Eksik temel katmanları oluştur/ })).toBeInTheDocument();
   });
   it('Oda sayfası + katman kimliği form modalını açar', () => {
@@ -78,8 +78,9 @@ describe('LightingModule', () => {
     await userEvent.click(screen.getByText('Sahneler'));
     const card = await screen.findByTestId('scene-card');
     expect(within(card).getByText('Akşam filmi')).toBeInTheDocument();
-    expect(within(card).getByText('Düğme')).toBeInTheDocument();
-    expect(within(card).getAllByTestId('scene-level').map((e) => e.textContent)).toEqual(['Salon · Tavan · %40 · 2700 K', 'Salon · Salon gece · — · —']);
+    // Tur 5: tetik etiketli; seviyeler oda başlığı altında (oda her satırda tekrarlanmaz).
+    expect(within(card).getByText('Tetik: Düğme')).toBeInTheDocument();
+    expect(within(card).getAllByTestId('scene-level').map((e) => e.textContent)).toEqual(['TavanParlaklık %40 · 2700 K', 'Salon geceParlaklık belirtilmedi · renk belirtilmedi']);
   });
   it('Sahne formu: ad ve katman zorunlu; seviye satırı ekleyip kaydeder', async () => {
     mount('/aydinlatma/sahne/yeni');
@@ -102,5 +103,44 @@ describe('LightingModule', () => {
     expect(within(screen.getByTestId('step-elektrik')).getByText('Salon · Tavan')).toBeInTheDocument();
     expect(within(screen.getByTestId('step-elektrik')).getByText(/Şerit LED/)).toBeInTheDocument();
     expect(within(screen.getByTestId('step-akilli')).getByText('Salon · Salon gece')).toBeInTheDocument();
+  });
+});
+
+describe('Tur 5: kayıt dili — oda kapsamı tek cümle, katmansız odalar tek grupta, sahne seviyeleri oda başına', () => {
+  it('katmanı olan oda eksikleri bir kez yazar; katmansız odalar "Henüz katman yok" grubunda erişilebilir satırlardır; tekrar eden "yok" rozeti ve süs şeridi yok', () => {
+    mount('/aydinlatma');
+    const salon = screen.getAllByTestId('room-card').find((c) => c.getAttribute('data-oda') === 'salon')!;
+    expect(within(salon).getByText('Eksik: görev')).toBeInTheDocument();
+    expect(within(salon).getByText(/2 katman/)).toBeInTheDocument();
+    expect(within(salon).getByRole('group', { name: /Salon ışık rengi/ })).toHaveTextContent('2200–4000 K');
+    expect(screen.queryAllByText(/^(ana|görev|gece) yok$/)).toHaveLength(0);
+    expect(screen.queryByTestId('cct-strip')).toBeNull();
+    const group = screen.getByRole('region', { name: 'Henüz katman yok' });
+    expect(within(group).getByRole('heading', { name: 'Henüz katman yok' })).toBeInTheDocument();
+    expect(within(group).getAllByRole('link')).toHaveLength(ROOMS.length - 1);
+    expect(within(group).getByRole('link', { name: 'Mutfak aydınlatma' })).toBeInTheDocument();
+    expect(screen.getAllByTestId('room-card')).toHaveLength(ROOMS.length);
+  });
+  it('oda sayfası: oda adı başlık, köpek erişimi durum ve açıklama metni; katmanda tek renkli etiket tür', () => {
+    mount('/aydinlatma/salon');
+    expect(screen.getByRole('heading', { name: 'Salon' })).toBeInTheDocument();
+    expect(screen.getByTestId('room-header')).toHaveTextContent('Köpek kuralı uygulanır: 90 cm altında açıkta şerit veya kablo olamaz');
+    const tavan = screen.getAllByTestId('layer-card')[0];
+    expect(tavan.querySelectorAll('.mantine-Badge-root')).toHaveLength(1);
+    expect(within(tavan).getByRole('group', { name: 'Tür ve kapsam' })).toHaveTextContent('Hue Dimmer');
+    expect(within(tavan).getByRole('group', { name: 'Tür ve kapsam' })).toHaveTextContent('1 ürün bağlı');
+  });
+  it('sahne kartı: tetik etiketli metin; oda bir kez başlık; seviye ve CCT olgu satırı; bulunamayan katman açıkça yazılır', async () => {
+    mount('/aydinlatma', [...items, { id: 'S2', tip: 'sahne', ad: 'Gece yolu', oda: 'salon', seviyeler: ['YOK:5:'] }]);
+    await userEvent.click(screen.getByText('Sahneler'));
+    const card = (await screen.findAllByTestId('scene-card')).find((c) => c.getAttribute('data-scene-id') === 'S1')!;
+    expect(within(card).getByText('Tetik: Düğme')).toBeInTheDocument();
+    const room = within(card).getByRole('group', { name: 'Salon seviyeleri' });
+    expect(within(room).getAllByTestId('scene-level')).toHaveLength(2);
+    expect(within(room).getByText('Tavan')).toBeInTheDocument();
+    expect(within(room).getByText('Parlaklık %40 · 2700 K')).toBeInTheDocument();
+    expect(within(card).queryAllByText(/Salon ·/)).toHaveLength(0);
+    const other = (await screen.findAllByTestId('scene-card')).find((c) => c.getAttribute('data-scene-id') === 'S2')!;
+    expect(within(other).getByText('Bulunamayan katman')).toBeInTheDocument();
   });
 });
