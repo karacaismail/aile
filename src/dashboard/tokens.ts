@@ -36,7 +36,8 @@ export const tokens = {
   timelineOverviewPositive: '#BFE3D2', timelineSelectedShadow: '0 8px 24px rgba(27, 62, 85, .2)',
   timelineBankNameWidth: '11rem',
   // Timeline surface grammar: canvas behind the steps < elevated step card < tinted inner groups.
-  timelineFlowCanvas: '#E1E9EF', timelineStepShadow: '0 1px 2px rgba(27, 62, 85, .16), 0 4px 14px rgba(27, 62, 85, .10)',
+  timelineFlowCanvas: '#E1E9EF', timelineStepShadow: '0 2px 4px rgba(27, 62, 85, .18), 0 8px 20px rgba(27, 62, 85, .14)',
+  timelineStepGap: '40px', timelineDayGap: '48px', timelineSectionGap: '24px', timelineDivider: '#6C8294',
   timelineSourceSurface: '#EAF0F4',
 } as const;
 // ECharts' typed function adapter evaluates exactly the shared CSS curve.

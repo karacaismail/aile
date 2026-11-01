@@ -448,7 +448,8 @@ test('compact steps show every explanation immediately without a disclosure butt
     // DOMRect subtraction can differ by sub-pixel floating-point noise in Firefox.
     expect(Math.round(layout.gap * 64) / 64, 'notes follow the content without a large empty panel').toBeLessThanOrEqual(8);
     expect(layout.gap).toBeGreaterThanOrEqual(0);
-    expect(layout.padding).toBe(tokens.spaceSmall);
+    // The explicit section-separation request gives provenance 16px breathing room.
+    expect(layout.padding).toBe(tokens.spacing);
     expect(layout.hidden).toBe(false);
     expect(layout.factsFirst, 'purchase facts precede the all-account section').toBe(true);
   }
