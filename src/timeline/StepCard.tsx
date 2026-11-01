@@ -96,7 +96,19 @@ function PlainStep({ event, previous }: { event: FinanceEvent; previous?: Financ
   return <><dl className="timeline-purchase-facts">
     <div className="timeline-purchase-amount"><dt>Net nakit etkisi</dt>{' '}<dd className="timeline-change" data-tone={tone(event.cashChange)}>{signedMoney(event.cashChange)}</dd></div>
     <div><dt>Tarih</dt><dd><time dateTime={event.date}>{dateLabel(event.date)}</time></dd></div>
-  </dl>{kmhChange !== 0 && <dl className="timeline-step-effect"><div><dt>KMH anaparası değişimi</dt><dd>{signedMoney(kmhChange)}</dd></div></dl>}</>;
+  </dl>{kmhChange !== 0 && <dl className="timeline-step-effect" role="group" aria-label="Bu işlemin dağılımı">
+    {/* Where the net amount went, from the full-ledger predecessor: the overdraft principal first, the rest to spendable cash. */}
+    <div><dt>KMH anaparası değişimi</dt><dd>{signedMoney(kmhChange)}</dd></div>
+    <div><dt>Harcanabilir nakde yansıyan</dt><dd>{signedMoney(stepChange(event, previous, 'cash') ?? 0)}</dd></div>
+  </dl>}</>;
+}
+
+/** The opening row is the starting account state, not a payment: its key figure is the opening net position, labelled as state. */
+function OpeningState({ event }: { event: FinanceEvent }) {
+  return <><dl className="timeline-purchase-facts">
+    <div className="timeline-purchase-amount"><dt>Açılış net nakit konumu</dt><dd className={event.requiredBalance < 0 ? 'negative' : undefined}>{money(event.requiredBalance)}</dd></div>
+    <div><dt>Tarih</dt><dd><time dateTime={event.date}>{dateLabel(event.date)}</time></dd></div>
+  </dl><p className="timeline-purchase-status">Dönem başındaki hesap durumu; bir ödeme veya tahsilat değildir.</p></>;
 }
 
 const factKinds = {
@@ -104,14 +116,15 @@ const factKinds = {
   card: ['timeline-purchase timeline-card-charge', 'Kart harcaması bilgileri'],
   cash: ['timeline-cash-payment', 'Planlanan nakit ödeme bilgileri'],
   plain: ['timeline-step-facts', 'Adım bilgileri'],
+  opening: ['timeline-step-facts timeline-opening', 'Açılış durumu'],
 } as const;
 
 /** What happens, for how much, when and how: the first answer of every step. */
 export function StepFacts({ event, purchase, previous }: { event: FinanceEvent; purchase: PurchaseDetails | null; previous?: FinanceEvent }) {
-  const kind = isPurchase(event) ? 'purchase' : isCardCharge(event) ? 'card' : isWeeklyCash(event) ? 'cash' : 'plain';
+  const kind = isPurchase(event) ? 'purchase' : isCardCharge(event) ? 'card' : isWeeklyCash(event) ? 'cash' : event.type === 'Başlangıç' ? 'opening' : 'plain';
   const [className, label] = factKinds[kind];
   return <div className={className} data-step-part="facts" role="group" aria-label={label}>
-    {kind === 'purchase' ? <PlannedPurchase event={event} purchase={purchase} /> : kind === 'card' ? <PlannedCardCharge event={event} previous={previous} /> : kind === 'cash' ? <PlannedCashPayment event={event} previous={previous} /> : <PlainStep event={event} previous={previous} />}
+    {kind === 'purchase' ? <PlannedPurchase event={event} purchase={purchase} /> : kind === 'card' ? <PlannedCardCharge event={event} previous={previous} /> : kind === 'cash' ? <PlannedCashPayment event={event} previous={previous} /> : kind === 'opening' ? <OpeningState event={event} /> : <PlainStep event={event} previous={previous} />}
   </div>;
 }
 

@@ -35,6 +35,9 @@ export const tokens = {
   timelineViewSelectedSurface: '#C9DBE7', timelineViewTabWidth: '3.5rem',
   timelineOverviewPositive: '#BFE3D2', timelineSelectedShadow: '0 8px 24px rgba(27, 62, 85, .2)',
   timelineBankNameWidth: '11rem',
+  // Timeline surface grammar: canvas behind the steps < elevated step card < tinted inner groups.
+  timelineFlowCanvas: '#E1E9EF', timelineStepShadow: '0 1px 2px rgba(27, 62, 85, .16), 0 4px 14px rgba(27, 62, 85, .10)',
+  timelineSourceSurface: '#EAF0F4',
 } as const;
 // ECharts' typed function adapter evaluates exactly the shared CSS curve.
 export function budgetEasing(progress: number) {

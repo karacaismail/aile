@@ -58,3 +58,28 @@ export function financeWireResponseTable(url: string, source = syntheticFinance(
   if (params.get('range') === 'A1:T11') return { ...table, rows: table.rows.slice(0, 10) };
   throw new Error('Unexpected finance range');
 }
+
+/**
+ * The six reading cases of the payment journey, invented values only: opening snapshot, reserve transfer that first
+ * repays the overdraft, cash subscription, generic card charge (school meal), hand-paid weekly tutoring, card instalment.
+ * The whole ledger is invented and derived step by step from its own opening; it mirrors no household state:
+ * opening KMH 1.200, cards 900 + 600 with 800 future instalments; transfer 5.000 = KMH 1.200 + cash 3.800;
+ * cash 95 and 140; card charge 70; a 1.800 card purchase in 6 instalments of 300 (first one billed, 1.500 future).
+ */
+export function syntheticJourneyFinance(): FinanceSource {
+  const source = syntheticFinance();
+  const cards = (deniz: number, isbank: number, future: number) => [deniz, 0, isbank, 0, future, deniz + isbank];
+  source.daily.rows = [
+    ['2098-11-01', 'Dönem başlangıcı', 'Başlangıç', 0, -1200, 0, 1200, 0, ...cards(900, 600, 800), 0, 'Koşullu hesap · Teyitli açılış durumu', 'Teyitli nakit, mevcut rezerv, KMH ve kart açılış borçları', 'opening-finance'],
+    ['2098-11-01', 'Birikimden aktarım', 'Birikimden aktarım', 5000, 3800, 3800, 0, 0, ...cards(900, 600, 800), 0, 'Teyitli kaynak · aktarım planı', 'Birikimden aktarım planı', 'transfer-2098-11'],
+    ['2098-11-03', 'Örnek abonelik', 'Alışveriş · Taşınma öncesi', -95, 3705, 3705, 0, 0, ...cards(900, 600, 800), 0, 'Koşullu hesap · planlanan hesap günü', 'Nakit · Nakit · Planlanan alım.', 'purchase-subscription'],
+    ['2098-11-05', 'İşbank · Okul yemeği', 'Kart alışverişi', 0, 3705, 3705, 0, 0, ...cards(900, 670, 800), 0, 'Koşullu hesap · planlanan hesap günü', 'Finansman motoru · Okul yemek kartı', 'bill-school-meal'],
+    ['2098-11-07', 'Etüt (Abla)', 'Nakit hareketi', -140, 3565, 3565, 0, 0, ...cards(900, 670, 800), 0, 'Kullanıcı teyidi', 'Kullanıcı teyidi · her cuma akşamı', 'week-0-etut-1'],
+    ['2098-11-10', 'Salon koltuk takımı', 'Alışveriş · Taşınma öncesi', 0, 3565, 3565, 0, 0, ...cards(2700, 670, 2300), 0, 'Koşullu hesap · planlanan hesap günü', 'Kredi kartı · Denizbank · Planlanan alım. Taksit: 6', 'purchase-sofa'],
+    ['2098-11-30', 'Ay sonu', 'Ay sonu', 0, 3565, 3565, 0, 0, ...cards(2700, 670, 2300), 0, 'Koşullu hesap', 'Ay sonu kontrolü', 'month-end-2098-11-30'],
+  ];
+  source.monthly.rows = [['2098-11', 3565, 0, 0, 3370, 2300, 0, 3565 - 3370, 0]];
+  source.metadata.rows[3] = [String(source.daily.rows.length)];
+  source.metadata.rows[4] = ['1'];
+  return source;
+}

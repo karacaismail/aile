@@ -3,7 +3,7 @@ import { MantineProvider } from '@mantine/core';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import TimelinePage from './TimelinePage';
 import { buildFinance } from '../finance/data';
-import { syntheticFinance, syntheticLongFinance } from '../finance/fixtures';
+import { syntheticFinance, syntheticJourneyFinance, syntheticLongFinance } from '../finance/fixtures';
 import { useFinance } from '../finance/useFinance';
 import { FinancePeriodProvider, useFinancePeriod } from '../app/family/FinancePeriod';
 import { useEffect } from 'react';
@@ -411,4 +411,32 @@ it('says so when the shared month is not in this ledger instead of silently show
   function Preset() { const [, set] = useFinancePeriod(); useEffect(() => set('2099-05'), [set]); return null; }
   render(<MantineProvider><FinancePeriodProvider><Preset /><TimelinePage /></FinancePeriodProvider></MantineProvider>);
   expect(screen.getByRole('note', { name: 'Seçilen dönem' })).toHaveTextContent('Mayıs 2099 bu hesapta yok; Ocak 2098 gösteriliyor.');
+});
+
+it('presents the opening step as the starting account state, not as a payment with a zero effect', () => {
+  vi.mocked(useFinance).mockReturnValue({ data: buildFinance(syntheticJourneyFinance()), loading: false, error: null, updatedAt: null, refresh: vi.fn() });
+  mount();
+  const opening = screen.getByRole('article', { name: '1. adım · Dönem başlangıcı' });
+  const facts = within(opening).getByRole('group', { name: 'Açılış durumu' });
+  expect(facts).toHaveTextContent('Dönem başındaki hesap durumu; bir ödeme veya tahsilat değildir.');
+  expect(facts).toHaveTextContent('1 Kasım 2098');
+  expect(within(opening).queryByText('Net nakit etkisi')).not.toBeInTheDocument();
+  // The account state stays complete, zeros included.
+  expect(within(opening).getByRole('group', { name: 'KMH' })).toHaveTextContent('1.200 ₺');
+});
+
+it('shows how a reserve transfer splits between overdraft repayment and spendable cash, from the full-ledger predecessor', () => {
+  vi.mocked(useFinance).mockReturnValue({ data: buildFinance(syntheticJourneyFinance()), loading: false, error: null, updatedAt: null, refresh: vi.fn() });
+  mount();
+  const transfer = screen.getByRole('article', { name: '2. adım · Birikimden aktarım' });
+  const facts = within(transfer).getByRole('group', { name: 'Adım bilgileri' });
+  expect(facts).toHaveTextContent('Net nakit etkisi +5.000 ₺');
+  const split = within(facts).getByRole('group', { name: 'Bu işlemin dağılımı' });
+  expect(within(split).getByText('KMH anaparası değişimi').nextElementSibling).toHaveTextContent('-1.200 ₺');
+  expect(within(split).getByText('Harcanabilir nakde yansıyan').nextElementSibling).toHaveTextContent('+3.800 ₺');
+  // A step without an overdraft move has no split block.
+  expect(within(screen.getByRole('article', { name: '7. adım · Ay sonu' })).queryByRole('group', { name: 'Bu işlemin dağılımı' })).not.toBeInTheDocument();
+  // The table shows the same split.
+  fireEvent.click(screen.getByRole('tab', { name: 'Tablo' }));
+  expect(within(screen.getByRole('row', { name: /Birikimden aktarım/ })).getByRole('group', { name: 'Bu işlemin dağılımı' })).toHaveTextContent(/Harcanabilir nakde yansıyan\s*\+3\.800 ₺/);
 });

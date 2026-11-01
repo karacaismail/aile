@@ -33,9 +33,10 @@
 .timeline-loading-metric { background: var(--budget-timelineSurface); border-radius: var(--budget-timelineSummaryRadius); padding: var(--budget-spacing); display: grid; gap: var(--budget-spaceTight); }
 .timeline-loading-metric:first-of-type { background: var(--budget-timelineHeroSurface); }
 .timeline-loading-value { height: var(--budget-fontMetric); width: var(--budget-loadingValueWidth); }
-.timeline-loading-flow { min-width: 0; display: grid; gap: var(--budget-spaceSmall); }
+/* The loading shell uses the loaded surface grammar: steps as white elevated cards on the timeline canvas. */
+.timeline-loading-flow { min-width: 0; display: grid; gap: var(--budget-spaceSection); padding: var(--budget-spaceTight); border-radius: var(--budget-timelinePanelRadius); background: var(--budget-timelineFlowCanvas); }
 .timeline-loading-flow-heading { height: var(--budget-targetMin); width: var(--budget-loadingTitleWidth); }
-.timeline-loading-step { min-width: 0; display: grid; gap: var(--budget-spaceSmall); padding: var(--budget-spacing); border-radius: var(--budget-timelineStepRadius); background: var(--budget-timelineStepSurface); }
+.timeline-loading-step { min-width: 0; display: grid; gap: var(--budget-spaceSmall); padding: var(--budget-spacing); border-radius: var(--budget-timelineStepRadius); background: var(--budget-paper); box-shadow: var(--budget-timelineStepShadow); }
 .timeline-loading-step-title { width: var(--budget-loadingTitleWidth); }
 .timeline-loading-step-note { width: 100%; }
 .timeline-loading-balances { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--budget-spaceSmall); padding-block: var(--budget-spaceTight); }

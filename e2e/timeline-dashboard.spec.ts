@@ -1016,3 +1016,81 @@ test('step links name the destination, cross the 50-step page and land visible k
     expect(await page.getByRole('article', { name: /^50\. adım/ }).locator('.timeline-step-links *').evaluateAll(els => els.filter(el => el.textContent?.trim() && parseFloat(getComputedStyle(el).fontSize) < 14).length)).toBe(0);
   }
 });
+
+// Round 4: the transaction, the account state after it and each account read as separate groups (RED executed before the change).
+test('each step separates the transaction from account state, and every account pairs principal with its cost in one tile', async ({ page, browserName }, testInfo) => {
+  const { gviz } = await import('../src/dashboard/fixtures');
+  const { financeWireResponseTable, syntheticJourneyFinance } = await import('../src/finance/fixtures');
+  await page.route('**/gviz/tq?*', route => { const t = financeWireResponseTable(route.request().url(), syntheticJourneyFinance()); return route.fulfill({ contentType: 'application/json', body: gviz(t.rows, t.labels) }); });
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.goto('/aile/#/timeline');
+  await expect(page.getByRole('article')).toHaveCount(7);
+  for (const [width, height] of [[320, 740], [360, 740], [375, 740], [390, 844], [667, 375], [768, 1024], [1440, 900]] as const) {
+    await page.setViewportSize({ width, height });
+    const step = page.getByRole('article', { name: '2. adım · Birikimden aktarım' });
+    const layout = await step.evaluate(el => {
+      const card = el.getBoundingClientRect();
+      const result = el.querySelector('.timeline-result')!.getBoundingClientRect();
+      const tiles = [...el.querySelectorAll<HTMLElement>('.timeline-bank-group')].map(tile => {
+        const box = tile.getBoundingClientRect(), [principal, cost] = [...tile.querySelectorAll('dl > div')].map(d => d.getBoundingClientRect());
+        // A tile stands apart from the wrapper it sits on (round-4 contrast follow-up: white tiles on the tinted accounts group).
+        const around = (node: Element | null): string => { while (node) { const c = getComputedStyle(node).backgroundColor; if (c !== 'rgba(0, 0, 0, 0)' && c !== 'transparent') return c; node = node.parentElement; } return 'rgb(255, 255, 255)'; };
+        const lum = (c: string) => { const [r, g, b] = c.match(/[\d.]+/g)!.slice(0, 3).map(Number).map(v => { v /= 255; return v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; }); return .2126 * r + .7152 * g + .0722 * b; };
+        const surface = getComputedStyle(tile).backgroundColor, wrapper = around(tile.parentElement), [hi, lo] = [lum(surface), lum(wrapper)].sort((m, n) => n - m);
+        return { top: Math.round(box.top), paired: Math.abs(principal.top - cost.top) < 2 && principal.left >= box.left && cost.right <= box.right + 1, surface, wrapper, separation: (hi + .05) / (lo + .05) };
+      });
+      const small = [...el.querySelectorAll('*')].filter(n => n.textContent?.trim() && n.children.length === 0 && n.getBoundingClientRect().width > 0 && parseFloat(getComputedStyle(n).fontSize) < 14).length;
+      return { inset: result.left - card.left >= 8 && card.right - result.right >= 8, tiles, base: getComputedStyle(el.closest('li')!).backgroundColor, small };
+    });
+    expect(layout.inset, `result is an inset tile, not an edge-to-edge stripe at ${width}`).toBe(true);
+    expect(layout.tiles.map(t => t.paired), `principal and cost pair inside each account at ${width}`).toEqual([true, true, true]);
+    // Visibly distinct, not merely a different colour string (a moved tile must not melt into the accounts band).
+    for (const tile of layout.tiles) expect(tile.separation, `account tile stands apart from its wrapper at ${width}`).toBeGreaterThanOrEqual(1.1);
+    if (width >= 768) expect(new Set(layout.tiles.map(t => t.top)).size, `accounts sit side by side at ${width}`).toBe(1);
+    expect(layout.small).toBe(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    if (width === 320 || width === 1440) await step.screenshot({ path: testInfo.outputPath(`transfer-${browserName}-${width}.png`) });
+  }
+});
+
+// Round 4 contrast follow-up (RED executed before the change): outer step boundaries and inner section surfaces.
+test('consecutive steps are separated from the page and from each other, and adjacent sections inside a step change surface', async ({ page, browserName }, testInfo) => {
+  const { gviz } = await import('../src/dashboard/fixtures');
+  const { financeWireResponseTable, syntheticJourneyFinance } = await import('../src/finance/fixtures');
+  await page.route('**/gviz/tq?*', route => { const t = financeWireResponseTable(route.request().url(), syntheticJourneyFinance()); return route.fulfill({ contentType: 'application/json', body: gviz(t.rows, t.labels) }); });
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.goto('/aile/#/timeline');
+  await expect(page.getByRole('article')).toHaveCount(7);
+  for (const [width, height] of [[320, 740], [1440, 900]] as const) {
+    await page.setViewportSize({ width, height });
+    const first = page.getByRole('article', { name: /^1\. adım/ });
+    await first.evaluate(el => el.querySelector('.timeline-step-links')!.scrollIntoView({ block: 'center' }));
+    await page.screenshot({ path: testInfo.outputPath(`step-boundary-${browserName}-${width}.png`) });
+    const measure = await page.evaluate(() => {
+      const luminance = (c: string) => { const [r, g, b] = c.match(/[\d.]+/g)!.slice(0, 3).map(Number).map(v => { v /= 255; return v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; }); return .2126 * r + .7152 * g + .0722 * b; };
+      const ratio = (a: string, b: string) => { const [x, y] = [luminance(a), luminance(b)].sort((m, n) => n - m); return (x + .05) / (y + .05); };
+      const opaque = (node: Element | null): string => { while (node) { const c = getComputedStyle(node).backgroundColor; if (c !== 'rgba(0, 0, 0, 0)' && c !== 'transparent') return c; node = node.parentElement; } return 'rgb(255, 255, 255)'; };
+      const steps = [...document.querySelectorAll<HTMLElement>('.timeline-step')];
+      // Steps 1 and 2 share a day: the tightest boundary.
+      const [first, second] = [steps[0], steps[1]];
+      const card = getComputedStyle(first);
+      const behind = opaque(first.parentElement);
+      const end = first.querySelector('.timeline-step-links')!, start = second.querySelector('[data-step-part="identity"]')!;
+      const order = [first.querySelector('[data-step-part="identity"]')!, first.querySelector('[data-step-part="facts"]')!, first.querySelector('.timeline-result')!, first.querySelector('.timeline-account-breakdown')!, first.querySelector('[data-step-part="source"]')!, end];
+      // Adjacent sections must be visibly different surfaces, not merely different colour strings.
+      const sameNeighbours = order.slice(1).map((el, i) => [order[i], el]).filter(([a, b]) => ratio(opaque(a), opaque(b)) < 1.05).map(([a, b]) => `${a.className.split(' ')[0]}→${b.className.split(' ')[0]}`);
+      // The middle of the gap shows the canvas, which differs from both the closing band and the next opening band.
+      const box = first.getBoundingClientRect(), between = document.elementFromPoint(box.left + box.width / 2, (box.bottom + second.getBoundingClientRect().top) / 2);
+      const canvasBetween = !!between && !between.closest('.timeline-step') && opaque(between) !== opaque(end) && opaque(between) !== opaque(start);
+      return { gap: second.getBoundingClientRect().top - first.getBoundingClientRect().bottom, cardVsBehind: ratio(opaque(first), behind), elevated: card.boxShadow !== 'none', canvasBetween, sameNeighbours };
+    });
+    expect(measure.gap, `gap between steps at ${width}`).toBeGreaterThanOrEqual(24);
+    expect(measure.cardVsBehind, `step surface vs what is behind it at ${width}`).toBeGreaterThanOrEqual(1.15);
+    expect(measure.elevated, `step is elevated from the page at ${width}`).toBe(true);
+    expect(measure.canvasBetween, `the canvas shows between the end of one step and the start of the next at ${width}`).toBe(true);
+    expect(measure.sameNeighbours, `adjacent sections inside a step change surface at ${width}`).toEqual([]);
+    // Evidence of the inside of a step, after the boundary has been measured.
+    await page.evaluate(() => document.querySelector('[aria-label^="2. adım"] .timeline-result')!.scrollIntoView({ block: 'start' }));
+    await page.screenshot({ path: testInfo.outputPath(`step-inside-${browserName}-${width}.png`) });
+  }
+});

@@ -71,7 +71,12 @@ html[data-keyboard='true'] .budget-app .timeline-table-scroll:focus-visible { te
 .timeline-empty { padding-block: var(--budget-spaceWide); color: var(--budget-muted); }
 .timeline-empty h3 { margin-top: 0; color: var(--budget-ink); font-size: var(--budget-fontSection); }
 .timeline-pagination { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--budget-spaceSmall); margin-block: var(--budget-spacing); }
-.timeline-day { margin-top: var(--budget-spacing); min-width: 0; }
+/* Surface grammar: the step list sits on a darker canvas; each step is an elevated card; days are further apart than steps. */
+.timeline-journey { margin-top: var(--budget-spaceTight); padding: var(--budget-spaceTight); border-radius: var(--budget-timelinePanelRadius); background: var(--budget-timelineFlowCanvas); }
+.timeline-day { min-width: 0; }
+/* A filter with no matching steps shows its empty message, not an empty canvas bar. */
+.timeline-journey:empty { display: none; }
+.timeline-day + .timeline-day { margin-top: var(--budget-spaceWide); }
 .timeline-day-heading { display: flex; align-items: baseline; justify-content: space-between; gap: var(--budget-spaceSmall); padding-block: var(--budget-spaceTight); }
 .timeline-day-heading h2 { margin: 0; }
 .timeline-day-heading time { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--budget-spaceTight); }
@@ -79,7 +84,7 @@ html[data-keyboard='true'] .budget-app .timeline-table-scroll:focus-visible { te
 .timeline-date-month { font-size: var(--budget-fontSection); font-weight: var(--budget-headingWeight); }
 .timeline-weekday, .timeline-day-count { color: var(--budget-muted); font-size: var(--budget-fontSmall); font-weight: var(--budget-labelWeight); }
 .timeline-day-count { flex-shrink: 0; }
-.timeline-step { padding: 0; border-radius: var(--budget-timelineStepRadius); background: var(--budget-paper); }
+.timeline-step { padding: 0; border-radius: var(--budget-timelineStepRadius); background: var(--budget-paper); box-shadow: var(--budget-timelineStepShadow); }
 .timeline-step article { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; --step-tone-surface: var(--budget-timelineSurface); --step-tone-ink: var(--budget-ink); border-radius: var(--budget-timelineStepRadius); scroll-margin-top: var(--budget-spaceSmall); transition: box-shadow var(--budget-duration) var(--budget-ease); }
 .timeline-step-context { min-width: 0; padding: var(--budget-spaceSmall) var(--budget-spacing); }
 .timeline-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--budget-spaceDense) var(--budget-spaceTight); color: var(--budget-muted); }
@@ -112,7 +117,7 @@ html[data-keyboard='true'] .budget-app .timeline-table-scroll:focus-visible { te
 .timeline-data-note { color: var(--budget-muted); padding-top: var(--budget-spaceSection); margin-top: var(--budget-spaceWide); border-top: var(--budget-ruleWidth) solid var(--budget-line); display: flex; flex-wrap: wrap; gap: var(--budget-spaceTight) var(--budget-spacing); }
 .timeline-control .timeline-kind { color: var(--budget-green); }
 /* Base rules precede the container blocks that refine them (same specificity: order decides). */
-.timeline-day ol { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--budget-spacing); }
+.timeline-day ol { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--budget-spaceSection); }
 @container (min-width: 64em) {
   .timeline-summary { grid-template-columns: minmax(0,1fr); }
   .timeline-summary-cash, .timeline-summary-debt { padding: var(--budget-spacing); }
@@ -124,7 +129,7 @@ html[data-keyboard='true'] .budget-app .timeline-table-scroll:focus-visible { te
   .timeline-day-heading { display: block; padding-top: var(--budget-spaceSmall); }
   .timeline-day-heading time { display: grid; gap: var(--budget-spaceDense); }
   .timeline-day-count { display: block; margin-top: var(--budget-spaceSmall); }
-  .timeline-day ol { border-left: var(--budget-ruleWidth) solid var(--budget-line); padding-left: var(--budget-timelineRailInset); position: relative; }
+  .timeline-day ol { border-left: var(--budget-ruleWidth) solid var(--budget-lightBlue); padding-left: var(--budget-timelineRailInset); position: relative; }
   .timeline-day ol::before { content: ''; position: absolute; width: var(--budget-timelineDotSize); height: var(--budget-timelineDotSize); background: var(--budget-blue); left: calc(var(--budget-timelineDotSize) / -2); top: var(--budget-spacing); border-radius: 50%; }
 }
 .timeline-model-note { margin-block: var(--budget-spaceSmall); color: var(--budget-muted); }
@@ -148,7 +153,9 @@ html[data-keyboard='true'] .budget-app .timeline-table-scroll:focus-visible { te
 .timeline-net-position { margin: 0; color: var(--budget-muted); }
 .timeline-net-position > div { display: flex; flex-wrap: wrap; gap: var(--budget-spaceDense) var(--budget-spaceTight); }
 .timeline-net-position dd { margin: 0; color: var(--budget-ink); font-variant-numeric: tabular-nums; font-weight: var(--budget-labelWeight); }
-.timeline-account-breakdown { display: grid; gap: var(--budget-spaceTight); padding: var(--budget-spaceSmall) var(--budget-spacing); background: var(--budget-timelineStepSurface); }
+/* State after the step: a tinted accounts group holding one white tile per account, side by side when there is room. */
+.timeline-account-breakdown { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--budget-timelinePurchaseFactWidth)), 1fr)); gap: var(--budget-spaceTight); margin-top: var(--budget-spaceSmall); padding: var(--budget-spaceSmall) var(--budget-spacing); background: var(--budget-timelineSourceSurface); }
+.timeline-account-breakdown > :is(h4, .timeline-future-instalments) { grid-column: 1 / -1; }
 .timeline-bank-group dt { color: var(--budget-muted); }
 .timeline-bank-group dd { margin: 0; font-weight: var(--budget-labelWeight); font-variant-numeric: tabular-nums; }
 .timeline-future-instalments { color: var(--budget-muted); font-size: var(--budget-fontSmall); }
@@ -159,8 +166,8 @@ html[data-keyboard='true'] .budget-app .timeline-table-scroll:focus-visible { te
 
 .timeline-purchase-amount .timeline-missing { font-size: var(--budget-fontSmall); font-weight: var(--budget-labelWeight); letter-spacing: normal; }
 
-/* The outcome is a full-width band, not a competing side panel. Details remain open. */
-.timeline-result { padding: var(--budget-spaceSmall) var(--budget-spacing); background: var(--budget-navy); color: var(--budget-paper); display: grid; gap: var(--budget-spaceSmall); }
+/* The outcome is a navy tile inset from the card edges, not a competing side panel. Details remain open. */
+.timeline-result { margin: var(--budget-spaceSmall) var(--budget-spacing) 0; border-radius: var(--budget-radius); padding: var(--budget-spaceSmall) var(--budget-spacing); background: var(--budget-navy); color: var(--budget-paper); display: grid; gap: var(--budget-spaceSmall); }
 .timeline-result h4, .timeline-result dd { color: var(--budget-paper); }
 .timeline-result :is(dt,.timeline-net-position) { color: var(--budget-timelineOverviewMuted); }
 .timeline-result dd.negative { color: var(--budget-timelineOverviewNegative); }
@@ -173,8 +180,9 @@ html[data-keyboard='true'] .budget-app .timeline-table-scroll:focus-visible { te
 
 
 /* Step anatomy: a kind-toned opening band and a matching closing link band bracket every step
-   (common region + closure). Inside, spacing groups the facts, the movement, the result and the
-   bank rows; colour always accompanies the visible kind label and signed text, never alone. */
+   (common region + closure). Inside, adjacent sections change surface: facts, the inset result tile,
+   the tinted accounts group with its per-account tiles, then the source; colour always accompanies
+   the visible kind label and signed text, never alone. */
 .timeline-step article[data-tone='income'] { --step-tone-surface: var(--budget-greenSurface); --step-tone-ink: var(--budget-green); }
 .timeline-step article[data-tone='outflow'] { --step-tone-surface: var(--budget-redSurface); --step-tone-ink: var(--budget-red); }
 .timeline-step article[data-tone='card'] { --step-tone-surface: var(--budget-blueSurface); --step-tone-ink: var(--budget-blue); }
@@ -190,9 +198,9 @@ html[data-keyboard='true'] .budget-app .timeline-table-scroll:focus-visible { te
 [data-step-part='after'] .timeline-result dd.timeline-balance-change[data-tone='inflow'] { color: var(--budget-timelineOverviewPositive); }
 [data-step-part='after'] .timeline-result dd.timeline-balance-change[data-tone='outflow'] { color: var(--budget-timelineOverviewNegative); }
 [data-step-part='after'] .timeline-result .timeline-net-position dd.timeline-balance-change { margin-top: 0; }
-/* Bank rows share columns so equal facts line up; the bank that moved in this step is lifted onto the paper surface. */
-.timeline-bank-group { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--budget-spaceDense) var(--budget-spaceSmall); margin-inline: calc(-1 * var(--budget-spaceTight)); padding: var(--budget-spaceTight); border-radius: var(--budget-radius); }
-.timeline-bank-group[data-moved='true'] { background: var(--budget-paper); }
+/* One white tile per account on the tinted accounts group; principal and cost sit together inside it. */
+.timeline-bank-group { display: grid; align-content: start; gap: var(--budget-spaceDense); min-width: 0; padding: var(--budget-spaceSmall); border-radius: var(--budget-radius); background: var(--budget-paper); }
+/* The moved account is named by its "Bu adımda" change text; it keeps the white tile so it stays distinct from the tinted accounts group. */
 .timeline-bank-group h5 { font-weight: var(--budget-headingWeight); }
 .timeline-bank-group dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--budget-spaceDense) var(--budget-spaceSmall); margin: 0; }
 .timeline-bank-group dl > div { min-width: 0; display: grid; align-content: start; }
@@ -207,21 +215,27 @@ html[data-keyboard='true'] .budget-app .timeline-table-scroll:focus-visible { te
 .timeline-step-link-edge { align-self: center; padding: var(--budget-spaceTight) var(--budget-spaceSmall); color: var(--budget-muted); }
 .timeline-balance-change .timeline-amount { white-space: nowrap; }
 @container (min-width: 36em) {
-  /* Wide rows read as one line per bank: label and value side by side in shared columns. */
-  .timeline-bank-group { grid-template-columns: var(--budget-timelineBankNameWidth) minmax(0, 1fr); align-items: baseline; padding-block: var(--budget-spaceDense); }
-  .timeline-bank-group dl > div { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--budget-spaceTight); }
-  [data-step-part='after'] .timeline-bank-group dd.timeline-balance-change { margin: 0; }
+  /* Wide step links read on one line: label, date and destination title. */
   .timeline-step-link { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--budget-spaceTight); }
   .timeline-step-link[data-direction='next'] { justify-content: flex-end; }
 }
 @container (min-width: 48em) {
   /* Wide identity reads as one line: kind, title, then the step number; DOM order stays kind → number → title. */
-  .timeline-step-identity { display: flex; flex-wrap: wrap; align-items: center; gap: var(--budget-spaceDense) var(--budget-spaceSmall); padding-block: var(--budget-spaceTight); }
+  .timeline-step-identity { display: flex; flex-wrap: wrap; align-items: center; gap: var(--budget-spaceDense) var(--budget-spaceSmall); padding-block: var(--budget-spaceDense); }
   .timeline-step-identity .timeline-meta { display: contents; }
   .timeline-step-identity h3 { order: 1; flex: 1 1 0; min-width: 0; margin: 0; }
   .timeline-step-identity .timeline-step-number { order: 2; }
-  .timeline-bank-group:not([data-moved='true']) { padding-block: 0; }
   .timeline-step-links { padding-block: var(--budget-spaceTight); }
-  .timeline-account-breakdown { gap: var(--budget-spaceDense); }
+  /* Wide account tiles: name, then each label beside its value; the instalment note reads as one line. */
+  .timeline-bank-group { padding: var(--budget-spaceTight) var(--budget-spaceSmall); }
+  .timeline-account-breakdown { padding-block: var(--budget-spaceTight); margin-top: var(--budget-spaceDense); }
+  /* Wide: the canvas frames the list vertically; steps keep the full column width so closing links stay on one line. */
+  .timeline-journey { padding-inline: 0; }
+  .timeline-bank-group dl > div { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--budget-spaceTight); }
+  .timeline-future-instalments { display: flex; flex-wrap: wrap; gap: 0 var(--budget-spaceSmall); }
+  /* Wide result tile: the two balances and the net position share one row under the heading. */
+  .timeline-result { margin-top: var(--budget-spaceTight); grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); align-items: start; }
+  .timeline-result > h4 { grid-column: 1 / -1; }
+  .timeline-result .timeline-net-position > div { display: grid; }
 }
 .timeline-period-note { margin: 0 0 var(--budget-spaceTight); color: var(--budget-timelineOverviewMuted); }
