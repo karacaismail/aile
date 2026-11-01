@@ -215,3 +215,60 @@ test('planner loads only used icon modules instead of the complete icon catalogu
   await writeFile(evidence, JSON.stringify({ requests: icons, modules, decodedBytes: modules.reduce((sum, module) => sum + module.decodedBytes, 0) }, null, 2));
   await testInfo.attach('requested-icon-modules', { path: evidence, contentType: 'application/json' });
 });
+
+test('a keyboard user moving through the record form never has the focused field hidden behind the sticky footer', async ({ page, browserName }) => {
+  await mockFamily(page);
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.goto('/aile/#/satinalma/yeni');
+  const dialog = page.getByRole('dialog', { name: 'Yeni kalem' });
+  await expect(dialog).toBeVisible();
+  const tab = browserName === 'webkit' ? 'Alt+Tab' : 'Tab';
+  const covered: string[] = [];
+  for (let step = 0; step < 16; step++) {
+    await page.keyboard.press(tab);
+    const state = await page.evaluate(() => {
+      const active = document.activeElement as HTMLElement | null;
+      const footer = document.querySelector<HTMLElement>('[data-testid="form-errors"]')?.parentElement;
+      if (!active || !footer || footer.contains(active) || !active.closest('form')) return null;
+      const a = active.getBoundingClientRect(), f = footer.getBoundingClientRect();
+      return { name: active.getAttribute('aria-label') ?? active.id ?? active.tagName, hidden: a.bottom > f.top + 1 && a.top < f.bottom - 1 };
+    });
+    if (state?.hidden) covered.push(state.name);
+  }
+  expect(covered, 'focused fields overlapped by the sticky footer (WCAG 2.4.11)').toEqual([]);
+});
+
+// Post-implementation browser coverage for round 3 (the behaviour's RED was executed at unit level first).
+test('record cards read identity, status, attention and amount in order with real targets, and the first error list reaches its field', async ({ page, browserName }, testInfo) => {
+  await mockFamily(page);
+  for (const width of [320, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/aile/#/satinalma');
+    const card = page.getByTestId('item-card').filter({ hasText: 'Bebek güvenlik bariyeri' });
+    await expect(card).toBeVisible();
+    const layout = await card.evaluate(el => {
+      const box = (selector: string) => el.querySelector(selector)!.getBoundingClientRect();
+      const title = box('h3'), status = box('[aria-label="Durum ve kapsam"]'), facts = el.querySelector('[aria-label$="alım bilgileri"]')!.getBoundingClientRect();
+      const small = [...el.querySelectorAll('*')].filter(n => n.textContent?.trim() && n.getBoundingClientRect().width > 0 && parseFloat(getComputedStyle(n).fontSize) < 14).length;
+      return { ordered: title.bottom <= status.top + 1 && status.bottom <= facts.top + 1, small };
+    });
+    expect(layout).toEqual({ ordered: true, small: 0 });
+    for (const target of [card.getByRole('link', { name: 'Fiyat ekle' }), card.locator('label').filter({ hasText: 'Alındı' })]) expect((await target.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    await card.screenshot({ path: testInfo.outputPath(`record-card-${browserName}-${width}.png`) });
+  }
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.getByTestId('item-card').filter({ hasText: 'Bebek güvenlik bariyeri' }).getByRole('link', { name: 'Fiyat ekle' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Bebek güvenlik bariyeri' });
+  await expect(dialog).toBeVisible();
+  await dialog.getByLabel(/^Ad\s*\*?$/).fill('');
+  await dialog.getByRole('button', { name: 'Kaydet' }).click();
+  await expect(dialog.getByRole('status')).toHaveText('1 alan düzeltilmeli');
+  const fix = dialog.getByRole('group', { name: 'Düzeltilecek alanlar' }).getByRole('button', { name: 'Ad' });
+  expect((await fix.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await dialog.getByLabel('Not').focus();
+  await fix.click();
+  await expect(dialog.getByLabel(/^Ad\s*\*?$/)).toBeFocused();
+  await expect(dialog.getByRole('group', { name: 'Faz' })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath(`record-form-error-${browserName}-320.png`) });
+});

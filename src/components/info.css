@@ -39,3 +39,12 @@ html[data-keyboard='true'] :is(.budget-app, .aile-app) .info-journey a:focus-vis
 .record-support { min-width: 0; background: var(--budget-canvas); border-radius: var(--budget-radius); padding: var(--budget-spaceSmall); }
 .record-form-section { min-width: 0; padding: var(--budget-spacing); background: var(--budget-canvas); border-radius: var(--budget-radius); }
 .record-form-section > .info-heading:first-child { margin-top: 0; }
+/* Record forms: a named group of controls is a fieldset whose legend reads like a field label (no border box). */
+.record-fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+/* The legend uses Mantine's field-label weight variable on purpose, so it matches the neighbouring input labels exactly. */
+.record-fieldset > legend { padding: 0; margin-bottom: var(--budget-spaceDense); color: var(--budget-ink); font-weight: var(--mantine-font-weight-medium); }
+/* First-error list in the sticky footer: each failing field by its visible label, one tap to reach it. */
+.form-error-fields { display: flex; flex-wrap: wrap; gap: var(--budget-spaceDense) var(--budget-spaceTight); }
+.form-error-field { min-height: var(--budget-targetMin); padding: 0 var(--budget-spaceSmall); border: 0; border-radius: var(--budget-radius); background: var(--budget-redSurface); color: var(--budget-red); font: inherit; font-weight: var(--budget-labelWeight); cursor: pointer; transition: background-color var(--budget-duration) var(--budget-ease); }
+.form-error-field:hover { background: var(--budget-canvas); }
+.form-error-field[data-unreachable] { display: inline-flex; align-items: center; cursor: default; }

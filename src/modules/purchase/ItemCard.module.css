@@ -1,18 +1,22 @@
-.card { gap: var(--budget-spaceTight); }
+/* Record card: identity → status and scope → attention → amount group → completion. Spacing groups; only the amount group has a surface. */
+.card { display: flex; flex-direction: column; gap: var(--budget-spaceTight); }
 .card[data-done] .title { color: var(--budget-muted); }
 .card[data-cancelled] .title { text-decoration: line-through; }
-.checkWrap {
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: var(--budget-targetMin);
-  min-height: var(--budget-targetMin);
-}
 .title { margin: 0; font-size: var(--budget-fontSection); font-weight: var(--budget-headingWeight); line-height: var(--budget-lineCompact); overflow-wrap: break-word; }
-.linkArea { cursor: pointer; flex: 1; min-width: 0; min-height: var(--budget-targetMin); gap: var(--budget-spaceSmall); }
-.recordLink { display: inline-flex; min-height: var(--budget-targetMin); align-items: center; }
-
-.facts[data-tone="subtle"] { padding: var(--budget-spaceSmall); }
+.linkArea { flex: 1; cursor: pointer; min-width: 0; min-height: var(--budget-targetMin); display: flex; align-items: center; }
+.linkArea:hover .title { text-decoration: underline; text-underline-offset: var(--budget-focusOffset); }
+/* Status is the one coloured tag; scope reads as plain text separated by middots. */
+.status { display: flex; flex-wrap: wrap; align-items: center; gap: var(--budget-spaceDense) var(--budget-spaceTight); margin: 0; color: var(--budget-muted); }
+/* The separator ends the previous item, so a wrapped line never starts with a dot. */
+.scope:not(:last-child)::after { content: ' ·'; color: var(--budget-muted); }
+.attention { display: flex; flex-wrap: wrap; gap: var(--budget-spaceDense); margin: 0; }
+.facts { display: grid; gap: var(--budget-spaceDense); padding: var(--budget-spaceSmall); border-radius: var(--budget-radius); background: var(--budget-blueSurface); }
 .facts dl > div:not([data-emphasis]) { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0 var(--budget-spaceTight); }
 .facts dl > div:not([data-emphasis]) > dd { margin-top: 0; }
+.payment { margin: 0; color: var(--budget-muted); }
+.recordLink { display: inline-flex; align-items: center; min-height: var(--budget-targetMin); color: var(--budget-ink); font-weight: var(--budget-labelWeight); text-underline-offset: var(--budget-focusOffset); }
+/* Identity row: completion (circle with its caption beneath, full touch target) beside the name. */
+.identity { display: flex; align-items: flex-start; gap: var(--budget-spaceTight); }
+.complete { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; flex-shrink: 0; min-width: var(--budget-targetMin); min-height: var(--budget-targetMin); cursor: pointer; color: var(--budget-muted); }
+/* Status/scope and attention share one wrapping row but stay two labelled groups. */
+.meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--budget-spaceDense) var(--budget-spaceSmall); }

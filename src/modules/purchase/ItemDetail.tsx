@@ -104,7 +104,7 @@ export function ItemDetail({ id, defaults, onSaved }: { id: string; defaults?: N
     );
   }
   return (
-    <Modal opened onClose={close} title={isNew ? 'Yeni kalem' : 'Kalem'} fullScreen={isMobile} size="lg" closeButtonProps={{ size: 'xl', 'aria-label': 'Kapat' }}
+    <Modal opened onClose={close} title={isNew ? 'Yeni kalem' : item!.ad} fullScreen={isMobile} size="lg" closeButtonProps={{ size: 'xl', 'aria-label': 'Kapat' }}
       styles={{ body: { paddingBottom: 96 } }}>
       <form ref={formRef} onSubmit={form.onSubmit(save, (errors) => focusFirstError(formRef.current, errors))} noValidate data-testid="item-detail">
         <Stack gap="sm">
@@ -113,7 +113,10 @@ export function ItemDetail({ id, defaults, onSaved }: { id: string; defaults?: N
             {item && <ConflictBanner id={item.id} />}
             {/* Yeni kayıtta ilk alan odaklanır (Mantine FocusTrap `data-autofocus`); düzenlemede odak modal başlığında kalır. */}
             <TextInput label="Ad" required data-autofocus={isNew || undefined} {...form.getInputProps('ad')} key={form.key('ad')} />
-            <SegmentedControl fullWidth data={[{ value: '1', label: 'Önce' }, { value: '2', label: 'Yerleşme' }, { value: '3', label: 'Bebek' }]} {...form.getInputProps('faz')} key={form.key('faz')} />
+            <fieldset className="record-fieldset">
+              <legend>Faz</legend>
+              <SegmentedControl fullWidth data={[{ value: '1', label: 'Önce' }, { value: '2', label: 'Yerleşme' }, { value: '3', label: 'Bebek' }]} {...form.getInputProps('faz')} key={form.key('faz')} />
+            </fieldset>
             <SimpleGrid cols={{ base: 1, xs: 2 }} spacing="xs">
               <EnumSelect label="Durum" field="durum" options={DURUM} value={form.getValues().durum} onChange={(v) => form.setFieldValue('durum', v)} />
               <EnumSelect label="Oda" field="oda" options={ODA} value={form.getValues().oda} onChange={(v) => form.setFieldValue('oda', v)} />
@@ -122,11 +125,12 @@ export function ItemDetail({ id, defaults, onSaved }: { id: string; defaults?: N
             </SimpleGrid>
           </Stack>
           <Stack component="section" aria-label="Fiyat ve teyit" className="record-form-section" gap="sm">
-            <SectionHeading title="Fiyat ve teyit" level={3} />
+            <SectionHeading title="Fiyat ve teyit" level={3} description="Boş bırakılan fiyat bilinmiyor demektir; 0 yalnız gerçekten ücretsizse yazılır." />
             <SimpleGrid cols={{ base: 1, xs: 2 }} spacing="xs">
               <PriceInput label="Tahmini (min)" data-path="tahmini_tl_min" value={form.getValues().tahmini_tl_min} onChange={(v) => form.setFieldValue('tahmini_tl_min', v)} error={form.errors.tahmini_tl_min} />
               <PriceInput label="Tahmini (max)" data-path="tahmini_tl_max" value={form.getValues().tahmini_tl_max} onChange={(v) => form.setFieldValue('tahmini_tl_max', v)} error={form.errors.tahmini_tl_max} />
-              <PriceInput label="Gerçek" description="Kayıtlı ürün bedeli; ödeme kaydı ayrı tutulur." data-path="gercek_tl" value={form.getValues().gercek_tl} onChange={(v) => form.setFieldValue('gercek_tl', v)} error={form.errors.gercek_tl} />
+              {/* Description below the input keeps the paired grid inputs aligned. */}
+              <PriceInput label="Gerçek" description="Kayıtlı ürün bedeli; ödeme kaydı ayrı tutulur." inputWrapperOrder={['label', 'input', 'description', 'error']} data-path="gercek_tl" value={form.getValues().gercek_tl} onChange={(v) => form.setFieldValue('gercek_tl', v)} error={form.errors.gercek_tl} />
               <EnumSelect label="Güven" field="fiyat_guven" options={FIYAT_GUVEN} value={form.getValues().fiyat_guven} onChange={(v) => form.setFieldValue('fiyat_guven', v)} />
               <NumberInput label="Adet" min={1} inputMode="numeric" hideControls {...form.getInputProps('adet')} key={form.key('adet')} />
               <EnumSelect label="Birim" field="birim" options={BIRIM} value={form.getValues().birim} onChange={(v) => form.setFieldValue('birim', v)} allowEmpty={false} />

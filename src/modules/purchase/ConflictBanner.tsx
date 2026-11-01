@@ -4,16 +4,23 @@ import { label } from '@shared/schema';
 import { useAppStore, dismissConflict } from '@/sync/store';
 import { upsert } from '@/sync/controller';
 
+const FIELD_LABELS: Record<string, string> = {
+  ad: 'Ad', oda: 'Oda', kategori: 'Kategori', faz: 'Faz', durum: 'Durum', karar_bekliyor: 'Karar bekliyor', oncelik: 'Öncelik', adet: 'Adet', birim: 'Birim',
+  tahmini_tl_min: 'Tahmini (min)', tahmini_tl_max: 'Tahmini (max)', gercek_tl: 'Gerçek', fiyat_guven: 'Güven', nereden: 'Nereden',
+  siparis_son_tarih: 'Sipariş son tarih', teslim_suresi_gun: 'Teslim süresi (gün)', teslim_tarihi: 'Teslim tarihi', linkler: 'Bağlantılar', not: 'Not', mevcut: 'Elimizde var',
+};
+
 export function ConflictBanner({ id }: { id: string }) {
   const conflict = useAppStore((s) => s.conflicts.find((c) => c.id === id));
   if (!conflict) return null;
-  const fmt = (v: unknown) => (v == null || v === '' ? '—' : Array.isArray(v) ? v.join(', ') : String(v));
+  // The same words the form shows: field labels and option labels, never storage keys or enum codes.
+  const fmt = (k: string, v: unknown) => (v == null || v === '' ? 'boş' : Array.isArray(v) ? v.join(', ') : typeof v === 'boolean' ? (v ? 'evet' : 'hayır') : label(k, String(v)));
   return (
     <Alert color="orange" variant="light" icon={<WarningCircleIcon size={20} aria-hidden />} title="Bu kalem bu arada başka yerde değişti" data-testid="conflict-banner">
       <Stack gap={6}>
         <Text size="sm">{conflict.updatedBy ? `${conflict.updatedBy} değiştirdi.` : 'Sheets\'te değişti.'} Hangi değer kalsın?</Text>
         {conflict.keys.map((k) => (
-          <Text key={k} size="sm"><b>{k}</b>: benimki <i>{fmt(conflict.myValues[k])}</i> · Sheets'teki <i>{fmt(conflict.serverValues[k])}</i></Text>
+          <Text key={k} size="sm"><b>{FIELD_LABELS[k] ?? k}</b>: benimki <i>{fmt(k, conflict.myValues[k])}</i> · Sheets'teki <i>{fmt(k, conflict.serverValues[k])}</i></Text>
         ))}
         <Group gap="xs">
           <Button size="xs" variant="filled" onClick={() => { upsert(conflict.table, id, conflict.myValues); dismissConflict(id); }}>Benimki kalsın</Button>

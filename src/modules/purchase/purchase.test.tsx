@@ -51,7 +51,8 @@ describe('ItemCard', () => {
     expect(screen.getByText('Önce')).toBeInTheDocument();
     expect(screen.getByText('Karar')).toBeInTheDocument();
     expect(screen.getByText('Salon')).toBeInTheDocument();
-    expect(screen.getByText('karar')).toBeInTheDocument();
+    // Round 3 wording: the pending-decision warning names itself ("Karar bekliyor") instead of a bare "karar".
+    expect(screen.getByText('Karar bekliyor')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('checkbox', { name: /alındı/ }));
     expect(onToggle).toHaveBeenCalledWith(item, true);
   });
@@ -317,3 +318,90 @@ describe('Kayıt yolculuğu: yeni kalem formu ve kayıt sonrası görünürlük'
   });
 });
 
+
+describe('Tur 3: kayıt kartı okuma sırası, form ve çakışma', () => {
+  it('kart: kimlik → durum ve kapsam → dikkat → bedel ve ödeme ayrımı aynı grupta → görünür adlı tamamlama', () => {
+    render(withRouter(<ItemCard item={item} onToggleDone={vi.fn()} />));
+    const card = screen.getByTestId('item-card');
+    const status = within(card).getByRole('group', { name: 'Durum ve kapsam' });
+    expect(within(status).getByText('Karar')).toBeInTheDocument();
+    expect(status).toHaveTextContent('Önce');
+    expect(status).toHaveTextContent('Salon');
+    const attention = within(card).getByRole('group', { name: 'Dikkat' });
+    expect(attention).toHaveTextContent('Karar bekliyor');
+    const facts = within(card).getByRole('group', { name: `${item.ad} alım bilgileri` });
+    expect(facts).toHaveTextContent('₺1.500');
+    // The payment distinction qualifies the amount, so it sits in the same group, after the dates.
+    expect(within(facts).getByText('Ödeme kaydı değildir.')).toBeInTheDocument();
+    const order = [within(card).getByRole('heading', { level: 3 }), status, attention, facts];
+    for (let i = 1; i < order.length; i++) expect(order[i - 1].compareDocumentPosition(order[i]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // The completion checkbox has a visible name, not only an icon.
+    const done = within(card).getByRole('checkbox', { name: /alındı/ });
+    expect(done.closest('label')).toHaveTextContent('Alındı');
+  });
+
+  it('kart: geçerli HTML üretir; paragraf içinde blok öğe (rozet div) yoktur', () => {
+    render(withRouter(<ItemCard item={{ ...item, mevcut: true }} onToggleDone={vi.fn()} />));
+    // A Mantine Badge renders a <div>; it must not sit inside a <p> (invalid HTML, React does not always warn).
+    expect(screen.getByTestId('item-card').querySelectorAll('p div, p p')).toHaveLength(0);
+  });
+
+  it('kart: fiyatı bilinmeyen kayıt eksik bilgiyi adlandırır ve kaydın kendisine "Fiyat ekle" eylemi verir', () => {
+    render(withRouter(<ItemCard item={{ ...item, tahmini_tl_min: undefined, tahmini_tl_max: undefined }} onToggleDone={vi.fn()} />));
+    const facts = screen.getByRole('group', { name: `${item.ad} alım bilgileri` });
+    expect(facts).toHaveTextContent('Fiyat girilmedi');
+    expect(within(facts).getByRole('link', { name: 'Fiyat ekle' })).toHaveAttribute('href', '/satinalma/A');
+    expect(screen.queryByText('₺0')).not.toBeInTheDocument();
+  });
+
+  const seed = () => {
+    setState({ hydrated: true, status: 'synced' });
+    applyRead({ ok: true, fingerprint: 'f', serverTime: 't', schemaVersion: 1, items: [item], settings: [] });
+  };
+  const mountAt = (path: string) => {
+    const loc = memoryLocation({ path, static: false, record: true });
+    render(<Router hook={loc.hook}><Route path="/satinalma" nest><PurchaseList /></Route></Router>);
+    return loc;
+  };
+  const settle = () => act(() => new Promise<void>((r) => setTimeout(r, 30)));
+
+  it('form: düzenleme penceresi kaydı adıyla açılır; yeni kayıt "Yeni kalem"', async () => {
+    seed();
+    mountAt('/satinalma/A');
+    expect(await screen.findByRole('dialog', { name: item.ad })).toBeInTheDocument();
+  });
+
+  it('form: faz seçimi adlandırılmış bir gruptur; fiyat bölümü boş ile 0 farkını söyler', async () => {
+    seed();
+    mountAt('/satinalma/yeni');
+    const dialog = await screen.findByRole('dialog', { name: 'Yeni kalem' });
+    expect(within(within(dialog).getByRole('group', { name: 'Faz' })).getByRole('radio', { name: 'Önce' })).toBeInTheDocument();
+    expect(within(dialog).getByRole('region', { name: 'Fiyat ve teyit' })).toHaveTextContent('Boş bırakılan fiyat bilinmiyor demektir; 0 yalnız gerçekten ücretsizse yazılır.');
+  });
+
+  it('form: ilk hatada düzeltilecek alanlar adıyla listelenir, düğme alana götürür, canlı sayı metni değişmez', async () => {
+    seed();
+    mountAt('/satinalma/yeni');
+    const form = await screen.findByTestId('item-detail');
+    await settle();
+    expect(within(form).queryByRole('group', { name: 'Düzeltilecek alanlar' })).not.toBeInTheDocument();
+    await userEvent.click(within(form).getByLabelText('Not'));
+    await userEvent.click(within(form).getByRole('button', { name: 'Kaydet' }));
+    expect(within(form).getByRole('status')).toHaveTextContent(/^1 alan düzeltilmeli$/);
+    const list = within(form).getByRole('group', { name: 'Düzeltilecek alanlar' });
+    await userEvent.click(within(form).getByLabelText('Not'));
+    await userEvent.click(within(list).getByRole('button', { name: 'Ad' }));
+    expect(within(form).getByLabelText(/^Ad\b/)).toHaveFocus();
+  });
+
+  it('çakışma bandı alan adlarını ve seçenek değerlerini okunur etiketle gösterir', async () => {
+    seed();
+    setState({ conflicts: [{ id: 'A', table: 'kalemler', keys: ['tahmini_tl_min', 'durum'], myValues: { tahmini_tl_min: 1500, durum: 'arastirma' }, serverValues: { tahmini_tl_min: 1800, durum: 'karar' }, updatedBy: 'Örnek kişi', updatedAt: '2099-01-01T10:00:00Z' }] });
+    mountAt('/satinalma/A');
+    const banner = await screen.findByTestId('conflict-banner');
+    expect(banner).toHaveTextContent('Tahmini (min)');
+    expect(banner).toHaveTextContent('Araştırma');
+    expect(banner).not.toHaveTextContent('tahmini_tl_min');
+    expect(banner).not.toHaveTextContent('arastirma');
+  });
+});
