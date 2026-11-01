@@ -11,6 +11,7 @@ import { StepCard } from './StepCard';
 import { StepTable } from './StepTable';
 import { PageHeader } from '../app/family/PageHeader';
 import { DataStatus } from '../app/family/DataStatus';
+import { useFinancePeriod } from '../app/family/FinancePeriod';
 import './timeline.css';
 
 const stepsPerPage = 50;
@@ -58,7 +59,7 @@ function DayHeading({ date, count }: { date: string; count: number }) {
 function TimelineJourney({ data }: { data: FinanceLedger }) {
   const purchases = useMemo(() => new Map(data.events.map((event, index) => [event.id, purchaseDetails(event, data.events[index - 1])])), [data.events]);
   const months = data.months.map(month => month.month);
-  const [selection, setSelection] = useState('');
+  const [selection, setSelection] = useFinancePeriod();
   const [view, setView] = useState<string | null>('timeline');
   const [purchaseGroup, setPurchaseGroup] = useState<PurchaseGroup>('all');
   const [filter, setFilter] = useState<JourneyFilter>('all');

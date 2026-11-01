@@ -2,6 +2,7 @@ import { financeMoney as money } from '../finance/format';
 import type { FinanceEvent } from '../finance/data';
 import { dateLabel } from './data';
 import { isPurchase, type PurchaseDetails } from './purchase';
+import { SourceNote } from '../components/Info';
 
 /**
  * One ledger step, one reading order. Every part answers the next question of
@@ -64,11 +65,12 @@ function PlannedCashPayment({ event, previous }: { event: FinanceEvent; previous
   </>;
 }
 
-function PlainStep({ event }: { event: FinanceEvent }) {
-  return <dl className="timeline-purchase-facts">
+function PlainStep({ event, previous }: { event: FinanceEvent; previous?: FinanceEvent }) {
+  const kmhChange = previous ? Math.round((event.kmhPrincipal - previous.kmhPrincipal) * 100) / 100 : 0;
+  return <><dl className="timeline-purchase-facts">
     <div className="timeline-purchase-amount"><dt>Net nakit etkisi</dt>{' '}<dd className="timeline-change" data-tone={tone(event.cashChange)}>{signedMoney(event.cashChange)}</dd></div>
     <div><dt>Tarih</dt><dd><time dateTime={event.date}>{dateLabel(event.date)}</time></dd></div>
-  </dl>;
+  </dl>{kmhChange !== 0 && <dl className="timeline-step-effect"><div><dt>KMH anaparası değişimi</dt><dd>{signedMoney(kmhChange)}</dd></div></dl>}</>;
 }
 
 /** What happens, for how much, when and how: the first answer of every step. */
@@ -76,7 +78,7 @@ export function StepFacts({ event, purchase, previous }: { event: FinanceEvent; 
   const kind = isPurchase(event) ? 'purchase' : isWeeklyCash(event) ? 'cash' : 'plain';
   const label = kind === 'purchase' ? 'Planlanan alım bilgileri' : kind === 'cash' ? 'Planlanan nakit ödeme bilgileri' : 'Adım bilgileri';
   return <div className={kind === 'purchase' ? 'timeline-purchase' : kind === 'cash' ? 'timeline-cash-payment' : 'timeline-step-facts'} data-step-part="facts" role="group" aria-label={label}>
-    {kind === 'purchase' ? <PlannedPurchase event={event} purchase={purchase} /> : kind === 'cash' ? <PlannedCashPayment event={event} previous={previous} /> : <PlainStep event={event} />}
+    {kind === 'purchase' ? <PlannedPurchase event={event} purchase={purchase} /> : kind === 'cash' ? <PlannedCashPayment event={event} previous={previous} /> : <PlainStep event={event} previous={previous} />}
   </div>;
 }
 
@@ -100,19 +102,19 @@ function StepAccounts({ event }: { event: FinanceEvent }) {
 export function StepAfter({ event }: { event: FinanceEvent }) {
   const title = isPurchase(event) ? 'Alım sonrası · tüm hesaplar' : 'Adım sonrası · tüm hesaplar';
   return <div className="timeline-account-state" data-step-part="after" role="group" aria-label={title}>
-    <h4>Adım sonrası</h4>
+    <div className="timeline-result"><h4>Adım sonrası</h4>
     <dl className="timeline-balances" aria-label="Bu adımdan sonraki hesap bakiyesi">
       {balanceFields.slice(0, 2).map(([key, label]) => <div key={key}><dt>{label}</dt><dd className={event[key] < 0 ? 'negative' : undefined}>{money(event[key])}</dd></div>)}
     </dl>
     <dl className="timeline-net-position"><div><dt>Net nakit konumu</dt><dd className={event.requiredBalance < 0 ? 'negative' : undefined}>{money(event.requiredBalance)}</dd></div></dl>
-    <StepAccounts event={event} />
+    </div><StepAccounts event={event} />
   </div>;
 }
 
 /** Certainty, source conditions and any funding gap; always open, never a disclosure. */
 export function StepSource({ event }: { event: FinanceEvent }) {
   return <footer className="timeline-details" data-step-part="source">
-    <p className="timeline-source"><strong className="timeline-source-label">Kaynak ve koşullar</strong>{event.certainty} · {event.source}</p>
+    <SourceNote label="Kaynak ve koşullar">{event.certainty} · {event.source}</SourceNote>
     {event.fundingGap > 0 && <p className="negative">Fon eksiği {money(event.fundingGap)} · Kullanılabilir para değildir.</p>}
   </footer>;
 }

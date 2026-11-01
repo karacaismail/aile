@@ -18,7 +18,7 @@ export function SectionHeading({ title, description, actions, level = 2 }: { tit
   return <div className="info-heading"><div><Heading>{title}</Heading>{description && <p>{description}</p>}</div>{actions && <div className="info-actions">{actions}</div>}</div>;
 }
 export function SourceNote({ label = 'Kaynak ve kapsam', children }: { label?: string; children: ReactNode }) {
-  return <div className="info-source"><strong>{label}</strong><div>{children}</div></div>;
+  return <div className="info-source">{label && <strong>{label}</strong>}<div>{children}</div></div>;
 }
 /** Page links are navigation, not tabs or local filters. No record matching is inferred. */
 export function JourneyLinks({ label = 'İlgili adımlar', items }: { label?: string; items: readonly { href: string; label: string }[] }) {

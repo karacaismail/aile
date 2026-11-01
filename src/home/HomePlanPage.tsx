@@ -28,15 +28,6 @@ export default function HomePlanPage({ data, loading, updatedAt, refresh }: { da
       <DataStatus loading={loading} updatedAt={updatedAt} />
     </PageHeader>
     {!data ? <p role="status" className="family-loading">{loading ? 'Bütçedeki alımlar yükleniyor…' : 'Alım planı şu anda alınamıyor. Yenile düğmesiyle yeniden deneyin.'}</p> : <>
-      <section className="home-plan-overview" aria-label="Alım planının kapsamı">
-        <div><SectionHeading title="Önce alımı netleştir" description="Tutarı ve plan ayını kontrol et." />
-          <p>Plan tutarı ödeme yapıldığı anlamına gelmez. Eksik tutar sıfır değildir.</p></div>
-        <FactList label="Plan kapsamı" items={[
-          { label: 'Plan kaydı', value: data.irregular.length, emphasis: true },
-          { label: 'Tutarı eksik', value: data.irregular.filter(row => row.current === null).length },
-          { label: 'Plan ayı eksik', value: data.irregular.filter(row => !row.planMonth).length },
-        ]} />
-      </section>
       <section className="home-plan-records" aria-label="Alımları incele">
         <SectionHeading title="Alımlar" description={`${rows.length} / ${data.irregular.length} kalem gösteriliyor. Filtreler bütçedeki tutarları değiştirmez.`} />
         <div className="home-plan-filters">
@@ -48,6 +39,15 @@ export default function HomePlanPage({ data, loading, updatedAt, refresh }: { da
           </div>
         </div>
         <DataTable rows={rows} columns={columns} caption="Bütçedeki alım planı" rowKey={row => row.id} />
+      </section>
+      <section className="home-plan-overview" aria-label="Alım planının kapsamı">
+        <div><SectionHeading title="Planın kapsamı" description="Tutarı veya plan ayı eksik kayıtları kontrol et." />
+          <p>Plan tutarı ödeme yapıldığı anlamına gelmez. Eksik tutar sıfır değildir.</p></div>
+        <FactList label="Plan kapsamı" items={[
+          { label: 'Plan kaydı', value: data.irregular.length, emphasis: true },
+          { label: 'Tutarı eksik', value: data.irregular.filter(row => row.current === null).length },
+          { label: 'Plan ayı eksik', value: data.irregular.filter(row => !row.planMonth).length },
+        ]} />
       </section>
     </>}
     <JourneyLinks label="Alımdan sonraki adım" items={[{href:'#/timeline',label:'Ödeme takvimine bak'},{href:'#/satinalma',label:'Hazırlık listesine git'}]} />

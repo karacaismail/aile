@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react';
+import { useFinancePeriod } from '../app/family/FinancePeriod';
 import { Tabs } from '@mantine/core';
 import { Select } from '../dashboard/Select';
 import { financeMoney as money } from './format';
@@ -45,7 +46,7 @@ function DailyTable({ events }: { events: FinanceEvent[] }) {
   </ScrollTable>;
 }
 function FinanceContent({ data }: { data: FinanceLedger }) {
-  const [selection, setSelection] = useState(data.months[0].month);
+  const [selection, setSelection] = useFinancePeriod(data.months[0].month);
   const [view, setView] = useState<string | null>('daily');
   const [page, setPage] = useState(0);
   const selected = data.months.find(month => month.month === selection) ?? data.months[0];

@@ -59,3 +59,15 @@ test('table exploration restores source order and keyboard focus without changin
   expect(focus.outline).toBe('none');
   expect(focus.decoration).toContain('underline');
 });
+
+test('the first planned item is reachable on the initial narrow screen before supporting scope notes', async ({ page }, testInfo) => {
+  await source(page);
+  await page.setViewportSize({width:320,height:740});
+  await page.goto('/aile/#/ev');
+  const row=page.getByRole('table',{name:'Bütçedeki alım planı',exact:true}).locator('tbody tr').first();
+  await expect(row).toBeVisible();
+  const title=row.locator('strong').first();
+  expect((await title.boundingBox())!.y+(await title.boundingBox())!.height).toBeLessThanOrEqual(740);
+  expect((await page.getByRole('region',{name:'Alım planının kapsamı'}).boundingBox())!.y).toBeGreaterThan((await row.boundingBox())!.y);
+  await page.screenshot({path:testInfo.outputPath('home-first-screen-320.png')});
+});

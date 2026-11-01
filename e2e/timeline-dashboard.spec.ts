@@ -155,7 +155,7 @@ test('journey filters preserve period totals and original balances while preserv
   const payment = page.getByRole('article', { name: /4\. adım/ });
   await expect(payment).toContainText('800 ₺');
   await expect(summary).toHaveText(totals, { useInnerText: true });
-  await expect(payment.locator('.timeline-source')).toBeVisible();
+  await expect(payment.locator('[data-step-part="source"]')).toBeVisible();
   await expect(payment).toContainText('Kesim + 10 gün.');
   await expect(payment).toContainText('Özel ödeme notu korunur.');
   await page.getByRole('button', { name: 'Sonraki ay' }).click();
@@ -425,8 +425,8 @@ test('compact steps show every explanation immediately without a disclosure butt
     await expect(account.getByText('Anapara', { exact: true })).toBeVisible();
     await expect(account.getByText('Faiz + vergi', { exact: true })).toBeVisible();
   }
-  await expect(purchase.locator('.timeline-source')).toBeVisible();
-  await expect(purchase.locator('.timeline-source')).toContainText('Örnek kaynak');
+  await expect(purchase.locator('[data-step-part="source"]')).toBeVisible();
+  await expect(purchase.locator('[data-step-part="source"]')).toContainText('Örnek kaynak');
   for (const size of [{ width: 740, height: 360 }, { width: 1440, height: 900 }, { width: 320, height: 740 }]) {
     await page.setViewportSize(size);
     await expect(note).toBeVisible();
@@ -441,7 +441,7 @@ test('compact steps show every explanation immediately without a disclosure butt
     // DOMRect subtraction can differ by sub-pixel floating-point noise in Firefox.
     expect(Math.round(layout.gap * 64) / 64, 'notes follow the content without a large empty panel').toBeLessThanOrEqual(8);
     expect(layout.gap).toBeGreaterThanOrEqual(0);
-    expect(layout.padding).toBe('0px');
+    expect(layout.padding).toBe(tokens.spaceSmall);
     expect(layout.hidden).toBe(false);
     expect(layout.factsFirst, 'purchase facts precede the all-account section').toBe(true);
   }
@@ -468,7 +468,7 @@ test('same-day steps have separate surfaces without oversized inner spacing', as
     const steps = await day.locator('.timeline-step').evaluateAll(elements => elements.map(el => {
       const box = el.getBoundingClientRect(), body = el.querySelector('article')!.getBoundingClientRect();
       const style = getComputedStyle(el);
-      return { top: box.top, bottom: box.bottom, inset: body.left - box.left, surface: style.backgroundColor, pageSurface: getComputedStyle(document.querySelector('.budget-app')!).backgroundColor, radius: parseFloat(style.borderTopLeftRadius) };
+      return { top: box.top, bottom: box.bottom, inset: parseFloat(getComputedStyle(el.querySelector('.timeline-step-context')!).paddingInlineStart), surface: style.backgroundColor, pageSurface: getComputedStyle(document.querySelector('.budget-app')!).backgroundColor, radius: parseFloat(style.borderTopLeftRadius) };
     }));
     for (const step of steps) {
       expect(step.surface).not.toBe('rgba(0, 0, 0, 0)');
@@ -523,9 +523,12 @@ test('six-digit cash and debt stay intact at 320px with 200% text', async ({ pag
     expect(dayColumns, `date rail at ${width}`).toBe(wideFlow ? 2 : 1);
   }
   await picker.press('Escape');
+  await expect(page.locator('.mantine-Select-dropdown')).toBeHidden();
   await page.setViewportSize({ width: 320, height: 740 });
   await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  const overflowing=await page.locator('.timeline-page *').evaluateAll(els=>els.filter(el=>el.getBoundingClientRect().right>innerWidth+1).map(el=>({tag:el.tagName,class:el.className,width:el.getBoundingClientRect().width,text:el.textContent?.slice(0,60)})));
+  const numericOverflow=await page.locator('.timeline-purchase-amount dd,.timeline-balances dd,.timeline-net-position dd,.timeline-summary strong').evaluateAll(els=>els.map(el=>{const r=document.createRange();r.selectNodeContents(el);return {text:el.textContent,width:el.getBoundingClientRect().width,textWidth:r.getBoundingClientRect().width,font:getComputedStyle(el).fontSize};}));
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1),JSON.stringify({overflowing,numericOverflow})).toBe(true);
   const measurements = await page.locator('.timeline-balances dd, .timeline-summary strong').evaluateAll(elements => elements.map(element => {
     const text = element.firstChild!;
     const number = text.textContent!.split(' ')[0];
@@ -908,4 +911,52 @@ test('weekly cash tutoring states cash in hand and shows zero new overdraft with
   await page.getByRole('tab',{name:'Tablo',exact:true}).click();
   await expect(page.getByRole('row',{name:/Etüt/})).toContainText('Elden nakit · Her cuma akşamı');
   await expect(page.getByRole('row',{name:/Etüt/})).toContainText('Bu adımda yeni KMH kullanımı: 0 ₺');
+});
+
+test('transaction result has a distinct reading surface and retains all account facts', async ({ page, browserName }, testInfo) => {
+  await mockTimeline(page);
+  await page.goto('/aile/#/timeline');
+  const card=page.getByRole('article',{name:/3\. adım/});
+  await expect(card).toBeVisible();
+  const measures=[];
+  for(const width of [320,360,375,390,768,1440]) {
+    await page.setViewportSize({width,height:900});
+    await card.scrollIntoViewIfNeeded();
+    if(width===320||width===1440) {
+      await page.evaluate(async () => { await Promise.all(document.getAnimations().filter(a => a.effect?.getComputedTiming().iterations !== Infinity).map(a => a.finished.catch(() => {}))); });
+      await testInfo.attach(`capture-state-${width}`, {body:JSON.stringify(await page.evaluate(() => ({active:document.activeElement?.outerHTML, keyboard:document.documentElement.dataset.keyboard, skipTop:getComputedStyle(document.querySelector('.skip-link')!).top, skipRect:document.querySelector('.skip-link')!.getBoundingClientRect().toJSON(), sideTransform:getComputedStyle(document.querySelector('.family-sidebar')!).transform}))),contentType:'application/json'});
+      await card.evaluate(el => el.scrollIntoView({block:'start'}));
+      await page.screenshot({path:testInfo.outputPath(`viewport-${browserName}-${width}.png`)});
+      await card.screenshot({path:testInfo.outputPath(`step-${browserName}-${width}.png`)});
+      if(width===1440) await page.screenshot({path:testInfo.outputPath(`journey-${browserName}-${width}.png`)});
+    }
+    measures.push(await card.evaluate(el=>{
+      const opaque=(node:Element|null):string=>{while(node){const c=getComputedStyle(node).backgroundColor;if(c!=='rgba(0, 0, 0, 0)'&&c!=='transparent')return c;node=node.parentElement;}return 'rgb(255, 255, 255)';};
+      const facts=el.querySelector('[data-step-part="facts"]')!;
+      const balance=el.querySelector('.timeline-balances')!;
+      const rgb=(s:string)=>s.match(/[\d.]+/g)!.slice(0,3).map(Number).map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4;});
+      const luminance=(s:string)=>{const a=rgb(s);return a[0]*.2126+a[1]*.7152+a[2]*.0722;};
+      const a=luminance(opaque(facts)), b=luminance(opaque(balance));
+      return {contrast:(Math.max(a,b)+.05)/(Math.min(a,b)+.05),ordered:facts.getBoundingClientRect().bottom<=balance.getBoundingClientRect().top,overflow:document.documentElement.scrollWidth>innerWidth+1,small:[...el.querySelectorAll('*')].filter(e=>e.textContent?.trim()&&e.getBoundingClientRect().width>0&&parseFloat(getComputedStyle(e).fontSize)<14).length};
+    }));
+  }
+  await testInfo.attach('reading-surfaces',{body:JSON.stringify(measures),contentType:'application/json'});
+  expect(measures.every(m=>m.ordered&&!m.overflow&&m.small===0)).toBe(true);
+  expect(Math.min(...measures.map(m=>m.contrast)),'transaction and outcome need visibly different lightness').toBeGreaterThan(3);
+  await expect(card.getByRole('group',{name:'Denizbank kredi kartı',exact:true})).toContainText('Anapara');
+  await expect(card.getByRole('group',{name:'İşbank kredi kartı',exact:true})).toContainText('Faiz + vergi');
+  await expect(card.getByRole('group',{name:'KMH',exact:true})).toContainText('0 ₺');
+  await expect(card.getByText('Kaynak ve koşullar')).toBeVisible();
+});
+
+test('the selected month follows the user between payment flow and financing', async ({ page }) => {
+  await mockTimeline(page);
+  await page.goto('/aile/#/timeline');
+  const period=page.getByRole('combobox',{name:'Gösterilen dönem'});
+  await period.click();
+  await page.getByRole('option',{name:'Aralık 2098',exact:true}).click();
+  await page.getByRole('link',{name:'Aylık özet ve ayrıntılı tablo',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Aralık 2098 · ay sonu',exact:true})).toBeVisible();
+  await page.getByRole('link',{name:'Ödeme takvimine git',exact:true}).click();
+  await expect(page.getByRole('combobox',{name:'Gösterilen dönem'})).toHaveValue('Aralık 2098');
 });

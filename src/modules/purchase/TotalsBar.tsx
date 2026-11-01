@@ -42,7 +42,7 @@ export function TotalsBar({ faz, onFaz, totals, count, total, filtered = false }
         </Text>
       </Group>
       </div>
-      <SourceNote label="Kapsam">Kayıtlı ve tahmini bedellerin toplamı; yapılmış ödeme toplamı değildir.</SourceNote>
+      <SourceNote label="Kapsam">Mevcut eşyalar ve iptal edilenler hariç kayıtlı ve tahmini bedellerdir; yapılmış ödeme toplamı değildir.</SourceNote>
     </Paper>
   );
 }

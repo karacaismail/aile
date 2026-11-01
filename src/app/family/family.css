@@ -1,4 +1,4 @@
-.aile-app { min-height: 100dvh; font-family: var(--budget-font); font-size: var(--budget-fontSmall); line-height: var(--budget-lineBody); color: var(--budget-ink); background: var(--budget-paper); }
+.aile-app { min-height: 100dvh; font-family: var(--budget-font); font-size: var(--budget-fontSmall); line-height: var(--budget-lineBody); color: var(--budget-ink); background: var(--budget-canvas); }
 .aile-app *, .aile-app *::before, .aile-app *::after { box-sizing: border-box; }
 .family-content { display: flex; flex-direction: column; min-width: 0; min-height: 100dvh; }
 .family-main { flex: 1; width: 100%; padding: var(--budget-spaceDense) var(--budget-spacing) var(--budget-spaceWide); min-width: 0; max-width: var(--budget-familyMaxWidth); margin-inline: auto; }
@@ -51,12 +51,8 @@
 .family-hint { color: var(--budget-muted); margin: var(--budget-spaceDense) 0 0; }
 .family-footer { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--budget-spacing); padding: var(--budget-spaceSection) var(--budget-spacing); background: var(--budget-canvas); color: var(--budget-muted); }
 .family-loading { padding-block: var(--budget-spaceSection); color: var(--budget-muted); }
-.aile-app .budget-app { min-height: 0; }
+.aile-app .budget-app { min-height: 0; background: transparent; }
 /* Plain text and links: no decorative inset box around explanations. */
-.home-plan-intro { display: flex; flex-wrap: wrap; align-items: center; gap: var(--budget-spaceDense) var(--budget-spacing); margin-block: var(--budget-spaceSmall) var(--budget-spacing); }
-.home-plan-intro p { flex-basis: 100%; color: var(--budget-muted); max-width: var(--budget-timelineReadingWidth); margin: 0; }
-.home-plan-intro a { color: var(--budget-ink); min-height: var(--budget-targetMin); display: inline-flex; align-items: center; text-underline-offset: var(--budget-focusOffset); }
-.home-plan-search { max-width: var(--budget-timelineFilterWidth); margin-bottom: var(--budget-spacing); }
 
 /* Bildirim portalı (.mantine-Notifications-root) .aile-app dışındadır; eylem/kapat düğmeleri de aynı odak sözleşmesine girer. */
 :where(.aile-app, .mantine-Modal-root, .mantine-Drawer-root, .mantine-Popover-dropdown, .mantine-Combobox-dropdown, .mantine-Notifications-root) :is(button, a, input, textarea, summary, [tabindex]):focus { outline: none; box-shadow: none; }

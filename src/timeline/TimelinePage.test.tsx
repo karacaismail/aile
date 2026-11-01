@@ -256,3 +256,18 @@ it('gives purchase and cash steps the same reading order and pairs principal wit
     expect(step.querySelector('details')).toBeNull();
   }
 });
+
+it('shows the actual prior-ledger KMH change beside a transfer without calling reserve income', () => {
+  const data=buildFinance(syntheticLongFinance());
+  Object.assign(data.events[0],{kmhPrincipal:3000,cash:0});
+  Object.assign(data.events[1],{type:'Birikimden aktarım',title:'Birikimden aktarım',cashChange:5000,cash:2000,kmhPrincipal:0});
+  vi.mocked(useFinance).mockReturnValue({data,loading:false,error:null,updatedAt:null,refresh:vi.fn()});
+  mount();
+  const step=screen.getByRole('article',{name:'2. adım · Birikimden aktarım'});
+  const facts=within(step).getByRole('group',{name:'Adım bilgileri'});
+  expect(within(facts).getByText('KMH anaparası değişimi')).toBeVisible();
+  expect(within(facts).getByText('-3.000 ₺')).toBeVisible();
+  expect(within(facts).getByText('+5.000 ₺')).toBeVisible();
+  expect(within(step).getByRole('group',{name:'Adım sonrası · tüm hesaplar'})).toHaveTextContent('Harcanabilir nakit2.000 ₺');
+  expect(step).not.toHaveTextContent('Gelir');
+});

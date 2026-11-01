@@ -22,3 +22,8 @@ it('keeps heading actions and explanatory source separate from page-to-page link
   expect(within(screen.getByRole('navigation',{name:'Sıradaki işlem'})).getByRole('link',{name:'Harcama kaydet'})).toHaveAttribute('href','#/butce/yeni');
   expect(screen.queryByRole('tab')).not.toBeInTheDocument();
 });
+it('keeps a short source qualification visible without an empty heading', () => {
+  const {container}=render(<SourceNote label="">Teklif tutarı; ödeme kaydı değildir.</SourceNote>);
+  expect(screen.getByText('Teklif tutarı; ödeme kaydı değildir.')).toBeVisible();
+  expect(container.querySelector('strong')).toBeNull();
+});
