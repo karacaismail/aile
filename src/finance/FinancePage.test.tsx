@@ -121,6 +121,48 @@ it('says so when the shared month is not in this ledger instead of silently show
   expect(screen.queryByRole('note', { name: 'Seçilen dönem' })).not.toBeInTheDocument();
 });
 
+// Narrow scroll planes show only the first column: it repeats what happened, how much and (only when unambiguous) which account moved.
+const glance = (row: HTMLElement) => within(row).getAllByRole('cell')[0].querySelector('.finance-glance');
+
+it('answers what happened and how much in the first cell, keeping zero amounts and the real cells', () => {
+  mount();
+  const opening = screen.getByRole('row', { name: /Sentetik dönem başlangıcı/ });
+  expect(glance(opening)).toHaveAttribute('aria-hidden', 'true');
+  expect(glance(opening)).toHaveTextContent('Sentetik dönem başlangıcı');
+  expect(glance(opening)).toHaveTextContent('Nakit etkisi 0 ₺');
+  // The first step has no earlier step to compare with, and the month close moves all three accounts: no account is named.
+  expect(glance(opening)).not.toHaveTextContent(/anaparası değişti/);
+  const close = screen.getByRole('row', { name: /Sentetik ay sonu/ });
+  expect(glance(close)).toHaveTextContent('Nakit etkisi +550 ₺');
+  expect(glance(close)).not.toHaveTextContent(/anaparası değişti/);
+  expect(within(opening).getAllByRole('cell')[1]).toHaveTextContent('Nakit etkisi 0 ₺');
+  expect(within(opening).getAllByRole('cell')).toHaveLength(11);
+});
+
+it('names the moved account only when exactly one principal changed against the previous ledger step, across month boundaries', () => {
+  const data = buildFinance(syntheticFinance());
+  // Only the Denizbank principal moves between the January close and the first February step.
+  data.events[2].denizPrincipal = 80;
+  vi.mocked(useFinance).mockReturnValue({ data, error: null, loading: false, updatedAt: null, refresh: vi.fn() });
+  mount();
+  fireEvent.change(screen.getByRole('combobox', { name: 'Dönem' }), { target: { value: '2098-02' } });
+  const transfer = screen.getByRole('row', { name: /Sentetik iç aktarım/ });
+  expect(glance(transfer)).toHaveTextContent('Nakit etkisi +1.000 ₺');
+  expect(glance(transfer)).toHaveTextContent('Denizbank kartı anaparası değişti');
+  // The February close moves Denizbank and İşbank principals together: ambiguous, so no account is named.
+  const close = screen.getByRole('row', { name: /Sentetik ay sonu/ });
+  expect(glance(close)).toHaveTextContent('Nakit etkisi -100 ₺');
+  expect(glance(close)).not.toHaveTextContent(/anaparası değişti/);
+});
+
+it('names no account when no principal changed against the previous ledger step', () => {
+  mount();
+  fireEvent.change(screen.getByRole('combobox', { name: 'Dönem' }), { target: { value: '2098-02' } });
+  const transfer = screen.getByRole('row', { name: /Sentetik iç aktarım/ });
+  expect(glance(transfer)).toHaveTextContent('Sentetik iç aktarım');
+  expect(glance(transfer)).not.toHaveTextContent(/anaparası değişti/);
+});
+
 it('names an all-period scope carried from Timeline instead of formatting it as a month, and commits the shown month on the named link', () => {
   function Preset() { const [period, set] = useFinancePeriod(); useEffect(() => set('all'), [set]); return <output aria-label="Paylaşılan dönem">{period}</output>; }
   render(<MantineProvider><FinancePeriodProvider><Preset /><FinancePage /></FinancePeriodProvider></MantineProvider>);

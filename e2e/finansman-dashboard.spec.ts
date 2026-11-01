@@ -154,6 +154,43 @@ test('remaining finance widths keep the daily ledger in its own scroll area', as
   }
 });
 
+test('at 320px the first visible table area answers what happened, how much and which account; wide screens keep the columns only', async ({ page }, testInfo) => {
+  const { source } = await financeSource(page);
+  // Synthetic: only the Denizbank principal moves into the first February step (card debt stays reconciled).
+  source.daily.rows[2][8] = 80; source.daily.rows[2][13] = 185;
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.goto('/aile/#/finansman');
+  const scroll = page.getByRole('region', { name: 'Günlük finansman tablosu; yatay kaydırılabilir' });
+  const opening = page.getByRole('row', { name: /Sentetik dönem başlangıcı/ }).locator('td').first().locator('.finance-glance');
+  await expect(opening).toBeVisible();
+  await expect(opening).toHaveText(/Sentetik dönem başlangıcı.*Nakit etkisi 0 ₺/);
+  await page.getByRole('button', { name: 'Sonraki ay · Şubat 2098' }).click();
+  const transfer = page.getByRole('row', { name: /Sentetik iç aktarım/ }).locator('td').first().locator('.finance-glance');
+  await expect(transfer).toBeVisible();
+  await expect(transfer).toHaveAttribute('aria-hidden', 'true');
+  await expect(transfer).toContainText('Sentetik iç aktarım');
+  await expect(transfer).toContainText('Nakit etkisi +1.000 ₺');
+  await expect(transfer).toContainText('Denizbank kartı anaparası değişti');
+  await expect(page.getByRole('row', { name: /Sentetik ay sonu/ }).locator('td').first().locator('.finance-glance')).not.toContainText('anaparası değişti');
+  await scroll.scrollIntoViewIfNeeded();
+  const area = (await scroll.boundingBox())!;
+  for (const line of await transfer.locator(':scope > *').all()) {
+    const box = (await line.boundingBox())!;
+    expect(box.x, 'glance line starts inside the visible scroll area').toBeGreaterThanOrEqual(area.x - 1);
+    expect(box.x + box.width, 'glance line ends inside the visible scroll area').toBeLessThanOrEqual(area.x + area.width + 1);
+    expect(await line.evaluate(element => parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(14);
+    expect(await line.evaluate(element => ({ wordBreak: getComputedStyle(element).wordBreak, overflowWrap: getComputedStyle(element).overflowWrap }))).toEqual({ wordBreak: 'normal', overflowWrap: 'normal' });
+  }
+  expect(await scroll.evaluate(element => element.scrollWidth > element.clientWidth), 'the table still scrolls in its own area').toBe(true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'no page overflow at 320').toBe(true);
+  await expect(page.getByRole('table', { name: 'Günlük finansman adımları' }).getByRole('columnheader')).toHaveCount(11);
+  await page.screenshot({ path: testInfo.outputPath('finance-glance-320.png') });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(transfer).toBeHidden();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath('finance-glance-1440.png') });
+});
+
 test('Timeline and Finansman use one verified ledger across hot navigation and stale refresh', async ({ page }, testInfo) => {
   const { source, requests } = await financeSource(page);
   await page.goto('/aile/#/timeline');

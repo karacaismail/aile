@@ -25,12 +25,21 @@ function ScrollTable({ label, children }: { label: string; children: ReactNode }
 function PrincipalAndCost({ principal, cost }: { principal: number; cost: number }) {
   return <dl className="finance-bank"><div><dt>Anapara</dt><dd><Amount value={principal} /></dd></div><div><dt>Faiz + vergi</dt><dd><Amount value={cost} /></dd></div></dl>;
 }
-function DailyTable({ events }: { events: FinanceEvent[] }) {
+type LedgerStep = { event: FinanceEvent; previous?: FinanceEvent };
+const principals = [['kmhPrincipal', 'KMH'], ['denizPrincipal', 'Denizbank kartı'], ['isPrincipal', 'İşbank kartı']] as const;
+/** Names an account only when exactly one principal differs from the immediately preceding ledger step; never inferred from titles. */
+function movedAccount({ event, previous }: LedgerStep) {
+  if (!previous) return null;
+  const moved = principals.filter(([key]) => Math.abs(event[key] - previous[key]) >= .005);
+  return moved.length === 1 ? moved[0][1] : null;
+}
+function DailyTable({ steps }: { steps: LedgerStep[] }) {
   return <ScrollTable label="Günlük finansman tablosu; yatay kaydırılabilir">
     <table className="finance-table" aria-label="Günlük finansman adımları">
       <thead><tr><th scope="col">Tarih</th><th scope="col">Adım ve nakit etkisi</th><th scope="col">Harcanabilir nakit</th><th scope="col">Gerekli bakiye</th><th scope="col">KMH</th><th scope="col">Denizbank kartı</th><th scope="col">İşbank kartı</th><th scope="col">Toplam kart borcu</th><th scope="col">Gelecek taksit</th><th scope="col">Fon eksiği</th><th scope="col">Kesinlik ve kaynak</th></tr></thead>
-      <tbody>{events.map(event => <tr key={event.id}>
-        <td><time dateTime={event.date}>{dateLabel(event.date)}</time></td>
+      <tbody>{steps.map(step => { const { event } = step, account = movedAccount(step); return <tr key={event.id}>
+        {/* Narrow scroll planes show only this cell: a glance repeats what happened, how much and which account moved (the cells keep the semantics). */}
+        <td><time dateTime={event.date}>{dateLabel(event.date)}</time><span className="finance-glance" aria-hidden="true"><strong>{event.title}</strong><span>Nakit etkisi <span className={event.cashChange < 0 ? 'negative' : undefined}>{signedMoney(event.cashChange)}</span></span>{account && <span>{account} anaparası değişti</span>}</span></td>
         <td className="finance-event"><span className="muted">{event.type}</span><strong>{event.title}</strong><span>Nakit etkisi <span className={event.cashChange < 0 ? 'negative' : undefined}>{signedMoney(event.cashChange)}</span></span></td>
         <td className="numeric" data-balance="cash"><Amount value={event.cash} /></td>
         <td className="numeric" data-balance="required"><Amount value={event.requiredBalance} /></td>
@@ -41,7 +50,7 @@ function DailyTable({ events }: { events: FinanceEvent[] }) {
         <td className="numeric"><Amount value={event.futureInstalments} /></td>
         <td className={`numeric${event.fundingGap > 0 ? ' negative' : ''}`}><Amount value={event.fundingGap} /></td>
         <td className="finance-source"><strong>{event.certainty}</strong><p>{event.source}</p></td>
-      </tr>)}</tbody>
+      </tr>; })}</tbody>
     </table>
   </ScrollTable>;
 }
@@ -66,7 +75,8 @@ function FinanceContent({ data }: { data: FinanceLedger }) {
   // A period carried from another page may be outside this ledger (or Timeline's all-period scope): say which month is shown.
   const fallback = selection && selection !== selected.month ? periodFallback(selection, monthLabel(selected.month)) : null;
   const choose = (month: string) => { setSelection(month); setPage(0); };
-  const events = data.events.filter(event => event.date.startsWith(selected.month));
+  // Each step keeps its predecessor from the whole ledger, so a month's or page's first row still compares with the real previous step.
+  const events = data.events.map((event, index): LedgerStep => ({ event, previous: data.events[index - 1] })).filter(({ event }) => event.date.startsWith(selected.month));
   const activePage = Math.min(page, Math.max(0, Math.ceil(events.length / pageSize) - 1));
   return <>
     <div className="finance-controls"><Select label="Dönem" value={selected.month} onChange={value => { if (value) choose(value); }} data={data.months.map(month => ({ value: month.month, label: monthLabel(month.month) }))} allowDeselect={false} />
@@ -93,7 +103,7 @@ function FinanceContent({ data }: { data: FinanceLedger }) {
       <Tabs.List aria-label="Finansman görünümleri" className="finance-view-selector"><Tabs.Tab value="daily">Günlük adımlar</Tabs.Tab><Tabs.Tab value="monthly">Aylık özet</Tabs.Tab></Tabs.List>
       <Tabs.Panel value="daily">
         <SectionHeading title={`${monthLabel(selected.month)} · ${events.length} adım`} description="Soldan sağa: işlem → nakit sonucu → banka borçları → kaynak. Diğer sütunlar için tabloyu yatay kaydırın." />
-        <DailyTable events={events.slice(activePage * pageSize, (activePage + 1) * pageSize)} />
+        <DailyTable steps={events.slice(activePage * pageSize, (activePage + 1) * pageSize)} />
         {events.length > pageSize && <nav className="finance-pagination" aria-label="Finansman adım sayfaları"><p aria-live="polite">{activePage * pageSize + 1}–{Math.min((activePage + 1) * pageSize, events.length)} / {events.length} adım</p><div className="button-row"><button className="quiet-button" disabled={activePage === 0} onClick={() => setPage(activePage - 1)}>Önceki adımlar</button><button className="quiet-button" disabled={(activePage + 1) * pageSize >= events.length} onClick={() => setPage(activePage + 1)}>Sonraki adımlar</button></div></nav>}
         <p className="finance-explanation">Gerekli bakiye KMH kullanımını da içeren net nakit konumudur. Negatif değer harcanabilir para değildir. Nakit etkisi, adımlar arasındaki bu bakiye değişimidir.</p>
       </Tabs.Panel>

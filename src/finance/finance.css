@@ -36,6 +36,15 @@
 .finance-page .finance-table thead th { white-space: normal; }
 .finance-page .finance-table .finance-event, .finance-page .finance-table .finance-source { min-width: var(--budget-timelineTableEventWidth); white-space: normal; }
 .finance-event > * { display: block; margin-bottom: var(--budget-spaceDense); }
+/* The scroll plane shows only the first column on narrow containers: a glance repeats the step, its cash effect and the one moved account there (cells keep the semantics).
+   The date column then widens to the visible area, leaving a peek of the next column as the scroll cue. */
+.finance-glance { display: none; margin-top: var(--budget-spaceDense); font-variant-numeric: tabular-nums; }
+.finance-glance > * { display: block; margin-top: var(--budget-spaceDense); }
+.finance-glance strong { font-weight: var(--budget-headingWeight); }
+@container (max-width: 36em) {
+  .finance-glance { display: block; }
+  .finance-page .finance-table th:first-child, .finance-page .finance-table td:first-child { min-width: min(calc(100cqi - var(--budget-spaceWide)), var(--budget-timelineTableEventWidth)); max-width: min(calc(100cqi - var(--budget-spaceWide)), var(--budget-timelineTableEventWidth)); }
+}
 .finance-bank { display: grid; gap: var(--budget-spaceSmall); }
 .finance-bank dt { color: var(--budget-muted); }
 .finance-bank dd { margin: 0; white-space: nowrap; font-variant-numeric: tabular-nums; }
