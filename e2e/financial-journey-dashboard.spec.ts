@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { syntheticSheets, gviz } from '../src/dashboard/fixtures';
 import { syntheticBridgeResponse } from '../src/dashboard/bridgeFixtures';
 import { syntheticTimeline, timelineResponse } from './timelineFinanceFixture';
+import { visualizationSource } from './visualizationFixture';
 
 async function source(page: Page) {
   const raw = syntheticSheets();
@@ -196,4 +197,54 @@ test('global navigation keeps a chosen budget month through financing and back t
   await expect(page.getByRole('combobox', { name: 'Gösterilen dönem' })).toHaveValue('Aralık 2098');
   await navigate(page, 'Genel bütçe');
   await expect(page.getByRole('combobox', { name: 'Gösterilen ay' })).toHaveValue('Aralık 2098');
+});
+
+
+for (const fontState of ['loaded', 'blocked'] as const) test(`exact chart amounts reflow at 200 and 210 percent with the brand font ${fontState}`, async ({ page }, info) => {
+  await page.setViewportSize({ width: 320, height: 740 });
+  await visualizationSource(page, true);
+  let blockedFonts = 0;
+  if (fontState === 'blocked') await page.route('**/fonts/*.ttf', route => { blockedFonts++; return route.abort(); });
+  await page.goto('/aile/#/pano');
+  await page.locator('.charts-host').waitFor();
+  await page.evaluate(() => document.fonts.ready);
+  await page.locator('.charts-host').scrollIntoViewIfNeeded();
+  const cash = page.getByRole('region', { name: 'Nakit nasıl ilerliyor?' });
+  await expect(cash.getByRole('group', { name: 'Kasım 2098 değerleri' })).toContainText('1.234.567,89 ₺');
+  for (const scale of [200, 210]) {
+    await page.evaluate(async value => { document.documentElement.style.fontSize = `${value}%`; await document.fonts.ready; }, scale);
+    if (fontState === 'loaded') {
+      await page.evaluate(() => document.fonts.load('700 40px Outfit'));
+      expect(await page.evaluate(() => document.fonts.check('700 40px Outfit'))).toBe(true);
+    } else expect(blockedFonts).toBeGreaterThan(0);
+    const boxes = await cash.locator('.chart-selected dd').evaluateAll(elements => elements.flatMap(element => {
+      const range = document.createRange(); range.selectNodeContents(element);
+      const box = element.getBoundingClientRect(), style = getComputedStyle(element);
+      return [...range.getClientRects()].map(rect => ({ text: element.textContent, font: style.fontFamily, size: style.fontSize, width: rect.width, available: box.width, right: rect.right, bound: box.right }));
+    }));
+    for (const box of boxes) {
+      expect(Number.parseFloat(box.size), 'root text enlargement is preserved').toBeGreaterThanOrEqual(40);
+      expect(box.right, JSON.stringify(box)).toBeLessThanOrEqual(box.bound + 1);
+    }
+    const amount = cash.locator('.chart-selected dd').first();
+    await expect(amount).toHaveText('1.234.567,89 ₺');
+    const numericLines = await amount.evaluate(element => {
+      const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT), tops = new Set<number>();
+      while (walker.nextNode()) {
+        const node = walker.currentNode, match = node.textContent?.match(/[-\d.,]+/);
+        if (!match) continue;
+        const range = document.createRange(); range.setStart(node, match.index!); range.setEnd(node, match.index! + match[0].length);
+        for (const rect of range.getClientRects()) tops.add(Math.round(rect.top));
+      }
+      return tops.size;
+    });
+    expect(numericLines, 'normal enlarged amounts stay together; larger type wraps only at group boundaries').toBeLessThanOrEqual(scale === 200 ? 1 : 2);
+    expect(await amount.evaluate(element => {
+      const range = document.createRange(); range.selectNodeContents(element);
+      const selection = window.getSelection()!; selection.removeAllRanges(); selection.addRange(range);
+      const copied = selection.toString(); selection.removeAllRanges(); return copied;
+    }), 'selecting the amount preserves every digit and separator').toBe('1.234.567,89 ₺');
+    await cash.getByRole('heading').click();
+    await cash.screenshot({ path: info.outputPath(`pano-${fontState}-amount-320-${scale}-percent.png`) });
+  }
 });

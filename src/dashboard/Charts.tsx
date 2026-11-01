@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, type ReactNode } from 'react';
+import { Fragment, useEffect, useId, useRef, type ReactNode } from 'react';
 import { init, use } from 'echarts/core';
 import { LineChart, BarChart } from 'echarts/charts';
 import { GridComponent, TooltipComponent, LegendComponent, AriaComponent } from 'echarts/components';
@@ -27,8 +27,13 @@ function ChartSection({ title, wide, children }: { title: string; wide?: boolean
   const id = useId();
   return <section className={`chart-section${wide ? ' chart-wide' : ''}`} aria-labelledby={id}><h2 id={id}>{title}</h2>{children}</section>;
 }
+// Keep the localized text intact; only thousands separators may become a line break.
+function ChartAmount({ value }: { value: number | null }) {
+  const groups = money(value).split(/(?<=\.)/);
+  return <>{groups.map((group, index) => <Fragment key={index}>{group}{index < groups.length - 1 && <wbr />}</Fragment>)}</>;
+}
 function SelectedValues({ month, values }: { month: string; values: [string, number | null][] }) {
-  return <div className="chart-selected" role="group" aria-label={`${month} değerleri`}><p className="chart-selected-month">{month}</p><dl>{values.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{money(value)}</dd></div>)}</dl></div>;
+  return <div className="chart-selected" role="group" aria-label={`${month} değerleri`}><p className="chart-selected-month">{month}</p><dl>{values.map(([label, value]) => <div key={label}><dt>{label}</dt><dd><ChartAmount value={value} /></dd></div>)}</dl></div>;
 }
 export default function Charts({ data, selected }: { data: Budget; selected: number }) {
   const month = data.months[selected];
