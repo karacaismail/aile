@@ -57,4 +57,77 @@ test.describe('progressive chart enhancement', () => {
       await writeFile(info.outputPath('chart-progressive-requests.json'), JSON.stringify(requests, null, 2));
     } finally { release(); }
   });
+  test('an interrupted production chart import recovers through the explicit page reload', async ({ page }, info) => {
+    await visualizationSource(page);
+    let blocked = true, holdRetry = false, attempts = 0, release!: () => void;
+    const requests: string[] = [];
+    const pending = new Promise<void>(resolve => { release = resolve; });
+    await page.route(/\/assets\/Charts-.*\.js$/, async route => {
+      requests.push(route.request().url()); attempts++;
+      if (holdRetry) await pending;
+      await (blocked ? route.abort() : route.continue());
+    });
+    await page.goto('/aile/?keep=1#/finansman');
+    await page.evaluate(() => window.history.replaceState({ keep: 'navigation-state' }, '', window.location.href));
+    await page.getByRole('tab', { name: 'Aylık özet', exact: true }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Grafik yüklenemedi' })).toHaveCount(3);
+    await page.getByRole('button', { name: 'Sonraki ay · Şubat 2098' }).click();
+    const reload = page.getByRole('button', { name: 'Sayfayı yenile', exact: true });
+    await expect(reload).toBeVisible();
+    const beforeRetry = attempts;
+    holdRetry = true;
+    await reload.click();
+    const pendingButton = page.getByRole('button', { name: 'Yenileniyor…', exact: true });
+    await expect(pendingButton).toBeDisabled();
+    await expect.poll(() => attempts).toBe(beforeRetry + 1);
+    await pendingButton.evaluate((button: HTMLButtonElement) => button.click());
+    expect(attempts).toBe(beforeRetry + 1);
+    release(); holdRetry = false;
+    await expect(page.getByRole('status').filter({ hasText: 'Bağlantı henüz kurulamadı' })).toBeVisible();
+    await expect(reload).toBeEnabled();
+    await expect(page.getByRole('table', { name: 'Aylık finansman özeti' })).toBeVisible();
+    blocked = false;
+    await Promise.all([page.waitForEvent('load'), reload.click()]);
+    await expect(page.getByRole('tab', { name: 'Aylık özet', exact: true })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.locator('.finance-trends svg')).toHaveCount(3);
+    await expect(page.getByRole('region', { name: 'Şubat 2098 ay sonu' })).toBeVisible();
+    expect(new URL(page.url()).hash).toBe('#/finansman');
+    expect(new URL(page.url()).searchParams.get('keep')).toBe('1');
+    expect(new URL(page.url()).searchParams.has('financeChartMonth')).toBe(false);
+    expect(await page.evaluate(() => window.history.state)).toEqual({ keep: 'navigation-state' });
+    await expect(page.getByRole('table', { name: 'Aylık finansman özeti' })).toBeVisible();
+    await writeFile(info.outputPath('chart-recovery-requests.json'), JSON.stringify({ requests, attempts, finalUrl: page.url() }, null, 2));
+  });
+
+  test('pending chart recovery is cancelled when the month or page changes', async ({ page }) => {
+    await visualizationSource(page);
+    let hold = false, release!: () => void;
+    let pending = Promise.resolve();
+    const failures: string[] = [];
+    page.on('requestfailed', request => { if (/\/assets\/Charts-.*\.js$/.test(request.url())) failures.push(request.url()); });
+    await page.route(/\/assets\/Charts-.*\.js$/, async route => {
+      if (!hold) { await route.abort(); return; }
+      await pending; await route.continue();
+    });
+    await page.goto('/aile/#/finansman');
+    await page.getByRole('tab', { name: 'Aylık özet', exact: true }).click();
+    const reload = page.getByRole('button', { name: 'Sayfayı yenile', exact: true });
+    await expect(reload).toBeVisible();
+    for (const change of ['month', 'route']) {
+      const before = failures.length;
+      pending = new Promise<void>(resolve => { release = resolve; }); hold = true;
+      await reload.click();
+      await expect(page.getByRole('button', { name: 'Yenileniyor…', exact: true })).toBeDisabled();
+      if (change === 'month') await page.getByRole('button', { name: 'Sonraki ay · Şubat 2098' }).click();
+      else await page.evaluate(() => { window.location.hash = '/pano'; });
+      try {
+        await expect.poll(() => failures.length).toBe(before + 1);
+        if (change === 'month') {
+          await expect(reload).toBeEnabled();
+          await expect(page.getByRole('region', { name: 'Şubat 2098 ay sonu' })).toBeVisible();
+        } else expect(new URL(page.url()).hash).toBe('#/pano');
+      } finally { release(); }
+    }
+  });
+
 });

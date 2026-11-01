@@ -1,5 +1,5 @@
 .chart-context { margin: 0; color: var(--budget-muted); }
-.chart-grid > .chart-section { padding: var(--budget-spaceSmall); }
+.chart-grid > .chart-section { padding: var(--budget-spaceSmall); container-type: inline-size; }
 .chart-selected { background: var(--budget-blueSurface); border-radius: var(--budget-radius); padding: var(--budget-spaceTight); margin-top: var(--budget-spaceSmall); }
 .chart-selected .chart-selected-month { margin: 0 0 var(--budget-spaceTight); font-weight: var(--budget-headingWeight); }
 .chart-selected dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--budget-chartValueWidth)), 1fr)); gap: var(--budget-spaceSmall); margin: 0; }
@@ -8,5 +8,16 @@
 .budget-chart { overflow: hidden; }
 .chart-legend .legend-outline::before { height: var(--budget-spaceTight); border: var(--budget-focusThickness) solid var(--budget-muted); background: var(--budget-paper); }
 .budget-app .chart-data table { min-width: 100%; }
-.budget-app .chart-data th:first-child { position: static; min-width: var(--budget-timelineBankNameWidth); white-space: normal; word-break: normal; overflow-wrap: normal; }
+.budget-app .chart-data th:first-child { position: static; min-width: var(--budget-chartCategoryNameWidth); white-space: normal; word-break: normal; overflow-wrap: normal; }
 .budget-app .chart-data td { min-width: var(--budget-paymentAmountWidth); text-align: end; white-space: nowrap; }
+
+.budget-app .chart-data th { padding: var(--budget-spacing); vertical-align: top; }
+.budget-app .chart-data thead th:not(:first-child) { text-align: end; }
+.chart-category-list { display: grid; gap: var(--budget-spaceSmall); margin-top: var(--budget-spacing); }
+.chart-category-pair { padding: var(--budget-spaceSmall); background: var(--budget-canvas); border-radius: var(--budget-radius); }
+.chart-category-pair h3 { margin: 0 0 var(--budget-spaceTight); font-size: var(--budget-fontSection); }
+.chart-category-pair dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--budget-chartCategoryValueWidth)), 1fr)); gap: var(--budget-spaceSmall); margin: 0; }
+.chart-category-pair dt { color: var(--budget-muted); }
+.chart-category-pair dd { margin: var(--budget-spaceDense) 0 0; font-weight: var(--budget-headingWeight); font-variant-numeric: tabular-nums; }
+.chart-section .chart-data { display: none; }
+@container (min-width: 36em) { .chart-category-list { display: none; } .chart-section .chart-data { display: block; } }

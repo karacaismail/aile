@@ -204,3 +204,30 @@ it('adds source-backed monthly trends only in the monthly view, with exact selec
   expect(screen.getByText(/banka oranı ve geçmiş faiz teyitsiz/)).toBeInTheDocument();
   await screen.findAllByLabelText('Sentetik çizim');
 });
+
+it('restores a validated chart month after explicit recovery and consumes only its query parameter', async () => {
+  const before = window.location.href;
+  window.history.replaceState({ keep: 'navigation-state' }, '', '?keep=1&financeChartMonth=2098-02#/finansman');
+  try {
+    render(<MantineProvider><FinancePeriodProvider><FinancePage /></FinancePeriodProvider></MantineProvider>);
+    expect(screen.getByRole('combobox', { name: 'Dönem' })).toHaveValue('2098-02');
+    expect(screen.getByRole('tab', { name: 'Aylık özet' })).toHaveAttribute('aria-selected', 'true');
+    expect(new URL(window.location.href).search).toBe('?keep=1');
+    expect(window.history.state).toEqual({ keep: 'navigation-state' });
+    expect(window.location.hash).toBe('#/finansman');
+    await screen.findAllByLabelText('Sentetik çizim');
+    fireEvent.change(screen.getByRole('combobox', { name: 'Dönem' }), { target: { value: '2098-01' } });
+    expect(screen.getByRole('region', { name: 'Ocak 2098 ay sonu' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Dönem' })).toHaveValue('2098-01');
+  } finally { window.history.replaceState(null, '', before); }
+});
+
+it.each(['not-a-month', '2097-12'])('ignores invalid or out-of-ledger recovery month %s without inventing a period', month => {
+  const before = window.location.href;
+  window.history.replaceState(null, '', `?financeChartMonth=${month}#/finansman`);
+  try {
+    mount();
+    expect(screen.getByRole('combobox', { name: 'Dönem' })).toHaveValue('2098-01');
+    expect(screen.getByRole('tab', { name: 'Günlük adımlar' })).toHaveAttribute('aria-selected', 'true');
+  } finally { window.history.replaceState(null, '', before); }
+});

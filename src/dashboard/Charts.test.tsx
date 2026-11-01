@@ -55,3 +55,18 @@ it('reads categories in the same top-to-bottom order as the adjacent numeric tab
   const drawnOrder = option.yAxis.inverse ? option.yAxis.data : [...option.yAxis.data].reverse();
   expect(drawnOrder).toEqual(labels);
 });
+
+it('keeps small axis amounts distinct and names millions without rounding to thousands', () => {
+  render(<Charts data={buildBudget(syntheticSheets())} selected={0} />);
+  const format = setOption.mock.calls[0][0].yAxis.axisLabel.formatter;
+  expect([0, 200, 800, 1200000].map(format)).toEqual(['0', '200', '800', '1,2 milyon']);
+});
+
+it('groups a category with both source values for the narrow presentation, preserving unknown versus zero', () => {
+  const data = buildBudget(syntheticSheets());
+  data.groups.find(group => group.kind === 'expense')!.plan[0] = null;
+  render(<Charts data={data} selected={0} />);
+  const category = screen.getByRole('group', { name: 'Borç ve vergi tutarları' });
+  expect(within(category).getByRole('heading')).toHaveTextContent('Borç ve vergi');
+  expect(category).toHaveTextContent('PlanTutar yokGüncel0 ₺');
+});

@@ -1,4 +1,4 @@
-import { Component, lazy, Suspense, useId, useMemo, type ReactNode } from 'react';
+import { Component, lazy, Suspense, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { EChartsOption } from 'echarts';
 import type { FinanceMonth } from './data';
 import { financeMoney } from './format';
@@ -6,7 +6,13 @@ import { tokens } from '../dashboard/tokens';
 import './finance-trends.css';
 
 // Reuse the existing optional Charts chunk: opening the daily ledger never imports ECharts.
-const Plot = lazy(() => import('../dashboard/Charts').then(module => ({ default: module.Chart })));
+const preloadResources = () => [...document.querySelectorAll<HTMLLinkElement>('link[rel="modulepreload"], link[rel="stylesheet"]')].map(link => link.href).filter(href => new URL(href).origin === location.origin);
+let failedResources: string[] = [];
+const Plot = lazy(async () => {
+  const before = new Set(preloadResources());
+  try { return { default: (await import('../dashboard/Charts')).Chart }; }
+  catch (error) { failedResources = preloadResources().filter(href => !before.has(href)); throw error; }
+});
 const fields = [
   { key: 'cash', label: 'Harcanabilir nakit', color: tokens.green },
   { key: 'cardDebt', label: 'Toplam kart borcu', color: tokens.blue },
@@ -39,23 +45,52 @@ export function financeTrendOption(months: FinanceMonth[], selected: string, key
   };
 }
 
-class PlotBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+class PlotBoundary extends Component<{ children: ReactNode; onError: () => void }, { failed: boolean }> {
   state = { failed: false };
   static getDerivedStateFromError() { return { failed: true }; }
+  componentDidCatch() { this.props.onError(); }
   render() { return this.state.failed ? <p role="status">Grafik yüklenemedi. Kaynak tutarları ve aylık tablo kullanılabilir.</p> : this.props.children; }
 }
 
 export default function FinanceTrends({ months, selected, tableId }: { months: FinanceMonth[]; selected: string; tableId: string }) {
   const id = useId();
+  const [failed, setFailed] = useState(false);
+  const [recovering, setRecovering] = useState(false);
+  const [recoveryError, setRecoveryError] = useState(false);
+  const recoveryRequest = useRef<AbortController | null>(null);
+  useEffect(() => {
+    setRecovering(false); setRecoveryError(false);
+    return () => { recoveryRequest.current?.abort(); recoveryRequest.current = null; };
+  }, [selected]);
+  const recover = async () => {
+    if (recovering || recoveryRequest.current) return;
+    setRecovering(true); setRecoveryError(false);
+    const controller = new AbortController(), timeout = window.setTimeout(() => controller.abort(), 10000);
+    recoveryRequest.current = controller;
+    try {
+      // WebKit can retain a failed module resource across reloads; revalidate only this import's additions.
+      await Promise.all(failedResources.map(async href => {
+        const response = await fetch(href, { cache: 'reload', credentials: 'same-origin', signal: controller.signal });
+        if (!response.ok) throw new Error('Chart resource unavailable');
+        await response.arrayBuffer();
+      }));
+      if (recoveryRequest.current !== controller) return;
+      const url = new URL(window.location.href); url.searchParams.set('financeChartMonth', selected);
+      window.history.replaceState(window.history.state, '', url.href);
+      window.location.reload();
+    } catch { if (recoveryRequest.current === controller) { setRecoveryError(true); setRecovering(false); } }
+    finally { controller.abort(); window.clearTimeout(timeout); if (recoveryRequest.current === controller) recoveryRequest.current = null; }
+  };
   const month = months.find(value => value.month === selected)!;
   const options = useMemo(() => fields.map(field => financeTrendOption(months, selected, field.key, field.color)), [months, selected]);
   return <section className="finance-trends" aria-labelledby={id}>
     <header className="finance-trends-heading"><h2 id={id}>Nakit ve borcun seyri</h2><p>Ay sonları · Üç grafik aynı dönem ve ortak TL ölçeği kullanır. Elmas işareti seçili ayı gösterir. Çizgiler günlük bakiyeyi göstermez.</p></header>
+    {failed && <div className="finance-chart-recovery"><p>Grafikleri yeniden yüklemek için sayfayı yenileyin. Seçili ay ve Aylık özet korunur.</p><button type="button" className="quiet-button" disabled={recovering} onClick={recover}>{recovering ? 'Yenileniyor…' : 'Sayfayı yenile'}</button>{recoveryError && <p role="status">Bağlantı henüz kurulamadı. Tutarlar ve tablo kullanılabilir; yeniden deneyebilirsiniz.</p>}</div>}
     <div className="finance-trend-panels">{fields.map((field, index) => <div className="finance-trend-panel" role="group" aria-label={field.label} key={field.key}>
       <div className="finance-trend-caption"><h3>{field.label}</h3><div className="finance-trend-value"><span>{monthLabel(selected)}</span><strong>{financeMoney(month[field.key])}</strong></div></div>
-      <PlotBoundary><Suspense fallback={<p role="status">Grafik hazırlanıyor; kaynak tutarı yukarıda.</p>}><Plot label={`${field.label}: ay sonu eğilimi. Seçili ${monthLabel(selected)}: ${financeMoney(month[field.key])}. Bütün tutarlar aşağıdaki aylık tabloda.`} option={options[index]} /></Suspense></PlotBoundary>
+      <PlotBoundary onError={() => setFailed(true)}><Suspense fallback={<p role="status">Grafik hazırlanıyor; kaynak tutarı yukarıda.</p>}><Plot label={`${field.label}: ay sonu eğilimi. Seçili ${monthLabel(selected)}: ${financeMoney(month[field.key])}. Bütün tutarlar aşağıdaki aylık tabloda.`} option={options[index]} /></Suspense></PlotBoundary>
       {months.every(value => value[field.key] === 0) && <p className="finance-trend-zero">Dönemin tüm ay sonlarında 0 ₺.</p>}
     </div>)}</div>
-    <div className="finance-trend-context"><p>{monthLabel(selected)} · KMH faiz + vergi: <strong>{financeMoney(month.kmhCost)}</strong> · Fon eksiği: <strong>{financeMoney(month.fundingGap)}</strong>.</p><p>Gelecek taksit kart borcuna dahildir; grafiklere tekrar eklenmez. Hesap, gerçekleşmiş ödeme değildir.</p><a href={`#${tableId}`} onClick={event => { event.preventDefault(); const table = document.getElementById(tableId); table?.scrollIntoView({ block: 'start' }); table?.focus({ preventScroll: true }); }}>Bütün aylık tutarlara git</a></div>
+    <div className="finance-trend-context"><p>{monthLabel(selected)} · KMH faiz + vergi: <strong>{financeMoney(month.kmhCost)}</strong> · Fon eksiği: <strong>{financeMoney(month.fundingGap)}</strong>.</p><p>Gelecek taksit kart borcuna dahildir; grafiklere tekrar eklenmez. Hesap, gerçekleşmiş ödeme değildir.</p><button type="button" className="quiet-button" onClick={() => { const table = document.getElementById(tableId); table?.scrollIntoView({ block: 'start' }); table?.focus({ preventScroll: true }); }}>Bütün aylık tutarlara git</button></div>
   </section>;
 }

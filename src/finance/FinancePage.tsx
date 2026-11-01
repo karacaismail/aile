@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { periodFallback, useFinancePeriod } from '../app/family/FinancePeriod';
 import { Tabs } from '@mantine/core';
 import { Select } from '../dashboard/Select';
@@ -68,10 +68,20 @@ function MonthStep({ direction, month, onSelect }: { direction: 'previous' | 'ne
   </button>;
 }
 function FinanceContent({ data }: { data: FinanceLedger }) {
-  const [selection, setSelection] = useFinancePeriod(data.months[0].month);
-  const [view, setView] = useState<string | null>('daily');
+  const [recovery] = useState(() => {
+    const month = new URL(window.location.href).searchParams.get('financeChartMonth') ?? '';
+    return /^\d{4}-(0[1-9]|1[0-2])$/.test(month) && data.months.some(value => value.month === month) ? month : '';
+  });
+  const [selection, setSelection] = useFinancePeriod(recovery || data.months[0].month);
+  const [view, setView] = useState<string | null>(recovery ? 'monthly' : 'daily');
+  useEffect(() => {
+    if (!recovery) return;
+    setSelection(recovery);
+    const url = new URL(window.location.href); url.searchParams.delete('financeChartMonth');
+    window.history.replaceState(window.history.state, '', url.href);
+  }, [recovery, setSelection]);
   const [page, setPage] = useState(0);
-  const selected = data.months.find(month => month.month === selection) ?? data.months[0];
+  const selected = data.months.find(month => month.month === (selection || recovery)) ?? data.months[0];
   const position = data.months.indexOf(selected), previous = data.months[position - 1];
   // A period carried from another page may be outside this ledger (or Timeline's all-period scope): say which month is shown.
   const fallback = selection && selection !== selected.month ? periodFallback(selection, monthLabel(selected.month)) : null;
