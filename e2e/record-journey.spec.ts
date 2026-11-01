@@ -20,7 +20,13 @@ test('hazırlık kartı bedel, tarih ve fiyat niteliğini ayırır; teslim işar
   await expect(facts.getByText('Fiyat doğrulandı')).toBeVisible();
   await expect(facts.getByText('Sipariş son günü')).toBeVisible();
   await expect(facts.getByText('Teslim tarihi')).toBeVisible();
-  await card.getByRole('checkbox', { name: `${preparation.ad} alındı` }).check();
+  // Completion intentionally removes the card from the default Alınacaklar view.
+  await card.getByRole('checkbox', { name: `${preparation.ad} alındı` }).click();
+  await expect(card).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Son alım işlemi' })).toContainText(preparation.ad);
+  await page.getByRole('radiogroup', { name: 'Alım listesi' }).getByText('Aldıklarımız', { exact: true }).click();
+  await expect(page.getByRole('radio', { name: 'Aldıklarımız 1' })).toBeChecked();
+  await expect(card.getByRole('checkbox', { name: `${preparation.ad} alındı` })).toBeChecked();
   await expect(card).toHaveAttribute('data-done', 'true');
   await expect(card.getByText('Teslim durumu ödeme kaydı değildir.')).toBeVisible();
   await expect.poll(() => writes.some(write => write.table === 'kalemler' && write.patch?.durum === 'teslim')).toBe(true);
