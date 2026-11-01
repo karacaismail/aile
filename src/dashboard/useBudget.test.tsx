@@ -262,3 +262,60 @@ it('ends a stalled refresh, preserves the last good data and ignores its late co
   expect(hook.result.current.data).toBe(verified);
   expect(hook.result.current.error).toBeNull();
 });
+
+it('refreshes mounted data 60 seconds after each slow response completes', async () => {
+  vi.useFakeTimers();
+  const verified = buildBudget(syntheticSheets());
+  vi.mocked(fetchBudget).mockImplementation(() => new Promise(resolve => window.setTimeout(() => resolve(verified), 5_000)));
+  const hook = renderHook(() => useBudget());
+  await act(async () => { await vi.advanceTimersByTimeAsync(5_000); });
+  expect(hook.result.current.loading).toBe(false);
+  await act(async () => { await vi.advanceTimersByTimeAsync(59_999); });
+  expect(fetchBudget).toHaveBeenCalledTimes(1);
+  await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+  expect(fetchBudget).toHaveBeenCalledTimes(2);
+  await act(async () => { await vi.advanceTimersByTimeAsync(5_000); });
+  await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
+  expect(fetchBudget).toHaveBeenCalledTimes(3);
+  await act(async () => { await vi.advanceTimersByTimeAsync(5_000); });
+  hook.unmount();
+  expect(vi.getTimerCount()).toBe(0);
+});
+
+it('suspends the due refresh while hidden and removes all scheduling with the final subscriber', async () => {
+  vi.useFakeTimers();
+  const visibility = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
+  vi.mocked(fetchBudget).mockResolvedValue(buildBudget(syntheticSheets()));
+  const hook = renderHook(() => useBudget());
+  await settle();
+  visibility.mockReturnValue('hidden');
+  act(() => document.dispatchEvent(new Event('visibilitychange')));
+  expect(vi.getTimerCount()).toBe(0);
+  await act(async () => { await vi.advanceTimersByTimeAsync(120_000); });
+  act(() => { window.dispatchEvent(new Event('focus')); window.dispatchEvent(new Event('online')); });
+  expect(fetchBudget).toHaveBeenCalledTimes(1);
+  visibility.mockReturnValue('visible');
+  act(() => document.dispatchEvent(new Event('visibilitychange')));
+  await settle();
+  expect(fetchBudget).toHaveBeenCalledTimes(2);
+  hook.unmount();
+  expect(vi.getTimerCount()).toBe(0);
+  await act(async () => { await vi.advanceTimersByTimeAsync(120_000); });
+  act(() => { document.dispatchEvent(new Event('visibilitychange')); window.dispatchEvent(new Event('focus')); });
+  expect(fetchBudget).toHaveBeenCalledTimes(2);
+});
+
+it('keeps the first rendered re-enable snapshot loading after an abandoned cold read', () => {
+  vi.mocked(fetchBudget).mockImplementation(() => new Promise(() => {}));
+  const renders: ReturnType<typeof useBudget>[] = [];
+  const hook = renderHook(({ enabled }) => {
+    const value = useBudget(enabled);
+    renders.push(value);
+    return value;
+  }, { initialProps: { enabled: true } });
+  hook.rerender({ enabled: false });
+  const nextRender = renders.length;
+  hook.rerender({ enabled: true });
+  expect(renders[nextRender]).toMatchObject({ data: null, error: null, loading: true });
+  expect(fetchBudget).toHaveBeenCalledTimes(2);
+});

@@ -6,16 +6,23 @@ const freshnessMs = 60_000;
 let state: BudgetState = { data: null, error: null, loading: true, updatedAt: null };
 const subscribers = new Set<() => void>();
 let request: { controller: AbortController; timeout: number } | null = null;
-let interval: number | undefined;
+let refreshTimer: number | undefined;
 
 // Only fetchBudget's validated result is retained, in this tab's memory.
 const publish = (next: BudgetState) => {
   state = next;
   subscribers.forEach(notify => notify());
 };
+// Schedule from completion, not mount, so network latency cannot skip a minute.
+const schedule = (delay: number) => {
+  window.clearTimeout(refreshTimer);
+  if (subscribers.size && !request && document.visibilityState === 'visible') refreshTimer = window.setTimeout(visibleRefresh, Math.min(delay, freshnessMs));
+};
 const refresh = (force = false) => {
-  const fresh = state.data !== null && state.error === null && state.updatedAt !== null && Date.now() - state.updatedAt.getTime() < freshnessMs;
-  if (!subscribers.size || request || (!force && fresh)) return;
+  if (!subscribers.size || request) return;
+  const remaining = state.data !== null && state.error === null && state.updatedAt !== null ? freshnessMs - (Date.now() - state.updatedAt.getTime()) : 0;
+  if (!force && remaining > 0) { schedule(remaining); return; }
+  window.clearTimeout(refreshTimer);
   const current = { controller: new AbortController(), timeout: 0 };
   request = current;
   publish({ ...state, loading: true });
@@ -24,6 +31,7 @@ const refresh = (force = false) => {
     request = null;
     window.clearTimeout(current.timeout);
     publish(next);
+    schedule(freshnessMs);
   };
   const fail = (error: unknown) => finish({
     ...state,
@@ -41,7 +49,10 @@ const refresh = (force = false) => {
     fail,
   );
 };
-const visibleRefresh = () => { if (document.visibilityState === 'visible') refresh(); };
+const visibleRefresh = () => {
+  window.clearTimeout(refreshTimer);
+  if (document.visibilityState === 'visible') refresh();
+};
 
 export const budgetStore = {
   getSnapshot: () => state,
@@ -49,7 +60,6 @@ export const budgetStore = {
   subscribe: (notify: () => void) => {
     subscribers.add(notify);
     if (subscribers.size === 1) {
-      interval = window.setInterval(visibleRefresh, freshnessMs);
       document.addEventListener('visibilitychange', visibleRefresh);
       window.addEventListener('focus', visibleRefresh);
       window.addEventListener('online', visibleRefresh);
@@ -58,7 +68,7 @@ export const budgetStore = {
     return () => {
       subscribers.delete(notify);
       if (subscribers.size) return;
-      window.clearInterval(interval);
+      window.clearTimeout(refreshTimer);
       document.removeEventListener('visibilitychange', visibleRefresh);
       window.removeEventListener('focus', visibleRefresh);
       window.removeEventListener('online', visibleRefresh);
@@ -67,7 +77,7 @@ export const budgetStore = {
       request = null;
       window.clearTimeout(abandoned.timeout);
       abandoned.controller.abort();
-      publish({ ...state, loading: false });
+      publish({ ...state, loading: state.data === null && state.error === null });
     };
   },
 };
