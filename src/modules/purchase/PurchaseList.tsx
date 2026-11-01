@@ -10,7 +10,7 @@ import { ShoppingCartIcon } from '@phosphor-icons/react/dist/csr/ShoppingCart';
 import { useDebouncedValue, useLocalStorage } from '@mantine/hooks';
 import { Link, Route, useLocation } from 'wouter';
 import type { Item } from '@shared/schema';
-import { getState, useAppStore } from '@/sync/store';
+import { getState, subscribe, useAppStore } from '@/sync/store';
 import { upsert } from '@/sync/controller';
 import { toDate, todayIso } from '@/lib/dates';
 import {
@@ -48,6 +48,7 @@ function readStored(v: string | undefined): PurchaseFilters {
 }
 
 type PurchaseView = 'pending' | 'done' | 'all';
+interface CompletionAction { token: symbol; id: string; name: string; previous: Item['durum']; next: 'teslim' | 'karar'; valid: boolean; keyboard: boolean }
 const PURCHASE_VIEWS = [
   { value: 'pending', label: 'Alınacaklar' },
   { value: 'done', label: 'Aldıklarımız' },
@@ -69,11 +70,30 @@ export function PurchaseList() {
   const [sheet, setSheet] = useState(false);
   const [view, setView] = useState<PurchaseView>('pending');
   const viewRef = useRef<HTMLDivElement>(null);
-  const undoTokens = useRef(new Map<string, symbol>());
+  const [completion, setCompletion] = useState<CompletionAction | null>(null);
+  const completionRef = useRef<CompletionAction | null>(null);
+  const undoButtonRef = useRef<HTMLButtonElement>(null);
+  const completionPanelRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const pending = undoTokens.current;
-    return () => { pending.forEach((_, id) => notifications.hide(`done-${id}`)); pending.clear(); };
+    let lastItems = getState().items;
+    const unsubscribe = subscribe(() => {
+      const items = getState().items;
+      if (items === lastItems) return;
+      lastItems = items;
+      const action = completionRef.current;
+      if (!action?.valid) return;
+      const current = items.find(item => item.id === action.id && !item.deleted_at);
+      // Observe every store transition, including multiple updates inside one React render batch.
+      if (!current || current.durum !== action.next) {
+        completionRef.current = { ...action, valid: false };
+        setCompletion(completionRef.current);
+      }
+    });
+    return () => { unsubscribe(); completionRef.current = null; };
   }, []);
+  useEffect(() => {
+    if (completion?.keyboard) undoButtonRef.current?.focus();
+  }, [completion?.token, completion?.keyboard]);
   const todayKey = todayIso(new Date());
   const now = useMemo(() => toDate(todayKey), [todayKey]);
 
@@ -121,42 +141,29 @@ export function PurchaseList() {
   const toggleDone = (item: Item, done: boolean) => {
     const current = getState().items.find(candidate => candidate.id === item.id && !candidate.deleted_at);
     if (!current || current.durum === 'iptal') return;
-    const previous = current.durum;
-    const token = Symbol(item.id);
-    undoTokens.current.set(item.id, token);
-    const nid = `done-${item.id}`;
-    notifications.hide(nid);
-    const keyboard = document.documentElement.dataset.keyboard === 'true';
-    const next = done ? 'teslim' : 'karar';
-    upsert('kalemler', item.id, { durum: next });
-    let undoButton: HTMLButtonElement | null = null;
-    notifications.show({
-      id: nid, autoClose: false, color: 'teal', withCloseButton: true, closeButtonProps: { size: 'xl', 'aria-label': 'Kapat' },
-      onOpen: () => { if (keyboard) undoButton?.focus(); },
-      onClose: () => { if (undoTokens.current.get(item.id) === token) undoTokens.current.delete(item.id); },
-      message: (
-        <Group wrap="wrap" gap="xs">
-          <span style={{ minWidth: 0, flexBasis: '100%' }}>{current.ad} {done ? 'alındı olarak işaretlendi.' : 'için Alındı işareti kaldırıldı.'}</span>
-          <Button ref={node => { undoButton = node; }} size="sm" h={tokens.targetMin} style={{ flexShrink: 0 }} variant="subtle" color="ember"
-            leftSection={<ArrowCounterClockwiseIcon size={16} aria-hidden />} onClick={() => {
-              if (undoTokens.current.get(item.id) !== token) return;
-              undoTokens.current.delete(item.id);
-              notifications.hide(nid);
-              const latest = getState().items.find(candidate => candidate.id === item.id && !candidate.deleted_at);
-              if (!latest || latest.durum !== next) {
-                notifications.show({ message: 'Kayıt değişti; eski işaretleme geri alınmadı.', color: 'yellow' });
-                setFocusAfterShow(item.id);
-                return;
-              }
-              // Yalnız bizim durum değişikliğimiz geri alınır; yeni fiyat, not ve diğer alanlar korunur.
-              upsert('kalemler', item.id, { durum: previous ?? null });
-              setFocusAfterShow(item.id);
-            }}>
-            Geri al
-          </Button>
-        </Group>
-      ),
-    });
+    const action: CompletionAction = { token: Symbol(item.id), id: item.id, name: current.ad, previous: current.durum,
+      next: done ? 'teslim' : 'karar', valid: true, keyboard: document.documentElement.dataset.keyboard === 'true' };
+    completionRef.current = action;
+    upsert('kalemler', item.id, { durum: action.next });
+    setCompletion(completionRef.current);
+  };
+  const closeCompletion = (action: CompletionAction) => {
+    if (completionRef.current?.token !== action.token) return;
+    const returnFocus = document.documentElement.dataset.keyboard === 'true' && completionPanelRef.current?.contains(document.activeElement);
+    completionRef.current = null;
+    setCompletion(null);
+    if (returnFocus) setFocusAfterShow(action.id);
+  };
+  const undoCompletion = (action: CompletionAction) => {
+    const active = completionRef.current;
+    if (active?.token !== action.token || !active.valid) return;
+    const current = getState().items.find(item => item.id === action.id && !item.deleted_at);
+    if (!current || current.durum !== action.next) return;
+    completionRef.current = null;
+    setCompletion(null);
+    // Only status is restored. The latest price, note and other fields remain untouched.
+    upsert('kalemler', action.id, { durum: action.previous ?? null });
+    setFocusAfterShow(action.id);
   };
 
   // Yeni kalem kullanıcının baktığı yere eklenir: etkin faz ve tek seçili oda/kategori ön değer olur.
@@ -207,6 +214,16 @@ export function PurchaseList() {
       {hasAny && <div ref={viewRef} className={classes.views}>
         <SegmentedControl fullWidth value={view} onChange={value => chooseView(value as PurchaseView)} aria-label="Alım listesi"
           data={PURCHASE_VIEWS.map(({ value, label }) => ({ value, label: <span className={classes.viewLabel}><span>{label}</span> <span className="tabular">{viewCounts[value]}</span></span> }))} />
+      </div>}
+      {completion && <div ref={completionPanelRef} role="region" aria-label="Son alım işlemi" className={classes.completion}>
+        <strong>Son alım işlemi</strong>
+        <CloseButton size="xl" aria-label="Kapat" onClick={() => closeCompletion(completion)} />
+        <p role="status" className={classes.completionMessage}>
+          {completion.name} {completion.next === 'teslim' ? 'alındı olarak işaretlendi.' : 'için Alındı işareti kaldırıldı.'}
+          {!completion.valid && <> Kayıt değişti; bu işlem artık geri alınamaz.</>}
+        </p>
+        <Button ref={undoButtonRef} size="sm" h={tokens.targetMin} variant="subtle" color="ember" aria-disabled={!completion.valid}
+          className={classes.undoButton} leftSection={<ArrowCounterClockwiseIcon size={16} aria-hidden />} onClick={() => undoCompletion(completion)}>Geri al</Button>
       </div>}
       <TotalsBar faz={f.faz} onFaz={(faz) => setFilters({ ...f, faz })} totals={totals} count={list.length} total={baseCount} filtered={filtered} />
       {hasAny && (

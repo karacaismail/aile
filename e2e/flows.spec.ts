@@ -208,11 +208,11 @@ test('alım kurtarma: Alındı sonrası kalıcı Geri al ve klavye odağı kayda
   for (let i = 0; i < 40 && !(await checkbox.evaluate(el => el === document.activeElement)); i++) await page.keyboard.press(browserName === 'webkit' ? 'Alt+Tab' : 'Tab');
   await expect(checkbox).toBeFocused();
   await page.keyboard.press('Space');
-  const toast = page.getByRole('alert').filter({ hasText: `${recoveryName} alındı` });
+  const toast = page.getByRole('region', { name: 'Son alım işlemi' }).filter({ hasText: `${recoveryName} alındı` });
   const undo = toast.getByRole('button', { name: 'Geri al' });
   await expect(undo).toBeFocused();
   if (page.viewportSize()!.width === 320) {
-    const message = toast.getByText(`${recoveryName} alındı olarak işaretlendi.`, { exact: true });
+    const message = toast.getByRole('status');
     const textBox = (await message.boundingBox())!;
     const actionBox = (await undo.boundingBox())!;
     expect(actionBox.y, 'narrow toast places action after the full-width message').toBeGreaterThanOrEqual(textBox.y + textBox.height);
@@ -254,7 +254,7 @@ test('alım kurtarma: Aldıklarımızdan sonradan kaldırma, ters işlemde Geri 
   await page.screenshot({ path: testInfo.outputPath('purchase-completed.png'), fullPage: true });
   await page.route('**/macros/s/**', route => route.abort('internetdisconnected'));
   await checkbox.click();
-  const toast = page.getByRole('alert').filter({ hasText: 'Alındı işareti kaldırıldı' });
+  const toast = page.getByRole('region', { name: 'Son alım işlemi' }).filter({ hasText: 'Alındı işareti kaldırıldı' });
   await toast.getByRole('button', { name: 'Geri al' }).click();
   await expect(checkbox).toBeChecked();
   await expect(page.getByTestId('item-card').getByText('Kuruldu', { exact: true })).toBeVisible();
@@ -291,4 +291,51 @@ test('alım kurtarma: 320 görünüm seçicisi ve ilk kayıt birlikte okunur', a
     })), 'view names and counts fit their own targets without small text').toBe(true);
     await page.screenshot({ path: testInfo.outputPath(`purchase-320x${height}.png`) });
   }
+});
+
+test('alım kurtarma: klavyeyle bildirimi kapatınca odak mevcut listede kalır', async ({ page, browserName }) => {
+  await mockApi(page, recoveryData);
+  await page.goto('/#/satinalma');
+  const checkbox = page.getByRole('checkbox', { name: `${recoveryName} alındı` });
+  await expect(checkbox).toBeVisible();
+  const tab = browserName === 'webkit' ? 'Alt+Tab' : 'Tab';
+  for (let i = 0; i < 40 && !(await checkbox.evaluate(el => el === document.activeElement)); i++) await page.keyboard.press(tab);
+  await expect(checkbox).toBeFocused();
+  await page.keyboard.press('Space');
+  const toast = page.getByRole('region', { name: 'Son alım işlemi' }).filter({ hasText: `${recoveryName} alındı` });
+  const undo = toast.getByRole('button', { name: 'Geri al' });
+  await expect(undo).toBeFocused();
+  const close = toast.getByRole('button', { name: 'Kapat' });
+  await page.keyboard.press(browserName === 'webkit' ? 'Alt+Shift+Tab' : 'Shift+Tab');
+  await expect(close).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(toast).toBeHidden();
+  const selected = page.getByRole('radio', { name: 'Alınacaklar 0' });
+  await expect(selected).toBeFocused();
+  await expect(selected).toBeInViewport();
+  expect(await selected.evaluate(el => ({ keyboard: document.documentElement.dataset.keyboard, ring: getComputedStyle(el).outlineStyle, label: getComputedStyle(el.nextElementSibling!).textDecorationLine }))).toEqual({ keyboard: 'true', ring: 'none', label: 'underline' });
+});
+
+test('alım kurtarma: dört işlemden sonra son Geri al görünür ve klavyeyle erişilir', async ({ page, browserName }) => {
+  const items = Array.from({ length: 4 }, (_, i) => ({ id: `completion-${i}`, tip: 'satinalma', ad: `Deneme kalemi ${i + 1}`, durum: 'siparis', version: 1 }));
+  await mockApi(page, { settings: [], items });
+  await page.goto('/#/satinalma');
+  for (let i = 1; i <= 3; i++) await page.getByRole('checkbox', { name: `Deneme kalemi ${i} alındı` }).click();
+  const last = page.getByRole('checkbox', { name: 'Deneme kalemi 4 alındı' });
+  const tab = browserName === 'webkit' ? 'Alt+Tab' : 'Tab';
+  for (let i = 0; i < 40 && !(await last.evaluate(el => el === document.activeElement)); i++) await page.keyboard.press(tab);
+  await expect(last).toBeFocused();
+  await page.keyboard.press('Space');
+  const undo = page.getByRole('region', { name: 'Son alım işlemi' }).filter({ hasText: 'Deneme kalemi 4 alındı' }).getByRole('button', { name: 'Geri al' });
+  await expect(undo).toBeVisible();
+  await expect(undo).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('checkbox', { name: 'Deneme kalemi 4 alındı' })).not.toBeChecked();
+  await expect(page.getByTestId('item-card')).toHaveCount(1);
+  await page.getByText('Aldıklarımız', { exact: true }).click();
+  await expect(page.getByTestId('item-card')).toHaveCount(3);
+  await page.getByRole('checkbox', { name: 'Deneme kalemi 1 alındı' }).click();
+  await page.getByRole('region', { name: 'Son alım işlemi' }).getByRole('button', { name: 'Kapat' }).click();
+  await expect(page.getByRole('radio', { name: 'Aldıklarımız 2' })).not.toBeFocused();
+  expect(await page.evaluate(() => document.documentElement.dataset.keyboard)).toBe('false');
 });

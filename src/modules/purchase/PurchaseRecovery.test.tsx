@@ -2,9 +2,8 @@ import { beforeEach, expect, it, vi } from 'vitest';
 import { act, render, screen, userEvent, within } from '@/test-utils/render';
 import { Router } from 'wouter';
 import { memoryLocation } from 'wouter/memory-location';
-import { notifications } from '@mantine/notifications';
 import type { Item } from '@shared/schema';
-import { getState, resetStore, setState } from '@/sync/store';
+import { applyRead, getState, resetStore, setState } from '@/sync/store';
 import { upsert } from '@/sync/controller';
 import { PurchaseList } from './PurchaseList';
 
@@ -23,18 +22,14 @@ function mount(items: Item[] = [item]) {
   return render(<Router hook={hook}><PurchaseList /></Router>);
 }
 function undoMessage() {
-  expect(notifications.show).toHaveBeenCalled();
-  const notification = vi.mocked(notifications.show).mock.calls.at(-1)![0];
-  render(<>{notification.message}</>);
-  return notification;
+  return screen.getByRole('region', { name: 'Son alım işlemi' });
 }
 
 it('moves checked items to Aldıklarımız and offers a persistent named undo that restores only status', async () => {
   mount();
   await userEvent.click(screen.getByRole('checkbox', { name: 'Deneme koltuğu alındı' }));
   expect(within(screen.getByTestId('item-list')).queryByText('Deneme koltuğu')).not.toBeInTheDocument();
-  const notification = undoMessage();
-  expect(notification.autoClose).toBe(false);
+  expect(undoMessage()).toBeInTheDocument();
   expect(screen.getByText(/Deneme koltuğu.*alındı/)).toBeInTheDocument();
   act(() => setState({ items: [{ ...getState().items[0], not: 'Yeni sunucu notu', gercek_tl: 900 }] }));
   await userEvent.click(screen.getByRole('button', { name: 'Geri al' }));
@@ -81,7 +76,11 @@ it('does not time out the only immediate undo action', async () => {
   localStorage.setItem('aile:purchase:filters', JSON.stringify({ hideDone: true }));
   mount();
   await userEvent.click(screen.getByRole('checkbox', { name: 'Deneme koltuğu alındı' }));
-  expect(undoMessage().autoClose).toBe(false);
+  vi.useFakeTimers();
+  try {
+    act(() => vi.advanceTimersByTime(10000));
+    expect(within(undoMessage()).getByRole('button', { name: 'Geri al' })).toBeInTheDocument();
+  } finally { vi.useRealTimers(); }
 });
 
 it('offers the same undo after an accidental uncheck and restores Kuruldu exactly', async () => {
@@ -89,8 +88,7 @@ it('offers the same undo after an accidental uncheck and restores Kuruldu exactl
   await userEvent.click(screen.getByRole('radio', { name: 'Aldıklarımız 1' }));
   await userEvent.click(screen.getByRole('checkbox', { name: 'Deneme koltuğu alındı' }));
   expect(within(screen.getByTestId('item-list')).queryByText('Deneme koltuğu')).not.toBeInTheDocument();
-  const notification = undoMessage();
-  expect(notification.autoClose).toBe(false);
+  expect(undoMessage()).toBeInTheDocument();
   await userEvent.click(screen.getByRole('button', { name: 'Geri al' }));
   expect(upsert).toHaveBeenLastCalledWith('kalemler', item.id, { durum: 'kuruldu' });
   expect(screen.getByRole('checkbox', { name: 'Deneme koltuğu alındı' })).toBeChecked();
@@ -106,19 +104,14 @@ it('does not revive a deleted item', async () => {
   expect(upsert).not.toHaveBeenCalled();
 });
 
-it('invalidates an older undo after another completion action on the same item', async () => {
-  mount();
-  await userEvent.click(screen.getByRole('checkbox', { name: 'Deneme koltuğu alındı' }));
-  undoMessage();
-  const olderUndo = screen.getByRole('button', { name: 'Geri al' });
-  await userEvent.click(screen.getByRole('radio', { name: 'Aldıklarımız 1' }));
-  await userEvent.click(screen.getByRole('checkbox', { name: 'Deneme koltuğu alındı' }));
-  await userEvent.click(screen.getByRole('radio', { name: 'Alınacaklar 1' }));
-  await userEvent.click(screen.getByRole('checkbox', { name: 'Deneme koltuğu alındı' }));
-  vi.mocked(upsert).mockClear();
-  await userEvent.click(olderUndo);
-  expect(upsert).not.toHaveBeenCalled();
-  expect(getState().items[0].durum).toBe('teslim');
+it('keeps only the latest of four actions; Undo preserves earlier statuses and every note', async () => {
+  const items = Array.from({ length: 4 }, (_, index) => ({ ...item, id: `item-${index}`, ad: `Kalem ${index}`, not: `Not ${index}` }));
+  mount(items);
+  for (const entry of items) await userEvent.click(screen.getByRole('checkbox', { name: `${entry.ad} alındı` }));
+  expect(screen.getAllByRole('region', { name: 'Son alım işlemi' })).toHaveLength(1);
+  expect(undoMessage()).toHaveTextContent('Kalem 3');
+  await userEvent.click(screen.getByRole('button', { name: 'Geri al' }));
+  getState().items.forEach((entry, index) => expect(entry).toMatchObject({ durum: index === 3 ? 'siparis' : 'teslim', not: `Not ${index}` }));
 });
 
 it('preserves phase, room, search and sort while removing only an incompatible status filter', async () => {
@@ -134,4 +127,30 @@ it('preserves phase, room, search and sort while removing only an incompatible s
   expect(screen.getByText('Deneme masa')).toBeInTheDocument();
   expect(screen.queryByText('Mutfak masası')).not.toBeInTheDocument();
   expect(screen.getAllByTestId('item-card')).toHaveLength(1);
+});
+
+
+it.each(['kuruldu', 'karar', 'deleted'] as const)('invalidates an old undo across observed %s then teslim, even inside one React batch', async intermediate => {
+  mount();
+  await userEvent.click(screen.getByRole('checkbox', { name: 'Deneme koltuğu alındı' }));
+  undoMessage();
+  const delivered = { ...getState().items[0], version: 2 };
+  act(() => {
+    applyRead({ ok: true, fingerprint: 'remote-3', serverTime: 't3', schemaVersion: 2, settings: [], items: [{ ...delivered, version: 3, ...(intermediate === 'deleted' ? { deleted_at: 't3' } : { durum: intermediate }) }] });
+    applyRead({ ok: true, fingerprint: 'remote-4', serverTime: 't4', schemaVersion: 2, settings: [], items: [{ ...delivered, version: 4 }] });
+  });
+  vi.mocked(upsert).mockClear();
+  await userEvent.click(screen.getByRole('button', { name: 'Geri al' }));
+  expect(upsert).not.toHaveBeenCalled();
+  expect(getState().items[0]).toMatchObject({ durum: 'teslim', version: 4 });
+});
+
+it('preserves undo across observed remote note and price updates with unchanged status', async () => {
+  mount();
+  await userEvent.click(screen.getByRole('checkbox', { name: 'Deneme koltuğu alındı' }));
+  undoMessage();
+  act(() => applyRead({ ok: true, fingerprint: 'notes', serverTime: 't', schemaVersion: 2, settings: [], items: [{ ...getState().items[0], version: 7, not: 'Sunucudan yeni not', gercek_tl: 12345 }] }));
+  await userEvent.click(screen.getByRole('button', { name: 'Geri al' }));
+  expect(upsert).toHaveBeenLastCalledWith('kalemler', item.id, { durum: 'siparis' });
+  expect(getState().items[0]).toMatchObject({ not: 'Sunucudan yeni not', gercek_tl: 12345 });
 });

@@ -11,3 +11,7 @@
 .views { padding: var(--budget-spaceTight); background: var(--budget-blueSurface); }
 .viewLabel { display: flex; flex-direction: column; justify-content: center; gap: var(--budget-spaceDense); line-height: var(--budget-lineCompact); white-space: normal; }
 .views :global(.mantine-SegmentedControl-label) { padding-inline: var(--budget-spaceDense); min-height: var(--budget-targetMin); display: flex; align-items: center; justify-content: center; }
+
+.completion { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--budget-spaceDense) var(--budget-spaceTight); align-items: center; margin: var(--budget-spaceTight); padding: var(--budget-spaceTight) var(--budget-spacing); background: var(--budget-greenSurface); border-radius: var(--budget-radius); }
+.completionMessage { grid-column: 1 / -1; margin: 0; min-width: 0; }
+.undoButton { justify-self: start; }

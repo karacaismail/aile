@@ -1,8 +1,8 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { act, render, screen, userEvent } from '@/test-utils/render';
 import { Router } from 'wouter';
+import { Notifications, notifications } from '@mantine/notifications';
 import { memoryLocation } from 'wouter/memory-location';
-import { notifications } from '@mantine/notifications';
 import type { BatchRequest } from '@shared/api';
 import { ITEM_COLUMNS, ITEM_HEADERS, SETTING_COLUMNS, SETTING_HEADERS, type Item } from '@shared/schema';
 import { applyBatch, createTableState } from '../../../gas/src/core';
@@ -12,8 +12,7 @@ import { getState, resetStore, setState } from '@/sync/store';
 import * as cache from '@/sync/cache';
 import { PurchaseList } from './PurchaseList';
 
-vi.mock('@mantine/notifications', () => ({ notifications: { show: vi.fn(), hide: vi.fn() } }));
-afterEach(() => { stopSync(); vi.restoreAllMocks(); localStorage.clear(); });
+afterEach(() => { act(() => notifications.clean()); stopSync(); vi.restoreAllMocks(); localStorage.clear(); });
 it('roundtrips a missing status through the real offline controller, JSON queue and server patch implementation', async () => {
   resetStore(); localStorage.clear();
   setApiUrl('https://script.google.com/macros/s/test/exec');
@@ -26,7 +25,6 @@ it('roundtrips a missing status through the real offline controller, JSON queue 
   render(<Router hook={hook}><PurchaseList /></Router>);
   await userEvent.click(screen.getByRole('checkbox', { name: 'Durumsuz kalem alındı' }));
   await act(async () => { await flush(); });
-  render(<>{vi.mocked(notifications.show).mock.calls.at(-1)![0].message}</>);
   await userEvent.click(screen.getByRole('button', { name: 'Geri al' }));
   await act(async () => { await flush(); });
   expect(getState().items[0].durum).toBeUndefined();
@@ -51,4 +49,29 @@ it('roundtrips a missing status through the real offline controller, JSON queue 
   expect(getState().items[0]).not.toHaveProperty('durum');
   expect(getState().items[0].not).toBe('Korunacak not');
   expect(getState().outbox).toEqual([]);
+});
+
+
+it('keeps the latest purchase action outside a full global notification queue', async () => {
+  resetStore(); localStorage.clear();
+  setApiUrl('https://script.google.com/macros/s/test/exec');
+  vi.spyOn(cache, 'saveOutbox').mockResolvedValue(true);
+  vi.spyOn(cache, 'saveCache').mockResolvedValue(undefined);
+  configureController({ fetchImpl: vi.fn(async () => { throw new TypeError('offline'); }) });
+  const items: Item[] = Array.from({ length: 4 }, (_, index) => ({ id: `queue-${index}`, tip: 'satinalma', ad: `Kuyruk kalemi ${index}`, durum: 'siparis', not: `Not ${index}` }));
+  setState({ hydrated: true, status: 'synced', items });
+  const { hook } = memoryLocation({ path: '/satinalma' });
+  render(<><Notifications limit={3} /><Router hook={hook}><PurchaseList /></Router></>);
+  act(() => { for (let index = 0; index < 4; index++) notifications.show({ id: `other-module-${index}`, message: `Başka bölüm bildirimi ${index}`, autoClose: false }); });
+  expect(screen.getAllByText(/Başka bölüm bildirimi/)).toHaveLength(3);
+  expect(screen.queryByText('Başka bölüm bildirimi 3')).not.toBeInTheDocument();
+  for (const entry of items) await userEvent.click(screen.getByRole('checkbox', { name: `${entry.ad} alındı` }));
+  const local = screen.getByRole('region', { name: 'Son alım işlemi' });
+  expect(local).toHaveTextContent('Kuyruk kalemi 3');
+  expect(screen.getAllByText(/Başka bölüm bildirimi/)).toHaveLength(3);
+  expect(screen.queryByText('Başka bölüm bildirimi 3')).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: 'Geri al' }));
+  await act(async () => { await flush(); });
+  expect(getState().items[3]).toMatchObject({ durum: 'siparis', not: 'Not 3' });
+  expect(getState().items[0]).toMatchObject({ durum: 'teslim', not: 'Not 0' });
 });
