@@ -33,7 +33,7 @@ describe('Pages yayın kapısı', () => {
     const deploy = readFileSync(join(workflowDir, 'deploy.yml'), 'utf8');
     const gate = deploy.split('\n').find((line) => /^\s*- run: pnpm exec playwright test .*e2e\/settings-cache\.spec\.ts/.test(line));
     expect(gate, 'hedefli tarayıcı kapısı satırı').toBeDefined();
-    for (const needle of ['e2e/flows.spec.ts', 'e2e/budget.spec.ts', 'e2e/settings-cache.spec.ts', 'e2e/sync-recovery.spec.ts', '--project=iphone4', '--project=iphone12-webkit']) expect(gate).toContain(needle);
+    for (const needle of ['e2e/purchase-hierarchy.spec.ts', 'e2e/flows.spec.ts', 'e2e/budget.spec.ts', 'e2e/settings-cache.spec.ts', 'e2e/sync-recovery.spec.ts', '--project=iphone4', '--project=iphone12-webkit']) expect(gate).toContain(needle);
     expect(gate).not.toMatch(/--project=(tablet|laptop|desktop)/);
   });
 });
