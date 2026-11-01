@@ -1,6 +1,8 @@
 // Tek kaynak: sekme adları, sütunlar, enum'lar ve Türkçe etiketler.
 // Hem uygulama (src), hem Apps Script (gas), hem tohumlama (scripts) buradan okur.
 
+import { PURCHASE_CATEGORIES, PURCHASE_CATEGORY_LABELS } from './purchaseCategories.ts';
+
 export const SHEETS = { items: 'app_kalemler', settings: 'app_ayarlar', cash: 'app_nakit' } as const;
 /** Elle tutulan bütçe sekmeleri: uygulama planı okur (salt okunur), gerçekleşen sekmesi günlüğe bağlanır. */
 export const BUDGET_SHEETS = { plan: 'Giderler Planlanan', actual: 'Giderler Gerçekleşen', pano: 'Pano' } as const;
@@ -8,10 +10,7 @@ export const SCHEMA_VERSION = 2;
 
 export const TIP = ['satinalma', 'aydinlatma', 'tadilat', 'yerlesim', 'usta', 'kontrol', 'sahne', 'kilometre'] as const;
 export const ODA = ['salon', 'cocuk', 'ebeveyn', 'calisma', 'mutfak', 'banyo', 'wc', 'hol', 'balkon1', 'balkon2', 'genel'] as const;
-export const KATEGORI = [
-  'mobilya', 'tekstil', 'beyaz_esya', 'mutfak', 'aydinlatma_akilli', 'aydinlatma_led', 'elektrik', 'iscilik',
-  'boya', 'guvenlik', 'kopek', 'bebek', 'masraf', 'hizmet', 'idari', 'diger',
-] as const;
+export const KATEGORI = PURCHASE_CATEGORIES;
 export const FAZ = ['1', '2', '3'] as const;
 export const DURUM = ['fikir', 'arastirma', 'karar', 'siparis', 'teslim', 'kuruldu', 'iptal'] as const;
 export const BIRIM = ['adet', 'm', 'rulo', 'set'] as const;
@@ -327,7 +326,7 @@ export interface BudgetPlan { year?: number; groups: BudgetGroup[] }
 export const LABELS: Record<string, Record<string, string>> = {
   tip: { satinalma: 'Satınalma', aydinlatma: 'Aydınlatma', tadilat: 'Tadilat', yerlesim: 'Yerleşim', usta: 'Usta', kontrol: 'Kontrol', sahne: 'Sahne', kilometre: 'Kilometre taşı' },
   oda: { salon: 'Salon', cocuk: 'Çocuk odası', ebeveyn: 'Ebeveyn odası', calisma: 'Çalışma odası', mutfak: 'Mutfak', banyo: 'Banyo', wc: 'WC', hol: 'Hol / antre', balkon1: 'Balkon 1', balkon2: 'Balkon 2', genel: 'Genel' },
-  kategori: { mobilya: 'Mobilya', tekstil: 'Tekstil', beyaz_esya: 'Beyaz eşya', mutfak: 'Mutfak', aydinlatma_akilli: 'Akıllı aydınlatma', aydinlatma_led: 'LED / armatür', elektrik: 'Elektrik malzemesi', iscilik: 'İşçilik', boya: 'Boya', guvenlik: 'Güvenlik', kopek: 'Köpek', bebek: 'Bebek', masraf: 'Masraf', hizmet: 'Hizmet', idari: 'İdari', diger: 'Diğer' },
+  kategori: PURCHASE_CATEGORY_LABELS,
   faz: { '1': 'Önce', '2': 'Sonra', '3': 'Bebek' },
   fazUzun: { '1': 'Taşınma öncesi (≤18 Şub)', '2': 'Taşınma sonrası · yerleşme (19 Şub – Bayram)', '3': 'Bebek hazırlığı (Nis–Eyl)' },
   durum: { fikir: 'Fikir', arastirma: 'Araştırma', karar: 'Karar', siparis: 'Sipariş', teslim: 'Teslim', kuruldu: 'Kuruldu', iptal: 'İptal' },

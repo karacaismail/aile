@@ -37,6 +37,11 @@ describe('trLower', () => {
 });
 
 describe('guessOda / guessKategori', () => {
+  it('pet kelimesi sepet veya halı adını köpek kategorisine taşımaz; gerçek pet kullanımı korunur', () => {
+    for (const name of ['WC fırçası ve çöp sepeti', 'Banyo sepeti', 'Sepet', 'Carpet', 'Şpet', 'petçi', 'pet2']) expect(guessKategori(name)).not.toBe('kopek');
+    for (const name of ['PET-MESH', 'pet mesh', 'KÖPEK bakım seti', 'Köpek tasması', 'Mama kabı']) expect(guessKategori(name)).toBe('kopek');
+    expect(guessKategori('Banyo sepeti', [['kopek', ['banyo sepeti']]])).toBe('kopek');
+  });
   it('anahtar kelimeden oda ve kategori tahmini', () => {
     expect(guessOda('Çocuk ofis sandalyesi')).toBe('cocuk');
     expect(guessOda('Tezgâh altı aydınlatma')).toBe('mutfak');

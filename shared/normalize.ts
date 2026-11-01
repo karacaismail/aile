@@ -62,7 +62,8 @@ export const KATEGORI_KEYWORDS: KeywordMap<Kategori> = [
 function matchKeywords<T extends string>(name: string, map: KeywordMap<T>): T | undefined {
   const n = trLower(name);
   for (const [key, words] of map) {
-    if (words.some((w) => n.includes(trLower(w)))) return key;
+    // Kısa İngilizce pet, sepet/carpet içindeki harf dizisi değildir. Diğer kök eşleşmeleri korunur.
+    if (words.some((w) => trLower(w) === 'pet' ? /(?:^|[^\p{L}\p{N}])pet(?:$|[^\p{L}\p{N}])/u.test(n) : n.includes(trLower(w)))) return key;
   }
   return undefined;
 }
