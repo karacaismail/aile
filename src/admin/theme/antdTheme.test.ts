@@ -1,7 +1,8 @@
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { join, relative, resolve } from 'node:path';
 import { theme } from '../ui/antd';
 import { designTokens } from '../../design/tokens.ts';
+import { importsOf } from '../adaptive/sourceRules';
 import { aileTema, themeFor } from './antdTheme';
 
 // Kaynak: aile-tasarim/tasarim-sistemi/README.md › "Ant Design 6 eşlemesi". Değerler oradan birebir;
@@ -76,6 +77,8 @@ describe('aileTema (Ant Design 6 eşlemesi)', () => {
     expect(t.controlOutline).toBe('transparent');
     expect(t.controlOutlineWidth).toBe(0);
     expect(t.lineWidthFocus).toBe(0);
+    // antd 6 tohum anahtarı: odakta görünür antd çizgisi kapalı (alias lineWidthFocus'u buradan da 0 türetir).
+    expect(t.focusOutline).toBe(false);
     expect(t.motionDurationFast).toBe('0.24s');
     expect(t.motionDurationMid).toBe('0.24s');
     expect(t.motionDurationSlow).toBe('0.24s');
@@ -106,6 +109,7 @@ describe('aileTema (Ant Design 6 eşlemesi)', () => {
     expect(hex(menu.itemHoverBg)).toBe('#eaf1f6');
     expect(menu.activeBarWidth).toBe(0);
     expect(menu.activeBarBorderWidth).toBe(0);
+    expect(menu.activeBarHeight).toBe(0);
   });
 
   it('maps Table, Tag, Tabs, Select and Drawer surfaces', () => {
@@ -124,6 +128,42 @@ describe('aileTema (Ant Design 6 eşlemesi)', () => {
     expect(hex(component('Select').optionActiveBg)).toBe('#eaf1f6');
     expect(component('Select').optionHeight).toBe(44);
     expect(component('Drawer').colorBgMask).toBe('rgba(27, 62, 85, 0.48)');
+  });
+
+  it('derived antd tokens keep the bridge: no font below 14 px, no focus ring, one duration and one curve', () => {
+    const derived = theme.getDesignToken(themeFor(false)) as unknown as Record<string, unknown>;
+    const small = Object.entries(derived).filter(([key, value]) => /^fontSize/.test(key) && typeof value === 'number' && value < 14);
+    expect(small).toEqual([]);
+    expect(derived.focusOutline).toBe(false);
+    expect(derived.lineWidthFocus).toBe(0);
+    expect(derived.controlOutlineWidth).toBe(0);
+    expect(derived.controlOutline).toBe('transparent');
+    const eases = Object.entries(derived).filter(([key]) => /^motionEase/.test(key));
+    expect(eases.length).toBeGreaterThan(0);
+    for (const [key, value] of eases) expect(value, key).toBe(designTokens.egri);
+    const durations = Object.entries(derived).filter(([key]) => /^motionDuration/.test(key));
+    expect(durations.length).toBeGreaterThan(0);
+    for (const [key, value] of durations) expect(value, key).toBe(`${designTokens.sure / 1000}s`);
+    expect(theme.getDesignToken(themeFor(true)).motion).toBe(false);
+  });
+
+  it('is consumed only by adaptive/WideProviders at runtime and imports antd only as a type', () => {
+    const repo = resolve(__dirname, '../../..');
+    const src = resolve(repo, 'src');
+    const users: string[] = [];
+    const walk = (dir: string) => {
+      for (const entry of readdirSync(dir)) {
+        const path = join(dir, entry);
+        if (statSync(path).isDirectory()) { walk(path); continue; }
+        if (!/\.(tsx?|mts)$/.test(entry) || /\.test\.(tsx?|mts)$/.test(entry)) continue;
+        const refs = importsOf(readFileSync(path, 'utf8'));
+        if (refs.some(ref => !ref.typeOnly && /(^|\/)antdTheme(\.ts)?$/.test(ref.specifier))) users.push(relative(repo, path).split('\\').join('/'));
+      }
+    };
+    walk(src);
+    expect(users).toEqual(['src/admin/adaptive/WideProviders.tsx']);
+    const own = importsOf(readFileSync(resolve(__dirname, 'antdTheme.ts'), 'utf8'));
+    expect(own.filter(ref => !ref.typeOnly && /^(antd|@ant-design)(\/|$)|(^|\/)antd(\.ts)?$/.test(ref.specifier))).toEqual([]);
   });
 
   it('derives every colour from designTokens instead of literal values', () => {
