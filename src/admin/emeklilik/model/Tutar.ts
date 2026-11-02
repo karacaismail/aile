@@ -76,6 +76,19 @@ export class Tutar {
     return Tutar.aralik(islem(aAlt, bAlt), islem(aUst, bUst), kaynak);
   }
 
+  /**
+   * Senaryo senaryo çok girdili işlem (esle'nin genellemesi): her senaryoda girdilerin o senaryodaki değerleri verilir.
+   * Bilinmiyor yayılır (nedenler birleşir); hepsi bilinense sonuç bilinendir.
+   */
+  static senaryoIslemi(tutarlar: readonly Tutar[], islem: (degerler: readonly Para[]) => Para): Tutar {
+    const nedenler = tutarlar.reduce<readonly string[]>((acc, t) => (t.d.tur === 'bilinmiyor' ? birlestir(acc, t.d.nedenler) : acc), []);
+    if (tutarlar.some((t) => t.d.tur === 'bilinmiyor')) return Tutar.bilinmiyor(nedenler);
+    const kaynak = tutarlar.reduce<readonly string[]>((acc, t) => (t.d.tur === 'bilinmiyor' ? acc : birlestir(acc, t.d.kaynaklar)), []);
+    const senaryo = (i: 0 | 1) => islem(tutarlar.map((t) => t.senaryolar()![i]));
+    if (tutarlar.every((t) => t.d.tur === 'bilinen')) return Tutar.bilinen(senaryo(0), kaynak);
+    return Tutar.aralik(senaryo(0), senaryo(1), kaynak);
+  }
+
   /** Her senaryoya tekli işlem. */
   donustur(islem: (p: Para) => Para): Tutar {
     const d = this.d;

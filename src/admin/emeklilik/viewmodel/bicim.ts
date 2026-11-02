@@ -25,12 +25,12 @@ export class TurkceBicimleyici {
   private readonly oranBicimi = new Intl.NumberFormat(LOCALE, { style: 'percent', maximumFractionDigits: 2 });
   private readonly oranGirdiBicimi = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 2, useGrouping: false });
 
-  /** '208089.00' → '₺208.089,00'; bozuk metin 'Bilinmiyor'. */
+  /** '178362.00' → '₺178.362,00'; bozuk metin 'Bilinmiyor'. */
   para(tl: TlMetni): string {
     return TL.test(tl) ? this.paraBicimi.format(tl as `${number}`) : BILINMIYOR;
   }
 
-  /** İşaretli tutar (fark): '+₺240.114,98', '-₺1.250,00', sıfır işaretsiz. */
+  /** İşaretli tutar (fark): '+₺121.638,00', '-₺1.250,00', sıfır işaretsiz. */
   isaretliPara(tl: TlMetni): string {
     return TL.test(tl) ? this.isaretliParaBicimi.format(tl as `${number}`) : BILINMIYOR;
   }
@@ -72,7 +72,7 @@ export class TurkceBicimleyici {
     return tl.startsWith('-') ? -1 : 1;
   }
 
-  /** 'YYYY-MM' → 'Aralık 2027'. */
+  /** 'YYYY-MM' → 'Mayıs 2033'. */
   ay(ay: AyMetni): string {
     const eslesme = AY.exec(ay);
     const no = eslesme ? Number(eslesme[2]) : 0;
@@ -99,14 +99,14 @@ export class TurkceBicimleyici {
     return this.oranBicimi.format(oran);
   }
 
-  /** Referansa göre ay farkı: '14 ay erken', 'Aynı ay', '3 ay geç'; bilinmiyorsa 'Bilinmiyor'. */
+  /** Referansa göre ay farkı: '12 ay erken', 'Aynı ay', '3 ay geç'; bilinmiyorsa 'Bilinmiyor'. */
   erken(ay: number | null): string {
     if (ay === null) return BILINMIYOR;
     if (ay === 0) return 'Aynı ay';
     return ay > 0 ? `${this.sayi(ay)} ay erken` : `${this.sayi(-ay)} ay geç`;
   }
 
-  /** Düzenlenebilir taslak: '208089.00' → '208.089,00'. */
+  /** Düzenlenebilir taslak: '178362.00' → '178.362,00'. */
   paraGirdisi(tl: TlMetni): string {
     return TL.test(tl) ? this.girdiBicimi.format(tl as `${number}`) : '';
   }

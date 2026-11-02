@@ -150,7 +150,7 @@ export class Para {
     return `${this.kurus < 0 ? '-' : ''}${tam}.${kesir}`;
   }
 
-  /** '₺208.089,00' biçimi; eksi işareti U+2212. */
+  /** '₺178.362,00' biçimi; eksi işareti U+2212. */
   goster(): string {
     const mutlak = Math.abs(this.kurus);
     const tam = binlikle(String(Math.trunc(mutlak / 100)));

@@ -3,7 +3,7 @@
 // Gecikme oranı verilirse ödenmeyen borca, kayıt ayından emeklilik ayına kadar basit faizle eklenir; kesinti
 // döneminde ayrıca gecikme eklenmez (sade varsayım).
 import type { TutarBilgisi } from '../contract';
-import type { Para } from './Para';
+import { Para } from './Para';
 import { Tutar } from './Tutar';
 import { tamSayi, yuzde } from './bicim';
 
@@ -84,6 +84,23 @@ export class KesintiPlani {
     if (!Number.isSafeInteger(n) || n < 0) throw new RangeError(`Ay sayısı geçersiz: ${n}`);
     if (n === 0) return Tutar.sifir('Kesinti yok');
     return this.kesinti.carpTam(n).esle(this.kalanBorc, (k: Para, b: Para) => (k.karsilastir(b) <= 0 ? k : b));
+  }
+
+  /**
+   * Emekliliğin ilk n ayında eline geçen net toplam: her ay max(0, kullanılabilir − o ayın kesintisi). Kullanılabilir =
+   * aylık − diğer kesintiler. Net aylık eksiye düşmez; kesinti borç bitince durur (son ay yalnız kalan borç).
+   * Kapalı biçim, senaryo senaryo: m = ⌈borç / kesinti⌉ ay; ilk m − 1 ay tam kesinti, m. ay kalan, sonra kesintisiz.
+   */
+  netToplam(n: number, kullanilabilir: Tutar): Tutar {
+    if (!Number.isSafeInteger(n) || n < 0) throw new RangeError(`Ay sayısı geçersiz: ${n}`);
+    return Tutar.senaryoIslemi([kullanilabilir, this.kesinti, this.kalanBorc], ([a, k, b]) => {
+      const net = (kesinti: Para) => Para.enBuyuk(a!.cikar(kesinti), Para.sifir());
+      if (!k!.pozitifMi() || !b!.pozitifMi()) return net(Para.sifir()).carpTam(n);
+      const m = b!.kacBirim(k!)!;
+      const toplam = net(k!).carpTam(Math.min(n, m - 1));
+      if (n < m) return toplam;
+      return toplam.topla(net(b!.cikar(k!.carpTam(m - 1)))).topla(net(Para.sifir()).carpTam(n - m));
+    });
   }
 
   ozet(): KesintiOzeti {

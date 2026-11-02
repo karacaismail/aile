@@ -4,7 +4,7 @@
 // Kurallar:
 //  - Yalnız surum 1 kabul edilir.
 //  - Tarih 'YYYY-AA-GG' (takvimde geçerli, saatsiz), ay 'YYYY-AA'. TL metni nokta ondalıklı, işaretsiz, en çok iki hanedir
-//    ('208089.00'); sayı tipi, yerel biçim ('1.234,56') ve üslü yazım reddedilir. Tutar hiçbir yerde kayan noktaya
+//    ('8500.00'); sayı tipi, yerel biçim ('1.234,56') ve üslü yazım reddedilir. Tutar hiçbir yerde kayan noktaya
 //    çevrilmez: aralık uçları kuruş tamsayısıyla (BigInt) karşılaştırılır.
 //  - TutarBilgisi ayrık birleşimdir ('bilinen' | 'aralik' | 'bilinmiyor'); kaynak/neden boş olamaz.
 //  - Bilinmeyen alanlar reddedilmez ama sonuçtan düşer (Zod nesnesinin varsayılan davranışı); kaynak araçlar yeni alan
@@ -84,6 +84,8 @@ export const EmeklilikProfiliSemasi = z
       ilkSigortaGirisi: Tarih,
       hedefGun: Gun,
       sigortalilikYili: Gun,
+      // İsteğe bağlı asgari yaş şartı (tam yıl); yoksa yaş şartı uygulanmaz (docs/EMEKLILIK-PLANI.md).
+      asgariYas: Gun.max(100, { error: 'en çok 100 olabilir' }).optional(),
       kayitliGun: z.object({ gun: Gun, sonAy: Ay, once2008Gun: Gun, sonra2008Gun: Gun }),
       gunDuzeltmesi: z.object({ gun: z.int({ error: 'tam sayı olmalı' }), aciklama: Metin }),
       planlananCalisma: z.array(PlanlananCalisma, { error: 'liste olmalı' }),

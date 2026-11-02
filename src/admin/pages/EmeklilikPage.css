@@ -130,6 +130,15 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* --- Hesap hatası: ErrorState üstte, eylem "Varsayımları sıfırla" hemen altında; sunum yerinde kalır --------------------- */
+.aile-em-hata {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-3);
+  min-width: 0;
+}
+.aile-em-hata__eylem { display: flex; justify-content: flex-start; }
+
 /* --- Sonuç: yüzey ----------------------------------------------------------------------------------------------------- */
 .aile-em-sonuc {
   padding: var(--aile-bosluk-4);
@@ -216,6 +225,8 @@
   min-width: 0;
 }
 .aile-em-onay { display: flex; flex-direction: column; gap: var(--aile-bosluk-1); }
+/* Bayrağın güncel değeri (iş ücreti ve kaynağı): birincil metin rengi, tutar hizalı; açıklamadan sonra gelir. */
+.aile-em-onay__not { font-variant-numeric: tabular-nums; overflow-wrap: break-word; }
 .aile-em-onay__satir {
   position: relative;
   display: flex;
@@ -318,7 +329,8 @@
   gap: var(--aile-bosluk-2) var(--aile-bosluk-4);
 }
 
-/* ₺ tutarı taşıyan açıklama ve gerekçe metinleri: rakamlar hizalı (₺8.500,00, tabular-nums). */
+/* ₺ tutarı taşıyan açıklama, gerekçe ve ihya yolu aylık metinleri: rakamlar hizalı (₺8.500,00, tabular-nums). */
 .aile-em-soru__aciklama,
 .aile-em-oneri__gerekce,
-.aile-em-radyo__metin { font-variant-numeric: tabular-nums; }
+.aile-em-radyo__metin,
+.aile-em-yol dd { font-variant-numeric: tabular-nums; }

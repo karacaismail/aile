@@ -31,6 +31,19 @@ describe('HizmetSecenegi alt sınıfları', () => {
     expect(new Ihya().maliyet(v, MEVZUAT_2026)).toMatchObject({ tur: 'bilinen', tl: '247725.00' });
   });
 
+  it('yuvarlama sırası: günlük bedel önce kuruşa yuvarlanır, sonra gün sayısıyla çarpılır (tam bölünmeyen alt sınır)', () => {
+    // 1.000,01 × %45 = 450,0045 → ₺450,00; 360 gün × ₺450,00 = ₺162.000,00 (yuvarlanmadan çarpılsa ₺162.001,62 olurdu).
+    const mevzuat = { ...MEVZUAT_2026, gunlukKazancAltSiniriTl: '1000.01' };
+    const v = sentetikVarsayimlar((k) => { k.secenekGirdileri.askerlik.gunlukBedelTl = null; });
+    const askerlik = new AskerlikBorclanmasi(360);
+    expect(askerlik.gunlukBedel(v, mevzuat).bedel.tlMetni()).toBe('450.00');
+    expect(askerlik.maliyet(v, mevzuat)).toMatchObject({ tur: 'bilinen', tl: '162000.00' });
+    // Yarım kuruş sıfırdan uzağa: 1.000,10 × %45 = 450,045 → ₺450,05; 500 gün → ₺225.025,00.
+    const yarim = { ...MEVZUAT_2026, gunlukKazancAltSiniriTl: '1000.10' };
+    const ihya = sentetikVarsayimlar((k) => { k.secenekGirdileri.ihya.gunlukBedelTl = null; });
+    expect(new Ihya().maliyet(ihya, yarim)).toMatchObject({ tur: 'bilinen', tl: '225025.00' });
+  });
+
   it('elle girilen günlük bedeli kullanır ve kaynağı ayırır', () => {
     const v = sentetikVarsayimlar((k) => { k.secenekGirdileri.askerlik.gunlukBedelTl = '600.00'; });
     const elle = new AskerlikBorclanmasi(360).maliyet(v, MEVZUAT_2026);

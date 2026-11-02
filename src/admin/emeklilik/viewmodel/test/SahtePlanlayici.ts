@@ -8,6 +8,8 @@
 //   - Aylık: sgkReferans → profil referansı, kazancTahmini → KAZANC_TAHMINI, elle → varsayımdaki tutar (yoksa bilinmiyor).
 //   - Kesinti: Bağ-Kur ödenmezse ve oran > 0 ise; borç bilinmiyorsa süre null.
 //   - Karşılaştırma: dönem sonunda fark = erkenAy × aylık − ödeme (kuruş); ödeme bilinmiyorsa bilinmiyor.
+//   - Geri kazanma: ⌈ödeme / aylık⌉ ay, erken ay içindeyse; değilse null ve neden yok ("dönem içinde geri dönmüyor").
+//   - İş ücreti: profildeki net ücret (zamsız), kaynağı "Profildeki net ücret".
 import {
   BILESIM_SIRASI,
   SECENEK_ANAHTARLARI,
@@ -48,6 +50,10 @@ const ayFarki = (a: string, b: string): number => {
   const [yb, ab] = b.split('-').map(Number);
   return (yb! * 12 + ab!) - (ya! * 12 + aa!);
 };
+
+/** Elle aylık: tutar yoksa gerçek ElleAylikModeli gibi adıyla bilinmiyor. */
+const elleAylikBilgisi = (tl: TlMetni | null): TutarBilgisi =>
+  tl === null ? { tur: 'bilinmiyor', neden: 'Elle aylık girilmedi.' } : { tur: 'bilinen', tl, kaynak: 'Elle' };
 
 type Cagri = 'yol' | 'karsilastir' | 'yolKarsilastir' | 'tumBilesimler' | 'secimEtkileri' | 'oneri' | 'varsayilanVarsayimlar';
 
@@ -119,7 +125,7 @@ export class SahtePlanlayici implements EmeklilikPlanlayici {
   }
 
   private aylik(v: Varsayimlar): TutarBilgisi {
-    if (v.aylikModeli === 'elle') return v.elleAylikTl ? { tur: 'bilinen', tl: v.elleAylikTl, kaynak: 'Elle' } : { tur: 'bilinmiyor', neden: 'Elle aylık girilmedi' };
+    if (v.aylikModeli === 'elle') return elleAylikBilgisi(v.elleAylikTl);
     if (v.aylikModeli === 'kazancTahmini') return { tur: 'bilinen', tl: KAZANC_TAHMINI, kaynak: 'Sahte tahmin' };
     return { tur: 'bilinen', tl: this.profil.sgkReferansAylik.tl, kaynak: 'SGK referansı' };
   }
@@ -161,11 +167,14 @@ export class SahtePlanlayici implements EmeklilikPlanlayici {
     const odeme = yol.odeme.tur === 'bilinen' ? kurus(yol.odeme.tl) : null;
     const neden = yol.odeme.tur === 'bilinmiyor' ? yol.odeme.neden
       : yol.odeme.tur === 'aralik' ? 'Ödeme aralık; tek fark hesaplanmadı'
-        : aylik === null ? 'Aylık bilinmiyor'
+        : yol.aylik.tur === 'bilinmiyor' ? yol.aylik.neden
           : erkenAy === null ? 'Tarih yok' : null;
     const fark = (aylar: number): TutarBilgisi => neden || odeme === null || aylik === null
       ? { tur: 'bilinmiyor', neden: neden ?? 'Bilinmiyor' }
       : { tur: 'bilinen', tl: tlMetni(aylar * aylik - odeme), kaynak: 'Sahte fark' };
+    const geri = neden || odeme === null || aylik === null ? null
+      : odeme <= 0 ? 0
+        : aylik > 0 && Math.ceil(odeme / aylik) <= Math.max(0, erkenAy ?? 0) ? Math.ceil(odeme / aylik) : null;
     return {
       referans,
       yol,
@@ -173,8 +182,9 @@ export class SahtePlanlayici implements EmeklilikPlanlayici {
       ekOdeme: yol.odeme,
       gecYolEmekliOlunca: fark(erkenAy ?? 0),
       donemSonunda: fark(erkenAy ?? 0),
-      geriKazanmaAylikSayisi: neden || odeme === null || aylik === null ? null : Math.ceil(odeme / aylik),
+      geriKazanmaAylikSayisi: geri,
       hesaplanamayanNeden: neden,
+      isUcreti: { tur: 'bilinen', tl: this.profil.kazanc.netUcretTl, kaynak: 'Profildeki net ücret' },
     };
   }
 
@@ -188,8 +198,9 @@ export class SahtePlanlayici implements EmeklilikPlanlayici {
     this.cagrilar.yolKarsilastir++;
     this.denetle();
     this.sonYolKarsilastir = { a, b, varsayim, elleAylik };
+    // Gerçek modelle aynı (planlayiciSozlesmesi.test.ts): anahtar yoksa seçili model; varsa (null dahil) elle model.
     const elle = (tl: TlMetni | null | undefined, yol: YolSonucu): YolSonucu =>
-      tl ? { ...yol, aylik: { tur: 'bilinen', tl, kaynak: 'Elle' }, aylikModeli: 'elle' } : yol;
+      tl === undefined ? yol : { ...yol, aylik: elleAylikBilgisi(tl), aylikModeli: 'elle' };
     return this.kiyasla(elle(elleAylik?.a, this.yol(a, varsayim)), elle(elleAylik?.b, this.yol(b, varsayim)));
   }
 

@@ -1,5 +1,5 @@
 // Biçimleyici ve ayrıştırıcı: görünüm hesap yapmaz; ViewModel bütün metinleri bu iki sınıfla üretir.
-// Para tr-TR "₺8.500,00" (iki ondalık), ay "Aralık 2027" (saat diliminden bağımsız), oran "%10", gün "5.900 gün".
+// Para tr-TR "₺8.500,00" (iki ondalık), ay "Mayıs 2033" (saat diliminden bağımsız), oran "%10", gün "5.900 gün".
 // Ayrıştırma Türkçe yazım: binlik nokta, ondalık virgül; belirsiz girdi ("8.5") tahmin edilmez, hata verir.
 import { describe, expect, it } from 'vitest';
 import { TurkceBicimleyici } from './bicim';
@@ -10,10 +10,10 @@ const a = new TurkceSayiAyristirici();
 
 describe('TurkceBicimleyici', () => {
   it('formats TL decimal text as ₺8.500,00 without floating rounding, signed on demand', () => {
-    expect(b.para('208089.00')).toBe('₺208.089,00');
+    expect(b.para('178362.00')).toBe('₺178.362,00');
     expect(b.para('0.5')).toBe('₺0,50');
     expect(b.para('1234567.89')).toBe('₺1.234.567,89');
-    expect(b.isaretliPara('240114.98')).toBe('+₺240.114,98');
+    expect(b.isaretliPara('121638.00')).toBe('+₺121.638,00');
     expect(b.isaretliPara('-1250.00')).toBe('-₺1.250,00');
     expect(b.isaretliPara('0.00')).toBe('₺0,00');
     expect(b.isaretliPara('-0.00')).toBe('₺0,00');
@@ -25,8 +25,8 @@ describe('TurkceBicimleyici', () => {
   });
 
   it('formats months in Turkish independent of the time zone; invalid month is named', () => {
-    expect(b.ay('2027-12')).toBe('Aralık 2027');
-    expect(b.ay('2028-01')).toBe('Ocak 2028');
+    expect(b.ay('2032-05')).toBe('Mayıs 2032');
+    expect(b.ay('2033-01')).toBe('Ocak 2033');
     expect(b.ay('2031-08')).toBe('Ağustos 2031');
     expect(b.ay('2027-13')).toBe('Bilinmiyor');
     expect(b.tarih('2026-11-02')).toBe('2 Kasım 2026');
@@ -42,7 +42,7 @@ describe('TurkceBicimleyici', () => {
   });
 
   it('formats TutarBilgisi: known amount, range and unknown with its reason', () => {
-    expect(b.tutar({ tur: 'bilinen', tl: '208089.00', kaynak: 'x' })).toBe('₺208.089,00');
+    expect(b.tutar({ tur: 'bilinen', tl: '178362.00', kaynak: 'x' })).toBe('₺178.362,00');
     expect(b.tutar({ tur: 'aralik', altTl: '300000.00', ustTl: '450000.00', kaynak: 'x' })).toBe('₺300.000,00 – ₺450.000,00');
     expect(b.tutar({ tur: 'bilinmiyor', neden: 'Düzeltilmiş borç girilmedi' })).toBe('Bilinmiyor · Düzeltilmiş borç girilmedi');
     expect(b.isaretliTutar({ tur: 'bilinen', tl: '-5.00', kaynak: 'x' })).toBe('-₺5,00');
@@ -59,14 +59,14 @@ describe('TurkceBicimleyici', () => {
   });
 
   it('describes earliness in months', () => {
-    expect(b.erken(14)).toBe('14 ay erken');
+    expect(b.erken(12)).toBe('12 ay erken');
     expect(b.erken(0)).toBe('Aynı ay');
     expect(b.erken(-3)).toBe('3 ay geç');
     expect(b.erken(null)).toBe('Bilinmiyor');
   });
 
   it('turns TL text into an editable Turkish draft and back', () => {
-    expect(b.paraGirdisi('208089.00')).toBe('208.089,00');
+    expect(b.paraGirdisi('178362.00')).toBe('178.362,00');
     expect(b.paraGirdisi('0.50')).toBe('0,50');
     expect(b.oranGirdisi(0.1)).toBe('10');
     expect(b.oranGirdisi(0.105)).toBe('10,5');

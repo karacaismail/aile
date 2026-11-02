@@ -7,6 +7,7 @@ import {
   type Oneri,
   type Secim,
   type SecenekAnahtari,
+  type TlMetni,
   type TutarBilgisi,
   type Varsayimlar,
 } from '../contract';
@@ -15,7 +16,7 @@ import { TurkceBicimleyici } from './bicim';
 import { BORC_ALANI, BorcKaynagiSecici } from './borcKaynagi';
 import { EkranSunucu, bilesimAnahtari, secimEsit, type HesapDurumu, type Hesaplar } from './EkranSunucu';
 import type { AlanAnahtari, BayrakAnahtari, BorcKaynagiAnahtari, EmeklilikEkrani, IhyaAlanAnahtari, IhyaYolu } from './ekran';
-import { VarsayimFormu, type IhyaGirdileri } from './form';
+import { VarsayimFormu, type CaprazHata, type IhyaGirdileri } from './form';
 import { Hatirlayici } from './hatirlayici';
 
 // Emeklilik planı ViewModel'i (MVVM). Durum: seçim (üç bağımsız Evet/Hayır), varsayımlar, form taslakları ve doğrulama
@@ -25,6 +26,9 @@ import { Hatirlayici } from './hatirlayici';
 // Hesap kuralları modelindir; ViewModel hesap yapmaz, yalnız ayrıştırır, doğrular, önbelleğe alır ve adlandırır.
 // Önbellek: sekiz bileşim ve öneri yalnız varsayımlara bağlıdır; seçim değişince yeniden hesaplanmaz.
 // Hata: planlayıcı hata atarsa ekran "Hesap yapılamadı: …" durumuna geçer (sayfa çökmez); sonraki komut yeniden dener.
+// Alanlar arası kural (ortak ödeme borcu aşamaz) planlayıcıya gitmeden formda denetlenir: istenen varsayımlar (aday)
+// kuralı bozarsa alan hatası yazılır ve planlayıcıya borç/ortak ödeme çiftinin son geçerli hâli gider; diğer
+// değişiklikler yine uygulanır. Böylece kullanıcı yazarken sayfa hata durumuna düşmez (odak ve açık bölüm korunur).
 // Bağ-Kur borcunun kaynağı (borcKaynagi.ts): varsayılan "SGK düzeltilmiş tutarı bilinmiyor"dur; planlayıcının varsayılan
 // varsayımlarındaki profil borcu bu yüzden seçili kaynağın borcuyla değiştirilir (ilk yüklemede ve sıfırlamada).
 
@@ -68,6 +72,19 @@ function borcYaz(v: Varsayimlar, borc: TutarBilgisi): Varsayimlar {
   return { ...v, secenekGirdileri: { ...v.secenekGirdileri, bagkur: { ...v.secenekGirdileri.bagkur, borc } } };
 }
 
+/** Çapraz kurala giren çift: düzeltilmiş borç ve yalnız SSK yolunda da ödenecek tutar. */
+type BorcCifti = Pick<Varsayimlar['secenekGirdileri']['bagkur'], 'borc' | 'yalnizSskYolundaOdenecek'>;
+const ORTAK_ALANI: AlanAnahtari = 'bagkurOrtakOdeme';
+
+function ciftOku(v: Varsayimlar): BorcCifti {
+  const { borc, yalnizSskYolundaOdenecek } = v.secenekGirdileri.bagkur;
+  return { borc, yalnizSskYolundaOdenecek };
+}
+
+function ciftYaz(v: Varsayimlar, cift: BorcCifti): Varsayimlar {
+  return { ...v, secenekGirdileri: { ...v.secenekGirdileri, bagkur: { ...v.secenekGirdileri.bagkur, ...cift } } };
+}
+
 const istanbulGunu = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Istanbul', year: 'numeric', month: '2-digit', day: '2-digit' });
 
 function hataMetni(hata: unknown): string {
@@ -77,7 +94,14 @@ function hataMetni(hata: unknown): string {
 
 export class EmeklilikPlaniViewModel implements EmeklilikPlaniKomutlari, EmeklilikEkranDeposu {
   private secim: Secim = HICBIRI;
+  /** Planlayıcıya giden varsayımlar: adayın kuralı bozmayan hâli (borç/ortak ödeme çifti son geçerli değerinde). */
   private varsayim: Varsayimlar | null = null;
+  /** Kullanıcının istediği varsayımlar (ayrıştırılan her değer); ekranda bunlar görünür. */
+  private aday: Varsayimlar | null = null;
+  private sonGecerliCift: BorcCifti | null = null;
+  private caprazHata: CaprazHata | null = null;
+  /** Çapraz hatanın yazıldığı alan: borç alanı düzenlendiyse orası, diğer durumlarda ortak ödeme alanı. */
+  private caprazAlan: AlanAnahtari = ORTAK_ALANI;
   private ihyaGirdileri: IhyaGirdileri | null = null;
   private readonly taslaklar = new Map<string, string>();
   private readonly hatalar = new Map<string, string>();
@@ -130,7 +154,7 @@ export class EmeklilikPlaniViewModel implements EmeklilikPlaniKomutlari, Emeklil
 
   /** Öneriyi seçer ("Bunu seç"). Öneri yoksa (hesap hatası) bir şey yapmaz. */
   oneriyiSec(): void {
-    const oneri = this.guvenli(() => this.varsayimHesabi(this.varsayim!).oneri);
+    const oneri = this.guvenli(() => this.varsayimHesabi(this.varsayimlariAl()).oneri);
     if (!oneri || secimEsit(oneri.secim, this.secim)) return;
     this.secim = { ...oneri.secim };
     this.yenile();
@@ -154,12 +178,12 @@ export class EmeklilikPlaniViewModel implements EmeklilikPlaniKomutlari, Emeklil
     const kaynakDegisti = alan === BORC_ALANI && this.borcKaynagiUygula('elle');
     if (this.taslaklar.get(alan) === metin && !kaynakDegisti) return;
     this.taslaklar.set(alan, metin);
-    if (this.varsayim) {
-      const sonuc = tanim.uygula(this.varsayim, metin);
+    if (this.aday) {
+      const sonuc = tanim.uygula(this.aday, metin);
       if (sonuc.tamam) {
         this.hatalar.delete(alan);
-        this.varsayim = sonuc.durum;
         if (alan === BORC_ALANI) this.borcKaynagi.elleAyarla(sonuc.durum.secenekGirdileri.bagkur.borc);
+        this.adayUygula(sonuc.durum, alan);
       } else {
         this.hatalar.set(alan, sonuc.hata);
       }
@@ -168,8 +192,8 @@ export class EmeklilikPlaniViewModel implements EmeklilikPlaniKomutlari, Emeklil
   }
 
   aylikModeliSec(model: AylikModeliAdi): void {
-    if (!this.varsayim || this.varsayim.aylikModeli === model) return;
-    this.varsayim = { ...this.varsayim, aylikModeli: model };
+    if (!this.aday || this.aday.aylikModeli === model) return;
+    this.adayUygula({ ...this.aday, aylikModeli: model });
     this.yenile();
   }
 
@@ -182,8 +206,8 @@ export class EmeklilikPlaniViewModel implements EmeklilikPlaniKomutlari, Emeklil
   }
 
   bayrakDegistir(bayrak: BayrakAnahtari, deger: boolean): void {
-    if (!this.varsayim || this.varsayim[bayrak] === deger) return;
-    this.varsayim = { ...this.varsayim, [bayrak]: deger };
+    if (!this.aday || this.aday[bayrak] === deger) return;
+    this.adayUygula({ ...this.aday, [bayrak]: deger });
     this.yenile();
   }
 
@@ -195,6 +219,10 @@ export class EmeklilikPlaniViewModel implements EmeklilikPlaniKomutlari, Emeklil
     const onceki = this.ihyaGirdileri;
     this.borcKaynagi.sifirla();
     this.varsayim = null;
+    this.aday = null;
+    this.sonGecerliCift = null;
+    this.caprazHata = null;
+    this.caprazAlan = ORTAK_ALANI;
     this.ihyaGirdileri = null;
     if (this.varsayimlariYukle() && onceki) {
       this.ihyaGirdileri = { ...this.ihyaGirdileri!, ihyaliTl: onceki.ihyaliTl, ihyasizTl: onceki.ihyasizTl };
@@ -213,11 +241,42 @@ export class EmeklilikPlaniViewModel implements EmeklilikPlaniKomutlari, Emeklil
   }
 
   // --- İç işleyiş ---------------------------------------------------------------------------------------------------
-  /** Kaynağı değiştirip borcu varsayımlara yazar; değiştiyse true (bildirim çağıranındır). */
+  /** Kaynağı değiştirip borcu adaya yazar; değiştiyse true (bildirim çağıranındır). */
   private borcKaynagiUygula(kaynak: BorcKaynagiAnahtari): boolean {
-    if (!this.varsayim || !this.borcKaynagi.sec(kaynak)) return false;
-    this.varsayim = borcYaz(this.varsayim, this.borcKaynagi.deger());
+    if (!this.aday || !this.borcKaynagi.sec(kaynak)) return false;
+    this.adayUygula(borcYaz(this.aday, this.borcKaynagi.deger()));
     return true;
+  }
+
+  /**
+   * Adayı kabul eder ve çapraz kuralı denetler. Kural tutuyorsa planlayıcıya aday gider; bozuluyorsa hata yazılır ve
+   * planlayıcıya adayın borç/ortak ödeme çifti son geçerli hâliyle gider (diğer değişiklikler uygulanır).
+   */
+  private adayUygula(aday: Varsayimlar, alan?: AlanAnahtari): void {
+    this.aday = aday;
+    const hata = this.form.caprazHata(aday);
+    if (hata === null || this.sonGecerliCift === null) {
+      this.caprazHata = null;
+      this.caprazAlan = ORTAK_ALANI;
+      this.sonGecerliCift = ciftOku(aday);
+      this.varsayim = aday;
+      return;
+    }
+    if (this.caprazHata === null || alan === BORC_ALANI || alan === ORTAK_ALANI) this.caprazAlan = alan === BORC_ALANI ? BORC_ALANI : ORTAK_ALANI;
+    this.caprazHata = hata;
+    // Yalnız çift değiştiyse hesap girdisi aynıdır: önceki başvuru korunur, planlayıcı her tuşta yeniden sorulmaz.
+    const gecerli = ciftYaz(aday, this.sonGecerliCift);
+    if (!this.varsayim || JSON.stringify(gecerli) !== JSON.stringify(this.varsayim)) this.varsayim = gecerli;
+  }
+
+  /** Ayrıştırma hataları + (varsa) çapraz hata görünen alanda; ayrıştırma hatası önce gelir. */
+  private sunulanHatalar(): ReadonlyMap<string, string> {
+    if (!this.caprazHata) return this.hatalar;
+    const alan = this.caprazAlan === BORC_ALANI && this.borcKaynagi.secili === 'elle' ? BORC_ALANI : ORTAK_ALANI;
+    if (this.hatalar.has(alan)) return this.hatalar;
+    const hatalar = new Map(this.hatalar);
+    hatalar.set(alan, `Hata: ${alan === BORC_ALANI ? this.caprazHata.borcIcin : this.caprazHata.ortakIcin}`);
+    return hatalar;
   }
 
   private ihyaAlaniGuncelle(anahtar: IhyaAlanAnahtari, metin: string): void {
@@ -242,7 +301,11 @@ export class EmeklilikPlaniViewModel implements EmeklilikPlaniKomutlari, Emeklil
   private varsayimlariAl(): Varsayimlar {
     if (this.varsayim) return this.varsayim;
     const varsayim = borcYaz(this.planlayici.varsayilanVarsayimlar(), this.borcKaynagi.deger());
+    // Planlayıcının varsayılanları geçerli kabul edilir (profil şeması denetler); sonraki komutlar adayla denetlenir.
+    this.aday = varsayim;
     this.varsayim = varsayim;
+    this.sonGecerliCift = ciftOku(varsayim);
+    this.caprazHata = null;
     this.ihyaGirdileri ??= { ihyaliTl: null, ihyasizTl: null, sureYil: varsayim.karsilastirmaSuresiYil };
     return varsayim;
   }
@@ -275,9 +338,14 @@ export class EmeklilikPlaniViewModel implements EmeklilikPlaniKomutlari, Emeklil
       const g = this.ihyaGirdileri!;
       const { ihya, ihyaVarsayim } = this.ihyaHesabi.getir([v, secim, g], () => {
         // İhya karşılaştırması: diğer iki seçim şimdiki hâliyle, ihyalı (a, yol) ve ihyasız (b, referans).
+        // Yalnız dolu net aylık gönderilir: boş alan "seçili aylık modeli" demektir (sözleşmede anahtar yoksa seçili model,
+        // null ise elle model ve bilinmiyor; planlayiciSozlesmesi.test.ts).
         const ihyaVarsayim = g.sureYil === v.karsilastirmaSuresiYil ? v : { ...v, karsilastirmaSuresiYil: g.sureYil };
+        const elleAylik: { a?: TlMetni; b?: TlMetni } = {};
+        if (g.ihyaliTl !== null) elleAylik.a = g.ihyaliTl;
+        if (g.ihyasizTl !== null) elleAylik.b = g.ihyasizTl;
         return {
-          ihya: this.planlayici.yolKarsilastir({ ...secim, ihya: true }, { ...secim, ihya: false }, ihyaVarsayim, { a: g.ihyaliTl, b: g.ihyasizTl }),
+          ihya: this.planlayici.yolKarsilastir({ ...secim, ihya: true }, { ...secim, ihya: false }, ihyaVarsayim, elleAylik),
           ihyaVarsayim,
         };
       });
@@ -288,12 +356,13 @@ export class EmeklilikPlaniViewModel implements EmeklilikPlaniKomutlari, Emeklil
   }
 
   private olustur(): EmeklilikEkrani {
+    const hesap = this.hesapla();
     return this.sunucu.sun({
       secim: this.secim,
-      varsayim: this.varsayim,
-      hesap: this.hesapla(),
+      varsayim: this.aday,
+      hesap,
       taslaklar: this.taslaklar,
-      hatalar: this.hatalar,
+      hatalar: this.sunulanHatalar(),
       ihyaGirdileri: this.ihyaGirdileri,
       borcKaynagi: this.borcKaynagi,
       bugun: istanbulGunu.format(this.bugun()),

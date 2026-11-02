@@ -68,6 +68,10 @@ const SINIRLAYAN: Readonly<Record<'gun' | 'sigortalilikSuresi', string>> = {
 export const ULASILAMIYOR = 'Ulaşılamıyor';
 export const ODEME_YOK = 'Ödeme yok';
 export const GEREKMEZ = 'Gerekmez';
+export const GERI_DONMUYOR = 'Dönem içinde geri dönmüyor';
+const GERI_DONMUYOR_KISA = 'Geri dönmüyor';
+const GERI_DONMUYOR_NOTU = 'Ortak dönem içinde birikimli fark sıfıra ulaşmıyor.';
+const KAYIT_AYI = 'Gün ve sigortalılık süresi kayıt ayından önce dolmuş; planlama ayı kayıt ayı';
 export const HICBIRI_ANAHTARI = 'hicbiri';
 /** Profil kaydı bu kadar günden eskiyse "Eski veri" yazılır. */
 export const ESKI_PROFIL_GUN = 30;
@@ -203,18 +207,46 @@ export class EkranSunucu {
     return { etiket, deger: this.b.isaretliTutar(tutar), not: null, ton: this.b.ton(tutar), bicim: bicimi(tutar) };
   }
 
+  /**
+   * Geri kazanma (başa baş): hiçbir şey ödemeyen yola göre birikimli farkın sıfıra ulaştığı ay, ortak dönemin başından
+   * (erken emeklilik) sayılır. null iki anlamı adıyla ayırır: neden varsa bilinmiyor, yoksa dönem içinde geri dönmüyor.
+   */
   private geriKazanma(k: KarsilastirmaSonucu, referans: boolean): Olcu {
-    const etiket = 'Ödemeyi karşılayan';
+    const etiket = 'Geri kazanma';
     const n = k.geriKazanmaAylikSayisi;
     if (referans || n === 0) return { etiket, deger: GEREKMEZ, not: null, ton: 'notr', bicim: 'metin' };
-    if (n === null) return { etiket, deger: BILINMIYOR, not: k.hesaplanamayanNeden, ton: 'notr', bicim: 'metin' };
-    return { etiket, deger: `${this.b.sayi(n)} emekli aylığı`, not: null, ton: 'notr', bicim: 'metin' };
+    if (n !== null) return { etiket, deger: `${this.b.sayi(n)} ay sonra`, not: null, ton: 'notr', bicim: 'metin' };
+    if (k.hesaplanamayanNeden) return { etiket, deger: BILINMIYOR, not: k.hesaplanamayanNeden, ton: 'notr', bicim: 'metin' };
+    return { etiket, deger: GERI_DONMUYOR, not: GERI_DONMUYOR_NOTU, ton: 'notr', bicim: 'metin' };
   }
 
   private geriKazanmaKisa(k: KarsilastirmaSonucu, referans: boolean): string {
     const n = k.geriKazanmaAylikSayisi;
     if (referans || n === 0) return GEREKMEZ;
-    return n === null ? BILINMIYOR : `${this.b.sayi(n)} emekli aylığı`;
+    if (n !== null) return `${this.b.sayi(n)} ay`;
+    return k.hesaplanamayanNeden ? BILINMIYOR : GERI_DONMUYOR_KISA;
+  }
+
+  /** Tarihi belirleyen: gün, süre, (profilde varsa) asgari yaş ya da kayıt ayı; tarih yoksa nedeni. */
+  private sinirlayan(yol: YolSonucu): string {
+    if (yol.sinirlayanKosul) return SINIRLAYAN[yol.sinirlayanKosul];
+    if (!yol.emeklilikAyi) return 'Planlanan çalışmayla hedef güne ulaşılamıyor';
+    if (yol.sinirlayanAyrinti === 'asgariYas') {
+      const yas = this.profil.asgariYas;
+      return yas === undefined ? 'Tarihi yaş şartı belirliyor' : `Tarihi yaş şartı belirliyor (${this.b.sayi(yas)} yaş)`;
+    }
+    return yol.sinirlayanAyrinti === 'kayitAyi' ? KAYIT_AYI : '';
+  }
+
+  /** İş ücreti bayrağının yanındaki not: karşılaştırmadaki aylık ücret ve kaynağı (profilden; düzenlenmez). */
+  private ucretNotu(devam: boolean, ucret: TutarBilgisi | undefined): string | null {
+    if (!ucret || ucret.tur === 'bilinmiyor') return null;
+    const kaynak = ucret.kaynak.trim();
+    const kaynakMetni = kaynak ? ` (${kaynak.charAt(0).toLocaleLowerCase('tr-TR')}${kaynak.slice(1)})` : '';
+    const tutar = `${this.b.tutar(ucret)}${kaynakMetni}`;
+    return devam
+      ? `İş ücreti ayda ${tutar}; iki yolda aynı olduğundan farka girmez.`
+      : `Vazgeçilen ücret ayda ${tutar}; emekli olan yol işi bıraktığı her ay bu ücreti almaz.`;
   }
 
   // --- Sonuç özeti --------------------------------------------------------------------------------------------------
@@ -243,7 +275,7 @@ export class EkranSunucu {
       secimAdi: this.secimAdi(yol.secim),
       planlamaAyi,
       yas,
-      sinirlayan: yol.sinirlayanKosul ? SINIRLAYAN[yol.sinirlayanKosul] : yol.emeklilikAyi ? '' : 'Planlanan çalışmayla hedef güne ulaşılamıyor',
+      sinirlayan: this.sinirlayan(yol),
       erken,
       calisarak: yol.calisarakTamamlananGun > 0 ? `${this.b.gun(yol.calisarakTamamlananGun)} planlanan çalışmayla tamamlanır` : 'Planlanan çalışma gerekmez',
       odeme: { etiket: 'Geçmiş günler için ödeme', deger: this.odemeMetni(yol), not: null, ton: 'notr', bicim: this.odemeMetni(yol) === ODEME_YOK ? 'metin' : bicimi(yol.odeme) },
@@ -310,12 +342,17 @@ export class EkranSunucu {
 
   private formGorunumu(girdi: SunumGirdisi): FormGorunumu {
     const v = girdi.varsayim!;
+    const ucret = girdi.hesap.tur === 'hazir' ? girdi.hesap.hesaplar.karsilastirma.isUcreti : undefined;
     const gruplar = (['gunVeTutar', 'maasVeAylik'] as const).map(grup => ({
       anahtar: grup,
       baslik: GRUP_BASLIKLARI[grup],
       alanlar: this.form.alanlar.filter(alan => alan.grup === grup && alan.gorunur(v)).map(alan => this.alanGorunumu(alan, v, girdi)),
       bayraklar: this.form.bayraklar.filter(bayrak => bayrak.grup === grup).map(bayrak => ({
-        anahtar: bayrak.anahtar, etiket: bayrak.etiket, aciklama: bayrak.aciklama, deger: v[bayrak.anahtar],
+        anahtar: bayrak.anahtar,
+        etiket: bayrak.etiket,
+        aciklama: bayrak.aciklama,
+        deger: v[bayrak.anahtar],
+        not: bayrak.anahtar === 'isUcretiDevam' ? this.ucretNotu(v.isUcretiDevam, ucret) : null,
       })),
     }));
     const borcKaynagi = this.borcKaynagi(girdi);
@@ -364,7 +401,7 @@ export class EkranSunucu {
       ekOdeme: sonuc ? { etiket: 'İhya için ek ödeme', deger: this.b.tutar(sonuc.ekOdeme), not: null, ton: 'notr', bicim: bicimi(sonuc.ekOdeme) } : bilinmiyor('İhya için ek ödeme'),
       gecYolEmekliOlunca: sonuc ? this.fark('İhyasız yol da emekli olduğunda fark', sonuc.gecYolEmekliOlunca) : bilinmiyor('İhyasız yol da emekli olduğunda fark'),
       donemSonunda: sonuc ? this.fark(donemEtiketi, sonuc.donemSonunda) : bilinmiyor(donemEtiketi),
-      geriKazanma: sonuc ? this.geriKazanma(sonuc, false) : bilinmiyor('Ödemeyi karşılayan'),
+      geriKazanma: sonuc ? this.geriKazanma(sonuc, false) : bilinmiyor('Geri kazanma'),
       neden: sonuc?.hesaplanamayanNeden ?? null,
       aylikIhyali: this.alanGorunumu(alanlar.ihyaAylikIhyali, g, girdi),
       aylikIhyasiz: this.alanGorunumu(alanlar.ihyaAylikIhyasiz, g, girdi),

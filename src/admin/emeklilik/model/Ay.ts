@@ -86,7 +86,7 @@ export class Ay {
     return `${dort(this.yil)}-${iki(this.ay)}`;
   }
 
-  /** 'Aralık 2027'. */
+  /** 'Mayıs 2033'. */
   adi(): string {
     return `${AY_ADLARI[this.ay - 1]} ${this.yil}`;
   }
