@@ -33,8 +33,8 @@ const press = (target: Locator, touch: boolean | undefined) => (touch ? target.t
 
 /**
  * Profil değişiminden sonra kabuk yerine oturdu: <html data-profile> beklenen profil ve openAdmin'in hazır sinyali
- * (main görünür, dolu h1, aria-busy yok) iki ardışık karede. Geniş profilde tembel sağlayıcı/gezinme yüklenirken kök
- * aria-busy taşır (AdaptiveRoot); bu bitmeden ölçmek, sonradan gelen yeniden kurulumu gözden kaçırır.
+ * (main görünür, dolu h1, aria-busy yok, geniş modül yüklemesi yok) iki ardışık karede. Geniş profilde tembel gezinme
+ * modülü yüklenirken kök data-wide-loading taşır (AdaptiveRoot); bu bitmeden ölçmek telefon yedeğini ölçmek olur.
  */
 async function profileSettled(page: Page, profile: 'phone' | 'tablet' | 'desktop') {
   await expect(page.locator('html')).toHaveAttribute('data-profile', profile);
@@ -461,4 +461,56 @@ test('profil değişimi: gezinmedeki odak karşılığına taşınır (Sayfalar 
   await profileSettled(page, 'phone');
   await expect(pagesButton(page)).toBeFocused();
   expect(await focusRing(page)).toEqual([]);
+});
+
+// --- 5. Hazır sinyali: geniş modül yüklenirken data-wide-loading; antd sağlayıcısı hiçbir profilde istenmez ----------
+
+/** antd sağlayıcısı ya da antd paketi istekleri (dev: adaptive/WideProviders.tsx, .vite/deps/antd*; üretim: assets/antd-*). */
+const ANTD_REQUEST = /\/adaptive\/WideProviders\.tsx(?:$|\?)|\/node_modules\/\.vite\/deps\/(?:antd|@ant-design|@rc-component)|\/assets\/antd-/;
+
+test('geniş modül yüklenirken kök data-wide-loading taşır, hazır sinyali onu bekler; antd sağlayıcısı hiçbir profilde istenmez', async ({ page, browserName }) => {
+  const antd: string[] = [];
+  page.on('request', request => { const path = new URL(request.url()).pathname; if (ANTD_REQUEST.test(path)) antd.push(path); });
+  const phone = browserName === 'webkit' ? PHONE_WEBKIT : PHONE;
+  await page.setViewportSize(phone);
+  await openAdmin(page, '/alimlar');
+  const root = page.locator('.aile-admin');
+  await expect(root).not.toHaveAttribute('data-wide-loading');
+
+  // Geniş gezinme modülü serbest bırakılana kadar sunucuya ulaşmaz (sabit bekleme yok; söz ile tutulur).
+  let release!: () => void;
+  const released = new Promise<void>(resolve => { release = resolve; });
+  let held = 0;
+  const hold = (url: URL) => /\/shell\/wide\//.test(url.pathname);
+  await page.route(hold, async route => { held += 1; await released; await route.fallback(); });
+
+  await page.setViewportSize(DESKTOP);
+  await expect(page.locator('html')).toHaveAttribute('data-profile', 'desktop');
+  await expect.poll(() => held, { message: 'geniş gezinme modülü istenmeli' }).toBeGreaterThan(0);
+  await expect(root, 'geniş modül yüklenirken hazır sinyali').toHaveAttribute('data-wide-loading', '');
+  await expect(root, 'bekleme sırasında içerik kullanılabilir: kök aria-busy değil').not.toHaveAttribute('aria-busy', 'true');
+  await expect(main(page)).toBeVisible();
+
+  let settled = false;
+  const settling = profileSettled(page, 'desktop').then(() => { settled = true; });
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(resolve)))));
+  expect(settled, 'geniş modül yüklenirken hazır sayıldı').toBe(false);
+  expect(await page.evaluate(`(${adminNotReadyReasons.toString()})()`)).toContainEqual(expect.stringContaining('data-wide-loading'));
+
+  release();
+  await settling;
+  await expect(root).not.toHaveAttribute('data-wide-loading');
+  await expect(sideNav(page)).toBeVisible();
+  await page.unroute(hold);
+
+  // Geniş profilde soğuk açılış: openAdmin döndüğünde geniş gezinme zaten yerindedir (hazır sinyali onu bekledi).
+  await openAdmin(page, '/genel');
+  expect(await root.getAttribute('data-wide-loading'), 'openAdmin geniş yüklemeyi beklemedi').toBeNull();
+  expect(await sideNav(page).isVisible(), 'openAdmin döndüğünde yan gezinme yok').toBe(true);
+
+  await page.setViewportSize(phone);
+  await profileSettled(page, 'phone');
+  await page.setViewportSize(DESKTOP);
+  await profileSettled(page, 'desktop');
+  expect(antd, 'antd sağlayıcısı ya da antd paketi istendi').toEqual([]);
 });

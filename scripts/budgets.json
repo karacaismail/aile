@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "entry": "admin.html",
-  "recorded": "2026-11-02, geçiş kesimi x-cut (taban b061e08 + PHONE_WITHOUT_ANTD=true, WideProviders tembel, ui/antd.ts daraltıldı), VITE_BUDGET_SHEET_ID=synthetic-budget-sheet-2098, Node v24.21.0, Vite 8.3.5",
+  "recorded": "2026-11-02, t3-root (taban 0a8d903; antd sağlayıcısı uygulama ağacından çıktı, WideProviders hiçbir profilde yüklenmez, lazyWide hazır sinyali), VITE_BUDGET_SHEET_ID=synthetic-budget-sheet-2098, Node v24.21.0, Vite 8.3.5",
   "units": {
     "kb": 1000,
     "measure": "gzip",
@@ -13,9 +13,9 @@
     "note": "Varsayılan yönetim rotası (shell/navigation.ts defaultAdminPath = adminPages[0].path, b02 sonrası Genel durum) ve routes.tsx sayfa modülü; check-budgets.test.mjs eşleşmeyi doğrular"
   },
   "wideStartup": {
-    "sources": ["src/admin/adaptive/WideProviders.tsx"],
+    "sources": [],
     "classes": ["wide"],
-    "note": "Geniş profilin ilk rotada ek yüklediği dinamik kökler: PHONE_WITHOUT_ANTD=true iken tembel WideProviders (antd + icons + babel-runtime parçalarıyla) ve tek wide grubu (statik kapanışıyla)"
+    "note": "Geniş profilin ilk rotada ek yüklediği dinamik kökler: yalnız tek wide grubu (statik kapanışıyla). adaptive/WideProviders (antd sağlayıcısı) geniş başlangıç kökü değildir: uygulama ağacını sarmaz, yalnız lazyWide(…, { antd: true }) adası geniş profilde render edilince iner; bugün böyle ada yok (t3-root)"
   },
   "budgets": [
     { "id": "phone-html", "profile": "phone", "metric": "html", "max": 50000, "source": "adaptive-qa: Compressed initial HTML 50 KB" },
@@ -24,23 +24,23 @@
     { "id": "phone-capability", "profile": "phone", "metric": "capabilityRequests", "max": 0, "source": "adaptive-qa: Unnecessary capability-specific resources, hedef sıfır istek; sınıflar delivery-report forbidden (antd, pro, icons, echarts, wide)" },
     { "id": "phone-transfer", "profile": "phone", "metric": "transfer", "max": 500000, "source": "adaptive-qa: Initial transfer, excluding user content 500 KB" },
     { "id": "wide-js", "profile": "wide", "metric": "js", "classes": { "exclude": ["antd"] }, "max": 180000, "source": "adaptive-qa: Complete desktop initial-route JS 180 KB; tablet ve masaüstü aynı geniş kaynak kümesini alır" },
-    { "id": "wide-antd", "profile": "wide", "metric": "js", "classes": { "only": ["antd"] }, "max": 84410, "exception": true, "source": "Ölçülmüş istisna (kesim sonrası): antd parçası 84410 B gzip; ui/antd.ts yalnız ConfigProvider, App, theme ve tr_TR verir, yalnız geniş profilde tembel WideProviders ile iner. Kesim öncesi kayıt 240000 B idi (ölçüm 233210 B, o gün tüm bileşen ihracıyla). wide-js dışında, ayrı tavanla; aşım entegrasyon sahibinin açık kararı ister" }
+    { "id": "wide-antd", "profile": "wide", "metric": "js", "classes": { "only": ["antd"] }, "max": 0, "exception": true, "source": "Ölçülmüş istisna, t3-root sonrası kapalı: geniş ilk rota antd istemez (0 B). antd sağlayıcısı (adaptive/WideProviders) uygulama ağacını sarmaz; yalnız lazyWide(…, { antd: true }) adası render edilince iner ve bugün böyle ada yok. Önceki kayıtlar: 84410 B (x-cut, WideProviders tembel geniş başlangıç kökü), 0a8d903 ölçümü 37209 B. wide-js dışında, ayrı tavanla; antd'yi geniş ilk rotaya geri getiren ada entegrasyon sahibinin açık kararı ve yeni ölçüm ister" }
   ],
   "measured": {
-    "note": "Kayıtlı ölçüm (recorded koşulları, ilk rota /genel): node scripts/check-budgets.mjs dist. Tavanlar ve wide-antd istisnası bu değerlerin aynısıdır, pay yok; check-budgets.test.mjs eşitliği doğrular",
+    "note": "Kayıtlı ölçüm (recorded koşulları, ilk rota /genel): node scripts/check-budgets.mjs dist. Tavanlar ve wide-antd istisnası bu değerlerin aynısıdır, pay yok; check-budgets.test.mjs eşitliği doğrular. Önce/sonra: docs/ADMIN-BUDGETS.md",
     "phone-html": 2097,
-    "phone-js": 170163,
-    "phone-css": 9789,
+    "phone-js": 171767,
+    "phone-css": 10210,
     "phone-capability": 0,
-    "phone-transfer": 278233,
-    "wide-js": 280464,
-    "wide-antd": 84410
+    "phone-transfer": 280258,
+    "wide-js": 275959,
+    "wide-antd": 0
   },
   "ratchet": {
     "policy": "Geçiş ratchet'i: tavan, bütçeyi aşan kayıtlı ölçümdür ve yalnız düşer. check-budgets 'daraltılabilir' derse tavanı yeni ölçüme indirin; 'silinebilir' derse kaydı silin. Tavan yükseltmek ya da yeni kayıt eklemek bütçeyi gevşetir: yalnız entegrasyon sahibinin açık kararıyla. Liste boşalınca kapı --strict ile koşar.",
     "ceilings": {
-      "phone-js": 170163,
-      "wide-js": 280464
+      "phone-js": 171767,
+      "wide-js": 275959
     }
   }
 }

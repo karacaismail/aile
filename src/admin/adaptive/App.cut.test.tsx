@@ -1,11 +1,11 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { installViewport } from './testing';
 
-// Geçiş kesimi (plan D8) App.tsx bağlantısı: telefon profili WideProviders modülünü (antd ConfigProvider + tr_TR + aile
-// teması) hiç içe aktarmaz; tablet/masaüstünde wideResource('wide-providers', …) ile tembel yüklenir ve yapışkan
-// kalır. Nesil sağlayıcısı ve yönlendirici sağlayıcı geçidinin üstündedir: sağlayıcı bağlanınca yalnız çalışma alanı bir
-// kez yeniden bağlanır, nesil kaynağı/deposu (Veri sayfasında seçilen klasör dahil) korunur.
+// App.tsx bağlantısı (geçiş kesimi, plan D8 + t3-root): uygulama ağacı hiçbir profilde antd sağlayıcısıyla sarılmaz.
+// Ağaç yapısı profil değişiminde sabittir: main düğümü, odak ve URL'de olmayan taslaklar telefon ↔ geniş geçişinde
+// korunur. WideProviders modülü (antd ConfigProvider + tr_TR + aile teması) hiçbir profilde içe aktarılmaz; antd
+// gerektiren bir geniş ada olursa sağlayıcı yalnız o adayı sarar (lazyWide(…, { antd: true })).
 // Ağır modüller (veri katmanı, kabuk, rotalar) işaretli taslaklarla değiştirilir; sınanan yalnız App.tsx + AdaptiveRoot.
 const counts = vi.hoisted(() => ({ providerModuleLoads: 0, dataMounts: 0, workspaceMounts: 0 }));
 
@@ -31,7 +31,15 @@ vi.mock('../shell/WorkspaceShell', async () => {
   return { WorkspaceShell };
 });
 
-vi.mock('../routes', () => ({ AdminRoutes: () => <h1>Genel durum</h1> }));
+// Kontrolsüz alan: değeri yalnız DOM düğümünde yaşar (URL'de değil); düğüm yeniden kurulursa taslak kaybolur.
+vi.mock('../routes', () => ({
+  AdminRoutes: () => (
+    <>
+      <h1>Genel durum</h1>
+      <label>Taslak not<input defaultValue="" /></label>
+    </>
+  ),
+}));
 
 async function renderApp() {
   vi.resetModules();
@@ -45,13 +53,16 @@ async function renderApp() {
   return { ...view, root: view.container.querySelector('.aile-admin') as HTMLElement };
 }
 
+/** Dinamik importu tetikleyebilecek mikro görev turları: istenmeyen modül yine de içe aktarılmamalı. */
+const flush = () => act(async () => { await Promise.resolve(); await Promise.resolve(); });
+
 beforeEach(() => {
   counts.providerModuleLoads = 0;
   counts.dataMounts = 0;
   counts.workspaceMounts = 0;
 });
 
-describe('App · antd sağlayıcı kesimi', () => {
+describe('App · antd sağlayıcısız uygulama ağacı', () => {
   it('phone 320×568: renders the workspace without antd providers and never imports the WideProviders module', async () => {
     installViewport({ width: 320, height: 568, coarse: true });
     const { root } = await renderApp();
@@ -59,8 +70,7 @@ describe('App · antd sağlayıcı kesimi', () => {
     expect(screen.getByRole('heading', { name: 'Genel durum' })).toBeInTheDocument();
     expect(screen.queryByTestId('wide-providers')).toBeNull();
     expect(root).not.toHaveAttribute('aria-busy');
-    // Dinamik importu tetikleyebilecek bir mikro görev turu: telefon yine de modülü istemez.
-    await act(async () => { await Promise.resolve(); });
+    await flush();
     expect(counts.providerModuleLoads).toBe(0);
   });
 
@@ -68,40 +78,49 @@ describe('App · antd sağlayıcı kesimi', () => {
     installViewport({ width: 568, height: 320, coarse: true });
     const { root } = await renderApp();
     expect(root).toHaveAttribute('data-profile', 'phone');
-    await act(async () => { await Promise.resolve(); });
+    await flush();
     expect(counts.providerModuleLoads).toBe(0);
     expect(screen.queryByTestId('wide-providers')).toBeNull();
   });
 
-  it('desktop 1440×900: loads WideProviders lazily, busy until attached, then wraps the workspace', async () => {
+  it('desktop 1440×900: the workspace is a direct child of the root, never busy, and WideProviders is never imported', async () => {
     installViewport({ width: 1440, height: 900, fine: true, hover: true });
     const { root } = await renderApp();
     expect(root).toHaveAttribute('data-profile', 'desktop');
-    expect(root).toHaveAttribute('aria-busy', 'true');
-    const providers = await screen.findByTestId('wide-providers');
-    expect(providers).toContainElement(screen.getByRole('heading', { name: 'Genel durum' }));
     expect(root).not.toHaveAttribute('aria-busy');
-    expect(counts.providerModuleLoads).toBe(1);
-    expect(counts.dataMounts).toBe(1);
+    expect(root.firstElementChild).toBe(screen.getByRole('main'));
+    await flush();
+    expect(counts.providerModuleLoads).toBe(0);
+    expect(screen.queryByTestId('wide-providers')).toBeNull();
+    expect(root).not.toHaveAttribute('aria-busy');
+    expect(counts.workspaceMounts).toBe(1);
   });
 
-  it('phone → tablet → phone: providers attach once and stay; the data provider is never remounted', async () => {
-    const viewport = installViewport({ width: 375, height: 667, coarse: true });
-    await renderApp();
-    expect(screen.queryByTestId('wide-providers')).toBeNull();
+  it('phone → desktop → tablet → phone: the same main node, focus and an unsaved draft survive; nothing remounts', async () => {
+    const viewport = installViewport({ width: 320, height: 568, coarse: true });
+    const { root } = await renderApp();
+    const main = screen.getByRole('main');
+    const draft = screen.getByRole('textbox', { name: 'Taslak not' });
+    fireEvent.change(draft, { target: { value: 'salon perdesi ölçüsü' } });
+    draft.focus();
     expect(counts.workspaceMounts).toBe(1);
 
-    act(() => viewport.set({ width: 820, height: 1180, coarse: true }));
-    expect(await screen.findByTestId('wide-providers')).toContainElement(screen.getByRole('main'));
-    expect(counts.providerModuleLoads).toBe(1);
-    // Bilinen tek seferlik bedel: çalışma alanı sağlayıcının altına bir kez yeniden bağlanır; veri sağlayıcısı bağlanmaz.
-    expect(counts.workspaceMounts).toBe(2);
+    for (const next of [
+      { width: 1440, height: 900, coarse: false, fine: true, hover: true },
+      { width: 820, height: 1180, coarse: true, fine: false, hover: false },
+      { width: 320, height: 568, coarse: true, fine: false, hover: false },
+    ]) {
+      act(() => viewport.set(next));
+      await flush();
+      expect(screen.getByRole('main'), `${next.width}×${next.height}: main yeniden bağlandı`).toBe(main);
+      expect(screen.getByRole('textbox', { name: 'Taslak not' })).toBe(draft);
+      expect(draft).toHaveValue('salon perdesi ölçüsü');
+      expect(draft).toHaveFocus();
+    }
+    expect(root).toHaveAttribute('data-profile', 'phone');
+    expect(counts.workspaceMounts).toBe(1);
     expect(counts.dataMounts).toBe(1);
-
-    act(() => viewport.set({ width: 375, height: 667, coarse: true }));
-    expect(screen.getByTestId('wide-providers')).toContainElement(screen.getByRole('main'));
-    expect(counts.workspaceMounts).toBe(2);
-    expect(counts.dataMounts).toBe(1);
-    expect(counts.providerModuleLoads).toBe(1);
+    expect(counts.providerModuleLoads).toBe(0);
+    expect(screen.queryByTestId('wide-providers')).toBeNull();
   });
 });

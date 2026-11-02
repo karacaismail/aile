@@ -1,5 +1,5 @@
 import {
-  Fragment, cloneElement, createElement, isValidElement, useEffect, useSyncExternalStore,
+  Fragment, cloneElement, createElement, isValidElement, useLayoutEffect, useSyncExternalStore,
   type ComponentType, type FunctionComponent, type ReactElement, type ReactNode,
 } from 'react';
 import { useProfile } from './context';
@@ -14,6 +14,9 @@ import './adaptive.css';
 // Kayıt defteri anahtara göredir: aynı anahtar aynı kaynaktır (ilk importer geçerli), uçuştaki yükleme tekildir.
 // Hata: bir kez geri çekilip yeniden dener; yine olmazsa "Yeniden dene" (error) ya da parça artık sunucuda yoksa
 // "Yeni sürüm var · Yenile" (stale-build). Bekleme ve hata sırasında telefon/temel sunum kullanılabilir kalır.
+// Hazır sinyali: uçuştaki her yükleme sayılır (useWideLoading); AdaptiveRoot bu sürede köke data-wide-loading yazar.
+// antd: uygulama ağacı hiçbir profilde antd sağlayıcısıyla sarılmaz. antd gerektiren geniş ada lazyWide(…, { antd: true })
+// ile tanımlanır; sağlayıcı (adaptive/WideProviders) yalnız o ada geniş profilde render edilince iner ve yalnız onu sarar.
 
 export type WideStatus = 'idle' | 'loading' | 'ready' | 'error' | 'stale-build';
 export type WideState<M> =
@@ -24,6 +27,15 @@ export type WideState<M> =
 export interface WideOptions {
   /** İlk başarısızlıktan sonra tek yeniden denemeden önceki bekleme (ms). Varsayılan WIDE_RETRY_DELAY_MS. */
   retryDelayMs?: number;
+}
+
+export interface LazyWideOptions extends WideOptions {
+  /**
+   * antd gerektiren geniş ada: modülle birlikte antd sağlayıcısı (adaptive/WideProviders: ConfigProvider + tr_TR + aile
+   * teması; DOM öğesi çizmez) yüklenir ve YALNIZ bu adayı sarar. Ada ikisi de hazır olunca çizilir; o ana kadar
+   * wideFallback. Telefon profilinde ikisi de indirilmez. Varsayılan false: bugün hiçbir ada antd istemez.
+   */
+  antd?: boolean;
 }
 
 export interface WideResource<M> {
@@ -51,6 +63,25 @@ export const WIDE_RETRY_DELAY_MS = 800;
 const IDLE: WideState<never> = Object.freeze({ status: 'idle' });
 const LOADING: WideState<never> = Object.freeze({ status: 'loading' });
 const registry = new Map<string, WideResource<unknown>>();
+
+// Uçuştaki yüklemeler (yeniden deneme beklemesi dahil). Hazır sinyalinin tek kaynağı: useWideLoading.
+let pendingLoads = 0;
+const pendingListeners = new Set<() => void>();
+function changePending(delta: 1 | -1) {
+  pendingLoads += delta;
+  for (const listener of [...pendingListeners]) listener();
+}
+function subscribePending(listener: () => void) {
+  pendingListeners.add(listener);
+  return () => { pendingListeners.delete(listener); };
+}
+const anyPending = () => pendingLoads > 0;
+const nonePending = () => false;
+
+/** Herhangi bir geniş kaynak (lazyWide, wideResource, preload) yükleniyor mu? AdaptiveRoot data-wide-loading için. */
+export function useWideLoading(): boolean {
+  return useSyncExternalStore(subscribePending, anyPending, nonePending);
+}
 
 // Tarayıcı iletileri: Chromium, WebKit, Gecko; Vite CSS ön yüklemesi; eksik parça yerine HTML dönen sunucu;
 // webpack tarzı ChunkLoadError. Hepsi "parça artık yok ya da alınamadı" demektir.
@@ -102,9 +133,10 @@ export function wideResource<M>(key: string, importer: () => Promise<M>, options
       if (inflight) return inflight;
       if (state.status === 'error' || state.status === 'stale-build') return Promise.reject(state.error);
       set(LOADING);
+      changePending(1);
       inflight = attempt().then(
-        module => { inflight = null; set({ status: 'ready', module }); return module; },
-        (error: unknown) => { inflight = null; set({ status: failureStatus(error), error }); throw error; },
+        module => { inflight = null; set({ status: 'ready', module }); changePending(-1); return module; },
+        (error: unknown) => { inflight = null; set({ status: failureStatus(error), error }); changePending(-1); throw error; },
       );
       return inflight;
     },
@@ -126,7 +158,11 @@ const noopSubscribe = () => () => {};
 const idleState = () => IDLE;
 const swallow = () => {};
 
-/** Kaynağın durumunu izler; enabled iken boşta ise yüklemeyi başlatır. resource null olabilir (koşulsuz hook çağrısı). */
+/**
+ * Kaynağın durumunu izler; enabled iken boşta ise yüklemeyi başlatır. resource null olabilir (koşulsuz hook çağrısı).
+ * Yükleme yerleşim efektinde başlar: profil genişlediği commit boyanmadan önce kaynak 'loading' olur ve hazır sinyali
+ * (data-wide-loading) ilk boyanan karede vardır; arada "hazır" görünen bir kare kalmaz.
+ */
 export function useWideModule<M>(resource: WideResource<M> | null, enabled: boolean): WideState<M> {
   const state = useSyncExternalStore(
     resource ? resource.subscribe : noopSubscribe,
@@ -134,7 +170,7 @@ export function useWideModule<M>(resource: WideResource<M> | null, enabled: bool
     resource ? resource.getState : idleState,
   ) as WideState<M>;
   const status = state.status;
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (resource && enabled && status === 'idle') resource.load().catch(swallow);
   }, [resource, enabled, status]);
   return state;
@@ -154,6 +190,21 @@ export function WideNotice({ kind, onAction }: { kind: 'error' | 'stale-build'; 
 
 const WIDE_MARK = Symbol.for('aile.adaptive.wide');
 
+type ProvidersModule = { default: ComponentType<{ children: ReactNode }> };
+let antdProviders: WideResource<ProvidersModule> | null = null;
+
+/**
+ * antd sağlayıcı kaynağı (tek, anahtar 'wide-providers'). Yalnız ilk antd adası tanımlanınca kaydolur; o güne dek
+ * wideManifest'te görünmez ve hiçbir profilde istenmez. Yeniden deneme beklemesi ilk antd adasınınkidir (ilk importer).
+ */
+function antdProvidersResource(options: WideOptions): WideResource<ProvidersModule> {
+  antdProviders ??= wideResource('wide-providers', () => import('./WideProviders'), options);
+  return antdProviders;
+}
+
+const failed = <M>(state: WideState<M>): state is Extract<WideState<M>, { status: 'error' | 'stale-build' }> =>
+  state.status === 'error' || state.status === 'stale-build';
+
 function isWideComponent(type: unknown): type is WideComponent<object> {
   return typeof type === 'function' && (type as unknown as Record<symbol, unknown>)[WIDE_MARK] === true;
 }
@@ -166,25 +217,35 @@ function isWideComponent(type: unknown): type is WideComponent<object> {
 export function lazyWide<P extends object>(
   key: string,
   importer: () => Promise<{ default: ComponentType<P> }>,
-  options?: WideOptions,
+  options: LazyWideOptions = {},
 ): WideComponent<P> {
-  const resource = wideResource(key, importer, options);
+  const { antd = false, ...resourceOptions } = options;
+  const resource = wideResource(key, importer, resourceOptions);
+  const providers = antd ? antdProvidersResource(resourceOptions) : null;
   function Wide(props: WideProps<P>): ReactNode {
     const { wideFallback = null, ...rest } = props;
     const enabled = useProfile() !== 'phone';
     const state = useWideModule(resource, enabled);
-    if (enabled && state.status === 'ready') return createElement(state.module.default, rest as P);
-    const notice = !enabled ? null
-      : state.status === 'error' ? createElement(WideNotice, { kind: 'error', onAction: () => { resource.retry().catch(swallow); } })
-      : state.status === 'stale-build' ? createElement(WideNotice, { kind: 'stale-build', onAction: reloadPage })
+    const providersState = useWideModule(providers, enabled);
+    if (enabled && state.status === 'ready' && (!providers || providersState.status === 'ready')) {
+      const view = createElement(state.module.default, rest as P);
+      return providersState.status === 'ready' ? createElement(providersState.module.default, null, view) : view;
+    }
+    // Ada iki kaynaktan birini alamadıysa: o kaynağın kurtarma bildirimi (modülünki önce).
+    const failure = !enabled ? null
+      : failed(state) ? { status: state.status, retry: () => resource.retry() }
+      : providers && failed(providersState) ? { status: providersState.status, retry: () => providers.retry() }
       : null;
+    const notice = !failure ? null
+      : failure.status === 'error' ? createElement(WideNotice, { kind: 'error', onAction: () => { failure.retry().catch(swallow); } })
+      : createElement(WideNotice, { kind: 'stale-build', onAction: reloadPage });
     return createElement(Fragment, null, notice, wideFallback);
   }
   Wide.displayName = `Wide(${key})`;
   return Object.assign(Wide, {
     [WIDE_MARK]: true,
     resource,
-    preload: () => resource.load().then(() => undefined),
+    preload: () => Promise.all([resource.load(), providers?.load()]).then(() => undefined),
   }) as unknown as WideComponent<P>;
 }
 
