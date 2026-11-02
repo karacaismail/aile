@@ -124,6 +124,9 @@ async function acilis(page: Page): Promise<string[]> {
   await gotoAdmin(page, '/alimlar');
   await expect(page.getByRole('heading', { level: 1, name: 'Alımlar ve eşyalar' })).toBeVisible();
   await expect(sonuclar(page)).toBeVisible();
+  // Hazır sinyali (openAdmin ile aynı): meşgul öğe kalmadı. Geniş profilde antd sağlayıcı geçidi tembel bağlanır ve
+  // bağlanınca çalışma alanı bir kez yeniden kurulur (AdaptiveRoot kökü o ana kadar aria-busy); yolculuk ondan sonra.
+  await expect(page.locator('[aria-busy="true"]'), 'yükleme ve sağlayıcı geçidi bitti').toHaveCount(0);
   return istekler;
 }
 

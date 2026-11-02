@@ -101,6 +101,14 @@ async function siralamaSec(page: Page, ad: string) {
 
 const sonucMetni = async (page: Page) => (await sorgu(page).getByRole('status').textContent())?.trim() ?? '';
 
+/**
+ * Geniş profile ilk geçişte antd sağlayıcı geçidi (adaptive/AdaptiveRoot, PHONE_WITHOUT_ANTD) tembel yüklenir; beklerken
+ * kök aria-busy taşır, bağlanınca çalışma alanı bir kez yeniden kurulur (bilinen bedel; durum URL'den geri gelir).
+ * Ölçü ve etkileşim ondan sonra yapılır: aksi hâlde ölçülen düğüm yeniden kurulumla belgeden düşer ya da açılan alt
+ * sayfa geç bağlanan sağlayıcıyla kapanır.
+ */
+const saglayiciBagli = (page: Page) => expect(page.locator('[aria-busy="true"]:not(main *)'), 'sağlayıcı geçidi bağlandı').toHaveCount(0);
+
 test.describe('filtreler ve sorgu çubuğu — telefon yolculuğu', () => {
   test.beforeEach(async ({ page }) => {
     await openAdmin(page, '/alimlar');
@@ -226,6 +234,7 @@ test.describe('filtreler ve sorgu çubuğu — telefon yolculuğu', () => {
     // Telefon → masaüstü: filtre panelde seçili, sıralama aynı, sonuç sayısı aynı.
     await page.setViewportSize({ width: 1440, height: 900 });
     await expect.poll(() => profil(page)).toBe('desktop');
+    await saglayiciBagli(page);
     await expect(tetik(page)).toHaveCount(0);
     const panel = page.getByRole('region', { name: 'Filtreler', exact: true }).first();
     await expect(panel).toBeVisible();

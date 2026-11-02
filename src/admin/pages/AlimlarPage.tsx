@@ -83,6 +83,10 @@ const SONUCLAR = 'Sonuçlar';
 /** Ayrıntıyı açabilen öğeler: satır düğmesi, tablo satırı (tabIndex 0), kart ve bağlantılar. */
 const ODAKLANABILIR = 'button, a[href], [tabindex]:not([tabindex="-1"])';
 const KANBAN_ETIKET = 'Duruma göre alımlar';
+/** DetailPanel'in geri alma eyleminin erişilebilir adı (ui/DetailPanel UNDO; rol/ad genel sözleşmedir). */
+const GERI_AL = 'Geri al';
+/** Sonuç bölgesinde seçili kaydın işareti: liste satırı ve zaman çizelgesi aria-current, tablo aria-selected, akordeon data-selected. */
+const SECILI_ISARET = '[aria-current="true"], [aria-selected="true"], [data-selected="true"]';
 
 const DEFAULT_MODE: ViewMode = 'listing';
 /** view_definitions okunamazsa ya da hiçbir mod tanımlı değilse en temel iki görünüm. */
@@ -130,6 +134,17 @@ function kaydirmaKabi(from: Element | null): Element | null {
     if (overflow === 'auto' || overflow === 'scroll') return element;
   }
   return document.scrollingElement;
+}
+
+/**
+ * Seçili kaydın sonuç bölgesindeki etkileşim öğesi. Açan öğe bilinmediğinde (sayfa yeniden kuruldu, seçim hash'ten geldi)
+ * ya da belgeden düştüğünde (geniş yerleşim ya da sağlayıcı geçidi listeyi yeniden kurdu) odak buraya döner.
+ */
+function seciliSatirOgesi(kok: Element | null): HTMLElement | null {
+  const bolge = kok?.querySelector(`section[aria-label="${SONUCLAR}"]`);
+  const isaretli = bolge?.querySelector<HTMLElement>(SECILI_ISARET);
+  if (!isaretli) return null;
+  return isaretli.matches(ODAKLANABILIR) ? isaretli : isaretli.querySelector<HTMLElement>(ODAKLANABILIR);
 }
 
 // --- Sayfa ----------------------------------------------------------------------------------------------------------
@@ -366,6 +381,9 @@ export function AlimlarPage({ location = KONUM }: AlimlarPageProps) {
   const kapat = useCallback(() => {
     // Dar ekranda tam sayfa kapanınca liste görünür olur, odak burada döner. Masaüstünde Drawer de açıldığı andaki
     // odaklı öğeye döndürür; Safari'de o öğe body olduğundan dönüş burada da yapılır (aynı öğeyse etkisizdir).
+    // Açan öğe bilinmiyor ya da belgeden düştüyse (liste yeniden kuruldu) seçili kaydın satırı kullanılır; seçim
+    // işareti kapanınca kalkacağı için öğe şimdi bulunur.
+    if (!acan.current?.isConnected) acan.current = seciliSatirOgesi(kok.current);
     odakGeri.current = true;
     setBildirim(null);
     setSecili(null);
@@ -393,6 +411,16 @@ export function AlimlarPage({ location = KONUM }: AlimlarPageProps) {
     listeKonumu.current = null;
     if (acan.current?.isConnected) acan.current.focus(geriYuklendi ? { preventScroll: true } : undefined);
   }, [secili]);
+
+  // Durum değişince yeni beliren "Geri al" görünür alana gelir (en yakın kenar; odak taşınmaz). Kısa yükseklikte (yatay
+  // telefon) bildirim ayrıntı katmanının altlığına girince kayan gövde kısalır; gövdenin altındaki durum seçiminin hemen
+  // ardından gelen eylem altlığın arkasında kalırdı. Bildirim ve eylem aynı çizimde yerindedir (yerleşim efekti).
+  useLayoutEffect(() => {
+    if (bildirim?.tone !== 'bilgi' || !secili) return;
+    const ayrinti = Array.from(kok.current?.querySelectorAll('[role="dialog"][data-record]') ?? []).find(el => el.getAttribute('data-record') === secili);
+    const geriAl = Array.from(ayrinti?.querySelectorAll('button') ?? []).find(dugme => dugme.textContent?.trim() === GERI_AL);
+    geriAl?.scrollIntoView({ block: 'nearest' });
+  }, [bildirim, secili]);
 
   const seciliHam = secili ? kayitlar.rows.find(record => record.id === secili) : undefined;
   const bekleyen = secili ? changeSet.pendingFor(secili) : [];

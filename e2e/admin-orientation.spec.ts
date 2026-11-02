@@ -177,7 +177,12 @@ async function masaustuKabugu(page: Page) {
 const sorgu = (page: Page) => page.getByRole('search', { name: 'Sorgu' });
 const sonuclar = (page: Page) => page.getByRole('region', { name: 'Sonuçlar' });
 const filtreCekmecesi = (page: Page) => page.getByRole('dialog', { name: /^Filtreler/ });
-const birincilEylem = (scope: Locator) => scope.getByRole('button', { name: /^[\d.]+ sonucu göster$/ });
+/**
+ * Filtre alt sayfasının ana eylemi (shell/FilterDrawer): "Uygula" kapatır, seçim zaten anında uygulanmıştır; açıklaması
+ * altlıktaki canlı sonuç sayısıdır ("28 sonuç"). Eski "N sonucu göster" adı FilterDrawer sözleşmesinde yok.
+ */
+const birincilEylem = (scope: Locator) => scope.getByRole('button', { name: 'Uygula', exact: true });
+const SONUC_SAYISI = /^[\d.]+ sonuç$/;
 
 /** Filtre boyutu (Disclosure); kapalıysa açılır, bölgesi döner. */
 async function boyutAc(scope: Locator, ad: string): Promise<Locator> {
@@ -341,6 +346,7 @@ test.describe('Yön ve profil değişiminde durum sürekliliği', () => {
     const birincil = birincilEylem(cekmece);
     await birincil.scrollIntoViewIfNeeded();
     await expect(birincil).toBeEnabled();
+    await expect(birincil, 'ana eylemin açıklaması canlı sonuç sayısı').toHaveAccessibleDescription(SONUC_SAYISI);
     await expect(birincil, 'ana eylem görünümde').toBeInViewport({ ratio: 1 });
     expect(await isabetAliyor(birincil), 'ana eylemin üstünü başka katman örtmüyor').toBe(true);
     const kutuBoyu = (await birincil.boundingBox())!;
@@ -385,6 +391,7 @@ test.describe('Yön ve profil değişiminde durum sürekliliği', () => {
     const cekmece = filtreCekmecesi(page);
     const oda = await boyutAc(cekmece, 'Oda');
     await oda.getByRole('checkbox', { name: ODA, exact: true }).click();
+    await expect(birincilEylem(cekmece)).toHaveAccessibleDescription(SONUC_SAYISI);
     await birincilEylem(cekmece).click();
     await expect(cekmece).toBeHidden();
     const etiket = sorgu(page).getByText(`Oda: ${ODA}`, { exact: true });

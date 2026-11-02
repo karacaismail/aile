@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Locator, type Page } from '@playwright/test';
 import { syntheticBridgeResponse } from '../src/dashboard/bridgeFixtures';
 import { syntheticCurrentSheets } from '../src/dashboard/currentFixtures';
 import { gviz } from '../src/dashboard/fixtures';
@@ -42,6 +42,13 @@ const ROUTES: readonly SmokeRoute[] = [
 const READING = /Okunuyor/;
 /** Grafik yuvası (Chart "Grafik hazırlanıyor"): görünür alandaysa çizilir; altındaysa kaydırılınca çizilir. */
 const CHART_PENDING = /Grafik hazırlanıyor/;
+
+/**
+ * İçerikli uyarı: role=alert ve metni boş değil. APG Alert kalıbında canlı bölge içerikten önce boş durur ki ileti gelince
+ * duyurulsun (Alımlar bildirim bölgesi); boş bölge uyarı değildir. Metni görsel olarak gizli uyarı da sayılır (ekran
+ * okuyucu duyar); erişilebilirlik ağacından gizlenen (aria-hidden, display:none) sayılmaz (getByRole varsayılanı).
+ */
+const contentAlerts = (scope: Locator) => scope.getByRole('alert').filter({ hasText: /\S/ });
 
 /** Görünür alanla kesişen (IntersectionObserver anlamında) ve metni kalıba uyan role=status öğelerinin metinleri. */
 async function pendingInViewport(page: Page, pattern: RegExp): Promise<string[]> {
@@ -209,6 +216,26 @@ test.describe('izleyici öz-denetimi', () => {
     expect(await pendingInViewport(page, CHART_PENDING), 'kaydırılınca yakalanır').toEqual(['Grafik hazırlanıyor']);
   });
 
+  test('içerikli uyarı ölçüsü: boş canlı bölgeyi saymaz; metin gelince (görsel gizli olsa da) sayar', async ({ page }) => {
+    await page.setContent(`
+      <main id="admin-content">
+        <h1>Öz denetim</h1>
+        <div role="alert" data-f06-bos></div>
+        <div role="alert" data-f06-bosluk>   </div>
+        <div role="alert" aria-hidden="true">Hata: gizli ağaç</div>
+      </main>`);
+    const main = page.locator('main');
+    await expect(main.getByRole('alert'), 'ham rol sayımı boş bölgeleri de görür').toHaveCount(2);
+    await expect(contentAlerts(main), 'boş ve yalnız boşluklu canlı bölge uyarı değildir').toHaveCount(0);
+    await page.evaluate(() => {
+      const p = document.createElement('p');
+      p.textContent = 'Hata: enjekte uyarı';
+      p.style.cssText = 'position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)';
+      document.querySelector('[data-f06-bos]')!.append(p);
+    });
+    await expect(contentAlerts(main), 'metin gelince uyarı sayılır').toHaveCount(1);
+  });
+
   test('belge taşma ölçüsü: görünüm alanından geniş öğeyi yakalar; kaldırılınca temiz', async ({ page }) => {
     await page.setContent('<main><h1>Öz denetim</h1><p>Kısa metin.</p></main>');
     expect(await documentOverflow(page), 'temiz başlangıç').toBe('');
@@ -246,7 +273,7 @@ test.describe('duman: 12 rota açılır', () => {
       await expect(page).toHaveTitle(`${route.label} · aile`);
       await expect(page.getByRole('main')).toHaveCount(1);
       await expect(page.locator(ADMIN_MAIN)).toHaveCount(1);
-      await expect(main.getByRole('alert'), 'mutlu yolda hata uyarısı yok').toHaveCount(0);
+      await expect(contentAlerts(main), 'mutlu yolda içerikli hata uyarısı yok').toHaveCount(0);
       await expect(main.getByText(/^Hata:/), 'mutlu yolda "Hata:" durumu yok').toHaveCount(0);
 
       expect(await documentOverflow(page), 'belge düzeyinde yatay taşma').toBe('');

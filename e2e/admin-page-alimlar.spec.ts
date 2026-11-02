@@ -2,7 +2,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test, expect, type Locator, type Page } from '@playwright/test';
-import { horizontalOverflow, openAdmin } from './admin-helpers';
+import { gotoAdmin, horizontalOverflow, openAdmin } from './admin-helpers';
 import { smallText } from './admin-detectors';
 
 // Alımlar ve eşyalar — telefon önce kritik yolculuk (c05). Tasarım: README › Sayfa iskeleti ve Uyarlanır teslim,
@@ -207,6 +207,39 @@ test.describe('Alımlar telefon yolculuğu', () => {
 });
 
 test.describe('Alımlar geniş yerleşim', () => {
+  // Geniş profilde antd sağlayıcı geçidi (adaptive/AdaptiveRoot) tembel bağlanır ve bağlanınca çalışma alanını bir kez
+  // yeniden kurar; yavaş ağda kullanıcı o arada bir kaydı açmış olabilir. Yeni sayfa örneği seçimi hash'ten alır ama açan
+  // satırı bilmez: kapanınca odak yine o kaydın satırına dönmeli (body'de kalmamalı). Geçidin modülü ayrıntı açılana
+  // kadar tutulur (sabit bekleme yok); telefon profili sağlayıcı istemez.
+  test('sağlayıcı geçidi ayrıntı açıkken bağlanırsa kapanınca odak açılan kaydın satırına döner', { tag: '@matrix' }, async ({ page }) => {
+    let birak!: () => void;
+    const serbest = new Promise<void>(resolve => { birak = resolve; });
+    let tutulan = 0;
+    await page.route(url => /\/adaptive\/WideProviders\.tsx$/.test(url.pathname), async route => {
+      tutulan += 1;
+      await serbest;
+      await route.fallback();
+    });
+    await gotoAdmin(page, '/alimlar');
+    await expect(page.getByRole('heading', { level: 1, name: 'Alımlar ve eşyalar' })).toBeVisible();
+    const p = await profil(page);
+    test.skip(p === 'phone', 'telefon profili sağlayıcı geçidini istemez');
+    await expect.poll(() => tutulan, { message: 'geniş profilde sağlayıcı modülü istenmeli' }).toBeGreaterThan(0);
+
+    const kaseSatiri = satir(page, KASE);
+    await kaseSatiri.click();
+    const ayrinti = page.getByRole('dialog', { name: KASE });
+    await expect(ayrinti).toBeVisible();
+    await expect(page.locator('[aria-busy="true"]:not(main *)'), 'geçit henüz bağlanmadı').toHaveCount(1);
+
+    birak();
+    await expect(page.locator('[aria-busy="true"]'), 'geçit bağlandı, yükleme bitti').toHaveCount(0);
+    await expect(ayrinti, 'seçim hash ile yeniden kurulumdan sağ çıkar').toBeVisible();
+    await ayrinti.getByRole('button', { name: p === 'desktop' ? 'Kapat' : 'Listeye dön', exact: true }).click();
+    await expect(ayrinti).toBeHidden();
+    await expect(kaseSatiri).toBeFocused();
+  });
+
   test('masaüstü: geniş yerleşim lazyWide ile gelir; ayrıntı sağda 384; görünüm değişiminde seçim, filtre ve odak korunur', { tag: '@matrix' }, async ({ page }) => {
     const istekler = istekleriTopla(page);
     await openAdmin(page, '/alimlar');

@@ -361,6 +361,47 @@ describe('AlimlarPage › ayrıntı, odak ve durum değişikliği', () => {
     await waitFor(() => expect(document.activeElement).toBe(kayitOgesi(region, 'Örnek kase')));
   });
 
+  // Ayrıntı açıkken liste yeniden kurulabilir: geniş profile ilk geçişte sağlayıcı geçidi çalışma alanını bir kez yeniden
+  // kurar (AdaptiveRoot) ve geniş modül gelince telefon yedeği geniş yerleşime geçer. Yeni sayfa örneği açan öğeyi bilmez
+  // (seçim hash'ten gelir) ya da bildiği düğüm belgeden düşmüştür. Kapanınca odak yine o kaydın satırına döner (seçili
+  // işaretli satır), body'de kalmaz. Hash'le açılış bu durumun en küçük örneğidir.
+  it.each(['phone', 'desktop'] as const)('%s: açan öğe bilinmezse (sayfa yeniden kuruldu, seçim hash’ten) kapanınca odak seçili kaydın satırına döner', async (device) => {
+    const kase = byLabel('Örnek kase');
+    window.location.hash = `#/alimlar/${kase.id}`;
+    const { user } = setup({ device });
+    const ayrinti = await screen.findByRole('dialog', { name: 'Örnek kase' });
+    await user.click(within(ayrinti).getByRole('button', { name: device === 'phone' ? 'Listeye dön' : 'Kapat' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Örnek kase' })).toBeNull());
+    const region = await sonuclar();
+    await waitFor(() => expect(document.activeElement).toBe(kayitOgesi(region, 'Örnek kase')));
+    expect(window.location.hash).not.toContain(kase.id);
+  });
+
+  // Kısa yükseklikte (yatay telefon 568×320) bildirim ayrıntı katmanının altlığına girince kayan gövde kısalır; durum
+  // seçimi gövdenin altındayken yeni beliren "Geri al" altlığın arkasında kalırdı. Sayfa onu en yakın kenarla görünür
+  // alana getirir (odak taşımaz; jsdom yerleşim yapmaz, çağrı doğrulanır — gerçek ölçü e2e/admin-page-alimlar).
+  it('telefon: durum değişince "Geri al" görünür alana getirilir (en yakın kenar), odak taşınmaz', async () => {
+    const kaydir = vi.spyOn(HTMLElement.prototype, 'scrollIntoView');
+    try {
+      const { user } = setup({ device: 'phone' });
+      const region = await sonuclar();
+      await user.click(kayitOgesi(region, 'Örnek kase'));
+      const sayfa = await screen.findByRole('dialog', { name: 'Örnek kase' });
+      await user.click(within(sayfa).getByRole('combobox', { name: 'Durumu değiştir' }));
+      const liste = await screen.findByRole('listbox', { name: 'Durumu değiştir' });
+      await user.click(within(liste).getByRole('option', { name: 'Karar bekliyor' }));
+      const geriAl = await within(sayfa).findByRole('button', { name: 'Geri al' });
+      await waitFor(() => expect(within(sayfa).getByRole('status')).toHaveTextContent(/Araştırılıyor → Karar bekliyor/));
+      await waitFor(() => {
+        const cagrilar = kaydir.mock.contexts.flatMap((oge, i) => (oge === geriAl ? [kaydir.mock.calls[i]] : []));
+        expect(cagrilar).toContainEqual([{ block: 'nearest' }]);
+      });
+      expect(document.activeElement).not.toBe(geriAl);
+    } finally {
+      kaydir.mockRestore();
+    }
+  });
+
   // Filtre yüzeyi telefonda shell/FilterDrawer › ui/BottomSheet (b03/a05): diyalog h2 "Filtreler" ile adlanır; altlıkta
   // canlı sonuç sayısı ("28 sonuç") ve "Uygula" (açıklaması sonuç sayısı, kapatır), "Temizle". Seçim anında uygulanır.
   it('telefon: filtreler alt sayfada; hash’teki seçim ayrıntıyı doğrudan açar', async () => {

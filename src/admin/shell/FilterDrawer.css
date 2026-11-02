@@ -28,3 +28,13 @@
   min-width: 0;
   min-height: var(--aile-dokunma-hedefi);
 }
+
+/* Kısa yükseklik (yatay telefon; profil sözleşmesindeki kısa kenar sınırı 480 CSS piksel = 30em, varsayılan yazı
+   boyutunda): sonuç sayısı ve iki eylem tek satırda. Altlık bir satır kısalır, kendi içinde kayan gövdede en az bir
+   seçenek ilk bakışta görünür (568×320'de ölçüldü: iki satırlı altlıkta gövde 98 piksel, ilk seçenek görünür alanın
+   dışındaydı). em: kullanıcı yazı boyutunu büyütünce eşik de büyür (daha büyük metne yer açılır); token dışı piksel yok. */
+@media (max-height: 29.99em) {
+  .aile-filtre-altlik { flex-direction: row; align-items: center; gap: var(--aile-bosluk-3); }
+  .aile-filtre-altlik-sonuc { flex: none; }
+  .aile-filtre-altlik-eylemler { flex: 1 1 auto; }
+}

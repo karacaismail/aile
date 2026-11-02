@@ -316,6 +316,68 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+/** zod sorununun özette kullanılan alanları (zod 4 sorun biçimleri; bilinmeyen alanlar yok sayılır). */
+interface ContractIssue {
+  code?: unknown;
+  path?: unknown;
+  values?: unknown;
+  expected?: unknown;
+  keys?: unknown;
+  minimum?: unknown;
+  maximum?: unknown;
+  format?: unknown;
+}
+
+/** zod tür adları → kullanıcı metni. */
+const TYPE_TEXT: Readonly<Record<string, string>> = {
+  string: 'metin', number: 'sayı', int: 'tam sayı', boolean: 'doğru/yanlış', object: 'nesne', array: 'liste', null: 'boş değer',
+  date: 'tarih', bigint: 'tam sayı', literal: 'sabit değer',
+};
+
+/** ["records", 79, "payment_evidence"] → "records[79].payment_evidence"; boş yol "kök". */
+function issuePath(path: unknown): string {
+  if (!Array.isArray(path) || path.length === 0) return 'kök';
+  let out = '';
+  for (const part of path) out += typeof part === 'number' ? `[${part}]` : `${out ? '.' : ''}${String(part)}`;
+  return out;
+}
+
+const valueText = (value: unknown) => (typeof value === 'string' ? `“${value}”` : String(value));
+
+function issueText(issue: ContractIssue): string {
+  switch (issue.code) {
+    case 'invalid_value':
+      return Array.isArray(issue.values) && issue.values.length ? `yalnız ${issue.values.map(valueText).join(' ya da ')}` : 'izin verilmeyen değer';
+    case 'invalid_type':
+      return typeof issue.expected === 'string' ? `${TYPE_TEXT[issue.expected] ?? issue.expected} bekleniyor` : 'tür uymuyor';
+    case 'unrecognized_keys':
+      return Array.isArray(issue.keys) && issue.keys.length ? `tanımsız alan ${issue.keys.map(String).join(', ')}` : 'tanımsız alan';
+    case 'too_small':
+      return issue.minimum !== undefined ? `en az ${String(issue.minimum)}` : 'çok küçük';
+    case 'too_big':
+      return issue.maximum !== undefined ? `en çok ${String(issue.maximum)}` : 'çok büyük';
+    case 'invalid_format':
+      return typeof issue.format === 'string' ? `biçim uymuyor (${issue.format})` : 'biçim uymuyor';
+    case 'invalid_union':
+      return 'tanımlı biçimlerin hiçbirine uymuyor';
+    default:
+      return 'geçersiz değer';
+  }
+}
+
+/**
+ * Sözleşme hatasının kullanıcıya yazılacak kısa özeti. zod hatasında (name "ZodError", issues dizisi) ham JSON sorun
+ * dizisi yerine ilk sorunun yolu ve Türkçe nedeni, varsa kalan sorun sayısı: "records[79].payment_evidence: yalnız
+ * false (+2 sorun daha)". Diğer hatalarda iletinin kendisi.
+ */
+export function contractSummary(error: unknown): string {
+  const issues = error instanceof Error && error.name === 'ZodError' ? (error as Error & { issues?: unknown }).issues : undefined;
+  if (!Array.isArray(issues) || issues.length === 0) return errorMessage(error);
+  const first = (issues[0] ?? {}) as ContractIssue;
+  const rest = issues.length > 1 ? ` (+${issues.length - 1} sorun daha)` : '';
+  return `${issuePath(first.path)}: ${issueText(first)}${rest}`;
+}
+
 export class GenerationStore {
   private readonly cache: PartitionCache | null;
   private readonly now: () => Date;
@@ -617,7 +679,7 @@ export class GenerationStore {
     try {
       manifest = parseManifest(raw) as Manifest;
     } catch (error) {
-      throw new ContractError('manifest.json', errorMessage(error));
+      throw new ContractError('manifest.json', contractSummary(error));
     }
     // Deponun çalışması için gereken asgari biçim; sözleşme şeması gevşekse bile burada durur.
     if (!manifest || typeof manifest !== 'object' || manifest.schemaVersion !== 1) throw new ContractError('manifest.json', 'schemaVersion 1 değil');
@@ -660,7 +722,7 @@ export class GenerationStore {
     try {
       envelope = parsePartition(name, raw) as PartitionEnvelope;
     } catch (error) {
-      throw new ContractError(path, errorMessage(error));
+      throw new ContractError(path, contractSummary(error));
     }
     if (!envelope || envelope.schemaVersion !== 1 || !Array.isArray(envelope.records)) throw new ContractError(path, 'parça zarfı schemaVersion 1 / records değil');
     if (envelope.collection !== name) throw new ContractError(path, `zarf koleksiyonu ${String(envelope.collection)}, beklenen ${name}`);
