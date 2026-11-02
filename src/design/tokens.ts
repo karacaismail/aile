@@ -89,6 +89,11 @@ export const designTokens = {
 // Material pencere sınıflarındaki "compact height" (<480) ile aynı sınır. Okuyan: src/admin/adaptive/profile.ts.
 export const adaptiveTokens = { kirilimKisaKenar: 480 } as const;
 
+// Simge ölçüsü (CSS px; tasarım README › İkonografi: "Simgeler 20 px, metinle birlikte"). tokens.json'da simge ölçüsü
+// tokenı yok, bu yüzden designTokens/--aile-* dışında. Tek kaynak: ui/icons ICON_SIZE ve kabuğun yerel simgeleri
+// (shell/ShellIcon) buradan okur; ikisi de telefon ilk rotasında zaten olan tokens parçasına bağlanır.
+export const iconTokens = { simgeOlcu: 20 } as const;
+
 const kebab = (name: string) => name.replace(/([a-z])([A-Z0-9])/g, '$1-$2').toLowerCase();
 const cssValue = (name: string, value: string | number) => typeof value === 'number' ? `${value}${name === 'sure' ? 'ms' : 'px'}` : value;
 /** `--aile-<kebab>` custom properties for the `.aile-admin` root (App applies them; admin.css keeps :root fallbacks). */

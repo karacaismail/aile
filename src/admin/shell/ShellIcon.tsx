@@ -1,17 +1,16 @@
 import type { ReactNode } from 'react';
+import { iconTokens } from '../../design/tokens.ts';
 
 // Kabuğun yerel çizgi simgeleri (currentColor, süsleyici): üst çubuk (WorkspaceShell), Sayfalar çekmecesi
 // (MobileNavDrawer) ve masaüstü yan gezinmesi (ShellNavList) kullanır. Telefon yolu simge paketini (Phosphor) çekmez:
 // yollar burada, 20 birimlik ızgarada. Ayrı modüldür: üst çubuk ilk boyamada çizilir, çekmece modülü ise ilk niyette iner.
 
 /**
- * Çizim ölçüsü = tasarımın tek simge ölçüsü ui/icons ICON_SIZE (20 px). Değer oradan içe aktarılmaz: bu kenar
- * (ShellIcon → ui/icons, çekmece ve geniş gezinme parçası üzerinden) derleyicinin ui/icons'u ayrı parçaya bölmesine yol
- * açıp telefon ilk rota JS'ini ~350 B gzip büyütüyor (p-fix ölçümü, 2 Kasım 2026). Eşitliği
- * WorkspaceShell.intent.test.tsx çizilen ölçüyü ICON_SIZE ile karşılaştırarak korur; ortak bağımlılıksız kaynak (tasarım
- * tokenı) gelince buradan kalkar.
+ * Çizim ölçüsü = tasarımın tek simge ölçüsü (src/design/tokens.ts iconTokens.simgeOlcu; ui/icons ICON_SIZE de oradan).
+ * ui/icons'tan içe aktarılmaz: o kenar (ShellIcon → ui/icons, çekmece ve geniş gezinme parçası üzerinden) derleyicinin
+ * ui/icons'u ayrı parçaya bölmesine yol açıp telefon ilk rota JS'ini ~350 B gzip büyütüyordu (p-fix ölçümü).
  */
-const SHELL_ICON_SIZE = 20;
+const SHELL_ICON_SIZE = iconTokens.simgeOlcu;
 
 export type ShellIconName = 'menu' | 'close' | 'settings' | 'sheet' | 'external';
 

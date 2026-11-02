@@ -6,6 +6,7 @@ import { CaretRightIcon } from '@phosphor-icons/react/dist/csr/CaretRight';
 import { CheckIcon } from '@phosphor-icons/react/dist/csr/Check';
 import { TableIcon } from '@phosphor-icons/react/dist/csr/Table';
 import { WarningIcon } from '@phosphor-icons/react/dist/csr/Warning';
+import { iconTokens } from '../../design/tokens.ts';
 import { CHUNK_RETRY_DELAY_MS, chunkFailureStatus, retryOnRecovery } from '../adaptive/chunkError';
 import type { EXTRA_ICONS } from './icons.extra';
 
@@ -37,10 +38,10 @@ export const ICON_NAMES = [
 ] as const satisfies readonly IconName[];
 
 /**
- * Simge boyutu (CSS px), tasarım README › İkonografi: "Simgeler 20 px, metinle birlikte". tokens.json'da simge boyutu
- * tokenı yok; tek kaynak bu sabittir (bileşenler sabit sayı yazmak yerine bunu ya da size prop'unu kullanır).
+ * Simge boyutu (CSS px), tasarım README › İkonografi: "Simgeler 20 px, metinle birlikte". Tek kaynak tasarım tokenı
+ * (src/design/tokens.ts iconTokens.simgeOlcu); bileşenler sabit sayı yazmak yerine bunu ya da size prop'unu kullanır.
  */
-export const ICON_SIZE = 20;
+export const ICON_SIZE = iconTokens.simgeOlcu;
 
 /** Çekirdek dışı parçanın durumu (adaptive loader WideStatus ile aynı adlar). */
 export type IconsStatus = 'idle' | 'loading' | 'ready' | 'error' | 'stale-build';
