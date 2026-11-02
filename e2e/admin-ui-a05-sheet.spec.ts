@@ -1,14 +1,17 @@
 import { test, expect, type Locator, type Page } from '@playwright/test';
 import { enterKeyboardMode, horizontalOverflow, openAdmin, tabKey } from './admin-helpers';
-import { focusRing, motion, smallText } from './admin-detectors';
+import { focusRing, motion, selfCheckDetectors, smallText } from './admin-detectors';
 
 // a05-sheet: yerel BottomSheet (telefon alt sayfası) ve Drawer (kenar çekmecesi) gerçek rotalarda.
 // Drawer: tablet profilinde /alimlar "Filtreler (N)" çekmecesi (shell/FilterDrawer → ui/Drawer, sağdan 384; telefonda
-// aynı yüzey BottomSheet'tir). Dar kabuğun "Sayfalar" çekmecesi ui/Drawer değildir (shell/MobileNavDrawer, b01; kendi
-// spec'i admin-shell). BottomSheet: telefonda "Rapor" seçimi (/raporlar, ui/Select telefonda listeyi ortak alt sayfada
-// açar). Kapsam: APG kip sözleşmesi (odak içeri, Tab tuzağı, Escape, odak dönüşü), arka plan
-// inert ve kaydırma kilidi, yönetim köküne portal, 44/48 px Kapat, ≥ 14 px metin, sürükleyerek kapatma (fare ve gerçek
-// dokunma; pointercancel ve gövdeden kaydırma çatışmasız), hareket 240 ms proje eğrisi ve reduced-motion'da anlık.
+// aynı yüzey BottomSheet'tir). Dar kabuğun "Sayfalar" çekmecesi ui/Drawer değildir (shell/MobileNavDrawer, b01; kip ve
+// odak sözleşmesi admin-shell'de): burada yalnız kaydırma kilidi sınanır, kendi sözleşmesiyle (html[data-shell-kilit] →
+// kök öğe overflow hidden; body'ye bakılmaz) ve davranışla (örtü üzerinde tekerlek belgeyi kaydırmaz; aynı ölçüm kilit
+// yokken kaydırdığını gösterir, yani kör değildir). BottomSheet: telefonda "Rapor" seçimi (/raporlar, ui/Select
+// telefonda listeyi ortak alt sayfada açar). Kapsam: APG kip sözleşmesi (odak içeri, Tab tuzağı, Escape, odak dönüşü),
+// arka plan inert ve kaydırma kilidi, yönetim köküne portal, 44/48 px Kapat, ≥ 14 px metin, sürükleyerek kapatma (fare
+// ve gerçek dokunma; pointercancel ve gövdeden kaydırma çatışmasız), hareket 240 ms proje eğrisi ve reduced-motion'da
+// anlık. Paylaşılan dedektörlerin (focusRing, motion, smallText) bu motorda kör olmadığı öz denetimle gösterilir.
 // Emülasyon gerçek cihaz değildir. Firefox koşulmaz (kalıcı karar). Seçiciler role/label ve bileşen sözleşme sınıfları.
 
 const MOTION_MS = 240;
@@ -39,6 +42,44 @@ async function openReportSheet(page: Page) {
   const sheet = page.getByRole('dialog', { name: 'Rapor' });
   await expect(sheet).toBeVisible();
   return { main, combobox, sheet };
+}
+
+/** Belgenin kaydırma konumu art arda üç karede aynı (süren yumuşak kaydırma bitti); konumu döndürür. */
+async function scrollAtRest(page: Page): Promise<number> {
+  const handle = await page.waitForFunction(() => {
+    const w = window as unknown as { __a05Rest?: { y: number; n: number } };
+    const prev = w.__a05Rest;
+    const n = prev && prev.y === window.scrollY ? prev.n + 1 : 0;
+    w.__a05Rest = { y: window.scrollY, n };
+    if (n < 3) return false;
+    w.__a05Rest = undefined;
+    // Nesne döner: konum 0 (sayfa başı) yanlış-değer sayılıp beklemeyi sürdürmesin.
+    return { y: window.scrollY };
+  }, undefined, { polling: 'raf' });
+  // waitForFunction yalnız doğru-değerle çözülür: dönen değer her zaman { y }.
+  return ((await handle.jsonValue()) as { y: number }).y;
+}
+
+/**
+ * (x, y) noktasına tekerlek olayı gönderir; olay pencereye ulaşıp iki kare geçince belgenin kaydırma konumunu döndürür.
+ * Tekerlekle kaydırma olayın ardından gelen ilk karede başlar; ölçüm sabit beklemeye değil olayın kendisine dayanır.
+ * Aynı ölçüm kilit yokken kaydırmayı gösterir (öz denetim), kilit açıkken göstermemelidir.
+ */
+async function wheelAt(page: Page, x: number, y: number, deltaY: number): Promise<number> {
+  await page.evaluate(() => {
+    const w = window as unknown as { __a05Wheel?: Promise<void> };
+    w.__a05Wheel = new Promise<void>(resolve => window.addEventListener('wheel', () => resolve(), { once: true, capture: true, passive: true }));
+  });
+  await page.mouse.move(x, y);
+  await page.mouse.wheel(0, deltaY);
+  return page.evaluate(async () => {
+    const w = window as unknown as { __a05Wheel?: Promise<void> };
+    await w.__a05Wheel;
+    w.__a05Wheel = undefined;
+    await new Promise(requestAnimationFrame);
+    await new Promise(requestAnimationFrame);
+    return window.scrollY;
+  });
 }
 
 async function expectTarget(page: Page, button: Locator) {
@@ -96,6 +137,61 @@ test.describe('Drawer: Filtreler çekmecesi (tablet)', () => {
     await page.mouse.click(Math.max(4, again.x - 8), viewport.height / 2);
     await expect(dialog).toBeHidden();
     await expect(button).toBeFocused();
+  });
+});
+
+test.describe('Drawer: Sayfalar çekmecesi (kabuk, MobileNavDrawer)', () => {
+  test('kaydırma kilidi: açıkken kök öğe kilitli (html[data-shell-kilit] → overflow hidden), örtüde tekerlek arka planı kaydırmaz; kapanınca serbest', { tag: '@matrix' }, async ({ page }) => {
+    await openAdmin(page, '/alimlar');
+    test.skip((await profileOf(page)) === 'desktop', 'Sayfalar çekmecesi dar kabukta (telefon, tablet); masaüstünde kalıcı yan gezinme');
+    const viewport = page.viewportSize()!;
+    // Ölçüm noktası: çekmece açıkken örtüde kalan sağ kenar (telefonda 16 px pay, tablette 384 px panelin sağı).
+    const probe = { x: viewport.width - 8, y: Math.round(viewport.height / 2) };
+    const room = await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight);
+    expect(room, 'ön koşul: /alimlar belgesi kaydırılabilir').toBeGreaterThan(300);
+
+    // Ölçüm kör değil: kilit yokken aynı noktadaki tekerlek belgeyi kaydırır.
+    const start = await scrollAtRest(page);
+    expect(await wheelAt(page, probe.x, probe.y, 120), 'kilit yokken tekerlek arka planı kaydırır').toBeGreaterThan(start);
+    await scrollAtRest(page);
+
+    // Tıklama, üst çubuktaki düğmeyi görünüme getirmek için belgeyi kaydırabilir (Playwright eylem koşulu); taban konum
+    // çekmece açılıp yerine oturduktan sonra alınır.
+    const button = page.getByRole('button', { name: 'Sayfalar', exact: true });
+    await button.click();
+    const dialog = page.getByRole('dialog', { name: 'Sayfalar' });
+    await expect(dialog).toBeVisible();
+    await settled(page, '.aile-mobile-nav__panel');
+    const before = await scrollAtRest(page);
+    // Sözleşme (shell.css): kilit kök öğededir; body'ye bakılmaz (ui/Drawer'ın body kilidi bu yüzeyde yoktur).
+    expect(await page.evaluate(() => ({
+      attr: document.documentElement.hasAttribute('data-shell-kilit'),
+      overflowY: getComputedStyle(document.documentElement).overflowY,
+    })), 'html[data-shell-kilit] → kök overflow hidden').toEqual({ attr: true, overflowY: 'hidden' });
+    expect(await page.evaluate(({ x, y }) => Boolean(document.elementFromPoint(x, y)?.closest('.aile-mobile-nav__ortu')), probe), 'ölçüm noktası örtüde').toBe(true);
+    // Davranış: örtü üzerinde tekerlek arka planı kaydırmaz; konum değişmez.
+    expect(await wheelAt(page, probe.x, probe.y, 400), 'açıkken arka plan kaymaz').toBe(before);
+    expect(await scrollAtRest(page)).toBe(before);
+
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden();
+    await expect(button).toBeFocused();
+    await expect(page.locator('.aile-mobile-nav')).toHaveCount(0);
+    const released = await page.evaluate(() => ({
+      attr: document.documentElement.hasAttribute('data-shell-kilit'),
+      overflowY: getComputedStyle(document.documentElement).overflowY,
+    }));
+    expect(released.attr, 'kapanınca kilit işareti kalkar').toBe(false);
+    expect(released.overflowY, 'kapanınca kök kaydırılabilir').not.toBe('hidden');
+    const closed = await scrollAtRest(page);
+    expect(await wheelAt(page, probe.x, probe.y, 120), 'kapanınca tekerlek yine kaydırır').toBeGreaterThan(closed);
+  });
+});
+
+test.describe('Paylaşılan dedektörler', () => {
+  test('öz denetim: bu motorda dedektörler (odak, tek satır modeli, metin, hareket, …) bilinçli ihlali yakalar, temizde susar', async ({ page }) => {
+    await openAdmin(page, '/raporlar');
+    expect(await selfCheckDetectors(page), 'ihlali yakalamayan ya da yanlış alarm veren dedektörler').toEqual([]);
   });
 });
 
