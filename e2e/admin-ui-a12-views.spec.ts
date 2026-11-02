@@ -96,7 +96,11 @@ test.describe('a12 › telefon: Kanban gruplu liste', () => {
   test('reduced-motion: kart geçişi anlık (durum yine anında)', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await openAdmin(page, '/alimlar/?mod=kanban');
-    const card = page.getByRole('region', { name: KANBAN, exact: true }).locator('[data-kanban-kayit]').first();
+    const region = page.getByRole('region', { name: KANBAN, exact: true });
+    // Geniş profilde liste, tembel pano gelene dek yedek sunumdur; pano gelince kartlar yeniden çizilir. Ölçüm, değişim
+    // anında ayrılan karttan (boş hesaplanmış stil) değil, kalıcı sunumdaki karttan yapılır.
+    if ((await profileOf(page)) !== 'phone') await expect(region.locator('[data-kanban-izgara]')).toBeVisible();
+    const card = region.locator('[data-kanban-kayit]').first();
     expect(await card.evaluate(el => getComputedStyle(el).transitionDuration)).toBe('0s');
     await page.emulateMedia({ reducedMotion: 'no-preference' });
     expect(await card.evaluate(el => getComputedStyle(el).transitionDuration)).toBe('0.24s');

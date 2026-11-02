@@ -126,21 +126,6 @@ const USTALI: Degisiklik = {
   },
 };
 
-/**
- * Dev sunucusunun verdiği sözleşme modülüne (src/admin/data/contract.ts) d05-contract'tan istenen değişikliği ekler:
- * collectionSchemas.providers = PurchaseNeed (normalize.mjs usta satırı = PurchaseNeed gövdesi). parsePartition şemayı
- * collectionSchemas'tan okur; depo, yükleyici ve bütünlük denetimi gerçek kalır. Sözleşme providers'ı zaten tanıyorsa
- * ya da adlar değiştiyse ekleme etkisizdir (typeof hata atmaz) ve test bağlantı beklentisinde açıkça kırmızı olur.
- */
-async function sozlesmeProviders(page: Page): Promise<void> {
-  await page.route(/\/src\/admin\/data\/contract\.ts(\?.*)?$/, async route => {
-    const response = await route.fetch();
-    const body = await response.text();
-    const ek = "\n;if (typeof collectionSchemas === 'object' && typeof PurchaseNeed !== 'undefined' && !Object.prototype.hasOwnProperty.call(collectionSchemas, 'providers')) collectionSchemas.providers = PurchaseNeed;\n";
-    await route.fulfill({ response, body: body + ek });
-  });
-}
-
 // --- Yardımcılar ------------------------------------------------------------------------------------------------------
 type Profil = 'phone' | 'tablet' | 'desktop';
 /** src/admin/adaptive/profile.ts ile aynı eşikler: genişlik < 600 ya da kısa kenar < 480 → telefon. */
@@ -167,6 +152,20 @@ const tazelik = (page: Page) => page.locator('[role="status"][data-state]');
 /** Açılır satırın gövdesindeki etiket–değer çifti (AccordionList dt/dd). */
 const deger = (govde: Locator, etiket: string) => govde.locator('dt', { hasText: new RegExp(`^${etiket}$`) }).locator('xpath=following-sibling::dd[1]');
 const govdeOf = async (page: Page, satir: Locator) => page.locator(`[id="${await satir.getAttribute('aria-controls')}"]`);
+
+/**
+ * Taraf satırının iletişim bağlantılarını görünür kılar. Telefonda taraf satırı akordeondur: kapalıysa açılır. Masaüstünde
+ * taraf tablosu tembel gelir (beklerken telefon listesi yedektir); bağlantılar tablo satırında doğrudan görünür, bu yüzden
+ * önce tablonun satırı beklenir (yedek listeden yeni çizilen tabloya geçiş anında düğme okunmaz).
+ */
+async function tarafIletisimi(page: Page, bolge: Locator, ad: string) {
+  if (beklenenProfil(page) === 'desktop') {
+    await expect(bolge.getByRole('table', { name: 'Taraflar' }).getByRole('row', { name: new RegExp(ad) })).toBeVisible();
+    return;
+  }
+  const satir = bolge.getByRole('button', { name: new RegExp(ad) });
+  if ((await satir.getAttribute('aria-expanded')) !== 'true') await satir.click();
+}
 
 async function kurallar(page: Page) {
   expect(await smallText(page, { root: KOK, min: 14 }), 'metin ≥ 14 CSS px').toEqual([]);
@@ -284,7 +283,6 @@ test.describe('Taraflar ve teklifler', () => {
   // 360 → 375 → 390 → yatay 568×320. Hepsi telefon profilidir; geniş-özel modül hiçbirinde indirilmez.
   test('telefon genişlikleri 320×568, 320×480, 360, 375, 390 ve yatay 568×320: telefon sunumu, akordeon, bağlantı hedefi, taşma yok', async ({ page }) => {
     const genis = genisIstekleri(page);
-    await sozlesmeProviders(page);
     await nesil(page, { ...TEKLIFLI, ...USTALI });
     for (const boyut of [{ width: 320, height: 568 }, { width: 320, height: 480 }, { width: 360, height: 640 }, { width: 375, height: 667 }, { width: 390, height: 844 }, { width: 568, height: 320 }]) {
       await test.step(`${boyut.width}×${boyut.height}`, async () => {
@@ -316,17 +314,14 @@ test.describe('Taraflar ve teklifler', () => {
     expect(genis, 'telefon geniş-özel modül indirmez').toEqual([]);
   });
 
-  // Bugünkü panel sözleşmesi providers koleksiyonunu tanımıyor (sayfa bunu "bu sürümde okunmuyor" diye adıyla söyler;
-  // birim testi TaraflarPage.test.tsx). Bağlantıları gerçek tarayıcıda ölçmek için sözleşme modülüne d05-contract'tan
-  // istenen satır eklenir (sozlesmeProviders); sözleşme providers'ı tanıdığında ekleme hiçbir şey yapmaz.
+  // Panel sözleşmesi providers koleksiyonunu okur (data/contract.ts; normalize.mjs usta satırı → providers). Telefonda taraf
+  // satırı akordeondur, bağlantılar açık satırın gövdesindedir; masaüstünde tembel taraf tablosunun satırındadır.
   test('taraflar: tel: ve WhatsApp bağlantıları erişilebilir adlı, en az 44 px (dokunmatikte 48), odak alt çizgi', async ({ page, browserName }) => {
-    await sozlesmeProviders(page);
     await nesil(page, USTALI);
     await openAdmin(page, '/taraflar');
     const taraflar = bolum(page, 'Taraflar');
     await expect(ozet(page, 'Taraf kaydı')).toContainText('2');
-    const aliSatiri = taraflar.getByRole('button', { name: /Usta Ali/ });
-    if ((await aliSatiri.getAttribute('aria-expanded')) !== 'true') await aliSatiri.click();
+    await tarafIletisimi(page, taraflar, 'Usta Ali');
 
     const ara = taraflar.getByRole('link', { name: 'Ara: Usta Ali, 0532 123 45 67' });
     const wa = taraflar.getByRole('link', { name: 'WhatsApp ile yaz: Usta Ali (yeni sekmede açılır)' });
@@ -342,8 +337,7 @@ test.describe('Taraflar ve teklifler', () => {
       expect(kutu.width, `hedef genişliği ≥ ${asgari}`).toBeGreaterThanOrEqual(asgari);
     }
     // Sabit hatta yalnız arama.
-    const mutfakSatiri = taraflar.getByRole('button', { name: /Mutfak Dünyası/ });
-    if ((await mutfakSatiri.getAttribute('aria-expanded')) !== 'true') await mutfakSatiri.click();
+    await tarafIletisimi(page, taraflar, 'Mutfak Dünyası');
     await expect(taraflar.getByRole('link', { name: 'Ara: Mutfak Dünyası, 0212 555 10 10' })).toHaveAttribute('href', 'tel:+902125551010');
     await expect(taraflar.getByRole('link', { name: /WhatsApp ile yaz: Mutfak Dünyası/ })).toHaveCount(0);
     // Karşılaştırma: aynı alıma bağlı iki usta teklifi; en düşük fiyat sözcükle ve kesin farkla.

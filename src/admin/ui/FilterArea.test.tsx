@@ -231,6 +231,14 @@ describe('FilterArea (filtre alanı)', () => {
     expect(css).not.toMatch(/\.ant-/);
   });
 
+  it('"Paneli gizle" dar iç boşluğu (bosluk-2) yerel Button işaretlemesini seçer: CSS seçicisi çizilen düğmeyi bulur', () => {
+    const css = read('FilterArea.css').replace(/\/\*[\s\S]*?\*\//g, '');
+    const rule = /([^{}]*\.aile-filtre-alani-gizle[^{}]*)\{[^}]*padding-inline:\s*var\(--aile-bosluk-2\)/.exec(css);
+    expect(rule, 'gizle düğmesinin dar iç boşluk kuralı').not.toBeNull();
+    const { container } = renderArea(<FilterArea panel={PANEL} count={2}>{SONUCLAR}</FilterArea>);
+    expect(container.querySelector(rule![1]!.trim())).toBe(gizle());
+  });
+
   it('sağlayıcı yokken cihazı matchMedia belirler: 1280 px masaüstü (panel var), 800 px tablet (tetik + alt sayfa)', () => {
     viewport(1280);
     const wide = render(<FilterArea panel={PANEL}>{SONUCLAR}</FilterArea>);

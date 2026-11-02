@@ -16,8 +16,9 @@ import { TaraflarPage } from './TaraflarPage';
 // açık; geniş sunum yalnız geniş profilde ve tembel). Veri: sentetik nesil (fixtures/generation-synthetic)
 // FixtureGenerationSource ile belleğe okunur. Seçiciler role/label ile; antd iç sınıflarına bağlı seçici yok.
 //
-// Bu dosyada panel sözleşmesi providers koleksiyonunu TANIMAZ (bugünkü sözleşme; d05 eklese bile burada sabit kalsın diye
-// açıkça çıkarılır). Sözleşmenin providers'ı tanıdığı yol taraflar/providers.test.tsx'tedir.
+// Bu dosyada panel sözleşmesi providers koleksiyonunu TANIMAZ: sözleşme bugün tanır (data/contract.ts), ama sayfanın
+// tanımayan sözleşmeyle (eski/ayrık sürüm) dürüst kalan yolu burada sınanır; koleksiyon açıkça çıkarılır. Sözleşmenin
+// providers'ı tanıdığı yol taraflar/providers.test.tsx'tedir.
 vi.mock('../data/contract', async (importOriginal) => {
   const original = await importOriginal<typeof import('../data/contract')>();
   const { providers: _yok, ...schemas } = original.collectionSchemas as Record<string, unknown>;

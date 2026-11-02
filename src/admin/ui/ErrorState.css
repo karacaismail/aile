@@ -15,6 +15,10 @@
   color: var(--aile-metin);
 }
 .aile-error-state p { margin: 0; }
+/* Sütun öğeleri align-items: flex-start ile içerik genişliğindedir; en uzun kelime (ör. "(data/…/00000.json):" yolu)
+   min-content genişliğini kabın üstüne çıkarmasın diye her öğe kabın genişliğiyle sınırlanır ve kelime yalnız sığmadığında
+   sarılır (break-word; kelimeler arası doğal sarım korunur). */
+.aile-error-state > * { max-width: 100%; }
 .aile-error-state__head {
   display: flex;
   gap: var(--aile-bosluk-2);
@@ -34,8 +38,8 @@
   overflow-wrap: break-word;
   min-width: 0;
 }
-.aile-error-state__message { max-width: 60ch; overflow-wrap: break-word; }
-.aile-error-state__detail { max-width: 60ch; overflow-wrap: break-word; }
+.aile-error-state__message { max-width: min(60ch, 100%); overflow-wrap: break-word; }
+.aile-error-state__detail { max-width: min(60ch, 100%); overflow-wrap: break-word; }
 .aile-error-state__retry {
   display: inline-flex;
   align-items: center;

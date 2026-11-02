@@ -1,27 +1,16 @@
 import type { ReactNode } from 'react';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { GenerationProvider } from '../../data';
 import { DeviceContext } from '../../device';
 import type { Device } from '../../shell/contracts';
 import { TaraflarPage } from '../TaraflarPage';
 import { bag, kaynak, kayitlar, nesil, usta } from './testNesli';
 
-// Panel sözleşmesi providers koleksiyonunu tanıdığında (data-platform/normalize.mjs: usta satırı → providers; şema
-// PurchaseNeed gövdesi) sayfanın taraf ve teklif yolu. Bugünkü sözleşme bu koleksiyonu tanımadığı için burada sözleşme
-// modülü, d05-contract'tan istenen değişikliğin aynısıyla genişletilir: collectionSchemas.providers = PurchaseNeed ve
-// parsePartition('providers') bu şemayla doğrular. Depo, yükleyici ve bütünlük denetimi gerçektir.
-vi.mock('../../data/contract', async (importOriginal) => {
-  const original = await importOriginal<typeof import('../../data/contract')>();
-  const { z } = await import('zod');
-  const collectionSchemas = { ...original.collectionSchemas, providers: original.PurchaseNeed };
-  const parsePartition = (collection: string, input: unknown) => {
-    if (collection !== 'providers') return original.parsePartition(collection as never, input);
-    return z.object({ schemaVersion: z.literal(1), collection: z.literal('providers'), records: z.array(original.PurchaseNeed) }).parse(input);
-  };
-  return { ...original, collectionSchemas, parsePartition };
-});
+// Panel sözleşmesi providers koleksiyonunu tanır (data-platform/normalize.mjs: usta satırı → providers, kind 'provider',
+// alımlarla aynı kalem gövdesi; data/contract.ts collectionSchemas.providers). Sözleşme, depo, yükleyici ve bütünlük
+// denetimi gerçektir; yalnız nesil test için değiştirilir (testNesli: providers bölümü ve associated_with bağları).
 
 const ALIM = kayitlar('purchase_needs').find((record) => !record.deleted_at)!;
 const ALI = usta(1, { ad: 'Usta Ali', meslek: 'elektrik', telefon: '0532 123 45 67', teklif_sure_gun: '5', garanti_ay: '24', myk_dogrulandi: true }, '17450.00');
