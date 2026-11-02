@@ -534,6 +534,17 @@ describe('Chart — yükleme hatası kurtarılabilir', () => {
 });
 
 describe('Chart — dışa aktarılan yardımcılar', () => {
+  it('tema varsayılanları: lejant üstte (ECharts 6 alta koyar, kategori etiketleriyle çakışır), değer ekseni tr-TR', async () => {
+    const { aileChartTheme } = await import('./Chart');
+    expect(aileChartTheme.legend.top).toBe(0);
+    // Izgara üstte lejanta yer bırakır (sıfır değil, lejant simgesinden yüksek); 1280 ve 320 px ekran görüntüsünde çakışma yok.
+    expect(aileChartTheme.grid.top).toBeGreaterThan(aileChartTheme.legend.itemHeight);
+    const etiket = aileChartTheme.valueAxis.axisLabel.formatter;
+    expect(etiket(25000)).toBe('25.000');
+    expect(etiket(1234567.5)).toBe('1.234.567,5');
+    expect(etiket(0)).toBe('0');
+  });
+
   it('chartSeriesColors plan/gerçek ayrımını tokenlarla verir', async () => {
     const { chartSeriesColors, CHART_COLORS } = await import('./Chart');
     expect(chartSeriesColors.plan).toBe(designTokens.acikMavi);

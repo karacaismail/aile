@@ -68,6 +68,8 @@ export const chartSeriesColors = {
 
 const yaziKucuk = { fontFamily: designTokens.fontSans, fontSize: YAZI_KUCUK, color: designTokens.metin };
 const eksenYazi = { ...yaziKucuk, color: designTokens.metinIkincil };
+/** Değer ekseni etiketi tr-TR: 25.000 ve 1.234.567,5 (ECharts varsayılanı en-US "25,000"). Sayfa option'ı geçersiz kılabilir. */
+const eksenSayisi = new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 2 });
 
 /** ECharts teması: option biçiminde varsayılanlar; yalnız designTokens değerleri. */
 export const aileChartTheme = {
@@ -84,11 +86,12 @@ export const aileChartTheme = {
   valueAxis: {
     axisLine: { show: false },
     axisTick: { show: false },
-    axisLabel: { ...eksenYazi, hideOverlap: true },
+    axisLabel: { ...eksenYazi, hideOverlap: true, formatter: (value: number) => eksenSayisi.format(value) },
     splitLine: { lineStyle: { color: designTokens.cizgi } },
   },
-  // Referans legend (bundle.css .pg-sw / .pg-legend): 16×12 swatch (bosluk4 × bosluk3), 24 px aralık, metin 14.
-  legend: { icon: 'roundRect', itemWidth: designTokens.bosluk4, itemHeight: designTokens.bosluk3, itemGap: designTokens.bosluk6, textStyle: yaziKucuk },
+  // Referans legend (bundle.css .pg-sw / .pg-legend): 16×12 swatch (bosluk4 × bosluk3), 24 px aralık, metin 14. Üstte:
+  // ECharts 6 varsayılanı alttır ve kategori ekseni etiketleriyle çakışır; grid.top altında ona yer bırakır.
+  legend: { top: 0, icon: 'roundRect', itemWidth: designTokens.bosluk4, itemHeight: designTokens.bosluk3, itemGap: designTokens.bosluk6, textStyle: yaziKucuk },
   tooltip: {
     trigger: 'axis',
     confine: true,
