@@ -43,11 +43,16 @@
   padding-bottom: var(--aile-bosluk-2);
 }
 
-/* Tazelik satırı ve özet tam genişlikte, ikinci ızgara satırında. */
-.aile-ph__durum,
-.aile-ph__ozet {
+/* Bağlam (tazelik satırı, özet, sayfa notları) tek tam genişlik satırdır: masaüstünde de notlar eylem sütununa düşmez.
+   İç aralık başlık ızgarasının satır aralığıyla aynıdır (bosluk-2). */
+.aile-ph__baglam {
   grid-column: 1 / -1;
+  display: grid;
+  gap: var(--aile-bosluk-2);
+  min-width: 0;
 }
+
+.aile-ph__baglam > * { min-width: 0; }
 
 /* Özet: liste işareti yok, kutusuz tek satır; ölçüler yan yana, dar alanda sarar. Üstte yalnız cizgi ayırıcısı. */
 .aile-ph__ozet {

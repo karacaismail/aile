@@ -12,7 +12,7 @@ import { AntApp, ConfigProvider } from './ui/antd';
 import { AdminRoutes } from './routes';
 
 // Rota → sayfa eşlemesi: her nav yolu kendi sayfasını React.lazy ile yükler; yüklenirken aynı PageHeader (başlık
-// korunur) + LoadingShell; /alimlar/:id ayrıntı AlimlarPage'e gider; bilinmeyen konum /alimlar'a yönlenir.
+// korunur) + LoadingShell; /alimlar/:id ayrıntı AlimlarPage'e gider; bilinmeyen konum /genel'e (Genel durum) yönlenir.
 // Sayfa modülleri gerçektir; yalnız "hangi sayfa hangi props ile çizildi" kaydı için ince bir sarmalayıcı eklenir.
 
 const rendered = vi.hoisted(() => new Map<string, Record<string, unknown>>());
@@ -145,12 +145,13 @@ describe('AdminRoutes › ayrıntı ve yönlendirme', () => {
     expect(memory.history).toEqual(['/alimlar/2f1c0a64-6a39-5f0c-9d64-000000000001']);
   }, 20_000);
 
-  it.each(['/yok', '/', '/alimlarx', '/genel-eski'])('bilinmeyen %s → /alimlar (replace)', async path => {
+  it.each(['/yok', '/', '', '/alimlarx', '/genel-eski'])('bilinmeyen "%s" → /genel (replace; geçmişe kayıt eklemez)', async path => {
     const { memory } = renderAt(path);
-    await waitFor(() => expect(memory.history.at(-1)).toBe('/alimlar'));
-    expect(memory.history).toEqual(['/alimlar']);
-    await waitFor(() => expect(rendered.has('AlimlarPage')).toBe(true), { timeout: 10_000 });
-    expect(h1('Alımlar ve eşyalar')).toBeInTheDocument();
+    await waitFor(() => expect(memory.history.at(-1)).toBe('/genel'));
+    expect(memory.history).toEqual(['/genel']);
+    await waitFor(() => expect(rendered.has('GenelPage')).toBe(true), { timeout: 10_000 });
+    expect(rendered.has('AlimlarPage')).toBe(false);
+    expect(h1('Genel durum')).toBeInTheDocument();
   }, 20_000);
 
   it('iç içe yol üst sayfada kalır (/raporlar/aylik → Raporlar)', async () => {
