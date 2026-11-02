@@ -93,7 +93,9 @@
   text-underline-offset: 0.2em;
   transition: background-color var(--aile-sure) var(--aile-egri), color var(--aile-sure) var(--aile-egri);
 }
-.aile-ov .aile-ov-bag:hover { background: var(--aile-bilgi-yuzey); }
+@media (hover: hover) {
+  .aile-ov .aile-ov-bag:hover { background: var(--aile-bilgi-yuzey); }
+}
 .aile-ov .aile-ov-bag:active {
   background: var(--aile-secili);
   color: var(--aile-nav);
@@ -123,7 +125,9 @@
   text-decoration: none;
   transition: background-color var(--aile-sure) var(--aile-egri);
 }
-.aile-ov a.aile-ov-satir:hover { background: var(--aile-bilgi-yuzey); }
+@media (hover: hover) {
+  .aile-ov a.aile-ov-satir:hover { background: var(--aile-bilgi-yuzey); }
+}
 .aile-ov a.aile-ov-satir:active { background: var(--aile-secili); }
 .aile-ov-satir-ana {
   display: flex;
@@ -197,7 +201,8 @@
 }
 .aile-ov-olcek[data-asim='true'] .aile-ov-olcek-dolgu { background: var(--aile-uyari); }
 
-/* Görev satırı: <label> satırın tamamıdır (64 px hedef), hover bilgi-yuzey; biten görev ikincil + çizili. */
+/* Görev satırı: <label> satırın tamamıdır (64 px hedef), hover bilgi-yuzey (yalnız hover girişinde: dokunmada :hover
+   takılı kalır); biten görev ikincil + çizili. */
 .aile-ov .aile-ov-gorev {
   display: flex;
   align-items: center;
@@ -209,9 +214,11 @@
   cursor: pointer;
   transition: background-color var(--aile-sure) var(--aile-egri);
 }
-.aile-ov .aile-ov-gorev:hover { background: var(--aile-bilgi-yuzey); }
+@media (hover: hover) {
+  .aile-ov .aile-ov-gorev:hover { background: var(--aile-bilgi-yuzey); }
+  .aile-ov .aile-ov-gorev:has(:disabled):hover { background: transparent; }
+}
 .aile-ov .aile-ov-gorev:has(:disabled) { cursor: default; }
-.aile-ov .aile-ov-gorev:has(:disabled):hover { background: transparent; }
 .aile-ov-gorev-ad { font-weight: 500; }
 .aile-ov-gorev--bitti .aile-ov-gorev-ad {
   color: var(--aile-metin-ikincil);
@@ -266,6 +273,13 @@
 /* Odak çizgisi liste satırının alt kenarında (README › Odak: liste satırı); admin.css'in -7 px çizgisi listenin
    overflow'unda kaybolurdu. Satır taşıyıcıları data-focus-line="row"; aynı kalınlık ve renk, yalnız konum değişir. */
 html[data-keyboard='true'] .aile-admin .aile-ov [data-focus-line='row']:is(:focus-visible, :has(:focus-visible))::after { bottom: 0; }
+/* Son satırın çizgisi listenin alt kenarındadır (li alt kenarı = liste alt kenarı); liste radiuslu ve taşmayı kırpar,
+   çizginin uçları köşe eğrisinde kesilirdi (kavisli vurgu kenarı). Yalnız çizgi görünürken (klavye modu +
+   :focus-visible) listenin değdiği iki alt köşesi radiussuz; üst köşeler ve işaretçi modu korunur; geçiş yok (anında). */
+html[data-keyboard='true'] .aile-ov-liste:has(> li:last-child :focus-visible) {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
 
 /* Zorlanmış renkler: sistem onay kutusu (işaret simgesi gizlenir); odak dış çizgisi admin.css'tedir. */
 @media (forced-colors: active) {

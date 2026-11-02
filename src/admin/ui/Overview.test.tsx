@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, relative, resolve } from 'node:path';
+import postcss from 'postcss';
 import { useState } from 'react';
 import { MIRRORS_PLAN_NOTE, MIXED_CURRENCY_TEXT, type RecordedTotal, type RecordedValue } from '../data/actuals';
 import type { Money } from '../shell/contracts';
@@ -590,5 +591,145 @@ describe('Overview › kaynak kuralları', () => {
     for (const rule of ['aile-ov-satir', 'aile-ov-gorev']) {
       expect(css).toMatch(new RegExp(`\\.${rule}\\s*\\{[^}]*min-height:\\s*calc\\(var\\(--aile-bosluk-8\\) \\* 2\\)`));
     }
+  });
+});
+
+// --- Liste kenarları: son satırın odak çizgisi ve dokunmada hover tonu --------------------------------------------------
+// Liste satırının odak çizgisi satır taşıyıcısının alt kenarındadır (admin.css [data-focus-line='row'], bottom 0). Liste
+// radiuslu ve taşmayı kırpar (kose-kart + overflow hidden): son satırın çizgisi listenin alt kenarına oturur ve uçları
+// köşe eğrisinde kırpılırdı (kavisli vurgu kenarı; e2e accentEdgeViolations "radiuslu ve kırpan ata kenarında şerit").
+// Kural: yalnız çizgi görünürken (klavye modu + :focus-visible) listenin değdiği iki alt köşesi radiussuz; üst köşeler,
+// işaretçi modu ve diğer satırlar değişmez; geçiş yok. Hover tonu yalnız gerçek hover girişinde (@media (hover: hover)):
+// dokunmada :hover dokunuştan sonra takılı kalır ve satır seçili sanılır. Ölçüm: Overview.css kuralları (postcss) render
+// edilen öğeye Element.matches ile uygulanır; at-kuralı içindekiler sayılmaz.
+
+interface CssRule { selectors: string[]; atRules: string[]; decls: Map<string, string> }
+const CORNERS_OF: Record<string, readonly string[]> = {
+  'border-radius': ['top-left', 'top-right', 'bottom-right', 'bottom-left'],
+  'border-top-left-radius': ['top-left'],
+  'border-top-right-radius': ['top-right'],
+  'border-bottom-right-radius': ['bottom-right'],
+  'border-bottom-left-radius': ['bottom-left'],
+};
+function cssRules(file: string): CssRule[] {
+  const rules: CssRule[] = [];
+  postcss.parse(readFileSync(resolve(UI_DIR, file), 'utf8')).walkRules(rule => {
+    const atRules: string[] = [];
+    for (let parent = rule.parent; parent && parent.type === 'atrule'; parent = parent.parent) {
+      atRules.push(`@${(parent as postcss.AtRule).name} ${(parent as postcss.AtRule).params}`);
+    }
+    const decls = new Map<string, string>();
+    rule.each(node => { if (node.type === 'decl') decls.set(node.prop, node.value.trim()); });
+    rules.push({ selectors: rule.selectors, atRules, decls });
+  });
+  return rules;
+}
+// Model: klavye modunda klavyeyle alınan odak görünürdür. jsdom'un :focus-visible sezgisi değerlendirme geçmişine bağlıdır
+// (önceki testten kalan durum sonucu değiştirir); bu yüzden eşleşmede :focus-visible → :focus. Kuralın klavye modu ve
+// :focus-visible ile koşullandığı ayrıca (cornerRuleSelectors) doğrulanır; gerçek tarayıcı davranışı e2e/admin-ui-f-edges.
+function matchingRules(el: Element, rules: readonly CssRule[]): CssRule[] {
+  return rules.filter(rule => rule.atRules.length === 0 && rule.selectors.some(selector => {
+    if (/::?(before|after)\b/.test(selector)) return false;
+    try { return el.matches(selector.replace(/:focus-visible\b/g, ':focus')); } catch { return false; }
+  }));
+}
+/** Kabın (sınıf) köşesini 0'a çeken kuralların seçicileri: yalnız klavye modu + :focus-visible ile koşullu olmalı. */
+function cornerRuleSelectors(rules: readonly CssRule[], boxClass: string): string[] {
+  return rules
+    .filter(rule => [...rule.decls].some(([prop, value]) => CORNERS_OF[prop] && /^0(px)?$/.test(value)))
+    .flatMap(rule => rule.selectors)
+    .filter(selector => selector.includes(boxClass));
+}
+function expectKeyboardGated(selectors: readonly string[]) {
+  expect(selectors.length).toBeGreaterThan(0);
+  for (const selector of selectors) {
+    expect(selector).toMatch(/^html\[data-keyboard='true'\] /);
+    expect(selector).toMatch(/:focus-visible\b/);
+    expect(selector).not.toMatch(/:focus(?!-visible)/);
+  }
+}
+function zeroedCorners(el: Element, rules: readonly CssRule[]): string[] {
+  const corners = new Set<string>();
+  for (const rule of matchingRules(el, rules)) {
+    for (const [prop, value] of rule.decls) if (CORNERS_OF[prop] && /^0(px)?$/.test(value)) CORNERS_OF[prop]!.forEach(c => corners.add(c));
+  }
+  return [...corners].sort();
+}
+/** Odağı klavyeyle (Tab) hedefe taşır: jsdom :focus-visible'ı tarayıcı sezgisiyle hesaplar (betik odağı her zaman görünür değil). */
+async function tabTo(user: ReturnType<typeof userEvent.setup>, target: Element, limit = 40) {
+  for (let i = 0; i < limit && document.activeElement !== target; i += 1) await user.tab();
+  expect(target).toHaveFocus();
+}
+
+describe('Overview › liste kenarları', () => {
+  const css = cssRules('Overview.css');
+  const listIn = (name: string) => region(name).querySelector<HTMLElement>('ul.aile-ov-liste')!;
+  const keyboardMode = (on: boolean) => { document.documentElement.dataset.keyboard = on ? 'true' : 'false'; };
+  afterEach(() => { delete document.documentElement.dataset.keyboard; });
+
+  it('liste radiusludur ve taşmayı kırpar: son satır çizgisinin kırpıldığı durum gerçektir', () => {
+    render(<Overview {...props()} onToggleTask={() => {}} />);
+    const decls = matchingRules(listIn('Dikkat isteyenler'), css).flatMap(rule => [...rule.decls]);
+    expect(decls).toContainEqual(['border-radius', 'var(--aile-kose-kart)']);
+    expect(decls).toContainEqual(['overflow', 'hidden']);
+  });
+
+  it('klavye modunda son satır (bağlantı ya da görev kutusu) odaktayken yalnız listenin iki alt köşesi radiussuz; ilk satırda korunur', async () => {
+    const user = userEvent.setup();
+    render(<Overview {...props()} onToggleTask={() => {}} />);
+    keyboardMode(true);
+    // Ödemelerde bağlantı yalnız ilk satırda: son satır bağlantısız (odak almaz), ilk satır odakta köşeler korunur.
+    const payments = listIn('Yaklaşan ödemeler · 7 gün');
+    await tabTo(user, within(payments).getByRole('link'));
+    expect(zeroedCorners(payments, css)).toEqual([]);
+
+    const attention = listIn('Dikkat isteyenler');
+    const links = within(attention).getAllByRole('link');
+    await tabTo(user, links[0]!);
+    expect(zeroedCorners(attention, css)).toEqual([]);
+    await tabTo(user, links[links.length - 1]!);
+    expect(zeroedCorners(attention, css)).toEqual(['bottom-left', 'bottom-right']);
+
+    const tasks = listIn('Bu haftaki görevler');
+    const boxes = within(tasks).getAllByRole('checkbox');
+    await tabTo(user, boxes[0]!);
+    expect(zeroedCorners(tasks, css)).toEqual([]);
+    expect(zeroedCorners(attention, css)).toEqual([]);
+    await tabTo(user, boxes[boxes.length - 1]!);
+    expect(zeroedCorners(tasks, css)).toEqual(['bottom-left', 'bottom-right']);
+  });
+
+  it('işaretçi modunda (data-keyboard=false) son satır odakta kalsa da köşeler korunur; radiussuz durumda geçiş yok', async () => {
+    const user = userEvent.setup();
+    render(<Overview {...props()} onToggleTask={() => {}} />);
+    keyboardMode(true);
+    const attention = listIn('Dikkat isteyenler');
+    const links = within(attention).getAllByRole('link');
+    await tabTo(user, links[links.length - 1]!);
+    expect(zeroedCorners(attention, css)).toEqual(['bottom-left', 'bottom-right']);
+    expect(matchingRules(attention, css).filter(rule => [...rule.decls.keys()].some(prop => prop.startsWith('transition')))).toEqual([]);
+    expectKeyboardGated(cornerRuleSelectors(css, '.aile-ov-liste'));
+    keyboardMode(false);
+    expect(links[links.length - 1]).toHaveFocus();
+    expect(zeroedCorners(attention, css)).toEqual([]);
+  });
+
+  it('hover tonu yalnız gerçek hover girişinde: her :hover kuralı @media (hover: hover) içindedir (dokunmada takılı kalmaz)', () => {
+    const hoverRules = css.filter(rule => rule.selectors.some(selector => /:hover\b/.test(selector)));
+    expect(hoverRules.length).toBeGreaterThan(0);
+    const outside = hoverRules
+      .filter(rule => !rule.atRules.some(at => /^@media\s*\(\s*hover\s*:\s*hover\s*\)$/.test(at)))
+      .map(rule => rule.selectors.join(', '));
+    expect(outside).toEqual([]);
+  });
+
+  it('hover kuralları ödeme/dikkat satırını, görev satırını ve blok bağlantısını kapsar; devre dışı görev hover tonu almaz', () => {
+    const hoverSelectors = css
+      .filter(rule => rule.atRules.some(at => /hover\s*:\s*hover/.test(at)))
+      .flatMap(rule => rule.selectors.map(selector => [selector, rule.decls.get('background')] as const));
+    expect(hoverSelectors).toContainEqual(['.aile-ov .aile-ov-bag:hover', 'var(--aile-bilgi-yuzey)']);
+    expect(hoverSelectors).toContainEqual(['.aile-ov a.aile-ov-satir:hover', 'var(--aile-bilgi-yuzey)']);
+    expect(hoverSelectors).toContainEqual(['.aile-ov .aile-ov-gorev:hover', 'var(--aile-bilgi-yuzey)']);
+    expect(hoverSelectors).toContainEqual(['.aile-ov .aile-ov-gorev:has(:disabled):hover', 'transparent']);
   });
 });

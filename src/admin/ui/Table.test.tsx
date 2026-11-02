@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import postcss from 'postcss';
 import { useState } from 'react';
 import { designTokens, targetTokens } from '../../design/tokens.ts';
 import type { RecordRow, ResponsiveColumn } from '../shell/contracts';
@@ -506,5 +507,149 @@ describe('Table › kaynak kuralları', () => {
   it('klavye odak çizgisi yapışkan ilk hücrenin üstünde çizilir (satırın ::after katmanı)', () => {
     const css = read('Table.css');
     expect(css).toMatch(/tr:focus-visible::after \{[^}]*z-index: 1/);
+  });
+});
+
+// --- Son satırın odak çizgisi ve kabın köşeleri -----------------------------------------------------------------------
+// Satırın odak çizgisi (admin.css tr:focus-visible::after) satırın alt kenarındadır (bottom 0). Kaydırma kabı radiuslu ve
+// taşmayı kırpar (overflow auto, kose-kart): son satırın çizgisi kabın alt kenarına oturur ve uçları köşe eğrisinde
+// kırpılırdı (kavisli vurgu kenarı; e2e accentEdgeViolations "radiuslu ve kırpan ata kenarında şerit"). Kural: yalnız
+// çizgi görünürken (klavye modu + :focus-visible) kabın çizginin değdiği iki alt köşesi radiussuz; üst köşeler, işaretçi
+// modu ve diğer satırlar değişmez; köşe anında değişir (geçiş yok). Dikey kaydırmada (maxHeight) odaktaki her satır
+// kabın alt kenarına oturabilir (odak satırı en yakın kenara kaydırır), bu yüzden orada da alt köşeler radiussuzdur.
+// Ölçüm: Table.css kuralları (postcss) render edilen öğeye Element.matches ile uygulanır; at-kuralı içindekiler sayılmaz.
+// Odak klavyeyle (Tab, oklar) alınır: jsdom :focus-visible'ı tarayıcı sezgisiyle hesaplar (betik odağı her zaman görünür değil).
+
+interface CssRule { selectors: string[]; atRules: string[]; decls: Map<string, string> }
+const CORNERS_OF: Record<string, readonly string[]> = {
+  'border-radius': ['top-left', 'top-right', 'bottom-right', 'bottom-left'],
+  'border-top-left-radius': ['top-left'],
+  'border-top-right-radius': ['top-right'],
+  'border-bottom-right-radius': ['bottom-right'],
+  'border-bottom-left-radius': ['bottom-left'],
+};
+function cssRules(file: string): CssRule[] {
+  const rules: CssRule[] = [];
+  postcss.parse(read(file)).walkRules(rule => {
+    const atRules: string[] = [];
+    for (let parent = rule.parent; parent && parent.type === 'atrule'; parent = parent.parent) {
+      atRules.push(`@${(parent as postcss.AtRule).name} ${(parent as postcss.AtRule).params}`);
+    }
+    const decls = new Map<string, string>();
+    rule.each(node => { if (node.type === 'decl') decls.set(node.prop, node.value.trim()); });
+    rules.push({ selectors: rule.selectors, atRules, decls });
+  });
+  return rules;
+}
+/** Öğenin kendisine (sözde öğe değil) uyan, at-kuralı dışındaki kurallar. */
+// Model: klavye modunda klavyeyle alınan odak görünürdür. jsdom'un :focus-visible sezgisi değerlendirme geçmişine bağlıdır
+// (önceki testten kalan durum sonucu değiştirir); bu yüzden eşleşmede :focus-visible → :focus. Kuralın klavye modu ve
+// :focus-visible ile koşullandığı ayrıca (cornerRuleSelectors) doğrulanır; gerçek tarayıcı davranışı e2e/admin-ui-f-edges.
+function matchingRules(el: Element, rules: readonly CssRule[]): CssRule[] {
+  return rules.filter(rule => rule.atRules.length === 0 && rule.selectors.some(selector => {
+    if (/::?(before|after)\b/.test(selector)) return false;
+    try { return el.matches(selector.replace(/:focus-visible\b/g, ':focus')); } catch { return false; }
+  }));
+}
+/** Kabın (sınıf) köşesini 0'a çeken kuralların seçicileri: yalnız klavye modu + :focus-visible ile koşullu olmalı. */
+function cornerRuleSelectors(rules: readonly CssRule[], boxClass: string): string[] {
+  return rules
+    .filter(rule => [...rule.decls].some(([prop, value]) => CORNERS_OF[prop] && /^0(px)?$/.test(value)))
+    .flatMap(rule => rule.selectors)
+    .filter(selector => selector.includes(boxClass));
+}
+function expectKeyboardGated(selectors: readonly string[]) {
+  expect(selectors.length).toBeGreaterThan(0);
+  for (const selector of selectors) {
+    expect(selector).toMatch(/^html\[data-keyboard='true'\] /);
+    expect(selector).toMatch(/:focus-visible\b/);
+    expect(selector).not.toMatch(/:focus(?!-visible)/);
+  }
+}
+/** Uyan kuralların 0'a çektiği köşeler, sıralı. */
+function zeroedCorners(el: Element, rules: readonly CssRule[]): string[] {
+  const corners = new Set<string>();
+  for (const rule of matchingRules(el, rules)) {
+    for (const [prop, value] of rule.decls) if (CORNERS_OF[prop] && /^0(px)?$/.test(value)) CORNERS_OF[prop]!.forEach(c => corners.add(c));
+  }
+  return [...corners].sort();
+}
+
+describe('Table › son satırın odak çizgisi kabın radiuslu köşesinde kırpılmaz', () => {
+  const tableCss = cssRules('Table.css');
+  const three: RecordRow[] = [...rows, { ...rows[0]!, id: 'r3', code: 'AL-003', label: 'Yatak odası lambası' }];
+  const kap = () => document.querySelector('.aile-table-kaydirici')!;
+  const bodyRows = () => screen.getAllByRole('row').slice(1) as HTMLTableRowElement[];
+  const keyboardMode = (on: boolean) => { document.documentElement.dataset.keyboard = on ? 'true' : 'false'; };
+  afterEach(() => { delete document.documentElement.dataset.keyboard; });
+
+  it('kap radiusludur ve taşmayı kırpar: çizginin kırpıldığı durum gerçektir (kural boş çalışmaz)', () => {
+    render(<Table columns={columns} rows={three} caption="Alımlar" onRowClick={() => {}} />);
+    const decls = matchingRules(kap(), tableCss).flatMap(rule => [...rule.decls]);
+    expect(decls).toContainEqual(['border-radius', 'var(--aile-kose-kart)']);
+    expect(decls).toContainEqual(['overflow', 'auto']);
+  });
+
+  it('klavye modunda son satır odaktayken yalnız kabın iki alt köşesi radiussuz; ilk ve ara satırda köşeler korunur', async () => {
+    const user = userEvent.setup();
+    render(<Table columns={columns} rows={three} caption="Alımlar" onRowClick={() => {}} />);
+    keyboardMode(true);
+    expect(zeroedCorners(kap(), tableCss)).toEqual([]);
+    await user.tab();
+    expect(bodyRows()[0]).toHaveFocus();
+    expect(zeroedCorners(kap(), tableCss)).toEqual([]);
+    await user.keyboard('{ArrowDown}');
+    expect(bodyRows()[1]).toHaveFocus();
+    expect(zeroedCorners(kap(), tableCss)).toEqual([]);
+    await user.keyboard('{End}');
+    expect(bodyRows()[2]).toHaveFocus();
+    expect(zeroedCorners(kap(), tableCss)).toEqual(['bottom-left', 'bottom-right']);
+    await user.keyboard('{Home}');
+    expect(zeroedCorners(kap(), tableCss)).toEqual([]);
+  });
+
+  it('işaretçi modunda (data-keyboard=false) son satır odakta kalsa da köşeler korunur; odak tablodan çıkınca da', async () => {
+    const user = userEvent.setup();
+    render(<><Table columns={columns} rows={three} caption="Alımlar" onRowClick={() => {}} /><button type="button">Sonraki</button></>);
+    keyboardMode(true);
+    await user.tab();
+    await user.keyboard('{End}');
+    expect(bodyRows()[2]).toHaveFocus();
+    expect(zeroedCorners(kap(), tableCss)).toEqual(['bottom-left', 'bottom-right']);
+    keyboardMode(false);
+    expect(bodyRows()[2]).toHaveFocus();
+    expect(zeroedCorners(kap(), tableCss)).toEqual([]);
+    keyboardMode(true);
+    await user.tab();
+    expect(screen.getByRole('button', { name: 'Sonraki' })).toHaveFocus();
+    expect(zeroedCorners(kap(), tableCss)).toEqual([]);
+  });
+
+  it('dikey kaydırmada (maxHeight) odaktaki satır kabın alt kenarına oturabilir: klavye odağı satırdayken alt köşeler radiussuz', async () => {
+    const user = userEvent.setup();
+    render(<Table columns={columns} rows={three} caption="Alımlar" onRowClick={() => {}} maxHeight={120} />);
+    keyboardMode(true);
+    expect(zeroedCorners(kap(), tableCss)).toEqual([]);
+    await user.tab();
+    await user.keyboard('{ArrowDown}');
+    expect(bodyRows()[1]).toHaveFocus();
+    expect(zeroedCorners(kap(), tableCss)).toEqual(['bottom-left', 'bottom-right']);
+    keyboardMode(false);
+    expect(zeroedCorners(kap(), tableCss)).toEqual([]);
+  });
+
+  it('köşe değişimi anlıktır: radiussuz durumda kaba uyan hiçbir kuralda geçiş yok; tıklanamaz satırlar sekme dışıdır', async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(<Table columns={columns} rows={three} caption="Alımlar" onRowClick={() => {}} />);
+    keyboardMode(true);
+    await user.tab();
+    await user.keyboard('{End}');
+    expect(zeroedCorners(kap(), tableCss)).toEqual(['bottom-left', 'bottom-right']);
+    expect(matchingRules(kap(), tableCss).filter(rule => [...rule.decls.keys()].some(prop => prop.startsWith('transition')))).toEqual([]);
+    expectKeyboardGated(cornerRuleSelectors(tableCss, '.aile-table-kaydirici'));
+    unmount();
+    render(<Table columns={columns} rows={three} caption="Alımlar" />);
+    expect(bodyRows().every(row => !row.hasAttribute('tabindex'))).toBe(true);
+    expect(zeroedCorners(kap(), tableCss)).toEqual([]);
   });
 });
