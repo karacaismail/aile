@@ -1,57 +1,194 @@
-import { useEffect, useRef, useState, type MouseEvent } from 'react';
-import { designTokens } from '../../design/tokens.ts';
-import { useDevice } from '../device';
-import { Button, Menu } from '../ui';
-import type { MenuItem } from '../ui/Menu';
-import { Layout } from '../ui/antd';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type RefObject } from 'react';
+import { lazyWide, useProfile, useWideModule } from '../adaptive';
 import type { WorkspaceShellProps } from './contracts';
-import { MobileNavDrawer } from './MobileNavDrawer';
-import { adminGroups, currentAdminLink, settingsLink } from './navigation';
+import { MobileNavDrawer, ShellIcon } from './MobileNavDrawer';
+import { currentAdminLink } from './navigation';
 import './shell.css';
 
-// Tasarım: tasarim-sistemi/README.md › Kabuk + Uyarlanır teslim, components/AppShell/README.md, bundle.js AppShell.
-// Masaüstü (≥1024): solda 272 px lacivert nav (marka "aile" → Sayfalar menüsü → ayırıcı → Ayarlar · E-tabloyu aç),
-// içerik ≤1480 ortalı, kenar 32. Tablet/telefon: 60 px yapışkan üst bar "aile · {sayfa} · [Sayfalar]" ve MobileNavDrawer.
-// Her cihazda: skip link, tek main#admin-content (tabIndex -1), document.title "{sayfa} · aile"; rota değişince çekmece
-// kapanır ve odak main'e geçer.
+// Tasarım: tasarim-sistemi/README.md › Kabuk + Uyarlanır teslim, components/AppShell/README.md; W0 uyarlamalı teslim.
+// Telefon temeli (bu dosya + MobileNavDrawer): yerel HTML, antd/ui sarmalayıcısı/simge paketi yok. 56 px yapışkan üst
+// çubuk "aile · {sayfa} · [Sayfalar]" + güvenli alan, Sayfalar alt sayfası, "İçeriğe geç", tek main#admin-content
+// (tabIndex -1), document.title "{sayfa} · aile". Tablet aynı kabuğu kullanır (README tablosu); sayfa kenarı her profilde
+// b04 yoğunluk tokenından (--aile-yogunluk-kenar + güvenli alan, shell.css).
+// Masaüstü (≥1024): 272 px lacivert yan gezinme shell/wide/WorkspaceNav.wide.tsx'te, lazyWide ile; telefon onu hiç
+// indirmez, tablet olası masaüstü geçişi için önceden yükler. Yüklenirken ya da yüklenemezse telefon üst çubuğu ve
+// alt sayfası kullanılabilir kalır (hata bildirimi loader'dan). İçerik en çok 1480, ortalı.
 //
-// ProLayout denendi, kullanılmadı: pro-components 3.1.15-9 ProLayout içeriği WrapContent → antd Layout.Content ile sarar;
-// Layout.Content <main data-testid="pro-layout-content"> çizer, bu da main#admin-content'i ikinci bir main landmark'ın
-// içine yuvalardı (e2e tek main bekler). useBreakpoint (isMobile/collapsed) ve useDocumentTitle da device.ts ve başlık
-// sözleşmemizle çakışır. Aynı yapı antd Layout ile kuruldu: Sider → <aside>, Header → <header>, Content → <main>.
+// Profil değişimi: main ve içerik yeniden bağlanmaz (gezinme yuvaları main'den önce, sabit sırada; main hep aynı
+// konumda). Gezinmedeki odak karşılığına taşınır (Sayfalar ↔ yan gezinmede geçerli sayfa); kaydırma, son kaydırmada
+// görünür alanın üstündeki içerik öğesine (çapa) göre geri kurulur. Rota değişince alt sayfa kapanır; sayfa değiştiyse
+// ya da odak kaybolduysa odak main'e geçer; gezinmeden seçilen yeni sayfa başından açılır.
 
-const { Sider, Header, Content } = Layout;
 const MAIN_ID = 'admin-content';
-const sheetId: string = import.meta.env.VITE_BUDGET_SHEET_ID ?? '';
-// Gerçek kimlik yalnız ortam değişkeninden gelir; kaynakta yazılmaz.
-const sheetUrl = sheetId ? `https://docs.google.com/spreadsheets/d/${sheetId}/edit` : undefined;
+const DRAWER_ID = 'aile-sayfalar';
+const NAV_REGION = '[data-shell-region="nav"]';
 
-const pageItems: readonly MenuItem[] = adminGroups.flatMap(group =>
-  group.links.map(link => ({ key: link.path, label: link.label, href: `#${link.path}` })),
-);
-const helperItems: readonly MenuItem[] = [
-  { key: settingsLink.path, label: settingsLink.label, icon: 'settings', href: `#${settingsLink.path}` },
-  { key: '/e-tablo', label: 'E-tabloyu aç', icon: 'sheet', href: sheetUrl ?? '#', external: true, disabled: !sheetUrl },
-];
+/** Masaüstü yan gezinmesi (geniş-özel). */
+const WideNav = lazyWide('shell-nav', () => import('./wide/WorkspaceNav.wide'));
+
+/** Odak kayboldu mu: belge/gövde, sökülmüş öğe ya da inert alt ağaç (kapanan alt sayfa, inert arka plan). */
+function focusLost(): boolean {
+  const active = document.activeElement;
+  return !active || active === document.body || active === document.documentElement || !active.isConnected || !!active.closest('[inert]');
+}
+
+interface TopBarProps {
+  label: string;
+  open: boolean;
+  inert: boolean;
+  onOpen(): void;
+  buttonRef: RefObject<HTMLButtonElement | null>;
+}
+
+function TopBar({ label, open, inert, onOpen, buttonRef }: TopBarProps) {
+  return (
+    <header className="aile-admin-topbar" data-shell-region="nav" data-odak-zemin="nav" inert={inert}>
+      <p className="aile-admin-topbar-title">
+        <span className="aile-admin-brand">aile</span>
+        <span className="aile-admin-topbar-sep" aria-hidden="true">·</span>
+        <span className="aile-admin-topbar-page">{label}</span>
+      </p>
+      <button
+        ref={buttonRef}
+        type="button"
+        className="aile-shell-btn"
+        data-focus-line=""
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-controls={open ? DRAWER_ID : undefined}
+        onClick={onOpen}
+      >
+        <ShellIcon name="menu" />
+        <span>Sayfalar</span>
+      </button>
+    </header>
+  );
+}
+
+type Anchor = readonly (readonly [Element, number])[];
+
+/** Görünür alanın üstündeki içerik öğesi ve ataları (main dahil), viewport'a göre üst konumlarıyla. */
+function readAnchor(root: HTMLElement | null, shell: HTMLElement | null): Anchor | null {
+  if (!root || window.scrollY <= 0) return null;
+  const box = root.getBoundingClientRect();
+  const bar = shell?.querySelector('.aile-admin-topbar');
+  const top = Math.max(box.top, bar ? bar.getBoundingClientRect().bottom : 0, 0) + 1;
+  const x = Math.min(Math.max(box.left + box.width / 2, 0), window.innerWidth - 1);
+  let node = document.elementFromPoint(x, top);
+  if (!node || !root.contains(node)) node = root;
+  const chain: (readonly [Element, number])[] = [];
+  for (let element: Element | null = node; element && element !== root; element = element.parentElement) {
+    chain.push([element, element.getBoundingClientRect().top]);
+  }
+  chain.push([root, box.top]);
+  return chain;
+}
+
+/**
+ * Profil/gezinme düzeni değişince kaydırmayı korur: son kaydırmada kaydedilen çapanın (hâlâ bağlı ilk öğe) ekrandaki
+ * konumu geri kurulur. Böylece hem yeniden boyutlanan içerik hem de üst çubuk ↔ yan gezinme değişimi telafi edilir.
+ */
+function useScrollAnchor(main: RefObject<HTMLElement | null>, shell: RefObject<HTMLElement | null>, layout: string) {
+  const anchor = useRef<Anchor | null>(null);
+  useEffect(() => {
+    if (typeof document.elementFromPoint !== 'function') return;
+    let frame = 0;
+    const record = () => {
+      frame = 0;
+      anchor.current = readAnchor(main.current, shell.current);
+    };
+    const onScroll = () => { if (!frame) frame = window.requestAnimationFrame(record); };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
+  }, [main, shell]);
+
+  const previous = useRef(layout);
+  useLayoutEffect(() => {
+    if (previous.current === layout) return;
+    previous.current = layout;
+    const saved = anchor.current;
+    const root = main.current;
+    if (!saved || !root) return;
+    const entry = saved.find(([node]) => node.isConnected && root.contains(node));
+    if (!entry) return;
+    const delta = entry[0].getBoundingClientRect().top - entry[1];
+    if (Math.abs(delta) >= 1) window.scrollBy(0, delta);
+  }, [layout, main]);
+}
 
 export function WorkspaceShell({ location, children }: WorkspaceShellProps) {
-  const device = useDevice();
-  const narrow = device !== 'desktop';
+  const profile = useProfile();
+  const desktop = profile === 'desktop';
+  const wide = useWideModule(WideNav.resource, desktop);
+  const side = desktop && wide.status === 'ready';
   const current = currentAdminLink(location);
+  const shell = useRef<HTMLDivElement | null>(null);
   const main = useRef<HTMLElement | null>(null);
   const pagesButton = useRef<HTMLButtonElement | null>(null);
   const [navOpen, setNavOpen] = useState(false);
+  const drawerOpen = navOpen && !side;
+  const layout = `${profile}:${side ? 'yan' : 'ust'}`;
 
   useEffect(() => { document.title = `${current.label} · aile`; }, [current.label]);
 
-  // Rota değişince (ilk çizim hariç) çekmece kapanır ve odak içeriğe geçer; çekmecenin odak dönüşü dışarıdaki odağa dokunmaz.
-  const previousLocation = useRef(location);
+  // Tablet → masaüstü (ör. yatay tablet) geçişi beklemesin; telefon asla yüklemez.
   useEffect(() => {
+    if (profile === 'tablet') WideNav.preload().catch(() => {});
+  }, [profile]);
+
+  // Yan gezinme gelince açık alt sayfa kapanır (telefona dönünce kendiliğinden yeniden açılmaz).
+  useEffect(() => { if (side) setNavOpen(false); }, [side]);
+
+  // Son odak gezinme bölgesinde miydi (üst çubuk, alt sayfa, yan gezinme)? Profil değişiminde karşılığa taşımak için.
+  const navFocused = useRef(false);
+  useEffect(() => {
+    const onFocusIn = (event: FocusEvent) => {
+      navFocused.current = event.target instanceof Element && !!event.target.closest(NAV_REGION);
+    };
+    document.addEventListener('focusin', onFocusIn);
+    return () => document.removeEventListener('focusin', onFocusIn);
+  }, []);
+
+  const previousLayout = useRef(layout);
+  useLayoutEffect(() => {
+    if (previousLayout.current === layout) return;
+    previousLayout.current = layout;
+    if (!navFocused.current || !focusLost()) return;
+    const aside = shell.current?.querySelector('aside');
+    const target = side
+      ? aside?.querySelector<HTMLElement>('a[aria-current="page"]') ?? aside?.querySelector<HTMLElement>('a[href]')
+      : pagesButton.current;
+    target?.focus({ preventScroll: true });
+  }, [layout, side]);
+
+  useScrollAnchor(main, shell, layout);
+
+  // Rota değişimi: alt sayfa kapanır; sayfa değiştiyse ya da odak kaybolduysa odak main'e (alt sayfa kapandıktan,
+  // arka plan inert'ten çıktıktan sonra). Gezinmeden seçilen yeni sayfa başından açılır.
+  const previousLocation = useRef(location);
+  const focusMain = useRef(false);
+  const fromNav = useRef(false);
+  useLayoutEffect(() => {
     if (previousLocation.current === location) return;
+    const pageChanged = currentAdminLink(previousLocation.current).path !== currentAdminLink(location).path;
     previousLocation.current = location;
+    if (fromNav.current && pageChanged && window.scrollY > 0) window.scrollTo(0, 0);
+    fromNav.current = false;
+    focusMain.current = pageChanged || focusLost();
     setNavOpen(false);
-    main.current?.focus({ preventScroll: true });
   }, [location]);
+  useLayoutEffect(() => {
+    if (!focusMain.current || drawerOpen) return;
+    focusMain.current = false;
+    main.current?.focus({ preventScroll: true });
+  }, [location, drawerOpen]);
+
+  const markNavigation = useCallback(() => { fromNav.current = true; }, []);
+  const openNav = useCallback(() => setNavOpen(true), []);
+  const closeNav = useCallback(() => setNavOpen(false), []);
 
   // Skip link: hash yönlendirme "#admin-content"i rota sayardı; bağlantı yalnız odağı taşır.
   const skipToContent = (event: MouseEvent<HTMLAnchorElement>) => {
@@ -59,60 +196,22 @@ export function WorkspaceShell({ location, children }: WorkspaceShellProps) {
     main.current?.focus();
   };
 
-  const skipLink = <a className="aile-admin-skip" href={`#${MAIN_ID}`} onClick={skipToContent}>İçeriğe geç</a>;
-
-  if (narrow) {
-    return (
-      <div className="aile-admin-shell aile-admin-shell--dar" data-device={device}>
-        {skipLink}
-        <Layout className="aile-admin-layout">
-          <Header className="aile-admin-topbar">
-            <p className="aile-admin-topbar-title">
-              <span className="aile-admin-brand">aile</span>
-              <span className="aile-admin-topbar-sep" aria-hidden="true">·</span>
-              <span className="aile-admin-topbar-page">{current.label}</span>
-            </p>
-            <Button
-              ref={pagesButton}
-              variant="secondary"
-              onNav
-              icon="menu"
-              aria-haspopup="dialog"
-              aria-expanded={navOpen}
-              onClick={() => setNavOpen(true)}
-            >
-              Sayfalar
-            </Button>
-          </Header>
-          <Content ref={main} id={MAIN_ID} tabIndex={-1} className="aile-admin-main">
-            <div className="aile-admin-main-inner">{children}</div>
-          </Content>
-        </Layout>
-        <MobileNavDrawer open={navOpen} onClose={() => setNavOpen(false)} location={location} returnFocusTo={pagesButton} />
-      </div>
-    );
-  }
-
   return (
-    <div className="aile-admin-shell aile-admin-shell--genis" data-device={device}>
-      {skipLink}
-      <Layout hasSider className="aile-admin-layout">
-        <Sider width={designTokens.navGenislik} theme="dark" className="aile-admin-nav">
-          <div className="aile-admin-nav-icerik">
-            <p className="aile-admin-brand aile-admin-nav-brand">aile</p>
-            <nav aria-label="Sayfalar">
-              <Menu variant="nav" items={pageItems} selectedKey={current.path} />
-            </nav>
-            <div className="aile-admin-nav-foot">
-              <Menu variant="nav" items={helperItems} selectedKey={current.path} label="Yardımcı" />
-              {!sheetUrl && <p className="aile-admin-nav-note">E-tablo bağlantısı yok</p>}
-            </div>
-          </div>
-        </Sider>
-        <Content ref={main} id={MAIN_ID} tabIndex={-1} className="aile-admin-main">
-          <div className="aile-admin-main-inner">{children}</div>
-        </Content>
-      </Layout>
+    <div ref={shell} className="aile-admin-shell" data-device={profile} data-gezinme={side ? 'yan' : 'ust'}>
+      <a className="aile-admin-skip" href={`#${MAIN_ID}`} onClick={skipToContent} inert={drawerOpen}>İçeriğe geç</a>
+      {!side && <TopBar label={current.label} open={drawerOpen} inert={drawerOpen} onOpen={openNav} buttonRef={pagesButton} />}
+      {desktop && <WideNav location={location} onNavigate={markNavigation} />}
+      <main ref={main} id={MAIN_ID} tabIndex={-1} className="aile-admin-main" inert={drawerOpen}>
+        <div className="aile-admin-main-inner">{children}</div>
+      </main>
+      <MobileNavDrawer
+        id={DRAWER_ID}
+        open={drawerOpen}
+        onClose={closeNav}
+        location={location}
+        returnFocusTo={pagesButton}
+        onNavigate={markNavigation}
+      />
     </div>
   );
 }
