@@ -1,20 +1,25 @@
-import { readFile, readdir } from 'node:fs/promises';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { test, expect, type Locator, type Page } from '@playwright/test';
-import { gotoAdmin, horizontalOverflow } from './admin-helpers';
+import { syntheticBridgeResponse } from '../src/dashboard/bridgeFixtures';
+import { syntheticCurrentSheets } from '../src/dashboard/currentFixtures';
+import { gviz } from '../src/dashboard/fixtures';
+import { ADMIN_MAIN, openAdmin } from './admin-helpers';
+import { overflow, selfCheckDetectors } from './admin-detectors';
 
 // Sayfa başlığı sözleşmesi (tasarim-sistemi/README.md › "Sayfa iskeleti (sıra sabit)" 1–2, components/PageHeader/README.md,
-// envanter.md PageHeader satırı, bundle.js PageHeader/Page). Her rotada:
-//   - tek h1 = menüdeki etiket (aria-current="page" bağlantının adı) ve document.title = "{h1} · aile";
-//   - h1'in hemen üstünde küçük bölüm adı (caption), altında tek cümlelik amaç;
-//   - başlıkta tek tazelik satırı: DataStatus, role="status" + aria-live="polite";
-//   - özet en çok 3 ölçü; breadcrumb yok; görünen her ₺ tutarı "₺8.500,00" biçiminde ve tabular-nums.
-// Bölüm adı hem 1440'ta hem 320'de görünürdür: tasarım teslimi (bundle.js Page → PageHeader narrow'da da section verir;
-// .ai-ph--dar section'ı gizlemez) böyle; tasarım tek görsel kaynaktır.
-// Veri: sentetik nesil (fixtures/generation-synthetic) /__aile/generation/* isteğine page.route ile verilir; gerçek nesil
-// ve dış ağ (Google) kullanılmaz. Dedektörler bu dosyadadır (admin-detectors.ts henüz yok); öz-denetim testleri ihlali
-// enjekte edip yakalandığını, geçerli örneği yakalamadığını kanıtlar.
+// components/DataStatus/README.md, bundle.js Page → PageHeader). Her rotada ve her genişlikte:
+//   - sıra: bölüm adı (h1'in hemen önü) → tek h1 → amaç cümlesi (h1'in hemen ardı) → eylemler → tazelik satırı → özet;
+//   - h1 = menüde seçili (aria-current="page") bağlantının adı = belge başlığının "<etiket> · aile" önü;
+//   - başlıkta TEK tazelik satırı (DataStatus: role="status", aria-live="polite"; sentetik nesil okununca "Son okuma … ·
+//     Nesil xxxxxx"). Gövdede başka bir kaynağa ait bağlantı satırı (Ayarlar "Aile e-tablosu", Bütçe "Canlı Sheet")
+//     tasarımda vardır (bundle.js Ayarlar) ve sayfanın tazelik satırı sayılmaz;
+//   - özet en çok 3 ölçü; breadcrumb yok; başlıkta görünüm alanından taşan ya da kesilen metin yok;
+//   - görünen her ₺ tutarı "₺8.500,00" biçiminde ve tabular-nums (başlık + içerik, ayrı test).
+// Bölüm adı her genişlikte görünür (bundle.js Page narrow'da da section verir), ≥14 px ve h1'den küçüktür.
+// Görev koşusu: chromium 320×568 + webkit 390×844; rota testleri @matrix etiketli (entegrasyonda 360, 375, 320×480,
+// 568×320, tablet 820, masaüstü 1440). Hazır sinyali openAdmin; sabit bekleme yok.
+// Veri: sunucu sentetik nesli verir. Dış ağ kapalıdır: Bütçe'nin canlı GViz okuması sentetik e-tablo kimliğiyle
+// sentetik GViz yanıtına (src/dashboard/*Fixtures) bağlanır; fikstürdeki ayrılmış ".invalid" görsel adresleri sentetik
+// 1×1 PNG alır; başka her dış istek kesilir ve ihlal sayılır.
 
 interface RouteContract { path: string; label: string; section: string; purpose: string }
 
@@ -36,8 +41,10 @@ export const ROUTE_CONTRACTS: readonly RouteContract[] = [
 
 /** README: "en çok üç anlamlı ölçü". */
 const SUMMARY_LIMIT = 3;
-/** DataStatus metinleri (components/DataStatus/README.md): her durum sözcükle başlar. */
-const DATA_STATUS_TEXT = /^(Son okuma|Okunuyor…|Son başarılı nesil|Hata: |Çakışma)/;
+/** DataStatus taze: "Son okuma 14:32 · Nesil a1b2c3 · Yenile" (başka gün: "27.10.2026 14:32"). */
+const FRESH_STATUS = /^Son okuma (?:\d{2}\.\d{2}\.\d{4} )?\d{2}:\d{2} · Nesil [0-9a-f]{6}\b/;
+/** Sayfa başlığı: main içindeki, tek h1'i taşıyan <header> (sınıf adına bağlı değil). */
+const HEADER = `${ADMIN_MAIN} header:has(h1)`;
 
 // --- Dedektörler (tarayıcıda çalışır; kapanış değişkeni yok, page.evaluate ile serileştirilir) ---------------------------
 
@@ -95,8 +102,10 @@ export function detectBreadcrumbs(scopeSelector: string): string[] {
 }
 
 /**
- * Başlık iskeletinin sırası: bölüm adı → h1 → amaç → tazelik → özet (README "Sayfa iskeleti (sıra sabit)").
- * h1'in başlık bloğundaki kardeşlerinden okur; sınıf adına bağlı değildir. Dönüş: sıra ihlalleri.
+ * Başlık iskeletinin sırası: bölüm adı → h1 → amaç → eylemler → tazelik → özet (README "Sayfa iskeleti (sıra sabit)").
+ * h1'in başlık bloğundaki kardeşlerinden okur; sınıf adına bağlı değildir. Eylem = başlıktaki denetim (düğme, bağlantı,
+ * giriş); tazelik satırının kendi düğmesi ("Yenile"), özet içi ve amaç cümlesi içi bağlantılar eylem sayılmaz. Başlıkta
+ * tam bir tazelik satırı (role="status") olmalı. Dönüş: sıra ihlalleri; boş dizi = temiz.
  */
 export function detectHeaderOrder(scopeSelector: string): string[] {
   const scope = document.querySelector(scopeSelector);
@@ -106,64 +115,80 @@ export function detectHeaderOrder(scopeSelector: string): string[] {
   const h1 = h1s[0];
   const header = h1.closest('header');
   if (!header) return ['h1 bir <header> içinde değil'];
+  const text = (element: Element | null) => (element?.textContent ?? '').replace(/\s+/g, ' ').trim();
   const caption = h1.previousElementSibling;
   const purpose = h1.nextElementSibling;
-  const status = header.querySelector('[role="status"]');
+  const statuses = Array.from(header.querySelectorAll('[role="status"]'));
+  const status = statuses[0] ?? null;
   const summary = header.querySelector('[aria-label="Özet"]');
+  /** b, a'dan sonra mı (belge sırası)? */
+  const follows = (a: Element, b: Element) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
   const out: string[] = [];
-  if (!caption || !(caption.textContent ?? '').trim()) out.push('h1 üstünde bölüm adı yok');
-  if (!purpose || !(purpose.textContent ?? '').trim()) out.push('h1 altında amaç cümlesi yok');
-  const before = (a: Element | null, b: Element | null) => !a || !b || Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
-  if (!before(purpose ?? h1, status)) out.push('tazelik satırı amaçtan önce');
-  if (!before(status, summary)) out.push('özet tazelik satırından önce');
+  if (!caption || !text(caption)) out.push('h1 üstünde bölüm adı yok');
+  if (!purpose || !text(purpose)) out.push('h1 altında amaç cümlesi yok');
+  if (statuses.length !== 1) out.push(`başlıkta ${statuses.length} tazelik satırı, beklenen 1`);
+  const anchor = purpose && text(purpose) ? purpose : h1;
+  const controls = Array.from(header.querySelectorAll('button, a[href], input, select, textarea, [role="button"], [role="link"], [role="combobox"]'))
+    .filter(control => !control.closest('[role="status"]') && !summary?.contains(control) && !anchor.contains(control));
+  for (const control of controls) {
+    const name = `"${text(control) || control.getAttribute('aria-label') || control.tagName.toLowerCase()}"`;
+    if (!follows(anchor, control)) out.push(`eylem amaçtan önce: ${name}`);
+    else if (status && !follows(control, status)) out.push(`eylem tazelik satırından sonra: ${name}`);
+  }
+  if (status && !follows(anchor, status)) out.push('tazelik satırı amaçtan önce');
+  if (status && summary && !follows(status, summary)) out.push('özet tazelik satırından önce');
   return out;
 }
 
-// --- Sentetik nesil ---------------------------------------------------------------------------------------------------
+// --- Ağ yalıtımı (sentetik dış bağımlılıklar) ------------------------------------------------------------------------
 
-const GENERATION_ID = /^[a-f0-9]{64}$/;
+const SYNTHETIC_SHEET_ID = 'synthetic-budget-sheet-2098';
+const GVIZ_SHEETS = { Pano: 'summary', Plan: 'plan', 'Gerçekleşen': 'actual', Kasa: 'cash', 'Arızi Giderler': 'irregular' } as const;
+/** 1×1 saydam PNG: fikstürdeki ayrılmış .invalid görsel adresleri için (gerçek görsel değil). */
+const PIXEL_PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
 
-async function syntheticGenerationDir(): Promise<{ dir: string; id: string }> {
-  const FIXTURE_ROOT = fileURLToPath(new URL('../fixtures/generation-synthetic/', import.meta.url));
-  const entries = await readdir(FIXTURE_ROOT, { withFileTypes: true });
-  const match = entries.find(entry => entry.isDirectory() && GENERATION_ID.test(entry.name));
-  if (!match) throw new Error('fixtures/generation-synthetic altında nesil klasörü yok');
-  return { dir: path.join(FIXTURE_ROOT, match.name), id: match.name };
+/** Sentetik GViz yanıtı (src/dashboard/*Fixtures; gerçek e-tablo değil). Tanınmayan sayfa → undefined. */
+function syntheticGviz(url: URL): string | undefined {
+  const bridge = syntheticBridgeResponse(url.href);
+  if (bridge) return bridge;
+  const key = GVIZ_SHEETS[url.searchParams.get('sheet') as keyof typeof GVIZ_SHEETS];
+  if (!key) return undefined;
+  const raw = syntheticCurrentSheets();
+  if (key !== 'irregular') return gviz(raw[key]);
+  // GViz headers=0 iken sayısal/tarih sütunlarındaki metin başlıklarını siler (budget-dashboard.spec.ts ile aynı).
+  const labels = raw.irregular[0].map(String);
+  return url.searchParams.get('headers') === '1'
+    ? gviz(raw.irregular.slice(1), labels)
+    : gviz([[...labels.slice(0, 3), ...labels.slice(3).map(() => null)], ...raw.irregular.slice(1)]);
 }
 
-/** /__aile/generation/* → sentetik nesil (salt okunur, yalnız .json ve _meta); Google istekleri kesilir. */
-async function serveSyntheticGeneration(page: Page) {
-  const { dir, id } = await syntheticGenerationDir();
-  const json = { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' };
-  await page.route('**/__aile/generation/**', async route => {
-    const pathname = new URL(route.request().url()).pathname;
-    const relative = decodeURIComponent(pathname.replace(/^.*\/__aile\/generation\/?/, ''));
-    if (relative === '_meta') {
-      await route.fulfill({ status: 200, headers: json, body: JSON.stringify({ generation_id: id, selectedAt: new Date().toISOString() }) });
-      return;
+/**
+ * Dış ağı kapatır: yerel sunucu dışındaki istekler yönlendirilir. Sentetik e-tablo kimliğiyle GViz → sentetik yanıt;
+ * ayrılmış .invalid alan adındaki görsel → 1×1 PNG; başka her istek kesilir ve dönen listeye yazılır (boş = temiz).
+ */
+async function isolateNetwork(page: Page, origin: string): Promise<string[]> {
+  const unexpected: string[] = [];
+  const cors = { 'access-control-allow-origin': '*', 'cache-control': 'no-store' };
+  await page.route(url => url.origin !== origin && /^https?:$/.test(url.protocol), async route => {
+    const request = route.request();
+    const url = new URL(request.url());
+    if (url.hostname === 'docs.google.com' && url.pathname === `/spreadsheets/d/${SYNTHETIC_SHEET_ID}/gviz/tq`) {
+      const body = syntheticGviz(url);
+      if (body !== undefined) return route.fulfill({ status: 200, contentType: 'application/json', headers: cors, body });
     }
-    const segments = relative.split('/');
-    if (!relative.endsWith('.json') || segments.some(segment => segment === '' || segment === '.' || segment === '..')) {
-      await route.fulfill({ status: 404, headers: json, body: JSON.stringify({ error: 'Dosya yok' }) });
-      return;
+    if (url.hostname.endsWith('.invalid') && request.resourceType() === 'image') {
+      return route.fulfill({ status: 200, contentType: 'image/png', headers: cors, body: PIXEL_PNG });
     }
-    try {
-      const body = await readFile(path.join(dir, ...segments));
-      await route.fulfill({ status: 200, headers: json, body });
-    } catch {
-      await route.fulfill({ status: 404, headers: json, body: JSON.stringify({ error: 'Dosya yok' }) });
-    }
+    unexpected.push(`dış istek: ${request.method()} ${url.origin}${url.pathname}`);
+    return route.abort('blockedbyclient');
   });
-  await page.route(/^https:\/\/(docs|sheets|script)\.google(usercontent)?\.com\//, route => route.abort());
+  return unexpected;
 }
 
-// --- Ortak denetimler ------------------------------------------------------------------------------------------------
+// --- Ortak adımlar ----------------------------------------------------------------------------------------------------
 
-const MAIN = 'main#admin-content';
-
-/** Sayfa başlığı: tek h1'i taşıyan <header> (sınıf adına bağlı değil). */
 function pageHeader(page: Page): Locator {
-  return page.getByRole('heading', { level: 1 }).locator('xpath=ancestor::header[1]');
+  return page.locator(HEADER);
 }
 
 /** h1'in hemen önündeki kardeş = bölüm adı (caption). */
@@ -171,32 +196,36 @@ function sectionCaption(page: Page): Locator {
   return page.getByRole('heading', { level: 1 }).locator('xpath=preceding-sibling::*[1]');
 }
 
-async function openRoute(page: Page, route: RouteContract) {
-  await gotoAdmin(page, route.path);
-  const header = pageHeader(page);
-  // Lazy parça + nesil okuması bitene kadar bekle: tazelik satırı "Okunuyor…" olmaktan çıkmalı.
-  await expect(header.getByRole('status')).toHaveCount(1);
-  await expect(header.getByRole('status')).not.toContainText('Okunuyor', { timeout: 15_000 });
+/** openAdmin hazır sinyali + başlıktaki tazelik satırının okumayı bitirmesi (koşul beklemesi; sabit süre yok). */
+async function openRoute(page: Page, path: string) {
+  await openAdmin(page, path);
+  await expect(pageHeader(page)).toHaveCount(1);
+  await expect(pageHeader(page).getByRole('status').filter({ hasText: 'Okunuyor' })).toHaveCount(0, { timeout: 15_000 });
 }
 
-/** Menüde seçili (aria-current="page") bağlantının adı. Dar ekranda Sayfalar çekmecesi açılıp kapanır. */
-async function currentMenuLabel(page: Page, narrow: boolean): Promise<string> {
-  if (!narrow) {
-    // Masaüstü nav: antd Sider → <aside> (complementary). İçerikteki olası aria-current bağlantıları sayılmaz.
-    const current = page.getByRole('complementary').locator('a[aria-current="page"]');
-    await expect(current).toHaveCount(1);
-    return ((await current.textContent()) ?? '').trim();
+/**
+ * Menüde seçili (aria-current="page") bağlantıların adları. Masaüstü profilinde içerik dışındaki görünür gezinme;
+ * telefon/tablet profilinde (html[data-profile]) Sayfalar çekmecesi açılır, okunur, Escape ile kapanır.
+ */
+async function currentMenuLabels(page: Page): Promise<string[]> {
+  const profile = await page.locator('html').getAttribute('data-profile');
+  if (profile === 'desktop') {
+    return page.locator('a[aria-current="page"]').evaluateAll(links => links
+      .filter(link => !link.closest('main') && (link as HTMLElement).checkVisibility())
+      .map(link => (link.textContent ?? '').trim()));
   }
-  const opener = page.getByRole('button', { name: 'Sayfalar', exact: true });
-  await opener.click();
+  await page.getByRole('button', { name: 'Sayfalar', exact: true }).click();
   const drawer = page.getByRole('dialog', { name: 'Sayfalar' });
   await expect(drawer).toBeVisible();
-  const current = drawer.locator('a[aria-current="page"]');
-  await expect(current).toHaveCount(1);
-  const label = ((await current.textContent()) ?? '').trim();
+  const labels = (await drawer.locator('a[aria-current="page"]').allTextContents()).map(label => label.trim());
   await page.keyboard.press('Escape');
   await expect(drawer).toBeHidden();
-  return label;
+  return labels;
+}
+
+/** Başlık kapsamındaki taşma/kesilme (paylaşılan dedektör). Belge düzeyi taşma duman testinindir, burada süzülür. */
+async function headerOverflow(page: Page): Promise<string[]> {
+  return (await overflow(page, { root: HEADER })).filter(violation => !violation.startsWith('sayfa yatay taşıyor'));
 }
 
 // --- Dedektör öz-denetimi (sunucusuz; ihlal enjekte edilir) -------------------------------------------------------------
@@ -251,91 +280,137 @@ test.describe('dedektör öz-denetimi', () => {
     expect(await page.evaluate(detectHeaderOrder, '#reversed')).toEqual(['özet tazelik satırından önce']);
     expect(await page.evaluate(detectHeaderOrder, '#two')).toEqual(['h1 sayısı 2, beklenen 1']);
   });
-});
 
-// --- Rota sözleşmesi (her proje/viewport) -----------------------------------------------------------------------------
-
-test.describe('sayfa başlığı sözleşmesi', () => {
-  test.beforeEach(async ({ page }) => {
-    await serveSyntheticGeneration(page);
+  test('başlık sırası dedektörü: eylemler amaçtan sonra ve tazelik satırından önce; başlıkta tek tazelik satırı', async ({ page }) => {
+    await page.setContent(`
+      <main id="ok"><header><div><p>Para</p><h1>Ödemeler</h1><p>Amaç <a href="#/raporlar">rapor</a>.</p></div>
+        <div><button>Ödeme ekle</button><button>Diğer</button></div>
+        <div><div role="status">Son okuma 14:32 · <button>Yenile</button></div></div>
+        <ul aria-label="Özet"><li><a href="#/odemeler">a</a></li></ul><p>Not.</p></header></main>
+      <main id="after-status"><header><div><p>Para</p><h1>Ödemeler</h1><p>Amaç.</p></div>
+        <div><div role="status">Son okuma</div></div><div><button>Ödeme ekle</button></div></header></main>
+      <main id="before-title"><header><div><a href="#/x">Ödeme ekle</a></div><div><p>Para</p><h1>Ödemeler</h1><p>Amaç.</p></div>
+        <div role="status">Son okuma</div></header></main>
+      <main id="no-status"><header><div><p>Para</p><h1>Ödemeler</h1><p>Amaç.</p></div><div><button>Ekle</button></div></header></main>
+      <main id="two-status"><header><div><p>Para</p><h1>Ödemeler</h1><p>Amaç.</p></div>
+        <div role="status">Son okuma</div><div role="status">Son okuma</div></header></main>`);
+    expect(await page.evaluate(detectHeaderOrder, '#ok')).toEqual([]);
+    expect(await page.evaluate(detectHeaderOrder, '#after-status')).toEqual(['eylem tazelik satırından sonra: "Ödeme ekle"']);
+    expect(await page.evaluate(detectHeaderOrder, '#before-title')).toEqual(['eylem amaçtan önce: "Ödeme ekle"']);
+    expect(await page.evaluate(detectHeaderOrder, '#no-status')).toEqual(['başlıkta 0 tazelik satırı, beklenen 1']);
+    expect(await page.evaluate(detectHeaderOrder, '#two-status')).toEqual(['başlıkta 2 tazelik satırı, beklenen 1']);
   });
 
+  test('ağ yalıtımı: sentetik GViz ve .invalid görsel yanıtlanır; başka dış istek ve sentetik olmayan e-tablo kimliği kesilip yazılır', async ({ page, baseURL }) => {
+    const unexpected = await isolateNetwork(page, new URL(baseURL!).origin);
+    await page.goto('icon.svg');
+    const results = await page.evaluate(async (sheet) => {
+      const gvizUrl = (id: string) => `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?sheet=${encodeURIComponent('_Finans aylık')}&range=A1%3AA7&headers=0&tqx=out%3Ajson`;
+      const read = (url: string) => fetch(url, { cache: 'no-store', credentials: 'omit' }).then(response => `${response.status} ${response.headers.get('content-type')}`, () => 'kesildi');
+      return {
+        gviz: await read(gvizUrl(sheet)),
+        otherSheet: await read(gvizUrl('baska-bir-tablo-kimligi-0000')),
+        external: await read('https://example.org/veri.json'),
+      };
+    }, SYNTHETIC_SHEET_ID);
+    expect(results.gviz).toMatch(/^200 application\/json/);
+    expect(results.otherSheet).toBe('kesildi');
+    expect(results.external).toBe('kesildi');
+    expect(unexpected).toEqual([
+      'dış istek: GET https://docs.google.com/spreadsheets/d/baska-bir-tablo-kimligi-0000/gviz/tq',
+      'dış istek: GET https://example.org/veri.json',
+    ]);
+  });
+
+  test('gerçek sayfa: başlığa enjekte edilen eylem, ikinci tazelik, breadcrumb, kesik metin ve TL yakalanır; temizlenince geçer', async ({ page, baseURL }) => {
+    await isolateNetwork(page, new URL(baseURL!).origin);
+    await openRoute(page, '/butce');
+    expect(await selfCheckDetectors(page), 'paylaşılan dedektörler bu motorda kör değil').toEqual([]);
+    expect(await page.evaluate(detectHeaderOrder, ADMIN_MAIN), 'başlangıçta temiz').toEqual([]);
+    expect(await page.evaluate(detectBreadcrumbs, 'body')).toEqual([]);
+    expect(await headerOverflow(page)).toEqual([]);
+
+    await page.evaluate((selector) => {
+      const header = document.querySelector(selector)!;
+      const add = (html: string) => { header.insertAdjacentHTML('beforeend', html); return header.lastElementChild as HTMLElement; };
+      add('<button data-f06-enjekte>Enjekte eylem</button>');
+      add('<div data-f06-enjekte role="status" aria-live="polite">Son okuma 00:00 · Nesil ffffff</div>');
+      add('<nav data-f06-enjekte aria-label="Breadcrumb"><a href="#/genel">Genel</a></nav>');
+      const clipped = add('<p data-f06-enjekte>Çok uzun bir başlık metni burada kesilerek gösteriliyor</p>');
+      clipped.style.cssText = 'width:60px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-variant-numeric:tabular-nums';
+      add('<p data-f06-enjekte style="font-variant-numeric:tabular-nums">8500 TL</p>');
+    }, HEADER);
+    const order = await page.evaluate(detectHeaderOrder, ADMIN_MAIN);
+    expect(order).toContain('eylem tazelik satırından sonra: "Enjekte eylem"');
+    expect(order).toContain('başlıkta 2 tazelik satırı, beklenen 1');
+    expect(await page.evaluate(detectBreadcrumbs, 'body')).toHaveLength(1);
+    expect((await headerOverflow(page)).some(violation => violation.includes('metin kesiliyor'))).toBe(true);
+    expect((await page.evaluate(detectMoneyViolations, HEADER)).some(violation => violation.startsWith('birim:'))).toBe(true);
+
+    await page.evaluate(() => { for (const node of Array.from(document.querySelectorAll('[data-f06-enjekte]'))) node.remove(); });
+    expect(await page.evaluate(detectHeaderOrder, ADMIN_MAIN), 'enjeksiyon kaldırılınca yine temiz').toEqual([]);
+    expect(await headerOverflow(page)).toEqual([]);
+  });
+});
+
+// --- Rota sözleşmesi (her proje/genişlik) -----------------------------------------------------------------------------
+
+test.describe('sayfa başlığı sözleşmesi', () => {
   for (const route of ROUTE_CONTRACTS) {
-    test(`${route.path}: h1 = menü etiketi = document.title, amaç, tek tazelik satırı, ≤3 özet, breadcrumb yok, ₺ biçimi`, async ({ page }) => {
-      await openRoute(page, route);
-      const narrow = (page.viewportSize()?.width ?? 1440) < 1024;
+    test(`${route.path}: bölüm → h1 → amaç → eylemler → tazelik → özet; h1 = menü = belge başlığı; tek tazelik satırı; breadcrumb yok`, { tag: '@matrix' }, async ({ page, baseURL }) => {
+      const unexpected = await isolateNetwork(page, new URL(baseURL!).origin);
+      await openRoute(page, route.path);
+      const header = pageHeader(page);
 
       const h1 = page.getByRole('heading', { level: 1 });
       await expect(h1).toHaveCount(1);
       await expect(h1).toHaveText(route.label);
       await expect(page).toHaveTitle(`${route.label} · aile`);
-      expect(await currentMenuLabel(page, narrow), 'menüde seçili etiket h1 ile aynı').toBe(route.label);
-      expect(`${(await h1.textContent())?.trim()} · aile`).toBe(await page.title());
 
-      const header = pageHeader(page);
-      await expect(sectionCaption(page)).toHaveText(route.section);
+      const caption = sectionCaption(page);
+      await expect(caption).toHaveText(route.section);
+      await expect(caption).toBeVisible();
+      expect(await caption.evaluate(element => element.scrollWidth > element.clientWidth + 1), 'bölüm adı kesilmemeli').toBe(false);
+      const captionSize = await caption.evaluate(element => Number.parseFloat(getComputedStyle(element).fontSize));
+      const h1Size = await h1.evaluate(element => Number.parseFloat(getComputedStyle(element).fontSize));
+      expect(captionSize, 'bölüm adı ≥ 14 px').toBeGreaterThanOrEqual(14);
+      expect(captionSize, 'bölüm adı h1 ölçüsünden küçük').toBeLessThan(h1Size);
+
       const purpose = h1.locator('xpath=following-sibling::*[1]');
       await expect(purpose).toHaveText(route.purpose);
       await expect(purpose).toBeVisible();
 
       const status = header.getByRole('status');
-      await expect(status).toHaveCount(1);
+      await expect(status, 'başlıkta tek tazelik satırı').toHaveCount(1);
       await expect(status).toBeVisible();
       await expect(status).toHaveAttribute('aria-live', 'polite');
-      expect(((await status.textContent()) ?? '').trim()).toMatch(DATA_STATUS_TEXT);
+      await expect(status, 'sentetik nesil okundu: taze durum').toHaveText(FRESH_STATUS);
 
       const summary = header.getByRole('list', { name: 'Özet' });
       const summaryCount = (await summary.count()) === 0 ? 0 : await summary.getByRole('listitem').count();
       expect(summaryCount, 'özet en çok 3 ölçü').toBeLessThanOrEqual(SUMMARY_LIMIT);
 
-      expect(await page.evaluate(detectHeaderOrder, MAIN), 'başlık iskeleti sırası').toEqual([]);
+      expect(await page.evaluate(detectHeaderOrder, ADMIN_MAIN), 'başlık iskeleti sırası').toEqual([]);
       await expect(page.getByRole('navigation', { name: /breadcrumb|kırıntı|yol/i })).toHaveCount(0);
       expect(await page.evaluate(detectBreadcrumbs, 'body'), 'breadcrumb izi').toEqual([]);
+      expect(await headerOverflow(page), 'başlıkta taşan ya da kesilen metin').toEqual([]);
 
-      expect(await page.evaluate(detectMoneyViolations, MAIN), 'başlık ve içerikte ₺ biçimi + tabular-nums').toEqual([]);
+      expect(await currentMenuLabels(page), 'menüde seçili etiket h1 ile aynı').toEqual([route.label]);
+      expect(unexpected, 'dış ağ kapalı').toEqual([]);
     });
   }
 });
 
-// --- Bölüm adı: 1440 ve 320 -------------------------------------------------------------------------------------------
+// --- Tutar biçimi (başlık + içerik) -----------------------------------------------------------------------------------
 
-test.describe('bölüm adı 1440', () => {
-  test.skip(({ viewport }) => viewport?.width !== 1440, 'yalnız 1440 masaüstü projesi');
-  test.beforeEach(async ({ page }) => {
-    await serveSyntheticGeneration(page);
-  });
-
+test.describe('₺ biçimi', () => {
   for (const route of ROUTE_CONTRACTS) {
-    test(`${route.path}: bölüm adı h1 üstünde görünür ve ikincil ölçüde`, async ({ page }) => {
-      await openRoute(page, route);
-      const caption = sectionCaption(page);
-      await expect(caption).toBeVisible();
-      await expect(caption).toHaveText(route.section);
-      const size = await caption.evaluate(element => Number.parseFloat(getComputedStyle(element).fontSize));
-      expect(size, 'bölüm adı ≥ 14 px').toBeGreaterThanOrEqual(14);
-      const h1Size = await page.getByRole('heading', { level: 1 }).evaluate(element => Number.parseFloat(getComputedStyle(element).fontSize));
-      expect(size, 'bölüm adı h1 ölçüsünden küçük').toBeLessThan(h1Size);
-    });
-  }
-});
-
-test.describe('bölüm adı 320', () => {
-  test.skip(({ viewport }) => viewport?.width !== 320, 'yalnız 320 telefon projeleri');
-  test.beforeEach(async ({ page }) => {
-    await serveSyntheticGeneration(page);
-  });
-
-  for (const route of ROUTE_CONTRACTS) {
-    test(`${route.path}: bölüm adı 320'de de görünür, kesilmez, yatay taşma yok`, async ({ page }) => {
-      await openRoute(page, route);
-      const caption = sectionCaption(page);
-      await expect(caption).toBeVisible();
-      await expect(caption).toHaveText(route.section);
-      const clipped = await caption.evaluate(element => element.scrollWidth > element.clientWidth + 1);
-      expect(clipped, 'bölüm adı kesilmemeli').toBe(false);
-      const size = await caption.evaluate(element => Number.parseFloat(getComputedStyle(element).fontSize));
-      expect(size, 'bölüm adı ≥ 14 px').toBeGreaterThanOrEqual(14);
-      expect(await horizontalOverflow(page), 'belge düzeyinde yatay taşma').toEqual([]);
+    test(`${route.path}: görünen her ₺ tutarı ₺8.500,00 biçiminde ve tabular-nums`, async ({ page, baseURL }) => {
+      const unexpected = await isolateNetwork(page, new URL(baseURL!).origin);
+      await openRoute(page, route.path);
+      expect(await page.evaluate(detectMoneyViolations, HEADER), 'başlıkta ₺ biçimi').toEqual([]);
+      expect(await page.evaluate(detectMoneyViolations, ADMIN_MAIN), 'içerikte ₺ biçimi').toEqual([]);
+      expect(unexpected, 'dış ağ kapalı').toEqual([]);
     });
   }
 });
