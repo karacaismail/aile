@@ -155,3 +155,147 @@ describe('GET /__aile/generation/*', () => {
     expect(response.headers.get('allow')).toBe('GET, HEAD');
   });
 });
+
+describe('Yanıtlarda yol bilgisi yok', () => {
+  it('beklenmeyen sunucu hatası (500) mutlak yolu veya hata ayrıntısını yanıta yazmaz', async () => {
+    const secret = path.join(scratch, 'gizli-kok', 'nesil');
+    env = new Proxy({} as { AILE_GENERATION_DIR?: string }, {
+      get() {
+        throw new Error(`EACCES: permission denied, open '${secret}/manifest.json'`);
+      },
+    });
+    const response = await request('GET', '/__aile/generation/manifest.json');
+    expect(response.status).toBe(500);
+    expect(response.headers.get('content-type')).toContain('application/json');
+    const body = JSON.parse(response.body) as { error: string };
+    expect(body.error).toMatch(/^Hata: /);
+    expect(response.body).not.toContain(scratch);
+    expect(response.body).not.toContain('gizli-kok');
+    expect(response.body).not.toMatch(/\/(Users|home|private|tmp|var)\//);
+  });
+});
+
+describe('?generation= ile nesil sabitleme', () => {
+  async function twoGenerations(name: string) {
+    const root = path.join(scratch, name);
+    const oldId = 'e'.repeat(64);
+    const newId = 'f'.repeat(64);
+    const oldDir = await writeGeneration(root, oldId, { schemaVersion: 1, generation_id: oldId }, 3600);
+    await writeGeneration(root, newId, { schemaVersion: 1, generation_id: newId }, 60);
+    await writeFile(path.join(oldDir, 'data', 'rooms', 'household', '00000.json'), `${JSON.stringify({ schemaVersion: 1, collection: 'rooms', records: [], eski: true })}\n`);
+    env = { AILE_GENERATION_DIR: root };
+    return { root, oldId, newId };
+  }
+
+  it('istenen nesil diskte durdukça daha yeni nesil olsa da ondan servis edilir', async () => {
+    const { oldId, newId } = await twoGenerations('sabit');
+    const latest = await request('GET', '/__aile/generation/data/rooms/household/00000.json');
+    expect(JSON.parse(latest.body)).not.toHaveProperty('eski');
+    const pinned = await request('GET', `/__aile/generation/data/rooms/household/00000.json?generation=${oldId}`);
+    expect(pinned.status).toBe(200);
+    expect(JSON.parse(pinned.body)).toHaveProperty('eski', true);
+    const manifest = await request('GET', `/__aile/generation/manifest.json?generation=${newId}`);
+    expect(JSON.parse(manifest.body).generation_id).toBe(newId);
+  });
+
+  it('diskte olmayan nesil 410 döner ve yol yazmaz; biçimi bozuk kimlik 400', async () => {
+    const { root } = await twoGenerations('yok');
+    const gone = await request('GET', `/__aile/generation/data/rooms/household/00000.json?generation=${'0'.repeat(64)}`);
+    expect(gone.status).toBe(410);
+    expect(JSON.parse(gone.body)).toHaveProperty('error');
+    expect(gone.body).not.toContain(root);
+    const bad = await request('GET', '/__aile/generation/manifest.json?generation=..%2F..');
+    expect(bad.status).toBe(400);
+  });
+});
+
+describe('privateDataPlugin › .env.local okuma (configResolved + loadEnv)', () => {
+  type Middleware = (req: import('node:http').IncomingMessage, res: import('node:http').ServerResponse, next: () => void) => void;
+
+  /** Eklentiyi Vite'sız çalıştırır: configResolved → configureServer, yakalanan ara katmanı geçici sunucuda dinler. */
+  async function servePlugin(envDir: string | false, mode = 'development') {
+    const plugin = privateDataPlugin();
+    const configResolved = plugin.configResolved as unknown as (config: { mode: string; envDir: string | false }) => void;
+    const configureServer = plugin.configureServer as unknown as (server: { middlewares: { use(handler: Middleware): void } }) => void;
+    expect(typeof configResolved).toBe('function');
+    configResolved({ mode, envDir });
+    let middleware: Middleware | null = null;
+    configureServer({ middlewares: { use: handler => { middleware = handler; } } });
+    if (!middleware) throw new Error('ara katman kaydedilmedi');
+    const handler: Middleware = middleware;
+    const local = createServer((req, res) => handler(req, res, () => { res.statusCode = 404; res.end('fallthrough'); }));
+    await new Promise<void>(resolve => local.listen(0, '127.0.0.1', resolve));
+    const address = local.address();
+    if (!address || typeof address === 'string') throw new Error('Sunucu adresi yok');
+    const get = (pathname: string) =>
+      new Promise<{ status: number; body: string }>((resolve, reject) => {
+        const req = httpRequest(`http://127.0.0.1:${address.port}`, { method: 'GET', path: pathname }, res => {
+          const chunks: Buffer[] = [];
+          res.on('data', chunk => chunks.push(chunk as Buffer));
+          res.on('end', () => resolve({ status: res.statusCode ?? 0, body: Buffer.concat(chunks).toString('utf8') }));
+        });
+        req.on('error', reject);
+        req.end();
+      });
+    const close = () => new Promise<void>((resolve, reject) => local.close(error => (error ? reject(error) : resolve())));
+    return { get, close };
+  }
+
+  const saved = process.env.AILE_GENERATION_DIR;
+  afterEach(() => {
+    if (saved === undefined) delete process.env.AILE_GENERATION_DIR;
+    else process.env.AILE_GENERATION_DIR = saved;
+  });
+
+  it("process.env'de AILE_GENERATION_DIR yoksa envDir/.env.local'dan okunur; yanıt yolu yazmaz", async () => {
+    delete process.env.AILE_GENERATION_DIR;
+    const root = path.join(scratch, 'env-local-kok');
+    const id = '1'.repeat(64);
+    await writeGeneration(root, id, { schemaVersion: 1, generation_id: id }, 60);
+    const envDir = path.join(scratch, 'env-local-dizin');
+    await mkdir(envDir, { recursive: true });
+    await writeFile(path.join(envDir, '.env.local'), `AILE_GENERATION_DIR=${root}\nVITE_BASKA=1\n`);
+    const served = await servePlugin(envDir);
+    try {
+      const meta = await served.get('/__aile/generation/_meta');
+      expect(meta.status).toBe(200);
+      expect(JSON.parse(meta.body).generation_id).toBe(id);
+      expect(meta.body).not.toContain(root);
+    } finally {
+      await served.close();
+    }
+  });
+
+  it('process.env .env.local değerinden önce gelir', async () => {
+    const fileRoot = path.join(scratch, 'env-dosya-kok');
+    const fileId = '2'.repeat(64);
+    await writeGeneration(fileRoot, fileId, { schemaVersion: 1, generation_id: fileId }, 60);
+    const processRoot = path.join(scratch, 'env-surec-kok');
+    const processId = '3'.repeat(64);
+    await writeGeneration(processRoot, processId, { schemaVersion: 1, generation_id: processId }, 60);
+    const envDir = path.join(scratch, 'env-oncelik-dizin');
+    await mkdir(envDir, { recursive: true });
+    await writeFile(path.join(envDir, '.env.local'), `AILE_GENERATION_DIR=${fileRoot}\n`);
+    process.env.AILE_GENERATION_DIR = processRoot;
+    const served = await servePlugin(envDir);
+    try {
+      expect(JSON.parse((await served.get('/__aile/generation/_meta')).body).generation_id).toBe(processId);
+    } finally {
+      await served.close();
+    }
+  });
+
+  it('envDir false ya da .env dosyası yoksa ve process.env boşsa 404 "tanımlı değil"', async () => {
+    delete process.env.AILE_GENERATION_DIR;
+    for (const envDir of [false, path.join(scratch, 'olmayan-env-dizini')] as const) {
+      const served = await servePlugin(envDir);
+      try {
+        const response = await served.get('/__aile/generation/_meta');
+        expect(response.status, String(envDir)).toBe(404);
+        expect(JSON.parse(response.body).error).toContain('tanımlı değil');
+      } finally {
+        await served.close();
+      }
+    }
+  });
+});

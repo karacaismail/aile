@@ -1,9 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  DirectoryFileListSource,
   DirectoryGenerationSource,
   FixtureGenerationSource,
   HttpGenerationSource,
   SourceUnavailableError,
+  UnselectedGenerationSource,
+  defaultGenerationSource,
   type GenerationSource,
 } from './sources';
 
@@ -212,5 +215,145 @@ describe('DirectoryGenerationSource', () => {
     const error = await DirectoryGenerationSource.pick().catch(e => e);
     expect(error).toBeInstanceOf(SourceUnavailableError);
     expect((error as SourceUnavailableError).cause).toBeInstanceOf(DOMException);
+  });
+});
+
+describe('HttpGenerationSource › iptal ve nesil sabitleme', () => {
+  const GEN = 'b'.repeat(64);
+
+  it("generationId verilince ?generation= ile sabitler ve signal'i fetch'e iletir", async () => {
+    const fetchImpl = vi.fn(async () => okResponse(roomsText));
+    const controller = new AbortController();
+    const source = new HttpGenerationSource('/__aile/generation', fetchImpl);
+    await source.readText('data/rooms/household/00000.json', { generationId: GEN, signal: controller.signal });
+    const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe(`/__aile/generation/data/rooms/household/00000.json?generation=${GEN}`);
+    expect(init.signal).toBe(controller.signal);
+  });
+
+  it('64 hex olmayan generationId URL\'ye yazılmaz', async () => {
+    const fetchImpl = vi.fn(async () => okResponse(roomsText));
+    await new HttpGenerationSource('/__aile/generation', fetchImpl).readText('manifest.json', { generationId: '../x' });
+    expect((fetchImpl.mock.calls[0] as unknown as [string])[0]).toBe('/__aile/generation/manifest.json');
+  });
+
+  it('iptal edilen istek SourceUnavailableError değil AbortError olarak döner', async () => {
+    const controller = new AbortController();
+    const fetchImpl = vi.fn((_url: string, init?: RequestInit) =>
+      new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => reject(new DOMException('The operation was aborted.', 'AbortError')));
+      }),
+    );
+    const reading = new HttpGenerationSource('/__aile/generation', fetchImpl).readText('manifest.json', { signal: controller.signal });
+    controller.abort();
+    const error = await reading.catch(e => e);
+    expect(error).not.toBeInstanceOf(SourceUnavailableError);
+    expect((error as Error).name).toBe('AbortError');
+  });
+});
+
+// --- FileList (input webkitdirectory) — Safari/WebKit klasör yolu -----------------------------------------
+function folderFile(relativePath: string, text: string): File {
+  const file = new File([text], relativePath.split('/').pop()!, { type: 'application/json' });
+  Object.defineProperty(file, 'webkitRelativePath', { value: relativePath, configurable: true });
+  return file;
+}
+
+describe('DirectoryFileListSource', () => {
+  const files = () => [
+    folderFile('nesil-2026-11/manifest.json', manifestText),
+    folderFile('nesil-2026-11/data/rooms/household/00000.json', roomsText),
+    folderFile('nesil-2026-11/raw/kaynak.json', '{"gizli":true}'),
+    folderFile('nesil-2026-11/notlar.txt', 'metin'),
+  ];
+
+  it('webkitRelativePath kökünü atar; manifest.json ve data/** okunur, etiket seçilen klasör adıdır', async () => {
+    const source = DirectoryFileListSource.fromFiles(files());
+    expect(source.kind).toBe('directory');
+    expect(source.label).toBe('nesil-2026-11');
+    expect(await source.readText('manifest.json')).toBe(manifestText);
+    expect(await source.readText('data/rooms/household/00000.json')).toBe(roomsText);
+  });
+
+  it('raw/** ve .json dışı dosyalar okunmaz; eksik dosya SourceUnavailableError', async () => {
+    const source = DirectoryFileListSource.fromFiles(files());
+    for (const path of ['raw/kaynak.json', 'notlar.txt', 'data/rooms/household/00009.json', '../manifest.json']) {
+      const error = await source.readText(path).catch(e => e);
+      expect(error, path).toBeInstanceOf(SourceUnavailableError);
+      expect((error as SourceUnavailableError).source).toBe('directory');
+    }
+  });
+
+  it('boş seçim ya da kökünde manifest.json olmayan klasör açıklamalı hatayla reddedilir', () => {
+    expect(() => DirectoryFileListSource.fromFiles([])).toThrow(SourceUnavailableError);
+    expect(() => DirectoryFileListSource.fromFiles(null)).toThrow(SourceUnavailableError);
+    const nested = [folderFile('generations/abc/manifest.json', manifestText)];
+    const error = (() => {
+      try {
+        DirectoryFileListSource.fromFiles(nested);
+        return null;
+      } catch (caught) {
+        return caught as Error;
+      }
+    })();
+    expect(error).toBeInstanceOf(SourceUnavailableError);
+    expect(error!.message).toContain('manifest.json');
+  });
+
+  it('FileList benzeri (length + item) girdiyi kabul eder', async () => {
+    const list = files();
+    const fileList = { length: list.length, item: (index: number) => list[index] ?? null, [Symbol.iterator]: () => list[Symbol.iterator]() } as unknown as FileList;
+    const source = DirectoryFileListSource.fromFiles(fileList);
+    expect(await source.readText('manifest.json')).toBe(manifestText);
+  });
+
+  it('isSupported: input webkitdirectory özelliği varsa true', () => {
+    const proto = HTMLInputElement.prototype as unknown as Record<string, unknown>;
+    const had = Object.prototype.hasOwnProperty.call(proto, 'webkitdirectory');
+    if (!had) Object.defineProperty(proto, 'webkitdirectory', { value: false, configurable: true, writable: true });
+    try {
+      expect(DirectoryFileListSource.isSupported()).toBe(true);
+    } finally {
+      if (!had) delete proto.webkitdirectory;
+    }
+    if (!had) expect(DirectoryFileListSource.isSupported()).toBe(false);
+  });
+});
+
+describe('defaultGenerationSource (üretimde dev yolu yok)', () => {
+  it('geliştirmede HttpGenerationSource(/__aile/generation) döner', () => {
+    const source = defaultGenerationSource({ DEV: true });
+    expect(source).toBeInstanceOf(HttpGenerationSource);
+    expect(source.label).toBe('/__aile/generation');
+  });
+
+  it('üretimde (DEV false) seçilmemiş klasör kaynağı döner: tür klasör, etiket "Klasör seçilmedi"', () => {
+    const source = defaultGenerationSource({ DEV: false });
+    expect(source).toBeInstanceOf(UnselectedGenerationSource);
+    expect(source.kind).toBe('directory');
+    expect(source.label).toBe('Klasör seçilmedi');
+  });
+
+  it('üretimde VITE_AILE_GENERATION_URL açıkça verilirse o adresten HTTP ile okunur (yerel önizleme)', () => {
+    const source = defaultGenerationSource({ DEV: false, VITE_AILE_GENERATION_URL: ' /yerel/nesil/ ' });
+    expect(source).toBeInstanceOf(HttpGenerationSource);
+    expect(source.label).toBe('/yerel/nesil');
+    expect(defaultGenerationSource({ DEV: false, VITE_AILE_GENERATION_URL: '   ' })).toBeInstanceOf(UnselectedGenerationSource);
+  });
+
+  it('seçilmemiş kaynak hiçbir ağ isteği atmaz; okuma "Klasörden içe aktar" yönlendirmesiyle reddedilir', async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+    try {
+      const source = new UnselectedGenerationSource();
+      const failure = await source.readText('manifest.json').catch((error: unknown) => error);
+      expect(failure).toBeInstanceOf(SourceUnavailableError);
+      expect((failure as SourceUnavailableError).source).toBe('directory');
+      expect((failure as Error).message).toContain('Nesil klasörü seçilmedi');
+      expect((failure as Error).message).toContain('Klasörden içe aktar');
+      expect(fetchSpy).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

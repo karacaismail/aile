@@ -2,9 +2,17 @@
 // değişiklik kümesini sayfalara hook olarak sunar. Veri mantığı komşu saf TS dosyalarındadır (store, indexes,
 // query, changeSet); burada yalnız React bağlama, abonelik ve memoizasyon vardır. antd yok; ham paket importu yok.
 //
-//   <GenerationProvider source? cache? changeSet? now?>      kaynak varsayılanı HttpGenerationSource (/__aile/generation)
-//     useGeneration()        → durum, manifest, tazelik, refresh, pickDirectory (DirectoryGenerationSource)
-//     useCollection(name)    → { rows, loading, error }     (store.loadCollection, bir kez; hata "Hata: …")
+//   <GenerationProvider source? cache? changeSet? now?>
+//        source: undefined → defaultGenerationSource(): geliştirmede HttpGenerationSource (/__aile/generation), üretimde
+//                (VITE_AILE_GENERATION_URL yoksa) UnselectedGenerationSource → istek yok, "Klasör içe aktar" durumu;
+//                null → doğrudan "Klasör içe aktar" durumu.
+//        cache:  undefined → defaultPartitionCache() (VITE_AILE_PARTITION_CACHE=off → kalıcı önbellek yok); null → yok.
+//     useGeneration()        → durum, manifest, tazelik, refresh, pickDirectory (DirectoryGenerationSource), importRequired
+//     useGenerationImport()  → klasör içe aktarma: pickDirectory (Chromium) + importFiles(FileList) (Safari/WebKit)
+//     useCollection(name, { periods? })
+//                            → { rows, loading, error }     (store.loadCollection, kapsam başına bir kez; hata "Hata: …")
+//                              periods: yalnız o YYYY-MM dönemlerinin parçaları. Bileşen kalkınca (rota değişimi)
+//                              bekleyen yükleme AbortController ile iptal edilir (başka bekleyen yoksa).
 //     useRows(kind)          → RecordRow[]                  (changeSet.apply → buildIndexes → toRecordRow)
 //     useQuery(kind, ast)    → { ids, rows, counts, total, loading, error }
 //     useChangeSet()         → yerel değişiklik kümesi (add / undo / pendingFor / toBatch); Sheets'e yazma yok
@@ -22,8 +30,17 @@ import type { RecordRow } from '../shell/contracts';
 import { ChangeSet, type BatchConversion, type ChangeInput, type ChangeOp, type OverlayRecord, type UndoResult } from './changeSet';
 import { buildIndexes, toRecordRow, type GenerationCollections, type GenerationIndexes } from './indexes';
 import { createQueryContext, facetCounts, runQuery, toQueryRow, type FacetCounts, type QueryAst, type QueryContext, type QueryRow } from './query';
-import { DirectoryGenerationSource, HttpGenerationSource, type GenerationSource, type GenerationSourceKind } from './sources';
-import { GenerationStore, type PartitionCache, type StoreStatus } from './store';
+import {
+  DirectoryFileListSource,
+  DirectoryGenerationSource,
+  UnselectedGenerationSource,
+  defaultGenerationSource,
+  isAbortError,
+  type DirectoryFiles,
+  type GenerationSource,
+  type GenerationSourceKind,
+} from './sources';
+import { GenerationStore, collectionScopeKey, defaultPartitionCache, normalizePeriods, type PartitionCache, type StoreStatus } from './store';
 import type {
   BaseRecord,
   BudgetObservation,
@@ -47,6 +64,20 @@ import type {
   Vocabulary,
   WorkflowDefinition,
 } from './types';
+
+// Tembel yükleme yardımcıları (saf TS, store.ts): barrel ('../data') bunları buradan da dışa verir.
+export {
+  MAX_CONCURRENT_PARTITION_READS,
+  collectionScopeKey,
+  defaultPartitionCache,
+  normalizePeriods,
+  partitionPeriod,
+  periodsBetween,
+  type CollectionScopeOptions,
+  type LoadCollectionOptions,
+  type PartitionCacheEnv,
+  type PeriodsBetweenOptions,
+} from './store';
 
 // --- Koleksiyon → kayıt tipi -----------------------------------------------------------------------------
 export interface CollectionRecordMap {
@@ -112,27 +143,73 @@ export interface CollectionSnapshot<R = BaseRecord> {
   error: string | null;
 }
 
+/** Koleksiyon kapsamı: verilirse yalnız bu YYYY-MM dönemlerinin parçaları (dönemsiz parçalar her zaman) yüklenir. */
+export interface CollectionLoadOptions {
+  periods?: readonly string[];
+}
+
+export interface EnsureOptions extends CollectionLoadOptions {
+  /** İptal: bu bekleyen çekilir; bir mikro görev içinde başka bekleyen katılmazsa depo yüklemesi iptal edilir. */
+  signal?: AbortSignal;
+}
+
 /** Yükleyicinin depodan beklediği asgari yüzey (GenerationStore bunu sağlar; testte sahte verilebilir). */
 export interface CollectionStoreLike {
-  loadCollection(name: CollectionName): Promise<readonly BaseRecord[]>;
-  getCollection(name: CollectionName): readonly BaseRecord[] | undefined;
+  loadCollection(name: CollectionName, options?: { periods?: readonly string[]; signal?: AbortSignal }): Promise<readonly BaseRecord[]>;
+  getCollection(name: CollectionName, options?: { periods?: readonly string[] }): readonly BaseRecord[] | undefined;
 }
 
 const PENDING: CollectionSnapshot = Object.freeze({ rows: EMPTY, loading: true, error: null });
 
+interface LoadJob {
+  readonly controller: AbortController;
+  /** İptal edilebilir bekleyen sayısı (signal'li ensure). */
+  waiters: number;
+  /** signal'siz bekleyen var: iş iptal edilmez. */
+  pinned: boolean;
+  cancelled: boolean;
+  promise: Promise<void>;
+}
+
+interface LoaderScope {
+  name: CollectionName;
+  periods: readonly string[] | undefined;
+}
+
+/** Kapsam anahtarı; geçersiz dönem kümesi de ayrı bir anahtar alır (yükleme "Hata: …" ile kapanır). */
+function loaderKey(name: CollectionName, periods: readonly string[] | undefined): string {
+  try {
+    return collectionScopeKey(name, periods);
+  } catch {
+    return `${name}@!${(periods ?? []).join(',')}`;
+  }
+}
+
+function loaderPeriods(periods: readonly string[] | undefined): readonly string[] | undefined {
+  if (!periods) return undefined;
+  try {
+    return normalizePeriods(periods);
+  } catch {
+    return periods;
+  }
+}
+
 /**
- * Koleksiyon başına tek yükleme ve referansı kararlı snapshot (useSyncExternalStore için). Depo hatası
- * yüklemeyi "Hata: …" ile kapatır; depoda eski iyi kayıt varsa onu korur. sync() refresh sonrası yeni kayıtları alır.
+ * Kapsam (koleksiyon ya da koleksiyon@dönemler) başına tek yükleme ve referansı kararlı snapshot
+ * (useSyncExternalStore için). Depo hatası yüklemeyi "Hata: …" ile kapatır; depoda eski iyi kayıt varsa onu korur.
+ * Bekleyenler signal verirse sayılır; hepsi iptal edince (bir mikro görev sonra) depo yüklemesi iptal edilir ve
+ * snapshot beklemede kalır, sonraki ensure yeniden başlatır. sync() refresh sonrası yeni kayıtları alır.
  */
 export class CollectionLoader {
-  private readonly snapshots = new Map<CollectionName, CollectionSnapshot>();
-  private readonly inflight = new Map<CollectionName, Promise<void>>();
+  private readonly snapshots = new Map<string, CollectionSnapshot>();
+  private readonly scopes = new Map<string, LoaderScope>();
+  private readonly jobs = new Map<string, LoadJob>();
   private readonly listeners = new Set<() => void>();
 
   constructor(private readonly store: CollectionStoreLike) {}
 
-  snapshot(name: CollectionName): CollectionSnapshot {
-    return this.snapshots.get(name) ?? PENDING;
+  snapshot(name: CollectionName, options: CollectionLoadOptions = {}): CollectionSnapshot {
+    return this.snapshots.get(loaderKey(name, options.periods)) ?? PENDING;
   }
 
   subscribe(listener: () => void): () => void {
@@ -142,39 +219,91 @@ export class CollectionLoader {
     };
   }
 
-  /** Koleksiyonu bir kez ister; tekrarlanan çağrılar aynı yüklemeyi bekler. Asla fırlatmaz. */
-  ensure(name: CollectionName): Promise<void> {
-    const running = this.inflight.get(name);
-    if (running) return running;
-    const current = this.snapshots.get(name);
-    if (current && !current.loading) return Promise.resolve();
-    this.set(name, PENDING);
-    const job = this.store
-      .loadCollection(name)
-      .then(
-        (rows) => this.set(name, { rows, loading: false, error: null }),
-        (error: unknown) => this.set(name, { rows: this.store.getCollection(name) ?? EMPTY, loading: false, error: failureMessage(error) }),
-      )
-      .finally(() => {
-        this.inflight.delete(name);
-      });
-    this.inflight.set(name, job);
-    return job;
+  /** Kapsamı bir kez ister; tekrarlanan çağrılar aynı yüklemeyi bekler. Asla fırlatmaz. */
+  ensure(name: CollectionName, options: EnsureOptions = {}): Promise<void> {
+    const { signal } = options;
+    if (signal?.aborted) return Promise.resolve();
+    const key = loaderKey(name, options.periods);
+    let job = this.jobs.get(key);
+    if (!job) {
+      const current = this.snapshots.get(key);
+      if (current && !current.loading) return Promise.resolve();
+      job = this.start(key, { name, periods: loaderPeriods(options.periods) });
+    }
+    this.attach(key, job, signal);
+    return job.promise;
   }
 
-  /** Yenileme sonrası: istenen koleksiyonları depodaki güncel kayıtlarla eşitler; depo eskiyi koruduysa değişmez. */
+  /**
+   * Yenileme sonrası: istenen kapsamları depodaki güncel kayıtlarla eşitler; depo eskiyi koruduysa değişmez. Hata ile
+   * kapanmış ve depoda kaydı olmayan kapsam yeniden istenir (ör. manifest okunamadıktan sonra "Yeniden dene").
+   */
   sync(): void {
-    for (const [name, snapshot] of this.snapshots) {
-      if (this.inflight.has(name)) continue;
-      const rows = this.store.getCollection(name);
-      if (!rows || (rows === snapshot.rows && !snapshot.loading && snapshot.error === null)) continue;
-      this.set(name, { rows, loading: false, error: null });
+    for (const [key, snapshot] of this.snapshots) {
+      if (this.jobs.has(key)) continue;
+      const scope = this.scopes.get(key);
+      if (!scope) continue;
+      const rows = this.store.getCollection(scope.name, scope.periods ? { periods: scope.periods } : undefined);
+      if (!rows) {
+        if (snapshot.error !== null) this.attach(key, this.start(key, scope), undefined);
+        continue;
+      }
+      if (rows === snapshot.rows && !snapshot.loading && snapshot.error === null) continue;
+      this.set(key, { rows, loading: false, error: null });
     }
   }
 
-  private set(name: CollectionName, snapshot: CollectionSnapshot): void {
-    if (this.snapshots.get(name) === snapshot) return;
-    this.snapshots.set(name, snapshot);
+  private start(key: string, scope: LoaderScope): LoadJob {
+    const controller = new AbortController();
+    const job: LoadJob = { controller, waiters: 0, pinned: false, cancelled: false, promise: Promise.resolve() };
+    this.scopes.set(key, scope);
+    this.jobs.set(key, job);
+    this.set(key, PENDING);
+    const request = scope.periods ? { periods: scope.periods, signal: controller.signal } : { signal: controller.signal };
+    job.promise = this.store
+      .loadCollection(scope.name, request)
+      .then(
+        (rows) => {
+          if (!job.cancelled) this.set(key, { rows, loading: false, error: null });
+        },
+        (error: unknown) => {
+          // İptal hata değildir: snapshot beklemede kalır, sonraki ensure yeniden başlatır.
+          if (job.cancelled || isAbortError(error)) return;
+          const kept = this.store.getCollection(scope.name, scope.periods ? { periods: scope.periods } : undefined);
+          this.set(key, { rows: kept ?? EMPTY, loading: false, error: failureMessage(error) });
+        },
+      )
+      .finally(() => {
+        if (this.jobs.get(key) === job) this.jobs.delete(key);
+      });
+    return job;
+  }
+
+  private attach(key: string, job: LoadJob, signal: AbortSignal | undefined): void {
+    if (!signal) {
+      job.pinned = true;
+      return;
+    }
+    job.waiters += 1;
+    signal.addEventListener(
+      'abort',
+      () => {
+        job.waiters -= 1;
+        // Bir mikro görev beklenir: StrictMode'un ikinci efekti ya da yeni rotanın aynı kapsamı bu arada katılabilir.
+        queueMicrotask(() => {
+          if (job.pinned || job.waiters > 0 || job.cancelled || this.jobs.get(key) !== job) return;
+          job.cancelled = true;
+          this.jobs.delete(key);
+          job.controller.abort();
+        });
+      },
+      { once: true },
+    );
+  }
+
+  private set(key: string, snapshot: CollectionSnapshot): void {
+    if (this.snapshots.get(key) === snapshot) return;
+    this.snapshots.set(key, snapshot);
     for (const listener of this.listeners) listener();
   }
 }
@@ -197,9 +326,37 @@ export interface GenerationHandle {
   source: { kind: GenerationSourceKind; label: string };
   /** Kaynak seçimi hatası ("Hata: …"); aksi null. */
   sourceMessage: string | null;
+  /**
+   * Nesil klasörü henüz seçilmedi (üretim varsayılanı): veri yok, durum error ve mesaj "Klasörden içe aktar"a
+   * yönlendirir. Sayfa bu durumda içe aktarmayı birincil eylem olarak sunabilir. Hook her zaman doldurur.
+   */
+  importRequired?: boolean;
+}
+
+/** Klasör içe aktarma: Chromium'da showDirectoryPicker, Safari/WebKit'te <input type="file" webkitdirectory>. */
+export interface GenerationImportHandle {
+  /** File System Access API var mı (Chromium ailesi). */
+  canPickDirectory: boolean;
+  /** Kullanıcıdan salt okunur nesil klasörü ister ve kaynağı değiştirir. İptal/destek yoksa false + sourceMessage. */
+  pickDirectory(): Promise<boolean>;
+  /** <input type="file" webkitdirectory> var mı (Chromium, WebKit/Safari, Firefox). */
+  canImportFiles: boolean;
+  /**
+   * input.files ile seçilen nesil klasörüne geçer (kökünde manifest.json olmalı). Boş/yanlış seçimde kaynak değişmez,
+   * false döner ve sourceMessage "Hata: …" olur.
+   */
+  importFiles(files: DirectoryFiles | null | undefined): Promise<boolean>;
+  source: { kind: GenerationSourceKind; label: string };
+  /** Kaynak seçimi hatası ("Hata: …"); aksi null. */
+  sourceMessage: string | null;
+  /** Nesil klasörü henüz seçilmedi (üretim varsayılanı); içe aktarma birincil eylemdir. */
+  importRequired: boolean;
 }
 
 interface GenerationContextValue extends GenerationHandle {
+  importRequired: boolean;
+  importFiles(files: DirectoryFiles | null | undefined): Promise<boolean>;
+  canImportFiles: boolean;
   store: GenerationStore;
   loader: CollectionLoader;
   changeSet: ChangeSet | null;
@@ -212,9 +369,12 @@ interface GenerationContextValue extends GenerationHandle {
 const GenerationContext = createContext<GenerationContextValue | null>(null);
 
 export interface GenerationProviderProps {
-  /** Varsayılan HttpGenerationSource (dev'de Vite middleware). Kararlı referans verin; yalnız ilk değer kullanılır. */
-  source?: GenerationSource;
-  /** undefined → depo varsayılanı (IndexedDB); null → önbellek yok. */
+  /**
+   * undefined → defaultGenerationSource() (dev: HttpGenerationSource; üretim: seçilmemiş klasör, istek yok);
+   * null → seçilmemiş klasör ("Klasör içe aktar" durumu). Kararlı referans verin; yalnız ilk değer kullanılır.
+   */
+  source?: GenerationSource | null;
+  /** undefined → defaultPartitionCache() (IndexedDB; VITE_AILE_PARTITION_CACHE=off ise yok); null → önbellek yok. */
   cache?: PartitionCache | null;
   /** undefined → ChangeSet.load() (IndexedDB); null → değişiklik kümesi kapalı; fonksiyon → özel yükleyici. */
   changeSet?: (() => Promise<ChangeSet>) | null;
@@ -223,15 +383,18 @@ export interface GenerationProviderProps {
 }
 
 export function GenerationProvider({ source: initialSource, cache, changeSet: changeSetLoader, now, children }: GenerationProviderProps) {
-  const [source, setSource] = useState<GenerationSource>(() => initialSource ?? new HttpGenerationSource());
+  const [source, setSource] = useState<GenerationSource>(() =>
+    initialSource === undefined ? defaultGenerationSource() : (initialSource ?? new UnselectedGenerationSource()),
+  );
   const [sourceMessage, setSourceMessage] = useState<string | null>(null);
+  const defaultCacheWanted = cache === undefined;
+  const fallbackCache = useMemo(() => (defaultCacheWanted ? defaultPartitionCache() : null), [defaultCacheWanted]);
 
   const store = useMemo(() => {
-    const options: { cache?: PartitionCache | null; now?: () => Date } = {};
-    if (cache !== undefined) options.cache = cache;
+    const options: { cache: PartitionCache | null; now?: () => Date } = { cache: cache === undefined ? fallbackCache : cache };
     if (now) options.now = now;
     return new GenerationStore(source, options);
-  }, [source, cache, now]);
+  }, [source, cache, fallbackCache, now]);
   const loader = useMemo(() => new CollectionLoader(store), [store]);
 
   // Depo durumu: abone ol; depo değişince anlık durumu yeniden oku.
@@ -304,6 +467,18 @@ export function GenerationProvider({ source: initialSource, cache, changeSet: ch
     }
   }, []);
 
+  const importFiles = useCallback(async (files: DirectoryFiles | null | undefined) => {
+    try {
+      const next = DirectoryFileListSource.fromFiles(files);
+      setSourceMessage(null);
+      setSource(next);
+      return true;
+    } catch (error) {
+      setSourceMessage(failureMessage(error));
+      return false;
+    }
+  }, []);
+
   const value = useMemo<GenerationContextValue>(
     () => ({
       state: status.state,
@@ -315,8 +490,11 @@ export function GenerationProvider({ source: initialSource, cache, changeSet: ch
       refresh,
       pickDirectory,
       canPickDirectory: DirectoryGenerationSource.isSupported(),
+      importFiles,
+      canImportFiles: DirectoryFileListSource.isSupported(),
       source: { kind: source.kind, label: source.label },
       sourceMessage,
+      importRequired: source instanceof UnselectedGenerationSource,
       store,
       loader,
       changeSet,
@@ -324,7 +502,7 @@ export function GenerationProvider({ source: initialSource, cache, changeSet: ch
       changeVersion,
       bumpChange,
     }),
-    [status, manifest, refresh, pickDirectory, source, sourceMessage, store, loader, changeSet, changeSetMessage, changeVersion, bumpChange],
+    [status, manifest, refresh, pickDirectory, importFiles, source, sourceMessage, store, loader, changeSet, changeSetMessage, changeVersion, bumpChange],
   );
 
   return <GenerationContext.Provider value={value}>{children}</GenerationContext.Provider>;
@@ -338,22 +516,40 @@ function useGenerationContext(): GenerationContextValue {
 
 // --- Hook'lar --------------------------------------------------------------------------------------------
 export function useGeneration(): GenerationHandle {
-  const { state, manifest, generationId, lastReadAt, lastGoodAt, message, refresh, pickDirectory, canPickDirectory, source, sourceMessage } =
+  const { state, manifest, generationId, lastReadAt, lastGoodAt, message, refresh, pickDirectory, canPickDirectory, source, sourceMessage, importRequired } =
     useGenerationContext();
   return useMemo(
-    () => ({ state, manifest, generationId, lastReadAt, lastGoodAt, message, refresh, pickDirectory, canPickDirectory, source, sourceMessage }),
-    [state, manifest, generationId, lastReadAt, lastGoodAt, message, refresh, pickDirectory, canPickDirectory, source, sourceMessage],
+    () => ({ state, manifest, generationId, lastReadAt, lastGoodAt, message, refresh, pickDirectory, canPickDirectory, source, sourceMessage, importRequired }),
+    [state, manifest, generationId, lastReadAt, lastGoodAt, message, refresh, pickDirectory, canPickDirectory, source, sourceMessage, importRequired],
   );
 }
 
-/** Koleksiyonu bir kez yükler; nesilde olmayan koleksiyon boş ve hatasız döner (sayfa "Kaynakta kayıt yok" der). */
-export function useCollection<K extends CollectionName>(name: K): CollectionSnapshot<CollectionRecord<K>> {
+/** Klasör içe aktarma yüzeyi (Veri sayfası): Chromium'da klasör seçici, Safari/WebKit'te dosya listesi. */
+export function useGenerationImport(): GenerationImportHandle {
+  const { pickDirectory, canPickDirectory, importFiles, canImportFiles, source, sourceMessage, importRequired } = useGenerationContext();
+  return useMemo(
+    () => ({ pickDirectory, canPickDirectory, importFiles, canImportFiles, source, sourceMessage, importRequired }),
+    [pickDirectory, canPickDirectory, importFiles, canImportFiles, source, sourceMessage, importRequired],
+  );
+}
+
+/**
+ * Koleksiyonu (kapsam başına) bir kez yükler; nesilde olmayan koleksiyon boş ve hatasız döner (sayfa "Kaynakta kayıt
+ * yok" der). options.periods verilirse yalnız o dönemlerin parçaları okunur; satırlar kapsamın satırlarıdır (koleksiyon
+ * boş mu sorusu için manifest.counts[name] kullanın). Dönem dizisi içerikle karşılaştırılır; her render'da yeni dizi
+ * vermek güvenlidir. Bileşen kalkınca (rota değişimi) başka bekleyeni olmayan yükleme iptal edilir.
+ */
+export function useCollection<K extends CollectionName>(name: K, options?: CollectionLoadOptions): CollectionSnapshot<CollectionRecord<K>> {
   const { loader } = useGenerationContext();
+  const periodsKey = options?.periods ? JSON.stringify([...options.periods].sort()) : null;
+  const periods = useMemo<readonly string[] | undefined>(() => (periodsKey === null ? undefined : (JSON.parse(periodsKey) as string[])), [periodsKey]);
   useEffect(() => {
-    void loader.ensure(name);
-  }, [loader, name]);
+    const controller = new AbortController();
+    void loader.ensure(name, periods ? { periods, signal: controller.signal } : { signal: controller.signal });
+    return () => controller.abort();
+  }, [loader, name, periods]);
   const subscribe = useCallback((listener: () => void) => loader.subscribe(listener), [loader]);
-  const read = useCallback(() => loader.snapshot(name), [loader, name]);
+  const read = useCallback(() => loader.snapshot(name, periods ? { periods } : undefined), [loader, name, periods]);
   return useSyncExternalStore(subscribe, read, read) as CollectionSnapshot<CollectionRecord<K>>;
 }
 
