@@ -1,8 +1,9 @@
-// Vite dev middleware: AILE_GENERATION_DIR altındaki en yeni geçerli nesli salt okunur, yalnız .json servis eder.
-// Yalnız `serve` aşamasında çalışır; build çıktısına hiçbir şey eklemez.
+// Vite dev middleware: AILE_GENERATION_DIR altındaki en yeni geçerli nesli salt okunur servis eder: yalnız manifest.json,
+// data/**/*.json parçaları ve _meta; yalnız aynı kökenden (başka localhost kökeni 403). AILE_GENERATION_DIR yalnız süreç
+// ortamından okunur (.env / .env.local okunmaz). Yalnız `serve` aşamasında çalışır; build çıktısına hiçbir şey eklemez.
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { createServer, request as httpRequest, type Server } from 'node:http';
-import { mkdtemp, mkdir, writeFile, utimes, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, writeFile, utimes, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createPrivateDataHandler, privateDataPlugin, selectGeneration } from './privateData';
@@ -15,9 +16,9 @@ let env: { AILE_GENERATION_DIR?: string } = {};
 let scratch: string;
 
 // fetch yol normalizasyonu yapar ('..' istemcide çözülür); ham yolun sunucuya ulaşması için node:http kullanılır.
-function request(method: string, pathname: string): Promise<Response> {
+function request(method: string, pathname: string, headers: Record<string, string> = {}): Promise<Response> {
   return new Promise((resolve, reject) => {
-    const req = httpRequest(`${baseUrl}`, { method, path: pathname }, res => {
+    const req = httpRequest(`${baseUrl}`, { method, path: pathname, headers }, res => {
       const chunks: Buffer[] = [];
       res.on('data', chunk => chunks.push(chunk as Buffer));
       res.on('end', () => {
@@ -37,6 +38,12 @@ async function writeGeneration(root: string, name: string, manifest: Record<stri
   await writeFile(path.join(directory, 'manifest.json'), `${JSON.stringify(manifest)}\n`);
   await writeFile(path.join(directory, 'data', 'rooms', 'household', '00000.json'), `${JSON.stringify({ schemaVersion: 1, collection: 'rooms', records: [] })}\n`);
   await writeFile(path.join(directory, 'notes.txt'), 'json degil');
+  // Panelin okumadığı nesil dosyaları (ham döküm, şema, sözleşme): sunucu bunları hiç servis etmemeli.
+  for (const folder of ['raw', 'schemas', 'contracts']) {
+    await mkdir(path.join(directory, folder), { recursive: true });
+    await writeFile(path.join(directory, folder, 'dokum.json'), `${JSON.stringify({ ham: 'sentetik gizli hücre' })}\n`);
+  }
+  await writeFile(path.join(directory, 'data', 'kok.json'), `${JSON.stringify({ ham: true })}\n`);
   const time = new Date(Date.now() - ageSeconds * 1000);
   await utimes(path.join(directory, 'manifest.json'), time, time);
   return directory;
@@ -156,6 +163,70 @@ describe('GET /__aile/generation/*', () => {
   });
 });
 
+describe('Yalnız panelin okuduğu yollar: manifest.json, data/<koleksiyon>/**/<parça>.json ve _meta', () => {
+  it('raw/, schemas/, contracts/ ve data/ kökündeki .json servis edilmez (404, içerik ve yol yazılmaz)', async () => {
+    const root = path.join(scratch, 'yollar');
+    await writeGeneration(root, '4'.repeat(64), { schemaVersion: 1, generation_id: '4'.repeat(64) }, 10);
+    env = { AILE_GENERATION_DIR: root };
+    for (const pathname of ['/__aile/generation/raw/dokum.json', '/__aile/generation/schemas/dokum.json', '/__aile/generation/contracts/dokum.json', '/__aile/generation/data/kok.json', '/__aile/generation/baska.json']) {
+      const response = await request('GET', pathname);
+      expect(response.status, pathname).toBe(404);
+      expect(response.body, pathname).not.toContain('sentetik gizli hücre');
+      expect(response.body, pathname).not.toContain(root);
+      expect(JSON.parse(response.body), pathname).toHaveProperty('error');
+    }
+    for (const pathname of ['/__aile/generation/manifest.json', '/__aile/generation/data/rooms/household/00000.json', '/__aile/generation/_meta']) {
+      expect((await request('GET', pathname)).status, pathname).toBe(200);
+    }
+  });
+});
+
+describe('Yalnız aynı köken (başka localhost uygulaması nesli okuyamaz)', () => {
+  async function prepare() {
+    const root = path.join(scratch, 'koken');
+    await writeGeneration(root, '5'.repeat(64), { schemaVersion: 1, generation_id: '5'.repeat(64) }, 10);
+    env = { AILE_GENERATION_DIR: root };
+    return new URL(baseUrl).host;
+  }
+
+  it('başka kökenin Origin başlığı ya da Sec-Fetch-Site same-site/cross-site → 403, gövdede veri yok', async () => {
+    const host = await prepare();
+    const port = host.split(':')[1];
+    const cases: Record<string, string>[] = [
+      { Origin: `http://localhost:${Number(port) + 1}` },
+      { Origin: `http://127.0.0.1:${Number(port) + 1}` },
+      { Origin: 'http://evil.test' },
+      { Origin: 'null' },
+      { 'Sec-Fetch-Site': 'same-site' },
+      { 'Sec-Fetch-Site': 'cross-site' },
+      { 'Sec-Fetch-Site': 'same-origin', Origin: `http://localhost:${Number(port) + 1}` },
+    ];
+    for (const headers of cases) {
+      for (const pathname of ['/__aile/generation/manifest.json', '/__aile/generation/_meta', '/__aile/generation/data/rooms/household/00000.json']) {
+        const response = await request('GET', pathname, headers);
+        expect(response.status, `${pathname} ${JSON.stringify(headers)}`).toBe(403);
+        expect(response.headers.get('cache-control')).toBe('no-store');
+        expect(JSON.parse(response.body)).toEqual({ error: 'Yalnız aynı kökenden okunur' });
+      }
+    }
+  });
+
+  it('aynı köken (Origin = Host), Sec-Fetch-Site same-origin/none ve başlıksız istek (curl) okunur', async () => {
+    const host = await prepare();
+    const cases: Record<string, string>[] = [
+      {},
+      { 'Sec-Fetch-Site': 'same-origin' },
+      { 'Sec-Fetch-Site': 'none' },
+      { Origin: `http://${host}`, 'Sec-Fetch-Site': 'same-origin' },
+    ];
+    for (const headers of cases) {
+      const response = await request('GET', '/__aile/generation/manifest.json', headers);
+      expect(response.status, JSON.stringify(headers)).toBe(200);
+      expect(JSON.parse(response.body).generation_id).toBe('5'.repeat(64));
+    }
+  });
+});
+
 describe('Yanıtlarda yol bilgisi yok', () => {
   it('beklenmeyen sunucu hatası (500) mutlak yolu veya hata ayrıntısını yanıta yazmaz', async () => {
     const secret = path.join(scratch, 'gizli-kok', 'nesil');
@@ -209,16 +280,15 @@ describe('?generation= ile nesil sabitleme', () => {
   });
 });
 
-describe('privateDataPlugin › .env.local okuma (configResolved + loadEnv)', () => {
+describe('privateDataPlugin › AILE_GENERATION_DIR yalnız süreç ortamından (.env / .env.local okunmaz)', () => {
   type Middleware = (req: import('node:http').IncomingMessage, res: import('node:http').ServerResponse, next: () => void) => void;
 
-  /** Eklentiyi Vite'sız çalıştırır: configResolved → configureServer, yakalanan ara katmanı geçici sunucuda dinler. */
+  /** Eklentiyi Vite'sız çalıştırır: (varsa) configResolved → configureServer, yakalanan ara katmanı geçici sunucuda dinler. */
   async function servePlugin(envDir: string | false, mode = 'development') {
     const plugin = privateDataPlugin();
-    const configResolved = plugin.configResolved as unknown as (config: { mode: string; envDir: string | false }) => void;
+    const configResolved = plugin.configResolved as unknown as ((config: { mode: string; envDir: string | false }) => void) | undefined;
     const configureServer = plugin.configureServer as unknown as (server: { middlewares: { use(handler: Middleware): void } }) => void;
-    expect(typeof configResolved).toBe('function');
-    configResolved({ mode, envDir });
+    configResolved?.({ mode, envDir });
     let middleware: Middleware | null = null;
     configureServer({ middlewares: { use: handler => { middleware = handler; } } });
     if (!middleware) throw new Error('ara katman kaydedilmedi');
@@ -247,7 +317,7 @@ describe('privateDataPlugin › .env.local okuma (configResolved + loadEnv)', ()
     else process.env.AILE_GENERATION_DIR = saved;
   });
 
-  it("process.env'de AILE_GENERATION_DIR yoksa envDir/.env.local'dan okunur; yanıt yolu yazmaz", async () => {
+  it("process.env'de AILE_GENERATION_DIR yoksa envDir/.env.local'daki değer OKUNMAZ: 404 \"tanımlı değil\", yol yazılmaz", async () => {
     delete process.env.AILE_GENERATION_DIR;
     const root = path.join(scratch, 'env-local-kok');
     const id = '1'.repeat(64);
@@ -255,18 +325,21 @@ describe('privateDataPlugin › .env.local okuma (configResolved + loadEnv)', ()
     const envDir = path.join(scratch, 'env-local-dizin');
     await mkdir(envDir, { recursive: true });
     await writeFile(path.join(envDir, '.env.local'), `AILE_GENERATION_DIR=${root}\nVITE_BASKA=1\n`);
+    await writeFile(path.join(envDir, '.env'), `AILE_GENERATION_DIR=${root}\n`);
+    await writeFile(path.join(envDir, '.env.development.local'), `AILE_GENERATION_DIR=${root}\n`);
     const served = await servePlugin(envDir);
     try {
       const meta = await served.get('/__aile/generation/_meta');
-      expect(meta.status).toBe(200);
-      expect(JSON.parse(meta.body).generation_id).toBe(id);
+      expect(meta.status).toBe(404);
+      expect(JSON.parse(meta.body)).toEqual({ error: 'AILE_GENERATION_DIR tanımlı değil' });
       expect(meta.body).not.toContain(root);
+      expect(meta.body).not.toContain(id);
     } finally {
       await served.close();
     }
   });
 
-  it('process.env .env.local değerinden önce gelir', async () => {
+  it('süreç ortamındaki değer (açık komut: AILE_GENERATION_DIR=… vite) okunur; .env.local onu değiştirmez', async () => {
     const fileRoot = path.join(scratch, 'env-dosya-kok');
     const fileId = '2'.repeat(64);
     await writeGeneration(fileRoot, fileId, { schemaVersion: 1, generation_id: fileId }, 60);
@@ -297,5 +370,11 @@ describe('privateDataPlugin › .env.local okuma (configResolved + loadEnv)', ()
         await served.close();
       }
     }
+  });
+
+  it("kaynak kapısı: eklenti loadEnv/.env okumaz (gizlilik belgeleri ve runbook'la tutarlı)", async () => {
+    const source = await readFile(path.join(__dirname, 'privateData.ts'), 'utf8');
+    expect(source).not.toMatch(/\bloadEnv\b/);
+    expect(source).not.toMatch(/\.env\.local['"`]/);
   });
 });

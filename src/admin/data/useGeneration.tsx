@@ -6,7 +6,9 @@
 //        source: undefined → defaultGenerationSource(): geliştirmede HttpGenerationSource (/__aile/generation), üretimde
 //                (VITE_AILE_GENERATION_URL yoksa) UnselectedGenerationSource → istek yok, "Klasör içe aktar" durumu;
 //                null → doğrudan "Klasör içe aktar" durumu.
-//        cache:  undefined → defaultPartitionCache() (VITE_AILE_PARTITION_CACHE=off → kalıcı önbellek yok); null → yok.
+//        cache:  undefined → defaultPartitionCache(): geliştirmede IndexedDB; üretimde VITE_AILE_PARTITION_CACHE=idb|on
+//                yoksa kalıcı önbellek YOK (fail-closed, persistentCacheAllowed); null → yok. Yeni nesil yayınlanınca
+//                depo eski nesillerin önbellek girdilerini budar.
 //     useGeneration()        → durum, manifest, tazelik, refresh, pickDirectory (DirectoryGenerationSource), importRequired
 //     useGenerationImport()  → klasör içe aktarma: pickDirectory (Chromium) + importFiles(FileList) (Safari/WebKit)
 //     useCollection(name, { periods? })
@@ -73,6 +75,7 @@ export {
   normalizePeriods,
   partitionPeriod,
   periodsBetween,
+  persistentCacheAllowed,
   type CollectionScopeOptions,
   type LoadCollectionOptions,
   type PartitionCacheEnv,
@@ -374,7 +377,7 @@ export interface GenerationProviderProps {
    * null → seçilmemiş klasör ("Klasör içe aktar" durumu). Kararlı referans verin; yalnız ilk değer kullanılır.
    */
   source?: GenerationSource | null;
-  /** undefined → defaultPartitionCache() (IndexedDB; VITE_AILE_PARTITION_CACHE=off ise yok); null → önbellek yok. */
+  /** undefined → defaultPartitionCache() (geliştirmede IndexedDB; üretimde açık istek yoksa yok); null → önbellek yok. */
   cache?: PartitionCache | null;
   /** undefined → ChangeSet.load() (IndexedDB); null → değişiklik kümesi kapalı; fonksiyon → özel yükleyici. */
   changeSet?: (() => Promise<ChangeSet>) | null;
