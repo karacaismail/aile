@@ -37,11 +37,17 @@
   align-items: start;
 }
 
-/* Skip link: ilk sekme durağı; odaklanınca üst solda görünür, akıştan çıkar (üst çubuk y = 0). admin.css odak çizgisi
-   taşıyıcılarına (a) position: relative verir; kabuk sınıfıyla özgüllük 0,3,0. */
+/* Skip link: ilk sekme durağı; odaklanınca üst solda görünür, akıştan çıkar. admin.css odak çizgisi taşıyıcılarına (a)
+   position: relative verir; kabuk sınıfıyla özgüllük 0,3,0.
+   Odak çizgisi (admin.css: bağlantının odak-aralik altında) açık zeminde durur: --aile-odak açık zeminde ≥ 3:1,
+   lacivertte 1,96:1'dir. Üst çubuk düzeninde bağlantının alt kenarı ölçülen çubuğun (--aile-shell-ust-olcu; ölçüm
+   gelene dek token türetmesi) alt kenarına oturur, çizgi hemen altındaki main üst payında kalır: sayfa adı sarılıp çubuk
+   uzasa (ör. 375 px'te "Veri kalitesi ve içe aktarma"), güvenli alan eklense ya da işaretçi ince olsa (hedef 44) da çizgi
+   lacivert çubuğa düşmez. Bağlantı içerikten uzunsa alt kenarı daha aşağıda kalır, çizgi yine açık zeminde. Yan gezinme
+   düzeninde aşağıdaki kural içerik sütununa taşır. */
 .aile-admin .aile-admin-shell > .aile-admin-skip {
   position: absolute;
-  inset-block-start: calc(var(--aile-bosluk-2) + var(--aile-safe-top));
+  inset-block-start: calc(var(--aile-shell-ust-olcu, calc(var(--aile-shell-ust-bar) + var(--aile-safe-top))) - var(--aile-dokunma-hedefi));
   inset-inline-start: calc(var(--aile-yogunluk-kenar) + var(--aile-safe-left));
   z-index: 3;
   display: inline-flex;
@@ -57,6 +63,12 @@
   clip-path: inset(50%);
 }
 .aile-admin .aile-admin-shell > .aile-admin-skip:focus { clip-path: none; }
+/* Masaüstü yan gezinme: üst çubuk yok; bağlantı içerik sütununun ızgara alanında (mutlak konumlu ızgara öğesinin
+   kapsayıcı bloğu ızgara alanıdır), 272 px lacivert yan gezinmenin üstünde değil; üstten bosluk-2 + güvenli alan. */
+.aile-admin .aile-admin-shell[data-gezinme='yan'] > .aile-admin-skip {
+  grid-column: 2;
+  inset-block-start: calc(var(--aile-bosluk-2) + var(--aile-safe-top));
+}
 
 /* Marka "aile": üst çubukta gövde boyunda 600; yan gezinmede 24/32 (wide css). */
 .aile-admin .aile-admin-brand { font-weight: 600; }

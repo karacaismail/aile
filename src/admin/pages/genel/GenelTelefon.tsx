@@ -91,8 +91,16 @@ function DikkatSatiri({ item }: { item: GenelDikkat }) {
   );
 }
 
+/**
+ * Görev satırı: satırın tamamı etikettir (dokunma hedefi), ama onay kutusunun erişilebilir adı yalnız görev adıdır
+ * (aria-labelledby); kod · sorumlu · tarih açıklamadır (aria-describedby). Saran etiket tek başına bırakılsa ad, ayraçsız
+ * birleşen ad + meta olurdu ("…işi 4IS-4 · …"). Geniş sunumdaki Overview görev satırıyla aynı ayrım.
+ */
 function GorevSatiri({ gorev, onToggle }: { gorev: GenelGorev; onToggle?: GenelSunumProps['onToggleTask'] }) {
   const meta = gorevMetaMetni(gorev);
+  const id = useId();
+  const adId = `${id}-ad`;
+  const metaId = `${id}-meta`;
   return (
     <li>
       <label className={gorev.done ? 'aile-genel-gorev aile-genel-gorev--bitti' : 'aile-genel-gorev'} data-focus-line="">
@@ -101,14 +109,16 @@ function GorevSatiri({ gorev, onToggle }: { gorev: GenelGorev; onToggle?: GenelS
           className="aile-genel-gorev-girdi"
           checked={gorev.done}
           disabled={!onToggle}
+          aria-labelledby={adId}
+          aria-describedby={meta ? metaId : undefined}
           onChange={event => onToggle?.(gorev.id, event.target.checked)}
         />
         <span className="aile-genel-kutu" aria-hidden="true">
           <Icon name="check" className="aile-genel-kutu-isaret" />
         </span>
         <span className="aile-genel-satir-ana">
-          <span className="aile-genel-gorev-ad">{gorev.label}</span>
-          {meta ? <span className="aile-kucuk aile-ikincil">{meta}</span> : null}
+          <span id={adId} className="aile-genel-gorev-ad">{gorev.label}</span>
+          {meta ? <span id={metaId} className="aile-kucuk aile-ikincil">{meta}</span> : null}
         </span>
       </label>
     </li>
