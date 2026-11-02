@@ -394,6 +394,22 @@ describe('AyarlarPage › Canlı bağlantı (Apps Script, yalnız bu tarayıcıd
     expect(within(canli).getByLabelText('Uygulama anahtarı')).toHaveValue('');
     expect(within(canli).getByText('Değişiklik yok')).toBeInTheDocument();
   });
+
+  // Tasarım: tasarim-sistemi/README.md › Uyarlanır teslim ("Form altlığı (FormFooter) telefonda yapışkandır") ve Ayarlar
+  // ekranı (bundle.js › Ayarlar: FormFooter sticky). Altlık yüksekliğini belge kaydırma payı olarak ayırır; odaklanan
+  // alan altlığın altında kalmaz (e2e admin-layout › yapışkan form altlığı). Tablet ve masaüstünde altlık akışta durur.
+  it('telefonda Kaydet altlığı yapışkan (tam genişlik, birincil üstte); tablet ve masaüstünde akışta', async () => {
+    for (const [device, sticky] of [['phone', true], ['tablet', false], ['desktop', false]] as const) {
+      const view = renderPage({ device });
+      await waitReady();
+      const canli = screen.getByRole('region', { name: 'Canlı bağlantı' });
+      const altlik = within(canli).getByRole('button', { name: 'Kaydet' }).closest('.aile-ff');
+      expect(altlik, `${device}: Kaydet bir form altlığında`).not.toBeNull();
+      if (sticky) expect(altlik, device).toHaveAttribute('data-sticky', 'true');
+      else expect(altlik, device).not.toHaveAttribute('data-sticky');
+      view.unmount();
+    }
+  });
 });
 
 describe('AyarlarPage › Bütçe e-tablosu (ortam)', () => {

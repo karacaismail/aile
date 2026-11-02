@@ -57,7 +57,11 @@ describe('designTokens (tokens.json eşlemesi)', () => {
     expect(designTokens.navMetin).toBe(designTokens.yuzey);
   });
   it('keeps measures, breakpoints and motion from tokens.json', () => {
-    expect(designTokens.fontSans).toBe('Outfit, system-ui, sans-serif');
+    // Outfit'ten hemen sonra ölçü eşlemeli yedek ('Outfit Yedek', src/admin/fonts.css: yalnız local() Arial ve ölçü
+    // uyumlu eşleri, size-adjust/ascent/descent/line-gap-override). Outfit inerken metin bu yüzle çizilir; font geldiğinde
+    // satır kırılımı ve kutular neredeyse değişmez (e2e/admin-typography geç font kayması ≤ 0,005). ₺ ve yerel yüzü
+    // olmayan sistemde yığın system-ui'ye düşer.
+    expect(designTokens.fontSans).toBe("Outfit, 'Outfit Yedek', system-ui, sans-serif");
     expect([designTokens.bosluk1, designTokens.bosluk2, designTokens.bosluk3, designTokens.bosluk4, designTokens.bosluk6, designTokens.bosluk8]).toEqual([4, 8, 12, 16, 24, 32]);
     expect([designTokens.koseKontrol, designTokens.koseKart, designTokens.kosePanel]).toEqual([8, 12, 16]);
     expect(designTokens.golgeYukseltilmis).toBe('0 2px 4px rgba(27, 62, 85, 0.18), 0 8px 20px rgba(27, 62, 85, 0.14)');
@@ -295,5 +299,34 @@ describe('admin.css adaptive custom properties', () => {
       for (const rule of setters.filter(r => r.selector === profileSelector(profile))) apply(rule);
       expect(values, `${width}×${height} (${profile})`).toEqual(pxVars(kenar, bosluk, yogun));
     }
+  });
+});
+
+// Yedek yüzün tek kaynağı src/admin/fonts.css: yığındaki ad orada @font-face olarak (yalnız local(), ağ isteği yok) ve
+// Outfit'in ağırlık aralıklarıyla tanımlı olmalı; aksi hâlde ad yığında ölü kalır ve metin system-ui'ye düşer.
+describe('fontSans yedek yüzü (src/admin/fonts.css)', () => {
+  const css = readFileSync(resolve(__dirname, '../admin/fonts.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  const faces = Array.from(css.matchAll(/@font-face\s*\{([^}]*)\}/g), match => match[1]!);
+  const family = (body: string) => /font-family:\s*([^;]+);/.exec(body)?.[1]?.trim().replace(/^['"]|['"]$/g, '');
+  const weights = (body: string) => /font-weight:\s*([^;]+);/.exec(body)?.[1]?.trim();
+
+  it('yığındaki ikinci aile fonts.css yedek yüzüdür; Outfit hemen önünde, system-ui arkasında', () => {
+    const stack = designTokens.fontSans.split(',').map(name => name.trim().replace(/^['"]|['"]$/g, ''));
+    expect(stack).toEqual(['Outfit', 'Outfit Yedek', 'system-ui', 'sans-serif']);
+    expect(faces.filter(face => family(face) === 'Outfit Yedek').length).toBeGreaterThan(0);
+  });
+
+  it('yedek yüz yalnız local() kaynak kullanır ve Outfit ağırlık aralıklarını karşılar', () => {
+    const yedek = faces.filter(face => family(face) === 'Outfit Yedek');
+    for (const face of yedek) {
+      const src = /src:\s*([^;]+);/.exec(face)?.[1] ?? '';
+      expect(src).toMatch(/^local\(/);
+      expect(src).not.toMatch(/url\(/);
+      expect(face).toMatch(/size-adjust:\s*[\d.]+%/);
+      expect(face).toMatch(/ascent-override:\s*[\d.]+%/);
+      expect(face).toMatch(/descent-override:\s*[\d.]+%/);
+    }
+    const outfit = new Set(faces.filter(face => family(face) === 'Outfit').map(weights));
+    expect(new Set(yedek.map(weights))).toEqual(outfit);
   });
 });
