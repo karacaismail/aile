@@ -142,9 +142,13 @@ async function waitForReport(name: string) {
   return await screen.findByRole('table', { name }, WAIT);
 }
 const region = (name: string) => screen.getByRole('region', { name });
-/** antd Table yapışkan başlıkta başlık satırını ayrı tabloda çizer; sütun başlıkları ekran kapsamında, gövde satırları tabloda. */
-const headerTitles = () => screen.getAllByRole('columnheader').map((th) => th.textContent);
-const bodyRows = (table: HTMLElement) => within(table).getAllByRole('row');
+/**
+ * Yerel Table (ui/Table) başlık satırını gövdeyle aynı adlandırılmış <table> içinde (thead) çizer. Sütun başlıkları ve
+ * gövde satırları o tablodan okunur; başlık satırı (sütun başlığı taşıyan satır) gövde satırı sayılmaz.
+ */
+const headerTitles = (table: HTMLElement) => within(table).getAllByRole('columnheader').map((th) => th.textContent);
+const bodyRows = (table: HTMLElement) =>
+  within(table).getAllByRole('row').filter((row) => within(row).queryAllByRole('columnheader').length === 0);
 const summaryItem = (label: string) =>
   within(screen.getByRole('list', { name: 'Özet' })).getAllByRole('listitem').find((li) => li.textContent?.includes(label))!;
 
@@ -251,7 +255,7 @@ describe('RaporlarPage › Aylık plan ve gerçek', () => {
     renderPage();
     const table = await waitForReport('Aylık plan ve gerçek');
 
-    expect(headerTitles()).toEqual(['Ay', 'Planlanan', 'Gerçekleşen', 'Durum', 'Kayıt']);
+    expect(headerTitles(table)).toEqual(['Ay', 'Planlanan', 'Gerçekleşen', 'Durum', 'Kayıt']);
     expect(bodyRows(table)).toHaveLength(SON_ALTI_AY.length);
     expect(within(region('Aylık plan ve gerçek')).getByText('Haziran – Kasım 2026 · Kasım sürüyor')).toBeInTheDocument();
 
@@ -345,7 +349,7 @@ describe('RaporlarPage › Aylık plan ve gerçek', () => {
   it('view_definitions yoksa toplam ölçüsü sahipsizdir: tutar sütunu ve özet tutarı yok, gerekçe yazılı', async () => {
     renderPage('desktop', withoutCollection('view_definitions'));
     const table = await waitForReport('Aylık plan ve gerçek');
-    expect(headerTitles()).toEqual(['Ay', 'Kayıt']);
+    expect(headerTitles(table)).toEqual(['Ay', 'Kayıt']);
     expect(table.textContent).not.toContain('₺');
     expect(within(region('Aylık plan ve gerçek')).getByText(/^Toplam kullanılamaz: /)).toBeInTheDocument();
     expect(screen.queryByText(/₺/)).not.toBeInTheDocument();
@@ -360,7 +364,7 @@ describe('RaporlarPage › Kaleme göre harcama (pivot)', () => {
     await user.click(await screen.findByRole('menuitem', { name: 'Kaleme göre harcama' }, WAIT));
 
     const table = await waitForReport('Kaleme göre harcama');
-    const headers = headerTitles();
+    const headers = headerTitles(table);
     expect(headers[0]).toBe('Kalem');
     expect(headers).toContain(periodLabel('2026-11'));
     expect(headers[headers.length - 1]).toBe('Toplam');
@@ -388,8 +392,7 @@ describe('RaporlarPage › Kaleme göre harcama (pivot)', () => {
     await user.click(screen.getByRole('combobox', { name: 'Dönem' }));
     await user.click(await screen.findByRole('option', { name: '2027' }));
     await user.click(await screen.findByRole('menuitem', { name: 'Kaleme göre harcama' }, WAIT));
-    await waitForReport('Kaleme göre harcama');
-    expect(headerTitles()).toContain(periodLabel('2027-12'));
+    expect(headerTitles(await waitForReport('Kaleme göre harcama'))).toContain(periodLabel('2027-12'));
     await user.click(screen.getByRole('combobox', { name: 'Ölçü' }));
     await user.click(await screen.findByRole('option', { name: 'Gerçekleşen toplamı' }));
     const KALEM = 'Örnek gider satırı 1';
@@ -437,7 +440,7 @@ describe('RaporlarPage › diğer raporlar', () => {
     await waitForReport('Aylık plan ve gerçek');
     await user.click(await screen.findByRole('menuitem', { name: 'Oda bazında alımlar' }, WAIT));
     const table = await waitForReport('Oda bazında alımlar');
-    expect(headerTitles()).toEqual(['Oda', 'Alım', 'Plan tutarı yazılı', 'Gerçekleşen tutarı yazılı']);
+    expect(headerTitles(table)).toEqual(['Oda', 'Alım', 'Plan tutarı yazılı', 'Gerçekleşen tutarı yazılı']);
     expect(bodyRows(table).length).toBeGreaterThan(0);
     expect(table.textContent).not.toContain('₺');
     expect(within(table).getByRole('row', { name: /Bilinmiyor/ })).toBeInTheDocument();
@@ -456,7 +459,7 @@ describe('RaporlarPage › diğer raporlar', () => {
     await waitForReport('Aylık plan ve gerçek');
     await user.click(await screen.findByRole('menuitem', { name: 'Veri güveni özeti' }, WAIT));
     const table = await waitForReport('Veri güveni özeti');
-    expect(headerTitles()).toEqual(['Kod', 'Önem', 'Kayıt']);
+    expect(headerTitles(table)).toEqual(['Kod', 'Önem', 'Kayıt']);
     const issues = MANIFEST.files
       .filter((file) => file.collection === 'issues')
       .flatMap((file) => (JSON.parse(FILES[file.path]!) as { records: { code: string; severity: string }[] }).records);
