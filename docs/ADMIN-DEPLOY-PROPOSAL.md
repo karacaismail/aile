@@ -33,7 +33,7 @@ Bu belge `.github/workflows/*.yml` dosyalarını değiştirmez. Önerilen yama a
 | # | Önkoşul | Bugün | Sahip |
 |---|---|---|---|
 | Ö1 | `main` yayın akışı yeşil | Kırmızı. Son koşu c62f2a6 (run 41304097996) dashboard E2E adımında düştü: `e2e/family-dashboard.spec.ts:498` (chromium-desktop) başarısız, 11 test kararsız. Canlı site son başarılı koşudan (25a5ed5, run 41302668945) geliyor. | Codex |
-| Ö2 | Entegrasyon adayı tüm kapılarda yeşil; `check-delivery --strict` PASS | 9b16c43 sentetik build: `pnpm check:privacy` 0 bulgu, `pnpm check:delivery` strict PASS (13 rota sayfası). `pnpm check:budgets` FAIL: phone-js 172.969 B, kilitli tavan 171.040 B. Tam Vitest ve tüm E2E projeleri aday öncesi yeniden koşar. | entegrasyon |
+| Ö2 | Entegrasyon adayı tüm kapılarda yeşil; `check-delivery --strict` PASS | Son entegrasyon sentetik build'i: `pnpm check:privacy` 0 bulgu, `pnpm check:delivery` strict PASS (13 rota sayfası), `pnpm check:budgets` ratchet ve `--strict` PASS (phone-js 114.662 B / 120.000 B). Tam Vitest ve tüm E2E projeleri aday commit'te koşulur; sonuçlar Codex devir notundadır. | entegrasyon |
 | Ö3 | LegacyApp → antd statik kenarı kapalı (§8) | Kapandı: `babel-runtime` grubu; 9b16c43 manifestinde `src/LegacyApp.tsx` statik kapanışında antd, pro ve icons yok | entegrasyon |
 | Ö4 | Rota parçası düşünce boş sayfa yok (§5) | Kapandı: her rota `Suspense`'ini saran hata sınırı (`routes.tsx`); üretim kanıtı `e2e/admin-production.spec.ts` | b02-header-routes, entegrasyon |
 | Ö5 | Workflow yaması (§4) uygulanmış ve PR CI'da yeşil | Uygulanmadı | Codex |
@@ -109,7 +109,7 @@ Notlar:
 - `deploy.yml` yalnız telefon projelerini koşar. Tam matris yalnız PR/CI'dadır; legacy kapıyla aynı politika.
 - `@matrix` etiketli testler entegrasyonda birleşti; matris adımı boş geçmez. Boş geçen matris kapısı yoktur ve `--pass-with-no-tests` eklenmez.
 - Teslim kapısının tek modu `--strict`'tir (kesim yapıldı, baseline boş). Üç `check-delivery` satırının hepsi `--strict` taşır: `ci.yml`'de bir, `deploy.yml`'de iki.
-- Bütçe kapısı (`check-budgets`) sentetik build'de, `check-delivery`'den sonra koşar ve onun raporunu `--delivery-report` ile okur. Raporlar `dist` dışına, `delivery-evidence` altına yazılır. Kapı 9b16c43'te FAIL'dir (Ö2); yama ancak kapı yeşilken uygulanır.
+- Bütçe kapısı (`check-budgets`) sentetik build'de, `check-delivery`'den sonra koşar ve onun raporunu `--delivery-report` ile okur. Raporlar `dist` dışına, `delivery-evidence` altına yazılır. Kapı son entegrasyon ölçümünde PASS'tir (Ö2); yama ancak kapı yeşilken uygulanır.
 
 `ci.yml`:
 
@@ -333,7 +333,7 @@ Doğrulama (yerel, workflow dosyalarının kopyasında; 9b16c43 üzerinde `g-doc
 - Mevcut koruma testleri (Firefox yasağı, legacy hedefli kapı, dashboard çıktı klasörleri, `if: failure()` yükleme) yamalı kopyada geçti. Kontrol amaçlı `firefox` eklenen kopyada 1 test düştü; yani kopya gerçekten okunuyor (67382b9 koşusu).
 - Blok, repo derleyici ayarlarıyla `tsc` hatasız geçti.
 - İki dosya Ruby YAML ile ayrıştırıldı: `ci.yml` işleri `test`, `admin`; `deploy.yml` işleri `build`, `admin`, `deploy` (`needs: [build, admin]`).
-- Yamadaki kapı komutları 9b16c43 sentetik build'inde denendi: `check-delivery --strict --report <dist dışı>` PASS; `check-budgets --delivery-report <aynı rapor> --report <dist dışı>` girdi hatası vermeden koştu ve bütçe aşımında FAIL (çıkış 1) döndü (Ö2).
+- Yamadaki kapı komutları 9b16c43 sentetik build'inde denendi: `check-delivery --strict --report <dist dışı>` PASS; `check-budgets --delivery-report <aynı rapor> --report <dist dışı>` girdi hatası vermeden koştu ve o günkü bütçe aşımında FAIL (çıkış 1) döndü; bugün aynı komut PASS (çıkış 0) döner (Ö2).
 - `actionlint` bu makinede yok. GitHub üzerinde koşu yapılmadı.
 
 ## 5. Sürüm kayması: eski admin.html ve yeni parçalar

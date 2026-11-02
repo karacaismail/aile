@@ -178,8 +178,13 @@ W0'ın 4 temel dalından sonra 91 görev dalı entegrasyon dalına birleşti (`c
 | Düzeltme turu 4 | 6 görev (`r4-*`) inceleme bulguları ve tam koşu hataları | 70633a7: 2 blocker ve 15 major bulgunun hepsi kapandı. Aylık toplamlar artık toplanmıyor ("Toplam kullanılamaz"); CSV formül koruması; Bütçe Fark yalnız ödeme kanıtıyla; üretimde kalıcı önbellek kapalı, tam silme ve budama; canlı tutar kesin ondalık; dev ara katmanı yalnız süreç ortamı ve aynı köken; telefon kapısı rota sayfası kapanışlarını kapsar ve `--strict` sabit; `preloadRecovery` kaldırıldı; geniş parça sayfa başına; akordeon odak çizgisi solmadan belirir; dedektörler üç körlüğü yakalar. Minor bulguların çoğu da bu turda kapandı |
 | Son tur | `x-final`, `f-charts`, `f-edges`, `f-menu`, `f-shell` | Ondalık canlı tutar ve 14 px düğme tabanı testleri; grafik kapıları Bütçe aylık eğilimine taşındı; Bütçe barrel yerine doğrudan import; Menu bağlantı öğeleri APG menuitem, rapor seçimi düğme listesi; son satır odak çizgisinde köşeler kare; "İçeriğe geç" odak çizgisi lacivert zeminden çıktı |
 | Emeklilik planı eki | Sözleşme, sentetik profil ve taslak tabanı; `em-model`, `em-data`, `em-vm` paralel | 9b16c43: `#/emeklilik` 13. rota; emeklilik E2E 9 projede 20/20; rota tüm genel E2E döngülerinde (a11y, odak, en küçük metin, yerleşim, smoke, rotalar, başlık, üretim); başlık sözleşmesi 174/174. Ayrıntı `docs/EMEKLILIK-PLANI.md` |
+| Emeklilik inceleme turları | `em-preset`, iki bağımsız inceleme, `em-fix`, `em-fix2` | Gizlilik engelleyicisi (kişisel profilden türeyen değerler) ağaçtan temizlendi, kişisel değer taraması 0. Geri kazanma tanımı, ihya elle aylıkları, ortak ödeme > borç hatası, geniş yerleşim, "Gerekmez" kuralı, üretimde yeniden içe aktarma, hata metinlerinde değer yankısı yok. En kötü senaryoda tuş başına hesap aynı yükte 100–136 ms → 8,5–12,4 ms (doğrusal parça + bileşim önbelleği). Gerçek profil bağımsız tabloyla 8/8 tarih ve tutar eşleşir (Git dışı doğrulama) |
+| Telefon JS bütçesi | `p-phonejs`, `p-phonejs2`, bağımsız inceleme, `p-fix` | phone-js 174.066 B → 114.662 B (bütçe 120.000 B, ratchet tavanı yok, `--strict` PASS). Zod ve sözleşme tembel, Phosphor yalnız regular, simge çekirdek/ek ayrımı, Sayfalar çekmecesi ve "Diğer" menü gövdesi niyetle. İnceleme engelleyicisi yok; 1 major (başarısız çekmece yüklemesinden sonra odakla açılma, WCAG 3.2.1) ve minor bulgular p-fix'te kapandı. Ayrıntı `docs/ADMIN-BUDGETS.md` |
+| Açılış geçişi | m9a tam koşusunda tek WebKit hatası (1/80) | Varsayılan açık akordeon, açılır bölüm ve pivot gövdeleri ilk çizimde `@starting-style` ile 0fr'dan açılıyordu: hazır sinyalinden sonra yerleşim kayması ve geçiş sürerken kaybolan dokunuş. Açılış geçişi yalnız kullanıcının aç/kapa yaptığı gövdede (`data-gecis`); kural testi ve `e2e/admin-motion-acilis.spec.ts` |
 
-9b16c43 üzerinde bu belge görevinin koşusu (sentetik build): `pnpm check:privacy` 0 bulgu; `pnpm check:delivery` strict PASS (13 rota sayfası, ihlal yok); `pnpm check:budgets` FAIL (phone-js 172.969 B, kilitli tavan 171.040 B; §10).
+Son entegrasyon ölçümü (sentetik build): `pnpm check:privacy` 0 bulgu; `pnpm check:delivery` strict PASS (13 rota sayfası, ihlal yok); `pnpm check:budgets` ratchet ve `--strict` PASS (phone-js 114.662 B / 120.000 B). Tam koşu sonuçları Codex devir notundadır.
+
+Bu tablodaki commit kimlikleri yerel entegrasyon dalına aittir. Codex'e `main` üzerinde tek commit'lik aday dal verilir (kişisel değer içeren ara commit'ler yayına girmez); kimlikler orada yoktur.
 
 ## 9. Öğrenilenler
 
@@ -194,12 +199,12 @@ W0'ın 4 temel dalından sonra 91 görev dalı entegrasyon dalına birleşti (`c
 
 | İş | Sahip | Not |
 |---|---|---|
-| Bütçe kapısı: `pnpm check:budgets` 9b16c43'te FAIL (phone-js 172.969 B, tavan 171.040 B) | entegrasyon, e01-budgets | Tavan yalnız düşer (`CEILING_LOCK`). Ya bayt azaltılır ya da tavanın yeniden ölçülmesi entegrasyon sahibinin açık kararıdır. phone-js bütçesi (120 KB) hâlâ aşılıyor |
-| Telefon yolunda barrel importu: Alımlar, Ayarlar, Ödemeler, Sözlükler, Veri ve `shell/FilterDrawer`, `FilterPanel`, `QueryBar` | c05, c12, c03, c10, c11, b03 | Bu sayfaların statik kapanışında Chart parçası var; doğrudan modül importuna geçilir |
+| ~~Bütçe kapısı~~ | — | Kapandı: phone-js 114.662 B ≤ 120.000 B, ratchet tavanı yok (`docs/ADMIN-BUDGETS.md` son bölüm) |
+| ~~Telefon yolunda barrel importu~~ | — | Kapandı: sayfa ve kabuk modülleri `ui` modüllerini doğrudan import eder; kural testi `src/admin/pages/barrelKurali.test.ts` |
 | İki ayrı `icons-*` parçası (Phosphor ve antd simgeleri) | entegrasyon (`vite.config.ts`) | Raporlardaki `chunk:icons` etiketi belirsiz (W3 minor) |
 | Raporlar sayfasında rapor seçimini saran `<nav aria-label="Raporlar">` | c09-raporlar | Sayfa içi seçim gezinme bölgesi değildir; `div` olur |
 | Sözlükler sayfa CSS'indeki yinelenen ağaç köşe kuralı | c10-sozlukler | Kural `TermTree.css`'te, sayfadaki kopya silinir |
-| Emeklilik: Bağ-Kur borcu kaynak seçimi ve bağımsız inceleme bulguları | em-preset, entegrasyon | Birleşme ve son tam koşudan önce |
+| ~~Emeklilik: Bağ-Kur borcu kaynak seçimi ve bağımsız inceleme bulguları~~ | — | Kapandı: em-preset, em-fix, em-fix2 |
 | Tam doğrulama ve aday commit | entegrasyon | Tam Vitest, build, üç kapı, dev E2E tüm projeler, üretim E2E; ardından Codex devri (`docs/ADMIN-RUNBOOK.md` §7) |
 | Yönetim kapılarının CI'ya eklenmesi | Codex, Hüseyin Cengiz | `docs/ADMIN-DEPLOY-PROPOSAL.md` §4.5–4.6; önce koruma testi RED |
 | antd ve Pro bağımlılığı: kaldır, masaüstünde bilinçli kullan ya da bırak | kullanıcı | Hiçbir profilde yüklenmiyor |

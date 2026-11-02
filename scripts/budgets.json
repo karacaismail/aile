@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "entry": "admin.html",
-  "recorded": "2026-11-02, p-phonejs (telefon ilk rota JS bölmesi; taban 429e068), VITE_BUDGET_SHEET_ID=synthetic-budget-sheet-2098, Node v24.21.0, Vite 8.3.5",
+  "recorded": "2026-11-02, entegrasyon (p-phonejs, p-phonejs2, p-fix ve simge tokenı sonrası), VITE_BUDGET_SHEET_ID=synthetic-budget-sheet-2098, Node v24.21.0, Vite 8.3.5",
   "units": {
     "kb": 1000,
     "measure": "gzip",
@@ -82,13 +82,13 @@
     }
   ],
   "measured": {
-    "note": "Kayıtlı ölçüm (recorded koşulları, ilk rota /genel): node scripts/check-budgets.mjs dist. Son ölçüm 2026-11-02, p-phonejs2 (taban d70c0ef: \"Diğer\" menü gövdesi ve BottomSheet ilk niyette tembel; d70c0ef'te phone-js 118815 B). Tavanlar ve wide-antd istisnası bu değerlerin aynısıdır, pay yok; check-budgets.test.mjs eşitliği doğrular. Önce/sonra: docs/ADMIN-BUDGETS.md",
-    "phone-html": 2030,
-    "phone-js": 113715,
-    "phone-css": 8606,
+    "note": "Kayıtlı ölçüm (recorded koşulları, ilk rota /genel): node scripts/check-budgets.mjs dist. Son ölçüm 2026-11-02 entegrasyon (p-phonejs2 + p-fix + simge tokenı sonrası). Ratchet tavanı yok; wide-antd istisnası 0. Önce/sonra: docs/ADMIN-BUDGETS.md",
+    "phone-html": 2050,
+    "phone-js": 114662,
+    "phone-css": 8780,
     "phone-capability": 0,
-    "phone-transfer": 220535,
-    "wide-js": 116357,
+    "phone-transfer": 221676,
+    "wide-js": 117303,
     "wide-antd": 0
   },
   "ratchet": {
