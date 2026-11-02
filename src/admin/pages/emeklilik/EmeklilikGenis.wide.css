@@ -1,0 +1,33 @@
+/* EmeklilikGenis (geniş sunum; yalnız lazyWide modülüyle iner, telefon indirmez). İki sütun: sol akış ve sağda ayrıntı
+   paneli genişliğinde (--aile-ayrinti-genislik, 384) yapışkan sonuç; bileşim tablosu altta tam genişlikte. Kapsayıcı
+   sorgusu: iki sütun ancak alan sol sütuna okunur bir genişlik bırakınca (384 + 24 boşluk + 352 = 760 px; CSS değişkeni
+   @container koşulunda kullanılamadığından sayı yazılıdır). Daha darsa sütunlar alt alta. Değerler yalnız --aile-*. */
+.aile-em-genis {
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-8);
+  min-width: 0;
+}
+.aile-em-genis__izgara,
+.aile-em-genis__sol {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-8);
+  min-width: 0;
+}
+.aile-em-genis__sag { min-width: 0; }
+
+@container (min-width: 760px) {
+  .aile-em-genis__izgara {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) var(--aile-ayrinti-genislik);
+    gap: var(--aile-bosluk-6);
+    align-items: start;
+  }
+  .aile-em-genis__sag {
+    position: sticky;
+    top: var(--aile-bosluk-4);
+  }
+  .aile-em-genis .aile-em-sonuc { padding: var(--aile-bosluk-6); }
+}
