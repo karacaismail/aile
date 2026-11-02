@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { render, screen } from '@testing-library/react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { importsOf } from '../adaptive/sourceRules';
-import { Icon, ICON_NAMES, ICON_SIZE, preloadIcons, type IconName } from './icons';
+import { Icon, ICON_NAMES, ICON_SIZE, type IconName } from './icons';
 
 // Tasarım README › İkonografi: Aile.Icon adları + P0b ekleri (calendar, undo, compare). Phosphor, regular, 20 px.
 // Simgeler tek tek (dist/csr/<Ad>) içe aktarılır; paket barrel'ı (3000+ simge) ve antd/@ant-design hiç yoktur. Telefon
@@ -81,24 +81,9 @@ describe('Icon', () => {
     expect(markup).toMatch(/<svg[^>]*data-icon="[A-Za-z]+"[^>]*>.+<\/svg>$/);
   });
 
-  it('a non-core icon keeps the same box and accessible name before its chunk arrives, then fills in', async () => {
-    const { container } = render(<Icon name="close" label="Kapat" size={24} />);
-    const svg = container.querySelector('svg')!;
-    expect(svg).toHaveAttribute('width', '24');
-    expect(svg).toHaveAttribute('height', '24');
-    expect(svg).toHaveAttribute('viewBox', '0 0 256 256');
-    expect(svg).toHaveAttribute('fill', 'currentColor');
-    expect(svg).toHaveAttribute('data-icon', 'close');
-    expect(screen.getByRole('img', { name: 'Kapat' })).toBe(svg);
-    await preloadIcons();
-    await screen.findByRole('img', { name: 'Kapat' });
-    await vi.waitFor(() => expect(container.querySelector('svg')!.childElementCount).toBeGreaterThan(0));
-    const loaded = container.querySelector('svg')!;
-    expect(loaded).toHaveAttribute('width', '24');
-    expect(loaded).toHaveAttribute('data-icon', 'close');
-    // Parça geldikten sonra aynı simge eşzamanlı (boşluksuz) çizilir.
-    expect(renderToStaticMarkup(<Icon name="close" />)).toMatch(/<path /);
-  });
+  // Çekirdek dışı simgenin parça gelmeden boş (aynı kutu, aynı ad) çizilmesi, dolması ve hata/kurtarma yolu
+  // icons.lazy.test.tsx'te sınanır: oradaki parça sözü elle tutulur. Burada önceki it.each montajları parçayı zaten
+  // yüklediği için bekleme durumu gözlenemez (p-fix m5).
 
   it('never imports antd, @ant-design/* or ./antd (phone static closure stays antd-free)', () => {
     const refs = importsOf(source).filter(ref => !ref.typeOnly);

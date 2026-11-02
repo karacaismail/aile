@@ -40,7 +40,11 @@ export function regularWeight(source: string): { react: string; expression: stri
   for (; i < source.length; i += 1) {
     const char = source[i]!;
     if (char === '"' || char === "'" || char === '`') i = stringEnd(source, i);
-    else if (char === '/' && source[i + 1] === '*') i = source.indexOf('*/', i + 2) + 1;
+    else if (char === '/' && source[i + 1] === '*') {
+      const end = source.indexOf('*/', i + 2);
+      if (end < 0) throw new Error('Phosphor tanımı: kapanmayan yorum');
+      i = end + 1;
+    }
     else if (char === '(' || char === '[' || char === '{') depth += 1;
     else if (char === ')' || char === ']' || char === '}') {
       if (depth === 0) break;
@@ -76,7 +80,12 @@ export function phosphorRegularOnly(): Plugin {
       if (!importer || !ICONS_MODULE.test(importer.replace(/[?#].*$/, ''))) return null;
       if (!CSR_SPECIFIER.test(source)) return null;
       const resolved = await this.resolve(source, importer, { ...options, skipSelf: true });
-      if (!resolved || resolved.external || !/[\\/]dist[\\/]csr[\\/][A-Za-z0-9]+\.es\.js$/.test(resolved.id)) return null;
+      // Kapsamdaki import beklenen csr modülüne çözülmezse derleme durur: null dönmek altı ağırlıklı modülü sessizce
+      // paketlerdi (ör. paket .mjs'e geçerse). Paket biçimi değişince eklenti açıkça güncellenmelidir.
+      if (!resolved) return this.error(`aile-phosphor-regular: ${source} çözülemedi (${importer})`);
+      if (resolved.external || !/[\\/]dist[\\/]csr[\\/][A-Za-z0-9]+\.es\.js$/.test(resolved.id)) {
+        return this.error(`aile-phosphor-regular: ${source} beklenmeyen yola çözüldü: ${resolved.id}${resolved.external ? ' (external)' : ''}`);
+      }
       return `${resolved.id}${REGULAR_QUERY}`;
     },
     load(id) {

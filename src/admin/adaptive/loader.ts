@@ -3,6 +3,7 @@ import {
   type ComponentType, type FunctionComponent, type ReactElement, type ReactNode,
 } from 'react';
 import { useProfile } from './context';
+import { CHUNK_RETRY_DELAY_MS, chunkFailureStatus } from './chunkError';
 import { reloadPage } from './reload';
 import './adaptive.css';
 
@@ -58,7 +59,7 @@ export interface WideComponent<P> extends FunctionComponent<WideProps<P>> {
   preload(): Promise<void>;
 }
 
-export const WIDE_RETRY_DELAY_MS = 800;
+export const WIDE_RETRY_DELAY_MS = CHUNK_RETRY_DELAY_MS;
 
 const IDLE: WideState<never> = Object.freeze({ status: 'idle' });
 const LOADING: WideState<never> = Object.freeze({ status: 'loading' });
@@ -83,21 +84,9 @@ export function useWideLoading(): boolean {
   return useSyncExternalStore(subscribePending, anyPending, nonePending);
 }
 
-// Tarayıcı iletileri: Chromium, WebKit, Gecko; Vite CSS ön yüklemesi; eksik parça yerine HTML dönen sunucu;
-// webpack tarzı ChunkLoadError. Hepsi "parça artık yok ya da alınamadı" demektir.
-const CHUNK_ERROR = /Failed to fetch dynamically imported module|error loading dynamically imported module|Importing a module script failed|Unable to preload CSS|Failed to load module script|Loading (?:CSS )?chunk [\w-]+ failed/i;
-
-export function isChunkLoadError(error: unknown): boolean {
-  if (!error || typeof error !== 'object') return false;
-  const { name, message } = error as { name?: unknown; message?: unknown };
-  return name === 'ChunkLoadError' || (typeof message === 'string' && CHUNK_ERROR.test(message));
-}
-
-/** Yeniden deneme de başarısızsa: çevrim içiyken parça hatası sürüm kayması sayılır; çevrim dışı ya da başka hata → error. */
-function failureStatus(error: unknown): 'error' | 'stale-build' {
-  const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
-  return !offline && isChunkLoadError(error) ? 'stale-build' : 'error';
-}
+// Parça yükleme hatası sınıflaması tek kaynaktadır (chunkError.ts, React'siz: veri katmanı da kullanır); burada yeniden
+// dışa verilir (genel API değişmez).
+export { isChunkLoadError } from './chunkError';
 
 const wait = (ms: number) => new Promise<void>(resolve => { setTimeout(resolve, ms); });
 
@@ -179,7 +168,7 @@ function createResource<M>(
       if (countPending) changePending(1);
       inflight = attempt().then(
         module => { inflight = null; set({ status: 'ready', module }); if (countPending) changePending(-1); return module; },
-        (error: unknown) => { inflight = null; set({ status: failureStatus(error), error }); if (countPending) changePending(-1); throw error; },
+        (error: unknown) => { inflight = null; set({ status: chunkFailureStatus(error), error }); if (countPending) changePending(-1); throw error; },
       );
       return inflight;
     },

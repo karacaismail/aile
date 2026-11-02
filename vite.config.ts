@@ -182,11 +182,13 @@ const CHUNK_GROUPS: ChunkGroup[] = [
   { name: 'shared', priority: 0, test: (id: string) => /node_modules[\\/](react|react-dom|scheduler|use-sync-external-store|clsx)[\\/]/.test(id) || WOUTER_BOOT.test(id) || /src[\\/]dashboard[\\/]keyboard\.ts$/.test(id) || /vite\/(modulepreload-polyfill|preload-helper)/.test(id) },
 ];
 
-// Yönetim veri katmanı (src/admin/data/*.ts) içe aktarılmakla yan etki yapmaz: modül düzeyinde sabit, şema, sınıf ve
-// modül içi durum vardır; genel kayıt ya da global değişiklik yoktur (store.ts'in açılış ön yüklemesi yalnız modül
-// kullanılınca anlamlıdır). rolldown bu yüzden barrel ('../data') üzerinden içe aktaran parçaya yalnız gerçekten
-// kullanılan modülleri koyar: Genel sayfası canlı veri, görünüm kataloğu, CSV ve sözleşme şemalarını çekmez (ölçüm:
-// docs/ADMIN-BUDGETS.md, kural: src/admin/phoneEntry.test.ts).
+// Yönetim veri katmanı (src/admin/data/*.ts ve *.tsx; ADMIN_PURE_MODULE ikisini de eşler, alt klasör yok) içe
+// aktarılmakla yan etki yapmaz: üst düzeyde yalnız içe/dışa aktarım ve bildirim (sabit, şema, sınıf, işlev, tür, modül içi
+// durum) vardır. Tek üst düzey deyim store.ts'in sözleşme ön yüklemesidir (geliştirmede ya da açık nesil adresinde
+// import('./contract') ağ isteği); depo kullanılmıyorsa gerekmez, bu yüzden bayrak onu da kapsar. rolldown barrel
+// ('../data') üzerinden içe aktaran parçaya yalnız gerçekten kullanılan modülleri koyar: Genel sayfası canlı veri, görünüm
+// kataloğu, CSV ve sözleşme şemalarını çekmez (ölçüm: docs/ADMIN-BUDGETS.md, kural: src/admin/phoneEntry.test.ts). Yeni
+// üst düzey yan etki src/admin/data/sideEffects.test.ts'te reddedilir (izin listesi yalnız store.ts).
 const ADMIN_PURE_MODULE = /[\\/]src[\\/]admin[\\/]data[\\/][^\\/]+\.tsx?$/;
 
 // rolldown codeSplitting grupları: ad işlevi her dönen adı ayrı grup sayar (wide birimleri); öncelik ve test aynı.

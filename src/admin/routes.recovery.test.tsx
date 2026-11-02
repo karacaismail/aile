@@ -270,13 +270,15 @@ describe('routes.tsx kaynağı (telefon teslimi)', () => {
     expect(specifiers.filter(specifier => specifier.startsWith('./ui/')).sort()).toEqual(['./ui/ErrorState', './ui/LoadingShell', './ui/icons']);
   });
 
-  it('çekirdek dışı simgeler Genel dışındaki her sayfanın parçasıyla paralel istenir; telefon ilk rotası (Genel) istemez', () => {
+  it('çekirdek dışı simgeler Genel dışındaki her sayfanın parçasıyla paralel istenir, sayfa onları beklemez; doğrulama modülü Veri ve Ayarlar ile', () => {
     const loaders = [...source.matchAll(/^\s{2}(\w+): \(\) => (.+)$/gm)].map(([, key, body]) => [key!, body!] as const);
     expect(loaders.map(([key]) => key)).toHaveLength(13);
     for (const [key, body] of loaders) {
       if (key === 'genel') expect(body, key).toMatch(/^import\('\.\/pages\/GenelPage'\)\.then\(/);
+      else if (key === 'veri' || key === 'ayarlar') expect(body, key).toMatch(/^withIcons\(import\('\.\/pages\/[A-Za-z]+Page'\), loadContract\)\.then\(/);
       else expect(body, key).toMatch(/^withIcons\(import\('\.\/pages\/[A-Za-z]+Page'\)\)\.then\(/);
     }
-    expect(source).toMatch(/const withIcons = .*Promise\.all\(\[page, preloadIcons\(\)\.catch\(\(\) => null\)\]\)/);
+    // Ön yüklemeler başlatılır ama beklenmez (p-fix n1): sayfa sözü olduğu gibi döner.
+    expect(source).not.toMatch(/Promise\.all\(\[page/);
   });
 });

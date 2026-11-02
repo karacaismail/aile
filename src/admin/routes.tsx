@@ -2,12 +2,13 @@ import { Component, createRef, lazy, Suspense, useState, type ComponentType, typ
 import { Redirect, Route, Switch } from 'wouter';
 import { WIDE_RETRY_DELAY_MS, WideNotice, isChunkLoadError } from './adaptive';
 import { reloadPage } from './adaptive/reload';
+import { loadContract } from './data/store';
 import { useDevice } from './device';
 import { PageHeader } from './shell/PageHeader';
 import { adminLeads, adminNav, defaultAdminPath, type AdminPageKey } from './shell/navigation';
 import { ErrorState } from './ui/ErrorState';
 import { LoadingShell } from './ui/LoadingShell';
-import { preloadIcons } from './ui/icons';
+import { preloadIcons, useIconsStatus } from './ui/icons';
 
 // Rota → sayfa: navigation.ts yolları (/genel … /veri, /emeklilik, /ayarlar) tek kaynaktır; etiket ve amaç oradan gelir.
 // - Her sayfa React.lazy ile kendi parçasında yüklenir, yalnız rotası çizildiğinde. Başka sayfa ya da geniş (*.wide)
@@ -25,7 +26,9 @@ import { preloadIcons } from './ui/icons';
 //   (liste ↔ ayrıntı geçişinde sayfa yeniden kurulmaz); AlimlarPage seçili kaydı hash'ten (parseAlimlarHash) okur.
 // - Bilinmeyen konum varsayılan sayfaya (Genel durum) geçmişe kayıt eklemeden (replace) gider.
 // ui modülleri tek tek içe aktarılır (barrel değil): telefon teslimi yalnız burada çizilen bileşenleri çeker; ui/icons
-// yalnız çekirdek dışı simgeleri sayfa parçasıyla birlikte istemek için (preloadIcons).
+// yalnız çekirdek dışı simgeleri sayfa parçasıyla birlikte istemek (preloadIcons) ve simge parçası eski sürümse "Yeni
+// sürüm var · Yenile" göstermek için (useIconsStatus). data/store yalnız doğrulama modülünü Veri ve Ayarlar ile önden
+// istemek için (loadContract; depo zaten telefon girişindedir).
 
 export type AdminRouteKey = AdminPageKey | 'ayarlar';
 export interface RoutePageProps { location: string }
@@ -39,12 +42,19 @@ export interface AdminRoutesOptions {
 /** Sayfa parçası için otomatik yeniden deneme beklemesi; geniş parçalarla (lazyWide) aynı. */
 export const PAGE_RETRY_DELAY_MS = WIDE_RETRY_DELAY_MS;
 
+const ignore = () => {};
+
 /**
- * Sayfa parçası + çekirdek dışı simgeler (ui/icons.extra): Genel durum dışındaki sayfalar onları ilk çizimde kullanır;
- * ikisi paralel iner, sayfa simgeleri hazır çizilir. Simge parçası yüklenemezse sayfa yine açılır (simge aynı ölçüde boş
- * kutu, sonraki çizimde yeniden istenir). Genel durum (telefon ilk rotası) yalnız çekirdek simgeleri çizer: istemez.
+ * Sayfa parçası + çekirdek dışı simgeler (ui/icons.extra) ve isteğe bağlı başka ön yüklemeler (Veri, Ayarlar: doğrulama
+ * modülü). Hepsi sayfa parçasıyla paralel başlar ama sayfa onları BEKLEMEZ: takılan ya da düşen simge isteği sayfayı
+ * iskelette tutmaz; simge aynı ölçüde boş kutu çizilir ve parça gelince dolar (ui/icons; düşerse bağlantı ya da sonraki
+ * etkileşimde yeniden denenir). Sayfaya gitmek açık istektir: düşmüş simge parçası burada yeniden istenir. Genel durum
+ * (telefon ilk rotası) yalnız çekirdek simgeleri çizer: istemez.
  */
-const withIcons = <M,>(page: Promise<M>): Promise<M> => Promise.all([page, preloadIcons().catch(() => null)]).then(([module]) => module);
+const withIcons = <M,>(page: Promise<M>, ...preloads: (() => Promise<unknown>)[]): Promise<M> => {
+  for (const preload of [preloadIcons, ...preloads]) preload().catch(ignore);
+  return page;
+};
 
 const PAGE_LOADERS: Readonly<Record<AdminRouteKey, PageLoader>> = {
   genel: () => import('./pages/GenelPage').then(m => ({ location }: RoutePageProps) => <m.GenelPage location={location} />),
@@ -58,8 +68,8 @@ const PAGE_LOADERS: Readonly<Record<AdminRouteKey, PageLoader>> = {
   taraflar: () => withIcons(import('./pages/TaraflarPage')).then(m => () => <m.TaraflarPage />),
   raporlar: () => withIcons(import('./pages/RaporlarPage')).then(m => ({ location }: RoutePageProps) => <m.RaporlarPage location={location} />),
   sozlukler: () => withIcons(import('./pages/SozluklerPage')).then(m => ({ location }: RoutePageProps) => <m.SozluklerPage location={location} />),
-  veri: () => withIcons(import('./pages/VeriPage')).then(m => () => <m.VeriPage />),
-  ayarlar: () => withIcons(import('./pages/AyarlarPage')).then(m => () => <m.AyarlarPage />),
+  veri: () => withIcons(import('./pages/VeriPage'), loadContract).then(m => () => <m.VeriPage />),
+  ayarlar: () => withIcons(import('./pages/AyarlarPage'), loadContract).then(m => () => <m.AyarlarPage />),
 };
 
 interface AdminRoute { key: AdminRouteKey; path: string; pattern: string | RegExp }
@@ -192,17 +202,22 @@ export function createAdminRoutes(loaders: Readonly<Record<AdminRouteKey, PageLo
   };
 
   function AdminRoutes() {
+    // Çekirdek dışı simge parçası eski sürümse (çevrim içi parça hatası) sayfanın üstünde tek yeniden yükleme bildirimi.
+    const iconsStale = useIconsStatus() === 'stale-build';
     return (
-      <Switch>
-        {ROUTES.map(({ key, path, pattern }) => (
-          <Route key={path} path={pattern}>
-            <RouteView path={path} page={() => pageFor(key)} forget={() => { pages.delete(key); }} />
+      <>
+        {iconsStale ? <WideNotice kind="stale-build" onAction={reloadPage} /> : null}
+        <Switch>
+          {ROUTES.map(({ key, path, pattern }) => (
+            <Route key={path} path={pattern}>
+              <RouteView path={path} page={() => pageFor(key)} forget={() => { pages.delete(key); }} />
+            </Route>
+          ))}
+          <Route>
+            <Redirect to={defaultAdminPath} replace />
           </Route>
-        ))}
-        <Route>
-          <Redirect to={defaultAdminPath} replace />
-        </Route>
-      </Switch>
+        </Switch>
+      </>
     );
   }
   return AdminRoutes;

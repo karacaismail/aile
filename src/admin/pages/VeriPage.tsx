@@ -1,4 +1,7 @@
 import { useId, useMemo, type ReactNode } from 'react';
+import { WideNotice } from '../adaptive';
+import { reloadPage } from '../adaptive/reload';
+import { isStaleBuildMessage, loadContract } from '../data/store';
 import { useDevice } from '../device';
 import {
   useChangeSet,
@@ -34,6 +37,9 @@ import './VeriPage.css';
 // Sheets'e yazmaz (çakışma üretmez) ve nesil geçmişi tutmaz; bölüm hiç çizilmez. Para yok; sayımlar koleksiyon başına.
 // Koleksiyonlar yalnız manifest yayınlandıktan sonra istenir: aksi hâlde depo manifesti eşzamanlı iki kez okuyup iki kez
 // yayınlıyordu (açılış uzar, "Yenile" daha uzun süre devre dışı kalır; VeriPage.test.tsx › açılış).
+// Doğrulama modülü (data/store loadContract) sayfa yükleyicisiyle (routes.tsx) ve "Klasörden içe aktar" seçilince önden
+// istenir. Yayından sonra parça adı değiştiyse içe aktarma eski sürüm hatasıyla düşer: "Yeniden dene" yerine mevcut
+// "Yeni sürüm var · Yenile" kalıbı (WideNotice) çizilir; doğrulanmamış veri çizilmez (routes.contract.test.tsx).
 
 const LOCATION = '/veri';
 const SECTION = 'Yapı';
@@ -288,10 +294,20 @@ export function VeriPage() {
   const { manifest, state, refresh, pickDirectory, sourceMessage } = generation;
   const iceAktarma = useKlasorIceAktarma(pickDirectory);
 
-  const status = useMemo(() => ({ ...dataStatusFor(generation), onRefresh: () => void refresh() }), [generation, refresh]);
+  // Doğrulama parçası eski sürümse yeniden deneme başaramaz: tazelik satırı düğme vermez, tek kurtarma "Yenile" (sayfa).
+  const eskiSurum = state === 'error' && isStaleBuildMessage(generation.message);
+  const status = useMemo(
+    () => (eskiSurum ? dataStatusFor(generation) : { ...dataStatusFor(generation), onRefresh: () => void refresh() }),
+    [generation, refresh, eskiSurum],
+  );
   const summary = useMemo(() => ozetOlculeri(manifest), [manifest]);
   const onRetry = () => void refresh();
   const desteklenmiyor = iceAktarma.yontem === 'yok';
+  // Seçici kullanıcı hareketi içinde, eşzamanlı açılır; doğrulama modülü aynı anda önden istenir.
+  const iceAktar = () => {
+    loadContract().catch(() => {});
+    iceAktarma.baslat();
+  };
   const okunuyor = iceAktarma.asama === 'okunuyor';
 
   const primary = (
@@ -301,7 +317,7 @@ export function VeriPage() {
         icon="download"
         disabled={desteklenmiyor || okunuyor}
         aria-describedby={desteklenmiyor ? noteId : undefined}
-        onClick={iceAktarma.baslat}
+        onClick={iceAktar}
       >
         Klasörden içe aktar
       </Button>
@@ -312,7 +328,9 @@ export function VeriPage() {
   );
 
   let body: ReactNode;
-  if (state === 'error') {
+  if (eskiSurum) {
+    body = <WideNotice kind="stale-build" onAction={reloadPage} />;
+  } else if (state === 'error') {
     body = <ErrorState title="Veri okunamadı" message={generation.message ?? 'Hata: nesil okunamadı'} onRetry={onRetry} />;
   } else if (!manifest) {
     body = <LoadingShell rows={4} narrow={device === 'phone'} label="Nesil okunuyor" />;
