@@ -1,6 +1,6 @@
 # Ant Design yönetim paneli: JSON verisinden admin paneline geçiş eylem planı
 
-Tarih: 1 Kasım 2026. Durum: **plan; yürütme 2 Kasım 2026'dan itibaren [ADMIN-PANEL-PARALLEL-PLAN.md](ADMIN-PANEL-PARALLEL-PLAN.md) ile**. D1–D6 ve §4 bütünlük sözleşmesi geçerlidir; §6 sıralı dilimlerinin yerini paralel plan almıştır. Bu belge kod, kurulum veya canlı değişiklik içermez; [PRE-MVP-UI.md](PRE-MVP-UI.md) içindeki ürün/veri kararlarını değiştirmez, onların üzerine arayüz kütüphanesi ve geçiş stratejisi kararını ekler.
+Tarih: 1 Kasım 2026. Durum: **plan; 2 Kasım 2026'da [ADMIN-PANEL-PARALLEL-PLAN.md](ADMIN-PANEL-PARALLEL-PLAN.md) ile uygulandı (aday bekliyor)**. Sonuç: antd ve Pro Components artık hiçbir profilde yüklenmiyor; hiçbir ürün bileşeni onları kullanmıyor, bağımlılık `package.json`'da duruyor. Kaldırma ya da masaüstünde bilinçli kullanma kararı kullanıcıdadır. D1–D6 ve §4 bütünlük sözleşmesi geçerlidir; §6 sıralı dilimlerinin yerini paralel plan almıştır. Bu belge kod, kurulum veya canlı değişiklik içermez; [PRE-MVP-UI.md](PRE-MVP-UI.md) içindeki ürün/veri kararlarını değiştirmez, onların üzerine arayüz kütüphanesi ve geçiş stratejisi kararını ekler.
 
 Kullanıcının talimatı: JSON verileri istenen hale geldikten sonra, frontend bütünlüğü korunarak, Ant Design ile yönetim paneline dönüştürülecek. Önceki "Mantine korunur" kaydı bu talimatla **arayüz kütüphanesi için** değişir; veri sözleşmesi, Pages iş akışı, Git/yetki sınırları aynen kalır.
 
