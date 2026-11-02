@@ -56,11 +56,13 @@
   word-break: keep-all;
   overflow-wrap: normal;
 }
+/* Değer kelimeler arasından sarılır; yalnız satıra sığmayan tek uzun dizgi (adres, kimlik) kırılır. anywhere en küçük
+   içerik genişliğini de daraltıp model adlarını sözcük ortasından böldüğü için kullanılmaz. */
 .aile-cf-deger {
   margin: 0;
   min-width: 0;
   color: var(--aile-metin);
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 /* Farklı alan: uyari-yuzey dolgu + uyari metin, 600 ağırlık; köşe kontrol köşesinin yarısı (onay kutusu gibi).
    Renk tek işaret değildir: değerin önünde gizli "Farklı: " metni, üstte özet sayısı. */

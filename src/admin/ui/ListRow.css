@@ -39,10 +39,12 @@
   font-weight: 600;
 }
 
-/* Satır düğmesi: tarayıcı düğme görünümü sıfırlanır; metin sola, 44 px hedef. */
+/* Satır düğmesi: tarayıcı düğme görünümü sıfırlanır; metin sola. Hedef tek merkezi tokenla (b04 --aile-dokunma-hedefi:
+   44 px, kaba işaretçi katmanında 48 px); satır fotoğrafla zaten daha yüksektir, kural fotoğrafsız satırda da alt sınırı
+   korur. */
 .aile-listrow-dugme {
   position: relative;
-  min-height: var(--aile-hedef-asgari);
+  min-height: var(--aile-dokunma-hedefi);
   margin: 0;
   border: 0;
   border-radius: 0;
@@ -56,7 +58,9 @@
   appearance: none;
   transition: background-color var(--aile-sure) var(--aile-egri);
 }
-.aile-listrow-dugme:hover { background: var(--aile-bilgi-yuzey); }
+/* Hover yalnız hover katmanında ([data-input-hover], AdaptiveRoot): dokunmada yapışkan hover yüzeyi kalmaz. :where
+   özgüllüğü artırmaz; basılı ve seçili (secili yüzey tonu, aria-current, odaktan ayrı) hover'ın üstünde kalır. */
+:where([data-input-hover]) .aile-listrow-dugme:hover { background: var(--aile-bilgi-yuzey); }
 .aile-listrow-dugme:active,
 .aile-listrow-dugme[aria-current='true'] { background: var(--aile-secili); }
 
@@ -158,4 +162,13 @@ html[data-keyboard='true'] .aile-listrow-dugme:focus-visible::after {
 
 @media (prefers-reduced-motion: reduce) {
   .aile-listrow-dugme { transition-duration: 0s; }
+}
+
+/* Zorunlu renkler (Windows yüksek karşıtlık): zemin renkleri sistemce ezilir; seçili satır sistem vurgu rengiyle
+   (Highlight/HighlightText) görünür kalır. Odak göstergesi admin.css'teki forced-colors istisnasıyla çizilir. */
+@media (forced-colors: active) {
+  .aile-listrow-dugme[aria-current='true'] { forced-color-adjust: none; background: Highlight; color: HighlightText; }
+  .aile-listrow-dugme[aria-current='true'] :is(.aile-listrow-meta, .aile-listrow-etiket, .aile-listrow-fotoyok, .aile-listrow-eksik, .aile-listrow-ok) {
+    color: HighlightText;
+  }
 }

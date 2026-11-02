@@ -10,7 +10,8 @@
   align-items: center;
   gap: var(--aile-bosluk-2);
   width: 100%;
-  min-height: var(--aile-hedef-asgari);
+  /* Hedef tek merkezi tokenla: 44 px, kaba işaretçi katmanında (data-input-coarse) 48 px (b04). */
+  min-height: var(--aile-dokunma-hedefi);
   padding: var(--aile-bosluk-2) var(--aile-bosluk-1);
   border: 0;
   border-radius: var(--aile-kose-kontrol);
@@ -22,7 +23,9 @@
   cursor: pointer;
   transition: background-color var(--aile-sure) var(--aile-egri), color var(--aile-sure) var(--aile-egri);
 }
-.aile-disc-btn:hover { background: var(--aile-bilgi-yuzey); }
+/* Hover yalnız hover katmanında ([data-input-hover], AdaptiveRoot): dokunmada yapışkan hover yüzeyi kalmaz. :where
+   özgüllüğü artırmaz; basılı ve devre dışı kuralları hover'ın üstünde kalır. */
+:where([data-input-hover]) .aile-disc-btn:hover { background: var(--aile-bilgi-yuzey); }
 .aile-disc-btn:active { background: var(--aile-secili); }
 .aile-disc-btn:active .aile-disc-meta { color: var(--aile-metin); }
 .aile-disc-btn:disabled {
