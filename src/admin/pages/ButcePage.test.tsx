@@ -21,7 +21,9 @@ import {
   type BudgetObservation, type BudgetViewModel, type GenerationSource, type LiveBudgetOptions, type LiveBudgetResult,
 } from '../data';
 import { ButcePage, budgetRowsFor, compareWithLive, defaultPeriod, periodLabel, type ButcePageProps } from './ButcePage';
-import { trendPoints } from './butce/model';
+import { HESAPLANMADI, trendPoints } from './butce/model';
+import { ActualValue, StatusValue } from './butce/cells';
+import { Money } from '../ui';
 
 const mocks = vi.hoisted(() => {
   const setOption = vi.fn();
@@ -418,22 +420,47 @@ describe('ButcePage › dönem ve tablo', () => {
     expect(countText('8 kalem · Kasım 2026')).toBeInTheDocument();
   });
 
-  it('kanıtlı Gerçekleşen tabloda "Aşıldı" / "Sınıra yakın" ve "%N harcandı" metniyle; "Kaynakta yazılı" yazılmaz', async () => {
+  // Veri sözleşmesi (contract.ts, eşleme "payment_evidence = false") bugün kanıt iddiasını reddeder: yüklenen nesilde kanıtlı
+  // Gerçekleşen olamaz. Kanıt yolu actuals.spendLabel sözleşmesinde açık kalır; hücreler onu bellekte kurulan satırlarla
+  // yazar (aşağıdaki test), sayfa ise sözleşme dışı parçayı tablo yerine hata olarak gösterir.
+  const evidenceObservations = () => {
     const plan = PLAN.map(r => (r.period === PERIOD && (r.label === LABEL_1 || r.label === LABEL_3) ? { ...r, value: { decimal: '1000.00', currency: 'TRY' } } : r));
     const actual = mapActual(PERIOD, r => (r.label === LABEL_1 ? withValue(r, '1200.00', true) : r.label === LABEL_3 ? withValue(r, '950.00', true) : r));
+    return { plan, actual };
+  };
+
+  it('kanıtlı Gerçekleşen hücreleri "Aşıldı" / "Sınıra yakın" ve "%N harcandı" metniyle; "Kaynakta yazılı" yazılmaz', () => {
+    const { plan, actual } = evidenceObservations();
+    const rows = budgetRowsFor([...plan, ...actual], PERIOD, null, TODAY);
+    const of = (label: string) => rows.find(r => r.label === label)!;
+    // Sayfa sütunlarıyla aynı hücreler: Durum → StatusValue, Gerçekleşen → ActualValue, Fark → Money (Hesaplanmadı).
+    const durum = (label: string) => render(<StatusValue row={of(label)} />).container;
+    const gerceklesen = (label: string) => render(<ActualValue recorded={of(label).recorded} unknown={of(label).actualAmbiguous} />).container;
+    const fark = (label: string) => render(<Money value={of(label).difference} label={HESAPLANMADI} />).container;
+    expect(durum(LABEL_1)).toHaveTextContent('Aşıldı');
+    expect(durum(LABEL_1)).toHaveTextContent('%120 harcandı');
+    expect(gerceklesen(LABEL_1)).toHaveTextContent(tl('1200.00'));
+    expect(gerceklesen(LABEL_1)).not.toHaveTextContent('Kaynakta yazılı');
+    expect(fark(LABEL_1)).toHaveTextContent(tl('-200.00'));
+    expect(durum(LABEL_3)).toHaveTextContent('Sınıra yakın');
+    expect(durum(LABEL_3)).toHaveTextContent('%95 harcandı');
+    // Kanıtsız kalan satırlar oran almaz.
+    expect(durum(LABEL_2)).toHaveTextContent('Kaynakta yazılı');
+    expect(durum(LABEL_2)).not.toHaveTextContent(/harcandı/);
+    expect(gerceklesen(LABEL_2)).toHaveTextContent('Kaynakta yazılı');
+  });
+
+  it('kanıt iddiası taşıyan Gerçekleşen parçası sözleşmeye uymaz: tablo yerine "Hata: …"; tutar, durum ve oran yazılmaz', async () => {
+    const { plan, actual } = evidenceObservations();
     const files = await withPartitions({ [PLAN_PATH]: plan, [ACTUAL_PATH]: actual });
     renderPage({}, { files });
-    await screen.findByRole('table', { name: 'Bütçe kalemleri' });
-    expect(cellAt(LABEL_1, 'Durum')).toHaveTextContent('Aşıldı');
-    expect(cellAt(LABEL_1, 'Durum')).toHaveTextContent('%120 harcandı');
-    expect(cellAt(LABEL_1, 'Gerçekleşen')).toHaveTextContent(tl('1200.00'));
-    expect(cellAt(LABEL_1, 'Gerçekleşen')).not.toHaveTextContent('Kaynakta yazılı');
-    expect(cellAt(LABEL_1, 'Fark')).toHaveTextContent(tl('-200.00'));
-    expect(cellAt(LABEL_3, 'Durum')).toHaveTextContent('Sınıra yakın');
-    expect(cellAt(LABEL_3, 'Durum')).toHaveTextContent('%95 harcandı');
-    // Kanıtsız kalan satırlar oran almaz.
-    expect(cellAt(LABEL_2, 'Durum')).toHaveTextContent('Kaynakta yazılı');
-    expect(cellAt(LABEL_2, 'Durum')).not.toHaveTextContent(/harcandı/);
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(/Hata: /);
+    expect(within(alert).getByRole('button', { name: 'Yeniden dene' })).toBeInTheDocument();
+    expect(screen.queryByRole('table', { name: 'Bütçe kalemleri' })).toBeNull();
+    const main = document.body.textContent ?? '';
+    expect(main).not.toMatch(/₺/);
+    expect(main).not.toMatch(/harcandı|Aşıldı|Sınıra yakın/);
   });
 
   it('Gerçekleşen planın aynasıysa notu yazar; başka dönemde not yok', async () => {
