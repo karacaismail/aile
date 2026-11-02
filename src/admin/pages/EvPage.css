@@ -1,16 +1,9 @@
-/* Ev ve odalar — tasarım README › Sayfa iskeleti 5 (ayrıntı masaüstünde sağda ayrinti-genislik, dar ekranda listenin
-   yerinde) + bundle.css .ai-list / .pg-oda. Tokenlar yalnız --aile-*; sabit renk/px yok. Liste ve ayrıntı iki yüzey
-   alanıdır, kart ya da kenarlık yağmuru yok; kenar yalnız cizgi ayırıcı. Odak çizgisini admin.css çizer. */
+/* Ev ve odalar — telefon (temel) ve ortak stiller. Tasarım README › Sayfa iskeleti 5 + bundle.css .ai-list/.pg-oda.
+   Tokenlar yalnız --aile-*; sabit renk/px yok. Liste ve ayrıntı kart ya da kenarlık yağmuru değildir: ayrım boşluk ve
+   yüzey tonuyla; tek ayırıcı cizgi (Plan | Gerçek altı). Odak çizgisini admin.css çizer ([data-focus-line], ::after).
+   Hareket yok: durum değişimleri anında. Geniş sunumun stilleri ev/EvIkiBolme.wide.css'te (telefon indirmez). */
 .aile-ev {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--aile-bosluk-6);
-  align-items: start;
   min-width: 0;
-}
-
-.aile-ev--genis.aile-ev--secili {
-  grid-template-columns: minmax(0, 1fr) var(--aile-ayrinti-genislik);
 }
 
 .aile-ev-liste {
@@ -21,27 +14,56 @@
   margin: 0 0 var(--aile-bosluk-2);
 }
 
+/* --- Ayrıntı ------------------------------------------------------------------------------------------------- */
 .aile-ev-ayrinti {
   display: flex;
   flex-direction: column;
-  gap: var(--aile-bosluk-3);
+  gap: var(--aile-bosluk-4);
   min-width: 0;
-  padding: var(--aile-bosluk-4);
-  background: var(--aile-yuzey);
-  border-radius: var(--aile-kose-panel);
+}
+
+.aile-ev-ayrinti__ust {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--aile-bosluk-2);
+}
+
+.aile-ev-kimlik {
+  display: grid;
+  grid-template-columns: var(--aile-fotograf-liste) minmax(0, 1fr);
+  gap: var(--aile-bosluk-3);
+  align-items: center;
+}
+
+.aile-ev-foto {
+  display: grid;
+  place-items: center;
+  inline-size: var(--aile-fotograf-liste);
+  block-size: var(--aile-fotograf-liste);
+  border-radius: var(--aile-kose-kontrol);
+  background: var(--aile-liste-zemin);
+  color: var(--aile-metin-ikincil);
+}
+
+.aile-ev-kimlik__metin {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-1);
+  min-width: 0;
 }
 
 .aile-ev-ayrinti__baslik {
   margin: 0;
+  overflow-wrap: break-word;
 }
 
-.aile-ev-ayrinti__meta {
+.aile-ev-satir-metni {
   margin: 0;
   overflow-wrap: break-word;
 }
 
-/* Plan | Gerçek iki ayrı sütun (README › Ayrıntı); asla tek sayıda birleşmez. */
-.aile-ev-ayrinti__tutarlar {
+/* Plan | Gerçek iki ayrı sütun; asla tek sayıda birleşmez. */
+.aile-ev-tutarlar {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--aile-bosluk-3);
@@ -50,6 +72,65 @@
   border-bottom: 1px solid var(--aile-cizgi);
 }
 
-.aile-ev-ayrinti__tutarlar dd {
+.aile-ev-tutarlar dd {
   margin: 0;
+}
+
+.aile-ev-ayrinti__ozet {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-1);
+}
+
+.aile-ev-ayrinti__bolum {
+  min-width: 0;
+}
+
+/* --- Oda seç (alttan açılan sayfa) ------------------------------------------------------------------------- */
+.aile-ev-secici {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.aile-ev-secici__secenek {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: var(--aile-bosluk-1);
+  inline-size: 100%;
+  /* 44 px; kaba giriş katmanında (data-input-coarse) admin.css değişkeni 48 px yapar. */
+  min-block-size: var(--aile-dokunma-hedefi);
+  margin: 0;
+  padding: var(--aile-bosluk-2) var(--aile-bosluk-3);
+  border: 0;
+  border-radius: var(--aile-kose-kontrol);
+  background: transparent;
+  color: var(--aile-metin);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+[data-input-hover] .aile-ev-secici__secenek:hover {
+  background: var(--aile-bilgi-yuzey);
+}
+
+.aile-ev-secici__secenek[aria-current='true'] {
+  background: var(--aile-secili);
+  font-weight: 600;
+}
+
+.aile-ev-secici__ad {
+  overflow-wrap: break-word;
+}
+
+/* secili yüzeyde ikincil metin 4,5:1 altında kalır (README › Renk); seçili seçenekte meta metin rengindedir. */
+.aile-ev-secici__secenek[aria-current='true'] .aile-ev-secici__meta {
+  color: var(--aile-metin);
+  font-weight: 400;
 }

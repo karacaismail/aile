@@ -1,7 +1,8 @@
 // Ev ve odalar sayfası: sentetik nesil (fixtures/generation-synthetic) GenerationProvider + FixtureGenerationSource ile
 // belleğe okunur; depo, kaynak, indeks ve hook katmanları gerçektir. Değişiklik kümesi kapalıdır (changeSet={null}):
-// IndexedDB yok. Seçiciler role/label ile; antd iç sınıflarına bağlı seçici yok. Beklenen tutarlar fixture'dan
-// bağımsız aritmetikle (kuruş tam sayı) hesaplanır; plan ve gerçek ayrı sütun ve ayrı özet olarak doğrulanır.
+// IndexedDB yok. Profil DeviceContext.Provider ile zorlanır; geniş (tablet/masaüstü) sunum lazyWide ile ayrı modülden
+// gelir, bu yüzden geniş testleri ilk çizimi find* ile bekler. Seçiciler role/label ile; ui iç sınıflarına bağlı seçici
+// yok. Beklenen tutarlar fixture'dan bağımsız aritmetikle (kuruş tam sayı) hesaplanır; plan ve gerçek ayrı doğrulanır.
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -39,17 +40,22 @@ const FILES: Record<string, string> = Object.fromEntries(
 );
 
 const records = <R,>(path: string): R[] => (JSON.parse(FILES[path]!) as { records: R[] }).records;
-const ROOMS = records<Room>('data/rooms/household/00000.json');
-const NEEDS = records<PurchaseNeedRecord>('data/purchase_needs/household/00000.json');
-const LAYOUT = records<PurchaseNeedRecord>('data/layout_items/household/00000.json');
-const LIGHTING = records<PurchaseNeedRecord>('data/lighting_specs/household/00000.json');
+const canli = <R extends { deleted_at?: string | null }>(list: readonly R[]) => list.filter((item) => !item.deleted_at);
+const ROOMS = canli(records<Room>('data/rooms/household/00000.json'));
+const ALL_NEEDS = records<PurchaseNeedRecord>('data/purchase_needs/household/00000.json');
+const NEEDS = canli(ALL_NEEDS);
+const WORKS = canli(records<PurchaseNeedRecord>('data/work_orders/household/00000.json'));
+const LAYOUT = canli(records<PurchaseNeedRecord>('data/layout_items/household/00000.json'));
+const LIGHTING = canli(records<PurchaseNeedRecord>('data/lighting_specs/household/00000.json'));
 const RELATIONS = records<Relation>('data/relations/household/00000.json');
 
 const ODA_3 = ROOMS.find((room) => room.code === 'oda_3')!;
+const ODA_3_ALIM = NEEDS.filter((need) => need.room_id === ODA_3.id);
+const ODA_3_IS = WORKS.filter((work) => work.room_id === ODA_3.id);
 const ODA_3_ESYA = LAYOUT.find((item) => item.room_id === ODA_3.id)!;
 const ODA_3_ARMATUR = LIGHTING.find((item) => item.room_id === ODA_3.id)!;
-const ODA_3_BAGLI_ALIM = RELATIONS.filter((rel) => rel.kind === 'located_in' && rel.target_id === ODA_3.id).length;
 const ODASIZ_ALIM = NEEDS.filter((need) => !need.room_id).length;
+const sirali = (labels: readonly string[]) => [...labels].sort((a, b) => a.localeCompare(b, 'tr-TR'));
 
 /** Kuruş tam sayı toplamı → tr-TR para metni; panelin Money bileşeninden bağımsız hesap. */
 function toplamTl(values: readonly ({ amount: string; currency: string } | null | undefined)[]): string {
@@ -57,7 +63,7 @@ function toplamTl(values: readonly ({ amount: string; currency: string } | null 
   for (const value of values) {
     if (!value) continue;
     const [lira, ondalik = ''] = value.amount.split('.');
-    kurus += BigInt(lira) * 100n + BigInt(`${ondalik}00`.slice(0, 2));
+    kurus += BigInt(lira!) * 100n + BigInt(`${ondalik}00`.slice(0, 2));
   }
   return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(
     `${kurus / 100n}.${String(kurus % 100n).padStart(2, '0')}` as `${number}`,
@@ -65,6 +71,7 @@ function toplamTl(values: readonly ({ amount: string; currency: string } | null 
 }
 const PLANLANAN_TOPLAM = toplamTl(NEEDS.map((need) => need.amounts.planned));
 const GERCEK_TOPLAM = toplamTl(NEEDS.map((need) => need.amounts.actual));
+const SILINMIS_DAHIL_PLAN = toplamTl(ALL_NEEDS.map((need) => need.amounts.planned));
 
 function fixtureSource(overrides: Record<string, string | null> = {}): FixtureGenerationSource {
   const files = { ...FILES };
@@ -91,6 +98,21 @@ const bozukKaynak: GenerationSource = {
   },
 };
 
+/** İlk okumada sağlam, `bozul()` sonrası her okumada hata veren kaynak (eski veri / stale durumu). */
+function bozulanKaynak() {
+  const saglam = fixtureSource();
+  let bozuk = false;
+  const source: GenerationSource = {
+    kind: 'fixture',
+    label: 'bozulan',
+    readText: async (path) => {
+      if (bozuk) throw new Error(`Nesil okunamadı: ${path}`);
+      return saglam.readText(path);
+    },
+  };
+  return { source, bozul: () => { bozuk = true; } };
+}
+
 function renderPage(device: Device = 'desktop', source: GenerationSource = fixtureSource()) {
   const Wrapper = ({ children }: { children: ReactNode }) => (
     <DeviceContext.Provider value={device}>
@@ -102,35 +124,40 @@ function renderPage(device: Device = 'desktop', source: GenerationSource = fixtu
   return render(<EvPage />, { wrapper: Wrapper });
 }
 
+const GENIS_BEKLEME = { timeout: 8000 };
 const odalarTablosu = () => screen.getByRole('table', { name: 'Odalar' });
-/** antd başlığı ayrı bir <table> içinde çizer; sütun başlıkları ResponsiveTable kökünden (kendi sınıfımız) okunur. */
-const sutunlar = (table: HTMLElement) =>
-  within(table.closest<HTMLElement>('.aile-rtable')!).getAllByRole('columnheader').map((cell) => cell.textContent?.trim());
+const odalarTablosunuBekle = () => screen.findByRole('table', { name: 'Odalar' }, GENIS_BEKLEME);
+/** antd başlığı ayrı bir <table> içinde çizebilir; sütun başlıkları tablonun en yakın bölge kökünden okunur. */
+const sutunlar = (table: HTMLElement) => {
+  const kok = table.closest<HTMLElement>('[data-layout="table"]') ?? table.parentElement!;
+  return within(kok).getAllByRole('columnheader').map((cell) => cell.textContent?.trim());
+};
+const satirBasligi = (kok: HTMLElement, ad: string) => within(kok).getByRole('button', { name: new RegExp(`^${ad}`) });
 
 describe('EvPage › başlık ve veri durumları', () => {
   it('yüklenirken aynı yerleşimde iskelet gösterir, veri gelince odalar tablosu çizilir', async () => {
     renderPage();
-    // DataStatus da role="status" taşır; iskelet metniyle ayrılır.
     expect(screen.getByText('Yükleniyor').closest('[role="status"]')).toHaveAttribute('aria-busy', 'true');
-    await waitFor(() => expect(odalarTablosu()).toBeInTheDocument());
+    await odalarTablosunuBekle();
     expect(screen.queryByText('Yükleniyor')).not.toBeInTheDocument();
   });
 
-  it('bölüm → h1 → amaç sırası ve ≤3 özet: Oda, Planlanan ve Gerçekleşen ayrı ölçülerdir', async () => {
+  it('bölüm → h1 → amaç sırası ve ≤3 özet: Oda, Planlanan ve Gerçekleşen ayrı ölçülerdir; silinmiş alım toplama girmez', async () => {
     renderPage();
-    await waitFor(() => expect(odalarTablosu()).toBeInTheDocument());
+    await odalarTablosunuBekle();
     expect(screen.getByText('Ev')).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 1, name: 'Ev ve odalar' })).toBeInTheDocument();
     expect(screen.getByText('Her odanın alımlarını, görevlerini ve plan ile gerçek tutarını oda oda izleyin.')).toBeInTheDocument();
 
-    const ozet = screen.getByRole('list', { name: 'Özet' });
-    const olculer = within(ozet).getAllByRole('listitem');
+    const olculer = within(screen.getByRole('list', { name: 'Özet' })).getAllByRole('listitem');
     expect(olculer).toHaveLength(3);
     expect(olculer[0]).toHaveTextContent('Oda');
     expect(olculer[0]).toHaveTextContent(String(ROOMS.length));
     expect(olculer[0]).toHaveTextContent(`+${ODASIZ_ALIM} alım odasız`);
     expect(olculer[1]).toHaveTextContent('Planlanan');
     expect(olculer[1]).toHaveTextContent(PLANLANAN_TOPLAM);
+    expect(olculer[1]).toHaveTextContent(`${NEEDS.length} alım`);
+    expect(olculer[1]).not.toHaveTextContent(SILINMIS_DAHIL_PLAN);
     expect(olculer[2]).toHaveTextContent('Gerçekleşen');
     expect(olculer[2]).toHaveTextContent(GERCEK_TOPLAM);
     expect(PLANLANAN_TOPLAM).not.toBe(GERCEK_TOPLAM);
@@ -142,10 +169,24 @@ describe('EvPage › başlık ve veri durumları', () => {
     expect(screen.getByText(/^Son okuma /)).toBeInTheDocument();
   });
 
-  it('rooms koleksiyonu nesilde yoksa dürüst metin: "Kaynakta oda kaydı yok"', async () => {
+  it('eski veri: yenileme başarısızsa son başarılı nesil gösterilmeye devam eder, tazelik satırı "yenilenemedi" der', async () => {
+    const user = userEvent.setup();
+    const { source, bozul } = bozulanKaynak();
+    renderPage('desktop', source);
+    await odalarTablosunuBekle();
+    bozul();
+    await user.click(screen.getByRole('button', { name: 'Yenile' }));
+    expect(await screen.findByText('yenilenemedi')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Yeniden dene' })).toBeInTheDocument();
+    expect(within(odalarTablosu()).getByText(ODA_3.label!)).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('rooms koleksiyonu nesilde yoksa dürüst metin: "Kaynakta oda kaydı yok" ve canlı odasız alım sayısı', async () => {
     renderPage('desktop', fixtureSource({ 'manifest.json': odasizManifest() }));
     const baslik = await screen.findByRole('heading', { level: 2, name: 'Kaynakta oda kaydı yok' });
-    expect(baslik.closest('[role="status"]')).toBeInTheDocument();
+    const durum = baslik.closest<HTMLElement>('[role="status"]')!;
+    expect(durum).toHaveTextContent(`${NEEDS.length} alım`);
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
   });
 
@@ -158,92 +199,181 @@ describe('EvPage › başlık ve veri durumları', () => {
   });
 });
 
-describe('EvPage › oda listesi', () => {
+describe('EvPage › masaüstü: oda tablosu ve iki bölme', () => {
   it('her oda bir satırdır, odasız alımlar "Oda bilinmiyor" satırında; Planlanan ve Gerçekleşen ayrı sütunlardır', async () => {
     renderPage();
-    await waitFor(() => expect(odalarTablosu()).toBeInTheDocument());
-    const table = odalarTablosu();
-    const basliklar = sutunlar(table);
-    expect(basliklar).toContain('Planlanan');
-    expect(basliklar).toContain('Gerçekleşen');
-    // Gövde tablosu yalnız veri satırlarını taşır (başlık ayrı tabloda).
-    const satirlar = within(table).getAllByRole('row');
-    expect(satirlar).toHaveLength(ROOMS.length + 1);
+    const table = await odalarTablosunuBekle();
+    expect(sutunlar(table)).toEqual(['Oda', 'Kod', 'Aşama', 'Alım', 'Açık iş', 'Planlanan', 'Gerçekleşen', 'Eksik bilgi']);
     for (const room of ROOMS) expect(within(table).getByText(room.label!)).toBeInTheDocument();
     expect(within(table).getByText('Oda bilinmiyor')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Oda seç' })).not.toBeInTheDocument();
   });
 
-  it('bağlı alım sayısı relations (located_in) ile sayılır; gerçekleşen yoksa "Henüz yok" yazar', async () => {
+  it('alım sayısı odanın canlı alımlarıdır (aynı odaya bağlı işler, eşyalar, armatürler alım sayılmaz)', async () => {
     renderPage();
-    await waitFor(() => expect(odalarTablosu()).toBeInTheDocument());
-    const satir = within(odalarTablosu()).getByText(ODA_3.label!).closest('tr')!;
-    expect(satir).toHaveTextContent(`${ODA_3_BAGLI_ALIM} alım`);
-    const odaGercek = NEEDS.filter((need) => need.room_id === ODA_3.id && need.amounts.actual);
-    if (odaGercek.length === 0) expect(satir).toHaveTextContent('Henüz yok');
-    else expect(satir).toHaveTextContent(toplamTl(odaGercek.map((need) => need.amounts.actual)));
-    expect(satir).toHaveTextContent(toplamTl(NEEDS.filter((need) => need.room_id === ODA_3.id).map((need) => need.amounts.planned)));
+    const table = await odalarTablosunuBekle();
+    const satir = within(table).getByText(ODA_3.label!).closest('tr')!;
+    const tumBaglar = RELATIONS.filter((rel) => rel.kind === 'located_in' && rel.target_id === ODA_3.id).length;
+    expect(ODA_3_ALIM.length).not.toBe(tumBaglar);
+    const hucreler = within(satir).getAllByRole('cell').map((cell) => cell.textContent?.trim());
+    expect(hucreler).toContain(`${ODA_3_ALIM.length} alım`);
+    expect(hucreler).not.toContain(`${tumBaglar} alım`);
+    expect(satir).toHaveTextContent(toplamTl(ODA_3_ALIM.map((need) => need.amounts.planned)));
+    expect(satir).toHaveTextContent(toplamTl(ODA_3_ALIM.map((need) => need.amounts.actual)));
   });
 
-  it('planlanan ya da gerçekleşen tutar ₺ ve iki ondalıkla, eksik tutar adıyla yazılır', async () => {
+  it('tutar ₺ ve iki ondalıkla, eksik tutar adıyla yazılır; ₺0,00 eksiğin yerine geçmez', async () => {
     renderPage();
-    await waitFor(() => expect(odalarTablosu()).toBeInTheDocument());
-    const hucreler = within(odalarTablosu()).getAllByRole('cell').map((cell) => cell.textContent ?? '');
+    const table = await odalarTablosunuBekle();
+    const hucreler = within(table).getAllByRole('cell').map((cell) => cell.textContent ?? '');
     expect(hucreler.some((text) => /^₺\d{1,3}(\.\d{3})*,\d{2}$/.test(text))).toBe(true);
+    expect(hucreler).toContain('Henüz yok');
     expect(hucreler.some((text) => text === '0' || text === '₺0,00')).toBe(false);
   });
-});
 
-describe('EvPage › oda ayrıntısı: eşyalar ve aydınlatma sekmeleri', () => {
-  it('oda seçince Eşyalar sekmesi açılır; zamanlı yerleşim yoksa "Henüz yok"', async () => {
+  it('oda seçilince ayrıntı sağ bölmede açılır, tablo sıkı sütunlara geçer; "Ayrıntıyı kapat" tam tabloya döner', async () => {
     const user = userEvent.setup();
     renderPage();
-    await waitFor(() => expect(odalarTablosu()).toBeInTheDocument());
-    await user.click(within(odalarTablosu()).getByText(ODA_3.label!));
+    await user.click(within(await odalarTablosunuBekle()).getByText(ODA_3.label!));
 
-    expect(screen.getByRole('heading', { level: 2, name: ODA_3.label! })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Eşyalar' })).toHaveAttribute('aria-selected', 'true');
-    const esyalar = screen.getByRole('table', { name: 'Eşyalar' });
-    expect(within(esyalar).getByText(ODA_3_ESYA.label!)).toBeInTheDocument();
-    expect(sutunlar(esyalar)).toContain('Yerleşim tarihi');
-    const satir = within(esyalar).getByText(ODA_3_ESYA.label!).closest('tr')!;
-    expect(satir).toHaveTextContent('Henüz yok');
+    const panel = screen.getByRole('region', { name: ODA_3.label! });
+    expect(within(panel).getByRole('heading', { level: 2, name: ODA_3.label! })).toBeInTheDocument();
+    expect(within(panel).queryByRole('button', { name: 'Listeye dön' })).not.toBeInTheDocument();
+    expect(sutunlar(odalarTablosu())).toEqual(['Oda', 'Planlanan', 'Gerçekleşen']);
+
+    const tutarlar = within(panel).getByRole('group', { name: 'Tutarlar' });
+    expect(tutarlar).toHaveTextContent(`Planlanan${toplamTl(ODA_3_ALIM.map((need) => need.amounts.planned))}`);
+    expect(tutarlar).toHaveTextContent(`Gerçekleşen${toplamTl(ODA_3_ALIM.map((need) => need.amounts.actual))}`);
+    expect(within(panel).getByRole('img', { name: 'Fotoğraf yok' })).toBeInTheDocument();
+    expect(within(panel).getByText(`Kaynak: ${ODA_3.provenance!.sheet_title} · satır ${ODA_3.provenance!.row}`)).toBeInTheDocument();
+
+    await user.click(within(panel).getByRole('button', { name: 'Ayrıntıyı kapat' }));
+    expect(screen.queryByRole('region', { name: ODA_3.label! })).not.toBeInTheDocument();
+    expect(sutunlar(odalarTablosu())).toHaveLength(8);
   });
 
-  it('Aydınlatma sekmesi odanın armatürlerini lümen ve renk sıcaklığıyla listeler', async () => {
+  it('ayrıntıda Alımlar sekmesi varsayılan: odanın canlı alımları plan ve gerçekleşen ayrı; İşler sekmesi işleri açık/kapalı yazar', async () => {
     const user = userEvent.setup();
     renderPage();
-    await waitFor(() => expect(odalarTablosu()).toBeInTheDocument());
-    await user.click(within(odalarTablosu()).getByText(ODA_3.label!));
-    await user.click(screen.getByRole('tab', { name: 'Aydınlatma' }));
+    await user.click(within(await odalarTablosunuBekle()).getByText(ODA_3.label!));
+    const panel = screen.getByRole('region', { name: ODA_3.label! });
 
-    expect(screen.getByRole('tab', { name: 'Aydınlatma' })).toHaveAttribute('aria-selected', 'true');
-    const aydinlatma = screen.getByRole('table', { name: 'Aydınlatma' });
-    const satir = within(aydinlatma).getByText(ODA_3_ARMATUR.label!).closest('tr')!;
-    expect(satir).toHaveTextContent(`${String(ODA_3_ARMATUR.attributes!.lumen)} lm`);
-    expect(satir).toHaveTextContent(`${String(ODA_3_ARMATUR.attributes!.renk_sicakligi_k)} K`);
-    expect(screen.queryByRole('table', { name: 'Eşyalar' })).not.toBeInTheDocument();
+    expect(within(panel).getByRole('tab', { name: 'Alımlar' })).toHaveAttribute('aria-selected', 'true');
+    const alimlar = within(panel).getByRole('region', { name: 'Alımlar' });
+    for (const need of ODA_3_ALIM) expect(satirBasligi(alimlar, need.label!)).toBeInTheDocument();
+    const gercekli = ODA_3_ALIM.find((need) => need.amounts.actual)!;
+    const gercekBasligi = satirBasligi(alimlar, gercekli.label!);
+    if (gercekBasligi.getAttribute('aria-expanded') === 'false') await user.click(gercekBasligi);
+    const govde = document.getElementById(gercekBasligi.getAttribute('aria-controls')!)!;
+    expect(govde).toHaveTextContent(`Planlanan${toplamTl([gercekli.amounts.planned])}`);
+    expect(govde).toHaveTextContent(`Gerçekleşen${toplamTl([gercekli.amounts.actual])}`);
+
+    await user.click(within(panel).getByRole('tab', { name: 'İşler' }));
+    expect(within(panel).getByRole('tab', { name: 'İşler' })).toHaveAttribute('aria-selected', 'true');
+    const isler = within(panel).getByRole('region', { name: 'İşler' });
+    for (const work of ODA_3_IS) expect(satirBasligi(isler, work.label!)).toBeInTheDocument();
+    expect(within(panel).queryByRole('region', { name: 'Alımlar' })).not.toBeInTheDocument();
+  });
+
+  it('Eşyalar sekmesi zamanlı yerleşim yoksa "Henüz yok", Aydınlatma sekmesi lümen ve renk sıcaklığını yazar', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(within(await odalarTablosunuBekle()).getByText(ODA_3.label!));
+    const panel = screen.getByRole('region', { name: ODA_3.label! });
+
+    await user.click(within(panel).getByRole('tab', { name: 'Eşyalar' }));
+    const esya = satirBasligi(within(panel).getByRole('region', { name: 'Eşyalar' }), ODA_3_ESYA.label!);
+    expect(document.getElementById(esya.getAttribute('aria-controls')!)).toHaveTextContent('Yerleşim tarihiHenüz yok');
+
+    await user.click(within(panel).getByRole('tab', { name: 'Aydınlatma' }));
+    const armatur = satirBasligi(within(panel).getByRole('region', { name: 'Aydınlatma' }), ODA_3_ARMATUR.label!);
+    const govde = document.getElementById(armatur.getAttribute('aria-controls')!)!;
+    expect(govde).toHaveTextContent(`Lümen${String(ODA_3_ARMATUR.attributes!.lumen)} lm`);
+    expect(govde).toHaveTextContent(`Renk sıcaklığı${String(ODA_3_ARMATUR.attributes!.renk_sicakligi_k)} K`);
   });
 
   it('odada eşya kaydı yoksa sekme dürüst metin yazar', async () => {
     const user = userEvent.setup();
     renderPage();
-    await waitFor(() => expect(odalarTablosu()).toBeInTheDocument());
     const esyasiz = ROOMS.find((room) => !LAYOUT.some((item) => item.room_id === room.id))!;
-    await user.click(within(odalarTablosu()).getByText(esyasiz.label!));
-    expect(screen.getByRole('heading', { level: 2, name: 'Kaynakta bu oda için eşya kaydı yok' })).toBeInTheDocument();
-    expect(screen.queryByRole('table', { name: 'Eşyalar' })).not.toBeInTheDocument();
+    await user.click(within(await odalarTablosunuBekle()).getByText(esyasiz.label!));
+    const panel = screen.getByRole('region', { name: esyasiz.label! });
+    await user.click(within(panel).getByRole('tab', { name: 'Eşyalar' }));
+    expect(within(panel).getByRole('heading', { level: 2, name: 'Bu odada eşya kaydı yok' })).toBeInTheDocument();
   });
+});
 
-  it('telefonda ayrıntı listenin yerini alır ve "Listeye dön" geri getirir', async () => {
+describe('EvPage › tablet: tablo ve tam sayfa ayrıntı', () => {
+  it('oda seçilince ayrıntı listenin yerini alır, bağlı kayıtlar tablo; "Listeye dön" tabloya ve satıra döner', async () => {
+    const user = userEvent.setup();
+    renderPage('tablet');
+    await user.click(within(await odalarTablosunuBekle()).getByText(ODA_3.label!));
+    const sayfa = screen.getByRole('region', { name: ODA_3.label! });
+    expect(screen.queryByRole('table', { name: 'Odalar' })).not.toBeInTheDocument();
+    expect(within(sayfa).getByRole('heading', { level: 2, name: ODA_3.label! })).toHaveFocus();
+    const alimlar = within(sayfa).getByRole('table', { name: 'Alımlar' });
+    for (const need of ODA_3_ALIM) expect(within(alimlar).getByText(need.label!)).toBeInTheDocument();
+    expect(sutunlar(alimlar)).toEqual(expect.arrayContaining(['Planlanan', 'Gerçekleşen']));
+
+    await user.click(within(sayfa).getByRole('button', { name: 'Listeye dön' }));
+    expect(within(odalarTablosu()).getByText(ODA_3.label!).closest('tr')).toHaveFocus();
+  });
+});
+
+describe('EvPage › telefon: akordeon liste, oda seçimi alt sayfada, tam sayfa ayrıntı', () => {
+  it('odalar akordeondur (ilk satır açık, tablo yok); "Odayı aç" ayrıntıya götürür ve odağı başlığa taşır', async () => {
     const user = userEvent.setup();
     renderPage('phone');
-    // Akordeon grubu caption ile adlandırılmış bölgedir (AccordionList: section[aria-label]); ilk satır açık gelir.
     const liste = await screen.findByRole('region', { name: 'Odalar' });
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
-    await user.click(within(liste).getAllByRole('button', { name: 'Ayrıntıyı aç' })[0]!);
+    const basliklar = within(liste).getAllByRole('button', { expanded: true });
+    expect(basliklar).toHaveLength(1);
+    expect(basliklar[0]).toHaveAccessibleName(new RegExp(`^${sirali(ROOMS.map((room) => room.label!))[0]}`));
+
+    await user.click(within(liste).getAllByRole('button', { name: 'Odayı aç' })[0]!);
     expect(screen.queryByRole('region', { name: 'Odalar' })).not.toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Eşyalar' })).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Listeye dön' }));
-    expect(screen.getByRole('region', { name: 'Odalar' })).toBeInTheDocument();
+    const ilk = sirali(ROOMS.map((room) => room.label!))[0]!;
+    expect(screen.getByRole('heading', { level: 2, name: ilk })).toHaveFocus();
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+  });
+
+  it('"Oda seç" alt sayfası odaları listeler; seçilen odanın ayrıntısı açılır, "Listeye dön" odağı o odanın satırına getirir', async () => {
+    const user = userEvent.setup();
+    renderPage('phone');
+    await screen.findByRole('region', { name: 'Odalar' });
+    await user.click(screen.getByRole('button', { name: 'Oda seç' }));
+
+    const sayfa = await screen.findByRole('dialog', { name: 'Oda seç' });
+    for (const room of ROOMS) expect(within(sayfa).getByRole('button', { name: room.label! })).toBeInTheDocument();
+    expect(within(sayfa).getByRole('button', { name: 'Oda bilinmiyor' })).toBeInTheDocument();
+    await user.click(within(sayfa).getByRole('button', { name: ODA_3.label! }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Oda seç' })).not.toBeInTheDocument());
+    const oda = screen.getByRole('region', { name: ODA_3.label! });
+    await waitFor(() => expect(within(oda).getByRole('heading', { level: 2, name: ODA_3.label! })).toHaveFocus());
+    const alimlar = within(oda).getByRole('region', { name: 'Alımlar' });
+    for (const need of ODA_3_ALIM) expect(satirBasligi(alimlar, need.label!)).toBeInTheDocument();
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+
+    await user.click(within(oda).getByRole('button', { name: 'Listeye dön' }));
+    const liste = screen.getByRole('region', { name: 'Odalar' });
+    const satir = satirBasligi(liste, ODA_3.label!);
+    expect(satir).toHaveFocus();
+    expect(satir).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('seçili oda alt sayfada işaretlidir (aria-current); yeniden açınca başka oda seçilebilir', async () => {
+    const user = userEvent.setup();
+    renderPage('phone');
+    await screen.findByRole('region', { name: 'Odalar' });
+    await user.click(screen.getByRole('button', { name: 'Oda seç' }));
+    await user.click(within(await screen.findByRole('dialog', { name: 'Oda seç' })).getByRole('button', { name: ODA_3.label! }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Oda seç' })).not.toBeInTheDocument());
+
+    await user.click(screen.getByRole('button', { name: 'Oda seç' }));
+    const sayfa = await screen.findByRole('dialog', { name: 'Oda seç' });
+    expect(within(sayfa).getByRole('button', { name: ODA_3.label! })).toHaveAttribute('aria-current', 'true');
+    await user.click(within(sayfa).getByRole('button', { name: 'Oda bilinmiyor' }));
+    await waitFor(() => expect(screen.getByRole('heading', { level: 2, name: 'Oda bilinmiyor' })).toHaveFocus());
   });
 });

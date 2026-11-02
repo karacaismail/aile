@@ -1,0 +1,29 @@
+/* Ev ve odalar — geniş sunum (yalnız geniş profilde, lazyWide parçasıyla yüklenir). Tokenlar yalnız --aile-*.
+   İki bölme: liste esnek, ayrıntı paneli ayrinti-genislik (384 px). Panel tek yüzey alanıdır (yuzey + kose-panel);
+   gölge ve kenarlık yok (README › Renk: gölge yalnız yükseltilmiş yüzeyde). Hareket yok: panel anında açılır. */
+.aile-ev-genis {
+  min-width: 0;
+}
+
+.aile-ev-genis--iki.aile-ev-genis--secili {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--aile-ayrinti-genislik);
+  gap: var(--aile-bosluk-6);
+  align-items: start;
+}
+
+.aile-ev-genis__liste {
+  min-width: 0;
+}
+
+.aile-ev-genis__panel {
+  position: sticky;
+  top: var(--aile-bosluk-4);
+  min-width: 0;
+  max-height: calc(100dvh - 2 * var(--aile-bosluk-4));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--aile-bosluk-4);
+  background: var(--aile-yuzey);
+  border-radius: var(--aile-kose-panel);
+}
