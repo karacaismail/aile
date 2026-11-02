@@ -1,7 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { tokens, budgetEasing, chartMotion, cssTokens, dropdownTransition, designTokens, aileCssVars, adaptiveTokens } from './tokens';
+import {
+  tokens, budgetEasing, chartMotion, cssTokens, dropdownTransition, designTokens, aileCssVars, adaptiveTokens,
+  densityBands, densityFor, densityCssVars, densityVarNames, targetTokens, targetCssVars, safeAreaCssVars,
+} from './tokens';
 import * as legacy from '../dashboard/tokens';
+import { classifyProfile } from '../admin/adaptive/profile';
 
 describe('design tokens', () => {
   it('legacy dashboard module re-exports the same references', () => {
@@ -111,5 +115,185 @@ describe('adaptiveTokens (kısa kenar eşiği)', () => {
   it('stays out of the tokens.json mapping and the --aile-* custom properties', () => {
     expect(designTokens).not.toHaveProperty('kirilimKisaKenar');
     expect(Object.keys(aileCssVars).filter(key => key.includes('kisa-kenar'))).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------
+// Uyarlamalı yoğunluk, dokunma hedefi ve güvenli alan (uygulama kararı; tokens.json'da yok). Tek kaynak tokens.ts;
+// admin.css aynı değerleri --aile-* değişkeni olarak taşır. Kahin: görev sözleşmesindeki bant tablosu (aşağıda elle
+// yazılı); tokens.ts ve admin.css ondan türetilmez, ona karşı doğrulanır.
+// Bantlar (kenar / bosluk / yogun, CSS px): 320–359 12/8/4 · 360–374 14/10/6 · 375–389 16/12/6 · 390–599 16/12/8 ·
+// 600–1023 20/16/10 · 1024+ 24/20/12. Yatay telefon (kısa kenar < 480) telefon profilinde kalır, telefon bandını alır.
+const SPEC_BANDS = [
+  { min: 0, profile: 'phone', kenar: 12, bosluk: 8, yogun: 4 },
+  { min: 360, profile: 'phone', kenar: 14, bosluk: 10, yogun: 6 },
+  { min: 375, profile: 'phone', kenar: 16, bosluk: 12, yogun: 6 },
+  { min: 390, profile: 'phone', kenar: 16, bosluk: 12, yogun: 8 },
+  { min: 600, profile: 'tablet', kenar: 20, bosluk: 16, yogun: 10 },
+  { min: 1024, profile: 'desktop', kenar: 24, bosluk: 20, yogun: 12 },
+] as const;
+// [genişlik, yükseklik, kenar, bosluk, yogun] — matris görünümleri, bant sınırları ve yatay telefonlar.
+const SPEC_VIEWPORTS: ReadonlyArray<readonly [number, number, number, number, number]> = [
+  [280, 653, 12, 8, 4], [320, 568, 12, 8, 4], [320, 480, 12, 8, 4], [359, 740, 12, 8, 4],
+  [360, 640, 14, 10, 6], [374, 667, 14, 10, 6],
+  [375, 667, 16, 12, 6], [389, 844, 16, 12, 6],
+  [390, 844, 16, 12, 8], [430, 932, 16, 12, 8], [500, 900, 16, 12, 8], [599, 900, 16, 12, 8],
+  [568, 320, 16, 12, 8], [667, 375, 16, 12, 8], [844, 390, 16, 12, 8], [932, 430, 16, 12, 8],
+  [600, 800, 20, 16, 10], [820, 1180, 20, 16, 10], [1023, 768, 20, 16, 10],
+  [1024, 600, 24, 20, 12], [1180, 820, 24, 20, 12], [1440, 900, 24, 20, 12],
+];
+const DENSITY_VARS = ['--aile-yogunluk-kenar', '--aile-yogunluk-bosluk', '--aile-yogunluk-yogun'] as const;
+const TARGET_VAR = '--aile-dokunma-hedefi';
+const SAFE_VARS = {
+  '--aile-safe-top': 'env(safe-area-inset-top, 0px)',
+  '--aile-safe-right': 'env(safe-area-inset-right, 0px)',
+  '--aile-safe-bottom': 'env(safe-area-inset-bottom, 0px)',
+  '--aile-safe-left': 'env(safe-area-inset-left, 0px)',
+} as const;
+const pxVars = (kenar: number, bosluk: number, yogun: number) => ({
+  '--aile-yogunluk-kenar': `${kenar}px`, '--aile-yogunluk-bosluk': `${bosluk}px`, '--aile-yogunluk-yogun': `${yogun}px`,
+});
+
+describe('density tokens (genişlik bandı)', () => {
+  it('lists the six bands of the contract in ascending order', () => {
+    expect(densityBands.map(band => ({ ...band }))).toEqual(SPEC_BANDS.map(band => ({ ...band })));
+    expect(densityBands[4].min).toBe(designTokens.kirilimTablet);
+    expect(densityBands[5].min).toBe(designTokens.kirilimGenis);
+    expect(Object.isFrozen(densityBands)).toBe(true);
+  });
+  it('picks the band from width and profile; a landscape phone keeps the phone band', () => {
+    for (const [width, height, kenar, bosluk, yogun] of SPEC_VIEWPORTS) {
+      const band = densityFor(width, classifyProfile({ width, height }));
+      expect([band.kenar, band.bosluk, band.yogun], `${width}×${height}`).toEqual([kenar, bosluk, yogun]);
+    }
+  });
+  it('maps a band to --aile-yogunluk-* custom properties in px', () => {
+    expect(densityVarNames).toEqual({ kenar: DENSITY_VARS[0], bosluk: DENSITY_VARS[1], yogun: DENSITY_VARS[2] });
+    expect(densityCssVars(densityBands[0])).toEqual(pxVars(12, 8, 4));
+    expect(densityCssVars(densityBands[5])).toEqual(pxVars(24, 20, 12));
+  });
+});
+
+describe('touch target and safe-area tokens', () => {
+  it('keeps 44 px and raises the target to 48 px for coarse input', () => {
+    expect(targetTokens).toEqual({ dokunmaHedefi: 44, dokunmaHedefiCoarse: 48 });
+    expect(targetTokens.dokunmaHedefi).toBe(designTokens.hedefAsgari);
+    expect(targetCssVars(false)).toEqual({ [TARGET_VAR]: '44px' });
+    expect(targetCssVars(true)).toEqual({ [TARGET_VAR]: '48px' });
+    // Mevcut ad aynı kalır (herkes kullanıyor): --aile-hedef-asgari sabit 44.
+    expect(aileCssVars['--aile-hedef-asgari']).toBe('44px');
+  });
+  it('exposes the four safe-area insets with a 0px fallback', () => {
+    expect(safeAreaCssVars).toEqual(SAFE_VARS);
+  });
+  it('stays out of aileCssVars: App gives aileCssVars inline to .aile-admin and inline would override the bands', () => {
+    for (const name of [...DENSITY_VARS, TARGET_VAR, ...Object.keys(SAFE_VARS)]) {
+      expect(aileCssVars, name).not.toHaveProperty(name);
+      expect(name).toMatch(/^--aile-[a-z0-9]+(-[a-z0-9]+)*$/);
+    }
+  });
+});
+
+// admin.css kaynak metni: @media bloklarını açan düz ayrıştırıcı (focus.test.ts ile aynı yaklaşım).
+type CssRule = { selector: string; body: string; media: string | null; index: number };
+function cssRules(source: string): CssRule[] {
+  const text = source.replace(/\/\*[\s\S]*?\*\//g, '');
+  const squash = (s: string) => s.replace(/\s+/g, ' ').trim();
+  const out: CssRule[] = [];
+  const walk = (src: string, media: string | null) => {
+    let i = 0;
+    while (i < src.length) {
+      const open = src.indexOf('{', i);
+      if (open === -1) break;
+      const selector = squash(src.slice(i, open));
+      let depth = 1;
+      let j = open + 1;
+      while (j < src.length && depth > 0) { if (src[j] === '{') depth += 1; else if (src[j] === '}') depth -= 1; j += 1; }
+      const body = src.slice(open + 1, j - 1);
+      if (selector.startsWith('@media')) walk(body, selector);
+      else out.push({ selector, body: squash(body), media, index: out.length });
+      i = j;
+    }
+  };
+  walk(text, null);
+  return out;
+}
+const declarations = (body: string) => Object.fromEntries(
+  body.split(';').map(part => part.trim()).filter(Boolean).map(part => {
+    const colon = part.indexOf(':');
+    return [part.slice(0, colon).trim(), part.slice(colon + 1).trim()];
+  }),
+);
+const pick = (decls: Record<string, string>, names: readonly string[]) =>
+  Object.fromEntries(names.filter(name => name in decls).map(name => [name, decls[name]]));
+
+// AILE_TOKENS_CSS yalnız mutasyon kontrolü içindir (bozuk kopya ile bu blok FAIL vermeli); üretimde admin.css okunur.
+describe('admin.css adaptive custom properties', () => {
+  const css = readFileSync(process.env.AILE_TOKENS_CSS ?? resolve(__dirname, '../admin/admin.css'), 'utf8');
+  const all = cssRules(css);
+  const adaptiveNames = [...DENSITY_VARS, TARGET_VAR, ...Object.keys(SAFE_VARS)];
+  const setters = all.filter(rule => adaptiveNames.some(name => name in declarations(rule.body)));
+  const baseRoot = setters.find(rule => rule.media === null && rule.selector === ':root');
+  const profileSelector = (profile: string) => `:root[data-profile='${profile}'], .aile-admin[data-profile='${profile}']`;
+
+  it('declares the narrowest band, the 44 px target and the safe-area insets on :root', () => {
+    expect(baseRoot).toBeDefined();
+    const decls = declarations(baseRoot!.body);
+    expect(pick(decls, DENSITY_VARS)).toEqual(densityCssVars(densityBands[0]));
+    expect(pick(decls, [TARGET_VAR])).toEqual(targetCssVars(false));
+    expect(pick(decls, Object.keys(SAFE_VARS))).toEqual(safeAreaCssVars);
+  });
+
+  it('widens phone bands with min-width media queries in ascending source order', () => {
+    const phone = densityBands.filter(band => band.profile === 'phone' && band.min > 0);
+    const found = phone.map(band => setters.find(rule => rule.selector === ':root' && rule.media === `@media (min-width: ${band.min}px)`));
+    found.forEach((rule, i) => {
+      expect(rule, `${phone[i].min}`).toBeDefined();
+      expect(pick(declarations(rule!.body), DENSITY_VARS)).toEqual(densityCssVars(phone[i]));
+      expect(rule!.index).toBeGreaterThan(i === 0 ? baseRoot!.index : found[i - 1]!.index);
+    });
+  });
+
+  it('takes tablet and desktop bands from data-profile so a landscape phone stays on the phone band', () => {
+    for (const band of densityBands.filter(b => b.profile !== 'phone')) {
+      const rule = setters.find(r => r.media === null && r.selector === profileSelector(band.profile));
+      expect(rule, band.profile).toBeDefined();
+      expect(pick(declarations(rule!.body), DENSITY_VARS)).toEqual(densityCssVars(band));
+    }
+  });
+
+  it('raises the touch target from the coarse input layer attribute', () => {
+    const rule = setters.find(r => r.media === null && r.selector === ':root[data-input-coarse], .aile-admin[data-input-coarse]');
+    expect(rule).toBeDefined();
+    expect(pick(declarations(rule!.body), [TARGET_VAR])).toEqual(targetCssVars(true));
+  });
+
+  it('sets these properties nowhere else (no stray override)', () => {
+    const known = new Set([
+      ':root',
+      ':root[data-input-coarse], .aile-admin[data-input-coarse]',
+      ...densityBands.filter(b => b.profile !== 'phone').map(b => profileSelector(b.profile)),
+    ]);
+    for (const rule of setters) {
+      expect(known.has(rule.selector), rule.selector).toBe(true);
+      if (rule.media !== null) expect(rule.media).toMatch(/^@media \(min-width: \d+px\)$/);
+    }
+    expect(setters).toHaveLength(1 + 3 + 2 + 1);
+  });
+
+  // Kaskad benzetimi: üstteki testler seçici biçimlerini sabitler (:root 0,1,0; :root[öznitelik] 0,2,0), bu yüzden
+  // öznitelik kuralları media sırası ne olursa olsun :root kurallarını ezer. Değerler bant tablosuyla eşleşmeli.
+  it('resolves to the contract table at every viewport', () => {
+    for (const [width, height, kenar, bosluk, yogun] of SPEC_VIEWPORTS) {
+      const profile = classifyProfile({ width, height });
+      const values: Record<string, string> = {};
+      const apply = (rule: CssRule) => Object.assign(values, pick(declarations(rule.body), DENSITY_VARS));
+      for (const rule of setters.filter(r => r.selector === ':root')) {
+        const min = rule.media === null ? 0 : Number(/min-width: (\d+)px/.exec(rule.media)![1]);
+        if (width >= min) apply(rule);
+      }
+      for (const rule of setters.filter(r => r.selector === profileSelector(profile))) apply(rule);
+      expect(values, `${width}×${height} (${profile})`).toEqual(pxVars(kenar, bosluk, yogun));
+    }
   });
 });
