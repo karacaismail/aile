@@ -2,8 +2,9 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 import { accentEdges, focusRing, motion, smallText } from './admin-detectors';
 import { openAdmin, tabKey } from './admin-helpers';
 
-// Görev a03 — yerel Select (antd yok) gerçek rotada: Raporlar. Telefonda "Rapor" seçimi alttan açılan modal diyalog
-// (APG listbox, dolaşan odak); genişte "Dönem" seçimi popover listbox (odak tetikte, aria-activedescendant).
+// Görev a03 — yerel Select (antd yok) gerçek rotada: Raporlar. Telefonda "Rapor" seçimi ortak alt sayfa (ui/BottomSheet:
+// kipli diyalog, APG listbox, dolaşan odak); genişte "Dönem" seçimi popover listbox (odak tetikte, aria-activedescendant;
+// tek alt çizgi tetikte, etkin seçenek bilgi-yuzey tonuyla).
 // Görev koşusu: chromium 320×568 dokunmatik ve webkit 390×844 dokunmatik (ikisi de telefon profili); geniş davranış
 // aynı projelerde görünüm alanı büyütülerek ölçülür. @matrix testleri entegrasyonda ek projelerde (360/375/kısa/yatay
 // telefon, tablet, masaüstü) de koşar ve profile göre dallanır. Emülasyon gerçek cihaz değildir.
@@ -11,7 +12,8 @@ import { openAdmin, tabKey } from './admin-helpers';
 
 const EASE = 'cubic-bezier(0.65, 0, 0.35, 1)';
 const WIDE = { width: 1280, height: 800 };
-const SHEET = 'dialog.aile-select-sayfa';
+const SHEET = '.aile-sheet';
+const SHEET_MOTION = '.aile-sheet-sarmal';
 const POPOVER = '.aile-select-acilir';
 
 const profileOf = (page: Page) => page.evaluate(() => document.documentElement.dataset.profile ?? '');
@@ -27,10 +29,15 @@ async function expectTargets(page: Page, locators: Locator[]) {
   for (const locator of locators) expect(await heightOf(locator), await locator.textContent() ?? '').toBeGreaterThanOrEqual(min - 0.5);
 }
 
-/** Giriş hareketi bitene kadar bekler (panel/popover transform 'none'). */
+/** Giriş hareketi bitene kadar bekler: alt sayfada kök data-durum="acik" ve sarmal yerinde; popover data-state="acik". */
 async function settled(page: Page, selector: string) {
-  await expect(page.locator(selector)).toHaveAttribute('data-state', 'acik');
-  await expect.poll(() => page.locator(selector).evaluate(el => getComputedStyle(el.matches('dialog') ? el.querySelector('.aile-select-sayfa-panel')! : el).transform)).toBe('none');
+  const sheet = selector === SHEET;
+  await expect(page.locator(selector)).toHaveAttribute(sheet ? 'data-durum' : 'data-state', 'acik');
+  const moving = sheet ? SHEET_MOTION : selector;
+  await expect.poll(() => page.locator(moving).evaluate(el => {
+    const transform = getComputedStyle(el).transform;
+    return transform === 'none' || transform === 'matrix(1, 0, 0, 1, 0, 0)';
+  })).toBe(true);
 }
 
 /** Profilin seçimi: telefonda "Rapor" (veri durumundan bağımsız çizilir), genişte "Dönem". */
@@ -55,17 +62,19 @@ test.describe('a03 Select — gerçek rota', () => {
     if (phone) {
       const dialog = page.getByRole('dialog', { name: 'Rapor' });
       await expect(dialog).toBeVisible();
-      expect(await dialog.evaluate(el => el.matches(':modal'))).toBe(true);
+      await expect(dialog).toHaveAttribute('aria-modal', 'true');
+      await expect(combo).toHaveAttribute('aria-controls', (await dialog.getAttribute('id'))!);
       await expect(dialog.getByRole('option', { selected: true })).toBeFocused();
       await settled(page, SHEET);
-      // Top layer: görünüm alanının üstü örtüdür (arka plan inert, tıklanamaz).
-      expect(await page.evaluate(() => document.elementFromPoint(8, 8)?.closest('dialog.aile-select-sayfa') !== null)).toBe(true);
+      // Görünüm alanının üstü örtüdür (arka plan inert, tıklanamaz).
+      expect(await page.evaluate(() => document.elementFromPoint(8, 8)?.closest('.aile-sheet') !== null)).toBe(true);
+      expect(await page.locator('main#admin-content').evaluate(el => el.closest('[inert]') !== null)).toBe(true);
       await expectTargets(page, [...await dialog.getByRole('option').all(), dialog.getByRole('button', { name: 'Kapat' })]);
       expect(await smallText(page, { root: SHEET })).toEqual([]);
       expect(await accentEdges(page, { root: SHEET })).toEqual([]);
       expect(await motion(page, undefined, undefined, { root: SHEET })).toEqual([]);
       expect(await focusRing(page)).toEqual([]); // işaretçi modu: gösterge görünmez
-      const panel = page.locator('.aile-select-sayfa-panel');
+      const panel = page.locator(SHEET_MOTION);
       expect(await panel.evaluate(el => [getComputedStyle(el).transitionDuration, getComputedStyle(el).transitionTimingFunction])).toEqual(['0.24s', EASE]);
 
       const target = dialog.getByRole('option', { selected: false }).first();
@@ -139,9 +148,22 @@ test.describe('a03 Select — gerçek rota', () => {
       expect(first).toBeTruthy();
       await page.keyboard.press('End');
       const last = await combo.getAttribute('aria-activedescendant');
-      await expect(page.locator(`[id="${last}"]`)).toHaveClass(/is-etkin/);
-      // Etkin seçenekte alt çizgi (klavye modu, tetik :focus-visible).
-      expect(await page.locator(`[id="${last}"]`).evaluate(el => getComputedStyle(el, '::after').height)).toBe('3px');
+      const active = page.locator(`[id="${last}"]`);
+      await expect(active).toHaveClass(/is-etkin/);
+      // Tek alt çizgi tetikte (odak sözleşmesi, f01): etkin seçenek çizgi taşımaz, yüzey tonuyla (bilgi-yuzey) gösterilir.
+      const look = await active.evaluate((el) => {
+        const probe = document.createElement('span');
+        probe.style.backgroundColor = 'var(--aile-bilgi-yuzey)';
+        el.append(probe);
+        const tone = getComputedStyle(probe).backgroundColor;
+        probe.remove();
+        const after = getComputedStyle(el, '::after');
+        return { line: after.content !== 'none' && after.content !== 'normal', bg: getComputedStyle(el).backgroundColor, tone, selected: el.getAttribute('aria-selected') === 'true' };
+      });
+      expect(look.line, 'etkin seçenekte çizgi yok').toBe(false);
+      // Zemin 240 ms geçişle gelir (hareket sözleşmesi): oturmuş tonu bekle.
+      if (!look.selected) await expect.poll(() => active.evaluate(el => getComputedStyle(el).backgroundColor), { message: 'etkin seçenek bilgi-yuzey' }).toBe(look.tone);
+      expect(await focusRing(page)).toEqual([]);
       await page.keyboard.press('Escape');
       await expect(page.locator(POPOVER)).toHaveCount(0);
     }
@@ -178,17 +200,19 @@ test.describe('a03 Select — gerçek rota', () => {
       await Promise.resolve();
       await Promise.resolve();
       const layerEl = document.querySelector(selector) as HTMLElement | null;
-      const animated = sheet ? layerEl?.querySelector('.aile-select-sayfa-panel') : layerEl;
+      const animated = sheet ? layerEl?.querySelector('.aile-sheet-sarmal') : layerEl;
       return {
         expanded: document.querySelector('[role="combobox"][aria-expanded="true"]') !== null,
         focusOnTrigger: document.activeElement?.getAttribute('role') === 'combobox',
-        state: layerEl?.dataset.state ?? null,
+        state: (sheet ? layerEl?.dataset.durum : layerEl?.dataset.state) ?? null,
+        hidden: layerEl?.getAttribute('aria-hidden') === 'true' && layerEl.hasAttribute('inert'),
         running: animated ? animated.getAnimations().length : 0,
       };
     }, { selector: layer, sheet: phone });
     expect(exit.expanded).toBe(false);
     expect(exit.focusOnTrigger).toBe(true);
-    expect(exit.state).toBe('cikis');
+    expect(exit.state).toBe(phone ? 'kapali' : 'cikis');
+    expect(exit.hidden, 'kapanırken katman aria-hidden + inert').toBe(true);
     expect(exit.running).toBeGreaterThan(0);
     await expect(page.locator(layer)).toHaveCount(0);
     await expect(combo).toBeFocused();
@@ -199,8 +223,8 @@ test.describe('a03 Select — gerçek rota', () => {
     const { phone, combo } = await routeSelect(page);
     await press(page, combo);
     const layer = phone ? SHEET : POPOVER;
-    await expect(page.locator(layer)).toHaveAttribute('data-state', 'acik');
-    const animated = phone ? '.aile-select-sayfa-panel' : POPOVER;
+    await expect(page.locator(layer)).toHaveAttribute(phone ? 'data-durum' : 'data-state', 'acik');
+    const animated = phone ? SHEET_MOTION : POPOVER;
     expect(await page.locator(animated).evaluate(el => getComputedStyle(el).transitionDuration.split(',').every(d => parseFloat(d) === 0))).toBe(true);
     expect(await motion(page, undefined, undefined, { root: layer, reduced: true })).toEqual([]);
     await page.keyboard.press('Escape');
@@ -211,8 +235,19 @@ test.describe('a03 Select — gerçek rota', () => {
 
   test('seçim profil değişiminde korunur (telefon → geniş → telefon)', async ({ page }) => {
     const start = page.viewportSize()!;
-    const { phone, combo } = await routeSelect(page);
-    test.skip(!phone, 'Başlangıç profili telefon olmalı (görev projeleri 320 ve 390 px)');
+    const first = await routeSelect(page);
+    test.skip(!first.phone, 'Başlangıç profili telefon olmalı (görev projeleri 320 ve 390 px)');
+    // Geniş sağlayıcılar (antd ConfigProvider) ilk geniş profilde bir kez bağlanır ve uygulama alt ağacını yeniden kurar;
+    // kök o ana dek aria-busy="true" taşır (AdaptiveRoot, entegrasyon kararı). Bu tek seferlik kurulum Select'in değil
+    // sayfa ağacının durumunu sıfırlar ve zamanlamaya göre ölçümün ortasına düşer: önce bir kez genişletilip bağlanması
+    // beklenir, sonra Select'in kendi sözleşmesi (seçim ve sunum profil değişiminde korunur) ölçülür.
+    await page.setViewportSize(WIDE);
+    await expect(page.locator('html')).toHaveAttribute('data-profile', 'desktop');
+    await expect(page.locator('.aile-admin[aria-busy="true"]')).toHaveCount(0, { timeout: 20_000 });
+    await page.setViewportSize(start);
+    await expect(page.locator('html')).toHaveAttribute('data-profile', 'phone');
+    const combo = page.getByRole('combobox', { name: 'Rapor', exact: true });
+    await expect(combo).toBeVisible();
     // "Kaleme göre harcama" Dönem seçimini de gösterir.
     await press(page, combo);
     await press(page, page.getByRole('dialog', { name: 'Rapor' }).getByRole('option', { name: 'Kaleme göre harcama', exact: true }));

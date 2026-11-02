@@ -165,6 +165,19 @@
 }
 .aile-sheet .aile-sheet-altlik .aile-ff { border-top: 0; padding-top: 0; }
 
+/* Sanal klavye açık (data-klavye, BottomSheet.layer.ts): kök görünür alana oturur; alan kısadır (yatay telefonda ~176 px).
+   Sayfa görünür alanın tamamını alır (%85 sınırı ekranın %85'idir; klavye açıkken görünür alan zaten ondan kısa) ve sık
+   yoğunluğa geçer: süsleyici tutamaç gizlenir (sürükleme başlıktan yine çalışır), boşluklar bosluk-2. Metin, Kapat ve
+   dokunma hedefleri küçülmez. Odaklı alanı gövdenin görünür bölümüne katman kaydırır. */
+.aile-sheet[data-klavye] .aile-sheet-sarmal { max-height: 100%; }
+.aile-sheet[data-klavye] .aile-sheet-tutamac { display: none; }
+.aile-sheet[data-klavye] .aile-sheet-ust { padding-top: var(--aile-bosluk-2); }
+.aile-sheet[data-klavye] .aile-sheet-govde {
+  gap: var(--aile-bosluk-2);
+  padding: var(--aile-bosluk-2) var(--aile-bosluk-4);
+}
+.aile-sheet[data-klavye] .aile-sheet-altlik { padding: var(--aile-bosluk-2) var(--aile-bosluk-4); }
+
 /* Hareket tercihi: geçiş yok, durum anında (açılış/kapanış aynı karede; sürükleme parmağı izlemeye devam eder). */
 @media (prefers-reduced-motion: reduce) {
   .aile-sheet .aile-sheet-ortu,

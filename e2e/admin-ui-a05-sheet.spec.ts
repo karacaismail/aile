@@ -3,8 +3,10 @@ import { enterKeyboardMode, horizontalOverflow, openAdmin, tabKey } from './admi
 import { focusRing, motion, smallText } from './admin-detectors';
 
 // a05-sheet: yerel BottomSheet (telefon alt sayfası) ve Drawer (kenar çekmecesi) gerçek rotalarda.
-// Drawer: dar kabuktaki "Sayfalar" çekmecesi (her rota). BottomSheet: telefonda "Rapor" seçimi (/raporlar, ui/Select
-// telefonda listeyi alt sayfada açar). Kapsam: APG kip sözleşmesi (odak içeri, Tab tuzağı, Escape, odak dönüşü), arka plan
+// Drawer: tablet profilinde /alimlar "Filtreler (N)" çekmecesi (shell/FilterDrawer → ui/Drawer, sağdan 384; telefonda
+// aynı yüzey BottomSheet'tir). Dar kabuğun "Sayfalar" çekmecesi ui/Drawer değildir (shell/MobileNavDrawer, b01; kendi
+// spec'i admin-shell). BottomSheet: telefonda "Rapor" seçimi (/raporlar, ui/Select telefonda listeyi ortak alt sayfada
+// açar). Kapsam: APG kip sözleşmesi (odak içeri, Tab tuzağı, Escape, odak dönüşü), arka plan
 // inert ve kaydırma kilidi, yönetim köküne portal, 44/48 px Kapat, ≥ 14 px metin, sürükleyerek kapatma (fare ve gerçek
 // dokunma; pointercancel ve gövdeden kaydırma çatışmasız), hareket 240 ms proje eğrisi ve reduced-motion'da anlık.
 // Emülasyon gerçek cihaz değildir. Firefox koşulmaz (kalıcı karar). Seçiciler role/label ve bileşen sözleşme sınıfları.
@@ -15,7 +17,9 @@ const SHEET = '.aile-sheet';
 
 const profileOf = (page: Page) => page.locator('html').getAttribute('data-profile');
 const coarseInput = (page: Page) => page.locator('html').evaluate(element => element.hasAttribute('data-input-coarse'));
-const pagesButton = (page: Page) => page.getByRole('button', { name: 'Sayfalar', exact: true });
+const filtersButton = (page: Page) => page.getByRole('main').getByRole('button', { name: /^Filtreler \(/ });
+/** Tablet (webkit-tablet ile aynı ölçü): FilterDrawer burada ui/Drawer'dır. */
+const TABLET = { width: 820, height: 1180 };
 const inertAround = (locator: Locator) => locator.evaluate(element => !!element.closest('[inert]'));
 const activeInside = (locator: Locator) => locator.evaluate(element => !!document.activeElement && element.contains(document.activeElement));
 
@@ -44,28 +48,35 @@ async function expectTarget(page: Page, button: Locator) {
   expect(box.width, 'Kapat genişliği').toBeGreaterThanOrEqual(min - 0.5);
 }
 
-test.describe('Drawer: Sayfalar çekmecesi', () => {
+test.describe('Drawer: Filtreler çekmecesi (tablet)', () => {
+  test.use({ viewport: TABLET });
+
   test('kip: odak içeride, arka plan inert ve kaymaz, örtü ve Escape kapatır; durum ve odak hareketi beklemez', async ({ page, browserName }) => {
-    const main = await openAdmin(page, '/genel');
-    test.skip((await profileOf(page)) === 'desktop', 'Sayfalar çekmecesi dar kabukta');
-    const button = pagesButton(page);
+    const main = await openAdmin(page, '/alimlar');
+    expect(await profileOf(page), 'tablet profili').toBe('tablet');
+    const button = filtersButton(page);
     await button.click();
-    const dialog = page.getByRole('dialog', { name: 'Sayfalar' });
+    const dialog = page.getByRole('dialog', { name: /^Filtreler/ });
     await expect(dialog).toBeVisible();
     await expect(dialog).toHaveAttribute('aria-modal', 'true');
+    expect(await dialog.evaluate(element => !!element.closest('.aile-drawer')), 'ui/Drawer yüzeyi').toBe(true);
     expect(await activeInside(dialog), 'odak çekmecede').toBe(true);
     expect(await dialog.evaluate(element => !!element.closest('.aile-admin')), 'yönetim köküne portal').toBe(true);
     expect(await inertAround(main), 'arka plan inert').toBe(true);
     expect(await page.evaluate(() => getComputedStyle(document.body).overflow)).toBe('hidden');
     await expectTarget(page, dialog.getByRole('button', { name: 'Kapat' }));
-    await settled(page, '.aile-mobile-nav .aile-drawer-wrapper');
+    await settled(page, '.aile-drawer-wrapper');
+    const viewport = page.viewportSize()!;
+    const box = (await page.locator('.aile-drawer-wrapper').boundingBox())!;
+    expect(Math.abs(box.x + box.width - viewport.width), 'sağdan açılır').toBeLessThanOrEqual(1);
+    expect(box.width, 'ayrinti-genislik 384').toBeCloseTo(384, 0);
     expect(await horizontalOverflow(page), 'çekmece açıkken taşma').toEqual([]);
-    expect(await smallText(page, { root: '.aile-mobile-nav' }), 'çekmecede metin ≥ 14 px').toEqual([]);
+    expect(await smallText(page, { root: '.aile-drawer' }), 'çekmecede metin ≥ 14 px').toEqual([]);
 
-    // Tab tuzağı: bağlantı sayısından fazla Tab'da odak hep çekmecede.
+    // Tab tuzağı: durak sayısından fazla Tab'da odak hep çekmecede.
     await enterKeyboardMode(page, browserName);
-    const stops = (await dialog.getByRole('link').count()) + 3;
-    for (let index = 0; index < stops; index += 1) {
+    const stops = await dialog.evaluate(element => element.querySelectorAll('a[href], button:not([disabled]), input:not([type=hidden]), [tabindex="0"]').length);
+    for (let index = 0; index < stops + 3; index += 1) {
       await page.keyboard.press(tabKey(browserName));
       expect(await activeInside(dialog), `Tab ${index + 1}`).toBe(true);
     }
@@ -77,13 +88,12 @@ test.describe('Drawer: Sayfalar çekmecesi', () => {
     await expect(dialog).toBeHidden();
     expect(await page.evaluate(() => getComputedStyle(document.body).overflow)).not.toBe('hidden');
 
-    // Örtü (çekmecenin dışındaki şerit) kapatır.
+    // Örtü (çekmecenin solundaki alan) kapatır.
     await button.click();
     await expect(dialog).toBeVisible();
-    await settled(page, '.aile-mobile-nav .aile-drawer-wrapper');
-    const viewport = page.viewportSize()!;
-    const box = (await dialog.boundingBox())!;
-    await page.mouse.click(Math.min(viewport.width - 4, box.x + box.width + 8), viewport.height / 2);
+    await settled(page, '.aile-drawer-wrapper');
+    const again = (await page.locator('.aile-drawer-wrapper').boundingBox())!;
+    await page.mouse.click(Math.max(4, again.x - 8), viewport.height / 2);
     await expect(dialog).toBeHidden();
     await expect(button).toBeFocused();
   });

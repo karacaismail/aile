@@ -282,6 +282,57 @@ describe('BottomSheet', () => {
     }
   });
 
+  // r-sheet: iç içe katman. Diyalog kökü (Dialog, body'ye portallanır ve .aile-admin taşır) açıkken uygulama kökü inert
+  // olur; içindeki seçim alt sayfası uygulama köküne açılsaydı inert bir ağacın içinde kalır, dokunma ve odak almazdı.
+  it('portal hedefi açan öğenin (returnFocusTo) en yakın yönetim kökü: iç içe diyalog kökünde açılır', () => {
+    const app = document.createElement('div');
+    app.className = 'aile-admin';
+    const dialogRoot = document.createElement('div');
+    dialogRoot.className = 'aile-admin aile-dialog';
+    const trigger = document.createElement('button');
+    trigger.textContent = 'Sözlük';
+    dialogRoot.appendChild(trigger);
+    document.body.append(app, dialogRoot);
+    app.setAttribute('inert', '');
+    try {
+      render(<BottomSheet title={title} returnFocusTo={{ current: trigger }}><p>{body}</p></BottomSheet>);
+      expect(sheetRoot()?.parentElement).toBe(dialogRoot);
+      expect(screen.getByRole('dialog', { name: title }).closest('[inert]')).toBeNull();
+    } finally {
+      app.remove();
+      dialogRoot.remove();
+    }
+  });
+
+  it('açan öğe verilmezse son canlı (inert ya da aria-hidden olmayan) yönetim köküne açılır', () => {
+    const app = document.createElement('div');
+    app.className = 'aile-admin';
+    const dialogRoot = document.createElement('div');
+    dialogRoot.className = 'aile-admin aile-dialog';
+    const ghost = document.createElement('div');
+    ghost.className = 'aile-admin aile-dialog';
+    ghost.setAttribute('aria-hidden', 'true');
+    ghost.setAttribute('inert', '');
+    document.body.append(app, dialogRoot, ghost);
+    app.setAttribute('inert', '');
+    try {
+      render(<BottomSheet title={title}><p>{body}</p></BottomSheet>);
+      expect(sheetRoot()?.parentElement).toBe(dialogRoot);
+    } finally {
+      app.remove();
+      dialogRoot.remove();
+      ghost.remove();
+    }
+  });
+
+  it('id ve titleId verilirse diyalog yüzeyine ve h2 başlığa yazılır (aria-controls / aria-labelledby bağı)', () => {
+    render(<BottomSheet title={title} id="secim-sayfa" titleId="secim-baslik"><p>{body}</p></BottomSheet>);
+    const dialog = screen.getByRole('dialog', { name: title });
+    expect(dialog).toHaveAttribute('id', 'secim-sayfa');
+    expect(screen.getByRole('heading', { level: 2, name: title })).toHaveAttribute('id', 'secim-baslik');
+    expect(dialog).toHaveAttribute('aria-labelledby', 'secim-baslik');
+  });
+
   it('odak kapsamı: yönetim kökü dışına (body) portallansa da kök data-aile-katman taşır; inline da', () => {
     // b04 odak sözleşmesi (admin.css): odak çizgisi, halka sıfırlaması ve reduced-motion .aile-admin ya da yerel katman
     // köküne ([data-aile-katman]) bağlıdır. Kök role="dialog" değildir (yüzey öyledir), bu yüzden işareti kendisi taşır.
@@ -457,6 +508,46 @@ describe('BottomSheet', () => {
       expect(last).toHaveFocus();
       link.focus();
       expect(fireEvent.keyDown(link, { key: 'Tab' })).toBe(true);
+    });
+
+    // r-sheet: menü (APG menu, öğeler tabindex -1) ya da dolaşan odaklı liste öğesi odaktayken sıradaki durak tarayıcıya
+    // bırakılırsa (katmanda ondan sonra durak yoksa) odak tarayıcı arayüzüne ya da belgeye kaçar.
+    it('Tab tuzağı: odak durak olmayan bir iç öğedeyse (tabindex -1) Tab sonraki durağa ya da ilk durağa, Shift+Tab önceki ya da son durağa gider', () => {
+      render(
+        <BottomSheet title={title} footer={<button type="button">Uygula</button>}>
+          <ul role="menu" aria-label="Eylemler">
+            <li role="menuitem" tabIndex={-1}>Borç ekle</li>
+            <li role="menuitem" tabIndex={-1}>Hesap ekle</li>
+          </ul>
+        </BottomSheet>,
+      );
+      const close = screen.getByRole('button', { name: 'Kapat' });
+      const apply = screen.getByRole('button', { name: 'Uygula' });
+      const [first, second] = screen.getAllByRole('menuitem');
+      second.focus();
+      expect(fireEvent.keyDown(second, { key: 'Tab' })).toBe(false);
+      expect(apply).toHaveFocus();
+      first.focus();
+      expect(fireEvent.keyDown(first, { key: 'Tab', shiftKey: true })).toBe(false);
+      expect(close).toHaveFocus();
+    });
+
+    it('Tab tuzağı: durak olmayan iç öğeden sonra durak yoksa Tab ilk durağa sarar; önce durak yoksa Shift+Tab son durağa', () => {
+      render(
+        <BottomSheet title={title}>
+          <ul role="menu" aria-label="Eylemler">
+            <li role="menuitem" tabIndex={-1}>Borç ekle</li>
+          </ul>
+        </BottomSheet>,
+      );
+      const close = screen.getByRole('button', { name: 'Kapat' });
+      const item = screen.getByRole('menuitem');
+      item.focus();
+      expect(fireEvent.keyDown(item, { key: 'Tab' })).toBe(false);
+      expect(close).toHaveFocus();
+      item.focus();
+      expect(fireEvent.keyDown(item, { key: 'Tab', shiftKey: true })).toBe(false);
+      expect(close).toHaveFocus();
     });
 
     it('iç içe katmanlarda Escape yalnız en üsttekini kapatır; dış katman içtekinin açıkken inert olur', () => {
@@ -697,6 +788,58 @@ describe('BottomSheet', () => {
       expect(remove).toHaveBeenCalledWith('scroll', expect.any(Function));
     });
 
+    // r-sheet: yatay telefonda (568×320) klavye görünür alanı ~176 px'e indirir. Katman bu alanı tümüyle kullanır ve sık
+    // yoğunluğa geçer (data-klavye; CSS); odaklı alan gövdenin görünür bölümüne kaydırılır.
+    it('klavye açıkken kök data-klavye="acik" taşır ve odaklı alan gövdenin görünür alanına kaydırılır; kapanınca kalkar', () => {
+      installViewport({ width: 568, height: 320, coarse: true });
+      const vv = Object.assign(new EventTarget(), { width: 568, height: 320, offsetTop: 0, offsetLeft: 0, scale: 1 });
+      Object.defineProperty(window, 'visualViewport', { configurable: true, value: vv });
+      render(<BottomSheet title={title}><input aria-label="Ara" /></BottomSheet>);
+      expect(sheetRoot()).not.toHaveAttribute('data-klavye');
+      const field = screen.getByRole('textbox', { name: 'Ara' });
+      field.focus();
+      const govde = document.querySelector('.aile-sheet-govde') as HTMLElement;
+      let scrollTop = 0;
+      Object.defineProperty(govde, 'scrollTop', { configurable: true, get: () => scrollTop, set: (value: number) => { scrollTop = value; } });
+      const rect = (top: number, height: number) => ({ top, bottom: top + height, height, left: 0, right: 568, width: 568, x: 0, y: top, toJSON: () => ({}) }) as DOMRect;
+      vi.spyOn(govde, 'getBoundingClientRect').mockImplementation(() => rect(61, 50));
+      vi.spyOn(field, 'getBoundingClientRect').mockImplementation(() => rect(140 - scrollTop, 48));
+      vv.height = 176;
+      act(() => { vv.dispatchEvent(new Event('resize')); });
+      expect(sheetRoot()).toHaveAttribute('data-klavye', 'acik');
+      expect(scrollTop).toBe(140 + 48 - (61 + 50));
+      vv.height = 320;
+      act(() => { vv.dispatchEvent(new Event('resize')); });
+      expect(sheetRoot()).not.toHaveAttribute('data-klavye');
+    });
+
+    it('alanın sonradan çalışan kendi kaydırması gövdede görünür bölümden çıkarırsa katman sonraki karede yeniden getirir', () => {
+      installViewport({ width: 568, height: 320, coarse: true });
+      const vv = Object.assign(new EventTarget(), { width: 568, height: 320, offsetTop: 0, offsetLeft: 0, scale: 1 });
+      Object.defineProperty(window, 'visualViewport', { configurable: true, value: vv });
+      const frames: FrameRequestCallback[] = [];
+      const raf = vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => { frames.push(callback); return frames.length; });
+      try {
+        render(<BottomSheet title={title}><input aria-label="Ara" /></BottomSheet>);
+        const field = screen.getByRole('textbox', { name: 'Ara' });
+        field.focus();
+        const govde = document.querySelector('.aile-sheet-govde') as HTMLElement;
+        let scrollTop = 0;
+        Object.defineProperty(govde, 'scrollTop', { configurable: true, get: () => scrollTop, set: (value: number) => { scrollTop = value; } });
+        const rect = (top: number, height: number) => ({ top, bottom: top + height, height, left: 0, right: 568, width: 568, x: 0, y: top, toJSON: () => ({}) }) as DOMRect;
+        vi.spyOn(govde, 'getBoundingClientRect').mockImplementation(() => rect(61, 50));
+        vi.spyOn(field, 'getBoundingClientRect').mockImplementation(() => rect(140 - scrollTop, 48));
+        vv.addEventListener('resize', () => { scrollTop = 0; });
+        vv.height = 176;
+        act(() => { vv.dispatchEvent(new Event('resize')); });
+        expect(scrollTop).toBe(0);
+        act(() => { for (const callback of frames.splice(0)) callback(performance.now()); });
+        expect(scrollTop).toBe(140 + 48 - (61 + 50));
+      } finally {
+        raf.mockRestore();
+      }
+    });
+
     it('iki parmak yakınlaştırmada (scale ≠ 1) katman görünüm alanına göre kalır', () => {
       installViewport({ width: 320, height: 568 });
       const vv = Object.assign(new EventTarget(), { width: 160, height: 284, offsetTop: 100, offsetLeft: 0, scale: 2 });
@@ -764,6 +907,16 @@ describe('BottomSheet', () => {
       expect(code).not.toMatch(/(^|[;{\s])content\s*:/);
       expect(code).not.toMatch(/data-keyboard/);
       expect(code).not.toMatch(/--aile-odak\b/);
+    });
+
+    it('CSS sanal klavye (data-klavye): sarmal görünür alanın tamamını alır, tutamaç gizlenir, boşluklar bosluk-2 (sık yoğunluk)', () => {
+      const code = css();
+      expect(code).toMatch(/\.aile-sheet\[data-klavye\] \.aile-sheet-sarmal\s*{[^}]*max-height:\s*100%/);
+      expect(code).toMatch(/\.aile-sheet\[data-klavye\] \.aile-sheet-tutamac\s*{[^}]*display:\s*none/);
+      expect(code).toMatch(/\.aile-sheet\[data-klavye\] \.aile-sheet-ust\s*{[^}]*padding-top:\s*var\(--aile-bosluk-2\)/);
+      expect(code).toMatch(/\.aile-sheet\[data-klavye\] \.aile-sheet-govde\s*{[^}]*gap:\s*var\(--aile-bosluk-2\)/);
+      expect(code).toMatch(/\.aile-sheet\[data-klavye\] \.aile-sheet-govde\s*{[^}]*padding:\s*var\(--aile-bosluk-2\) var\(--aile-bosluk-4\)/);
+      expect(code).toMatch(/\.aile-sheet\[data-klavye\] \.aile-sheet-altlik\s*{[^}]*padding:\s*var\(--aile-bosluk-2\) var\(--aile-bosluk-4\)/);
     });
 
     it('CSS metin: hiçbir yazı boyutu 14 CSS px altına inmez', () => {

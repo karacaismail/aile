@@ -10,7 +10,8 @@ import type { Device } from '../shell/contracts';
 import { SEARCH_THRESHOLD, Select, UNKNOWN_LABEL, UNKNOWN_VALUE, type SelectOption } from './Select';
 
 // Select sözleşmesi (tasarım components/Select/README.md, görev a03): tek değer, native select yok, antd yok.
-// Telefon: alttan açılan yerel diyalogda APG listbox (dolaşan tabindex). Geniş: tetikte odak kalan APG select-only
+// Telefon: ortak alt sayfa (ui/BottomSheet; README "Select, Menu ve Dialog telefonda bunu kendileri kullanır") içinde APG
+// listbox (dolaşan tabindex): Tab tuzağı, sürükleyerek kapatma, sanal klavye ve iç içe katman ortak. Geniş: tetikte odak kalan APG select-only
 // combobox + yerel popover listbox (aria-activedescendant). Escape kapatır ve odak tetiğe döner; seçim profil
 // değişiminde korunur; uzun listede yazarak arama (typeahead), telefonda 8'den fazla seçenekte süzme alanı.
 
@@ -100,7 +101,7 @@ describe('Select › kaynak (telefon profili antd ve geniş-özel kod istemez)',
     const reduced = /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{([\s\S]*?\})\s*\}/.exec(css);
     expect(reduced, 'reduced-motion bloğu').not.toBeNull();
     expect(reduced![1]).toMatch(/transition-duration:\s*0s/);
-    for (const name of ['aile-select-tetik', 'aile-select-ok', 'aile-select-secenek', 'aile-select-acilir', 'aile-select-sayfa-panel', 'aile-select-sayfa-ortu']) {
+    for (const name of ['aile-select-tetik', 'aile-select-ok', 'aile-select-secenek', 'aile-select-acilir']) {
       expect(reduced![1], name).toContain(`.${name}`);
     }
   });
@@ -113,12 +114,44 @@ describe('Select › kaynak (telefon profili antd ve geniş-özel kod istemez)',
     expect(css).not.toMatch(/font-size\s*:\s*[\d.]+(rem|em)\b/);
     // W0 (b04): merkezi --aile-dokunma-hedefi 44 px, data-input-coarse katmanında 48 px. Bileşen kendi coarse
     // hesabını türetmez (tek kaynak); etkileşimli her hedef bu tokenı kullanır.
-    for (const name of ['aile-select-tetik', 'aile-select-secenek', 'aile-select-kapat', 'aile-select-ara-girdi']) {
+    for (const name of ['aile-select-tetik', 'aile-select-secenek', 'aile-select-ara-girdi']) {
       const rule = new RegExp(`\\.${name}\\s*\\{[^}]*min-height:\\s*var\\(--aile-dokunma-hedefi\\)`);
       expect(css, name).toMatch(rule);
     }
     expect(css).not.toMatch(/\[data-input-coarse\]/);
     expect(css).not.toMatch(/calc\(var\(--aile-hedef-asgari\)\s*\+/);
+  });
+
+  // r-sheet / f10 (axe scrollable-region-focusable, WCAG 2.1.1): geniş açılır listede kaydırılan öğe combobox'ın
+  // denetlediği listbox'ın kendisi olmalı (APG; axe combobox açılır penceresini muaf tutar). Rolsüz sarmalayıcı kaydırırsa
+  // klavyeyle odaklanamayan kaydırma bölgesi sayılır.
+  it('CSS: geniş açılır listede kaydırma kabı listbox\'tır; popover sarmalayıcı kaydırmaz', () => {
+    const css = stripComments(readFileSync(SELECT_CSS, 'utf8'));
+    const popover = /\.aile-select-acilir\s*\{([^}]*)\}/.exec(css);
+    expect(popover).not.toBeNull();
+    expect(popover![1]).toMatch(/overflow:\s*hidden/);
+    expect(popover![1]).not.toMatch(/overflow(-y)?:\s*(auto|scroll)/);
+    expect(css).toMatch(/\.aile-select-acilir \.aile-select-liste\s*\{[^}]*overflow-y:\s*auto[^}]*\}/);
+    expect(css).toMatch(/\.aile-select-acilir \.aile-select-liste\s*\{[^}]*overscroll-behavior:\s*contain[^}]*\}/);
+  });
+
+  it('CSS: telefon alt sayfası ortak BottomSheet\'tir; Select.css alt sayfa kabuğu (örtü, panel, Kapat) yazmaz', () => {
+    const css = stripComments(readFileSync(SELECT_CSS, 'utf8'));
+    expect(css).not.toMatch(/aile-select-sayfa|aile-select-kapat/);
+    expect(css).not.toMatch(/::backdrop/);
+  });
+
+  // r-sheet / f01 odak sözleşmesi: klavye odağı tek alt çizgidir. Geniş açılır listede DOM odağı tetikte kalır
+  // (aria-activedescendant): çizgi tetikte; etkin seçenek çizgi değil yüzey tonuyla (bilgi-yuzey; tasarım README antd
+  // eşlemesi optionActiveBg = bilgi-yuzey, optionSelectedBg = secili) gösterilir. Zorunlu renk modunda sistem vurgusu.
+  it('CSS: geniş etkin seçenek odak çizgisi taşımaz (tek çizgi tetikte); bilgi-yuzey zemin, seçili seçenekte secili kalır', () => {
+    const css = stripComments(readFileSync(SELECT_CSS, 'utf8'));
+    expect(css).not.toMatch(/is-etkin[^{]*::(after|before)/);
+    expect(css).toMatch(/\.aile-select-acilir \.aile-select-secenek\.is-etkin\s*\{[^}]*background:\s*var\(--aile-bilgi-yuzey\)/);
+    expect(css).toMatch(/\.aile-select-acilir \.aile-select-secenek\.is-etkin\.is-secili\s*\{[^}]*background:\s*var\(--aile-secili\)/);
+    const forced = /@media\s*\(forced-colors:\s*active\)\s*\{([\s\S]*?\})\s*\}/.exec(css);
+    expect(forced, 'forced-colors bloğu').not.toBeNull();
+    expect(forced![1]).toMatch(/\.is-etkin\s*\{[^}]*background:\s*Highlight/);
   });
 });
 
@@ -386,11 +419,15 @@ describe('Select › telefon', () => {
 
     await user.click(trigger);
     const dialog = screen.getByRole('dialog', { name: 'Oda' });
-    expect(dialog.tagName).toBe('DIALOG');
+    // Ortak alt sayfa: BottomSheet yüzeyi (yerel <dialog> değil), kipli.
+    expect(dialog.tagName).toBe('DIV');
+    expect(dialog).toHaveClass('aile-sheet-yuzey');
+    expect(dialog).toHaveAttribute('aria-modal', 'true');
     expect(trigger).toHaveAttribute('aria-expanded', 'true');
     expect(trigger).toHaveAttribute('aria-controls', dialog.id);
-    expect(within(dialog).getByRole('heading', { level: 2, name: 'Oda' })).toBeInTheDocument();
+    const heading = within(dialog).getByRole('heading', { level: 2, name: 'Oda' });
     const list = within(dialog).getByRole('listbox', { name: 'Oda' });
+    expect(list).toHaveAttribute('aria-labelledby', heading.id);
     const salon = option('Salon', list);
     expect(salon).toHaveAttribute('aria-selected', 'true');
     expect(salon.querySelector('[data-icon="check"]')).not.toBeNull();
@@ -456,14 +493,14 @@ describe('Select › telefon', () => {
   it('"Kapat" düğmesi ve örtü seçim yapmadan kapatır; odak tetiğe döner', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
-    const { container } = render(<Select label="Oda" options={odalar} onChange={onChange} />, { wrapper });
+    render(<Select label="Oda" options={odalar} onChange={onChange} />, { wrapper });
     await user.click(combobox());
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Kapat' }));
     expect(combobox()).toHaveFocus();
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 
     await user.click(combobox());
-    const scrim = container.querySelector('.aile-select-sayfa-ortu');
+    const scrim = document.querySelector('.aile-sheet-ortu');
     expect(scrim).not.toBeNull();
     expect(scrim).toHaveAttribute('aria-hidden', 'true');
     await user.click(scrim as Element);
@@ -536,24 +573,57 @@ describe('Select › telefon', () => {
     expect(onChange).toHaveBeenCalledWith('salon');
   });
 
-  it('showModal/close: açılış modal, kapanış önce modal\'ı bırakır sonra odak tetiğe döner', async () => {
-    const proto = HTMLDialogElement.prototype as HTMLDialogElement & { showModal?: () => void; close?: () => void };
-    const original = { showModal: proto.showModal, close: proto.close };
-    const calls: string[] = [];
-    proto.showModal = vi.fn(function (this: HTMLDialogElement) { calls.push('showModal'); this.setAttribute('open', ''); });
-    proto.close = vi.fn(function (this: HTMLDialogElement) { calls.push('close'); this.removeAttribute('open'); });
-    try {
-      const user = userEvent.setup();
-      render(<Select label="Oda" options={odalar} />, { wrapper });
-      await user.click(combobox());
-      expect(calls).toEqual(['showModal']);
-      await user.keyboard('{Escape}');
-      expect(calls).toEqual(['showModal', 'close']);
-      expect(combobox()).toHaveFocus();
-    } finally {
-      proto.showModal = original.showModal;
-      proto.close = original.close;
-    }
+  it('kip: açıkken arka plan inert ve sayfa kaydırması kilitli; kapanınca ikisi de geri alınır', async () => {
+    const user = userEvent.setup();
+    render(<><button type="button">Arka plan</button><Select label="Oda" options={odalar} /></>, { wrapper });
+    await user.click(combobox());
+    expect(screen.getByRole('dialog', { name: 'Oda' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Arka plan', hidden: true }).closest('[inert]')).not.toBeNull();
+    expect(document.body.style.overflow).toBe('hidden');
+    await user.keyboard('{Escape}');
+    expect(combobox()).toHaveFocus();
+    expect(screen.getByRole('button', { name: 'Arka plan' }).closest('[inert]')).toBeNull();
+    expect(document.body.style.overflow).toBe('');
+  });
+
+  it('Tab ve Shift+Tab alt sayfada döner: Kapat → süzme alanı → seçenek → Kapat (tarayıcıya ya da arka plana kaçmaz)', async () => {
+    const user = userEvent.setup();
+    render(<><button type="button">Önce</button><Select label="Dönem" options={aylar} value="2098-03" /><button type="button">Sonra</button></>, { wrapper });
+    await user.click(combobox('Dönem'));
+    const dialog = screen.getByRole('dialog', { name: 'Dönem' });
+    const mart = option('Mart 2098', dialog);
+    await waitFor(() => expect(mart).toHaveFocus());
+    const close = within(dialog).getByRole('button', { name: 'Kapat' });
+    const search = within(dialog).getByRole('searchbox', { name: 'Seçeneklerde ara' });
+    await user.tab();
+    expect(close).toHaveFocus();
+    await user.tab();
+    expect(search).toHaveFocus();
+    await user.tab();
+    expect(mart).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(search).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(close).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(mart).toHaveFocus();
+  });
+
+  it('sürükleyerek kapatma (Pointer Events, başlık alanı): seçmeden kapatır, odak tetiğe döner', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<Select label="Oda" options={odalar} value="salon" onChange={onChange} />, { wrapper });
+    await user.click(combobox());
+    const head = document.querySelector('.aile-sheet-ust') as HTMLElement;
+    expect(head).not.toBeNull();
+    const at = (clientY: number) => ({ pointerId: 5, clientX: 160, clientY, isPrimary: true, pointerType: 'touch', button: 0, buttons: 1 });
+    fireEvent.pointerDown(head, at(400));
+    fireEvent.pointerMove(head, at(460));
+    fireEvent.pointerMove(head, at(560));
+    fireEvent.pointerUp(head, at(560));
+    expect(combobox()).toHaveAttribute('aria-expanded', 'false');
+    expect(combobox()).toHaveFocus();
+    expect(onChange).not.toHaveBeenCalled();
   });
 });
 
@@ -564,7 +634,7 @@ describe('Select › hareket yaşam döngüsü', () => {
     const real = window.getComputedStyle;
     const spy = vi.spyOn(window, 'getComputedStyle').mockImplementation((element: Element, pseudo?: string | null) => {
       const style = real(element, pseudo);
-      if (!(element instanceof HTMLElement) || !element.matches('.aile-select-acilir, .aile-select-sayfa-panel')) return style;
+      if (!(element instanceof HTMLElement) || !element.matches('.aile-select-acilir')) return style;
       return new Proxy(style, {
         get(target, key) {
           if (key === 'transitionDuration') return '0.24s';

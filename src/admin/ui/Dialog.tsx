@@ -14,13 +14,16 @@ import './Dialog.css';
 //  - ARIA APG "Dialog (Modal)" / "Alert Dialog": role dialog|alertdialog, aria-modal, aria-labelledby → h2; alert'te
 //    aria-describedby → gövde. İlk odak başlıkta (tabindex -1) ya da initialFocus'ta; onay diyaloğunda tehlikeli eylem
 //    hiçbir zaman varsayılan odak değildir. Tab/Shift+Tab içeride döner. Escape yalnız en üstteki diyaloğu kapatır;
-//    açık açılır listesi olan combobox/menü düğmesindeyse önce o widget'a bırakılır. Kapanınca odak returnFocusTo'ya,
-//    yoksa açıldığı anda odaklı olan öğeye (Safari'de basışla odak almayan düğmede: son basılan öğeye) döner.
+//    açık açılır listesi olan combobox/menü düğmesindeyse önce o widget'a bırakılır. Diyalog içinden açılan kipli yerel
+//    katman (seçim/menü alt sayfası: ui/BottomSheet, diyalog kökünde açılır) kendi tuşlarının sahibidir. Kapanınca odak
+//    returnFocusTo'ya, yoksa açıldığı anda odaklı olan öğeye (Safari'de basışla odak almayan düğmede: son basılan öğeye)
+//    döner.
 //  - Katman: document.body'nin sonuna portal (açılış sırası = yığın sırası). z-index tokens.layerDropdown (antd
 //    temasının zIndexPopupBase'i): sonradan açılan iç açılır liste ve alt sayfa üstte kalır. Kök .aile-admin kapsamını taşır: admin.css odak/tipografi kuralları portala ulaşır.
 //    Açıkken kökün dışındaki her şey inert, sayfa kaydırması kilitli; kapanınca yalnız bizim eklediklerimiz geri alınır.
 //  - Sanal klavye: visualViewport küçülünce (yakınlaştırma değilse) kök görünür alana oturur; panel bütün olarak kayar,
-//    altlık (eylemler) altta yapışık ve görünür kalır, odaklı alan altlığın üstüne kaydırılır.
+//    altlık (eylemler) altta yapışık ve görünür kalır, odaklı alan altlığın üstüne kaydırılır. Telefonda altlık sık
+//    yoğunluğa geçer (yatay telefonda görünür alan ~176 px; Dialog.css).
 //  - Dokunma: telefonda örtüye dokunuş kapatır (referans: alt sayfa örtüsü). Basış pointerdown ile kaydedilir,
 //    pointercancel (kaydırma/jest) iptal eder; kapatma click'te yapılır ki dokunuş arka plana geçmesin. Ortalı panelde
 //    örtü kapatıcı değildir (referans Dialog scrim'i onClick taşımaz).
@@ -252,13 +255,19 @@ function playExit(root: HTMLElement, pose: ExitPose | null) {
   void Promise.allSettled(animations.map(animation => animation.finished)).then(() => ghost.remove());
 }
 
-/** Sanal klavye açıkken panel bütün olarak kayar ve altlık yapışkandır: odaklı alan altlığın altında kalmasın. */
+/**
+ * Sanal klavye açıkken panel bütün olarak kayar ve altlık yapışkandır (altta, bottom 0): odaklı alan panelin görünür
+ * bölümüne, altlığın üstüne getirilir. Yalnız panel kaydırılır (belge ve kök değil; scrollIntoView ata kapları da
+ * kaydırır). Görünür bölüm: panelin üstü ile altlığın yapıştığı yer (panel altı − altlık yüksekliği) arası. Alan bölümden
+ * uzunsa üst kenarı hizalanır.
+ */
 function revealAboveFooter(panel: HTMLElement, element: HTMLElement) {
-  element.scrollIntoView({ block: 'nearest' });
   const footer = panel.querySelector<HTMLElement>(':scope > .aile-dialog-altlik');
-  if (!footer || footer.contains(element)) return;
-  const overlap = element.getBoundingClientRect().bottom - footer.getBoundingClientRect().top;
-  if (overlap > 0) panel.scrollTop += overlap;
+  const area = panel.getBoundingClientRect();
+  const bottom = footer && !footer.contains(element) ? area.bottom - footer.offsetHeight : area.bottom;
+  const box = element.getBoundingClientRect();
+  if (box.top < area.top || box.height > bottom - area.top) panel.scrollTop -= area.top - box.top;
+  else if (box.bottom > bottom) panel.scrollTop += box.bottom - bottom;
 }
 
 // --- Bileşen -----------------------------------------------------------------------------------------------------
@@ -313,6 +322,9 @@ function DialogLayer({ title, children, footer, onClose, alert = false, inline =
       const target = event.target instanceof Element ? event.target : null;
       const inside = !target || target === document.body || target === document.documentElement || root.contains(target);
       if (!inside) return;
+      // Diyalog kökünde açılmış iç içe kipli katman (alt sayfa): Tab tuzağı ve Escape onundur.
+      const nested = target?.closest('[aria-modal="true"]');
+      if (nested && nested !== panel) return;
       if (event.key === 'Escape') {
         if (event.isComposing || ownedEscapes.has(event) || ownsEscape(target)) return;
         event.preventDefault();
@@ -343,6 +355,22 @@ function DialogLayer({ title, children, footer, onClose, alert = false, inline =
     // Sanal klavye: düzen görünümünün altını kapatan pay (yakınlaştırma değilse) → kök görünür alana oturur.
     const viewport = window.visualViewport;
     let keyboardInset = 0;
+    // Odaklı alan altlığın üstüne: hemen ve bir sonraki karede (boyamadan önce) yeniden. Alanın kendi klavye kaydırması
+    // (TextField; odakta bağlanır, bu dinleyiciden sonra çalışır) yapışık altlığı bilmez; son söz katmanındır.
+    let revealFrame = 0;
+    const cancelReveal = () => {
+      if (revealFrame && typeof window.cancelAnimationFrame === 'function') window.cancelAnimationFrame(revealFrame);
+      revealFrame = 0;
+    };
+    const reveal = (element: HTMLElement) => {
+      revealAboveFooter(panel, element);
+      cancelReveal();
+      if (typeof window.requestAnimationFrame !== 'function') return;
+      revealFrame = window.requestAnimationFrame(() => {
+        revealFrame = 0;
+        if (root.dataset.klavye && panel.contains(element) && document.activeElement === element) revealAboveFooter(panel, element);
+      });
+    };
     const syncViewport = (event?: Event) => {
       if (!viewport) return;
       const zoomed = Math.abs(viewport.scale - 1) > 0.01;
@@ -357,14 +385,14 @@ function DialogLayer({ title, children, footer, onClose, alert = false, inline =
         root.dataset.klavye = 'acik';
         const focused = document.activeElement;
         if (event?.type === 'resize' && inset > keyboardInset && focused instanceof HTMLElement && panel.contains(focused)) {
-          revealAboveFooter(panel, focused);
+          reveal(focused);
         }
       }
       keyboardInset = inset;
     };
     // Klavye açıkken alanlar arasında gezinince yeni odak altlığın altında kalmasın.
     const onFocusIn = (event: FocusEvent) => {
-      if (root.dataset.klavye && event.target instanceof HTMLElement && panel.contains(event.target)) revealAboveFooter(panel, event.target);
+      if (root.dataset.klavye && event.target instanceof HTMLElement && panel.contains(event.target)) reveal(event.target);
     };
     syncViewport();
     viewport?.addEventListener('resize', syncViewport);
@@ -373,6 +401,7 @@ function DialogLayer({ title, children, footer, onClose, alert = false, inline =
 
     return () => {
       document.removeEventListener('keydown', onKeyDown);
+      cancelReveal();
       viewport?.removeEventListener('resize', syncViewport);
       viewport?.removeEventListener('scroll', syncViewport);
       panel.removeEventListener('focusin', onFocusIn);

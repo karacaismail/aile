@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, relative, resolve } from 'node:path';
@@ -7,6 +7,7 @@ import { tokens } from '../../design/tokens.ts';
 import { installViewport } from '../adaptive/testing';
 import { DeviceContext } from '../device';
 import type { Device } from '../shell/contracts';
+import { BottomSheet } from './BottomSheet';
 import { DIALOG_WIDTH, Dialog } from './Dialog';
 
 // Tasarım: components/Dialog/README.md (ortalı, en çok 560 px, kose-panel, golge-yukseltilmis, h2 başlık, alert) +
@@ -132,6 +133,10 @@ describe('Dialog › kaynak', () => {
     // Katman: sabit sayı yok; kök z-index'i satır içi --aile-dialog-katman'dan (tokens.layerDropdown) alır.
     expect(css).toMatch(/z-index\s*:\s*var\(--aile-dialog-katman\)/);
     for (const m of css.matchAll(/z-index\s*:\s*([^;]+);/g)) expect(['var(--aile-dialog-katman)', 'auto']).toContain(m[1].trim());
+    // Sanal klavye açıkken telefon alt sayfası sık yoğunluğa geçer (yatay telefonda görünür alan ~176 px): altlık iç
+    // boşluğu ve yığılmış eylemler arası bosluk-2; metin ve dokunma hedefi küçülmez.
+    expect(css).toMatch(/\.aile-dialog--sheet\[data-klavye\] \.aile-dialog-altlik\s*\{[^}]*padding:\s*var\(--aile-bosluk-2\) var\(--aile-bosluk-4\)/);
+    expect(css).toMatch(/\.aile-dialog--sheet\[data-klavye\] \.aile-dialog-altlik \.aile-ff-actions\s*\{[^}]*gap:\s*var\(--aile-bosluk-2\)/);
     // Kavisli vurgu kenarı yok: tek kenar renkli kenarlık yalnız düz ayırıcı (cizgi) olabilir.
     for (const m of css.matchAll(/border-(?:left|right|inline-start|inline-end)\s*:/g)) expect(m).toBeNull();
   });
@@ -482,6 +487,51 @@ describe('Dialog › odak ve klavye (APG)', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(document.querySelector('[inert]')).toBeNull();
   });
+
+  // r-sheet: telefonda diyalog içindeki seçim/menü alt sayfası (ui/BottomSheet) diyalog kökünde açılır (uygulama kökü
+  // inert). Diyaloğun belge dinleyicisi kökün içindeki her tuşu kendisinin sayarsa Escape diyaloğu kapatır, Tab odağı
+  // inert diyalog paneline çeker ve alt sayfanın tuzağı çalışmaz.
+  it('iç içe alt sayfa: diyalog kökünde açılır; Escape ve Tab alt sayfanındır, diyalog açık kalır, odak açan alana döner', async () => {
+    const onDialogClose = vi.fn();
+    function WithSheet() {
+      const [open, setOpen] = useState(false);
+      const opener = useRef<HTMLButtonElement>(null);
+      return inDevice(
+        <>
+          <div className="aile-admin"><button type="button">Sayfa</button></div>
+          <Dialog title="Terim ekle" onClose={onDialogClose}>
+            <button type="button" ref={opener} onClick={() => setOpen(true)}>Sözlük</button>
+            <BottomSheet title="Sözlük" open={open} onClose={() => setOpen(false)} returnFocusTo={opener} footer={<button type="button">Uygula</button>}>
+              <p>Seçenekler</p>
+            </BottomSheet>
+          </Dialog>
+        </>,
+        'phone',
+      );
+    }
+    const user = userEvent.setup();
+    render(<WithSheet />);
+    const opener = screen.getByRole('button', { name: 'Sözlük' });
+    await user.click(opener);
+    const sheet = screen.getByRole('dialog', { name: 'Sözlük' });
+    const dialogRoot = rootOf(screen.getByRole('dialog', { name: 'Terim ekle', hidden: true }));
+    expect(sheet.closest('.aile-sheet')?.parentElement).toBe(dialogRoot);
+    expect(sheet.closest('[inert]')).toBeNull();
+    const close = within(sheet).getByRole('button', { name: 'Kapat' });
+    const apply = within(sheet).getByRole('button', { name: 'Uygula' });
+    apply.focus();
+    await user.tab();
+    expect(close).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(apply).toHaveFocus();
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog', { name: 'Sözlük' })).toBeNull();
+    expect(onDialogClose).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog', { name: 'Terim ekle' })).toBeInTheDocument();
+    expect(opener).toHaveFocus();
+    await user.keyboard('{Escape}');
+    expect(onDialogClose).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('Dialog › arka plan, kaydırma, dokunma', () => {
@@ -539,26 +589,35 @@ describe('Dialog › arka plan, kaydırma, dokunma', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('sanal klavye: visualViewport küçülünce kök görünür alana oturur, odaklı alan görünüme kayar', () => {
-    const viewport = Object.assign(new EventTarget(), { height: 568, width: 320, offsetTop: 0, offsetLeft: 0, scale: 1 });
+  it('sanal klavye: visualViewport küçülünce kök görünür alana oturur, odaklı alan yapışık altlığın üstüne kayar', () => {
+    const viewport = Object.assign(new EventTarget(), { height: 320, width: 568, offsetTop: 0, offsetLeft: 0, scale: 1 });
     const original = Object.getOwnPropertyDescriptor(window, 'visualViewport');
     Object.defineProperty(window, 'visualViewport', { configurable: true, value: viewport });
-    Object.defineProperty(window, 'innerHeight', { configurable: true, writable: true, value: 568 });
+    Object.defineProperty(window, 'innerHeight', { configurable: true, writable: true, value: 320 });
     try {
-      render(inDevice(<Dialog title={title}><label>Terim adı <input /></label></Dialog>, 'phone'));
+      render(inDevice(<Dialog title={title} footer={<button type="button">Kaydet</button>}><label>Terim adı <input /></label></Dialog>, 'phone'));
       const root = rootOf(screen.getByRole('dialog'));
       expect(root).not.toHaveAttribute('data-klavye');
+      const panel = screen.getByRole('dialog');
+      const footer = panel.querySelector(':scope > .aile-dialog-altlik') as HTMLElement;
       const field = screen.getByRole('textbox', { name: 'Terim adı' });
       field.focus();
-      const scrolled = vi.spyOn(field, 'scrollIntoView');
+      // Yatay telefon (568×320), 144 px klavye: görünür alan 0–176; yapışık altlık 121 px → alanın görünür bölümü 0–55.
+      let scrollTop = 0;
+      Object.defineProperty(panel, 'scrollTop', { configurable: true, get: () => scrollTop, set: (value: number) => { scrollTop = value; } });
+      Object.defineProperty(footer, 'offsetHeight', { configurable: true, get: () => 121 });
+      const rect = (top: number, height: number) => ({ top, bottom: top + height, height, left: 0, right: 568, width: 568, x: 0, y: top, toJSON: () => ({}) }) as DOMRect;
+      vi.spyOn(panel, 'getBoundingClientRect').mockImplementation(() => rect(0, 176));
+      vi.spyOn(field, 'getBoundingClientRect').mockImplementation(() => rect(202 - scrollTop, 46));
       act(() => {
-        viewport.height = 300;
+        viewport.height = 176;
         viewport.dispatchEvent(new Event('resize'));
       });
       expect(root).toHaveAttribute('data-klavye', 'acik');
-      expect(root.style.getPropertyValue('--aile-dialog-yukseklik')).toBe('300px');
+      expect(root.style.getPropertyValue('--aile-dialog-yukseklik')).toBe('176px');
       expect(root.style.getPropertyValue('--aile-dialog-ust')).toBe('0px');
-      expect(scrolled).toHaveBeenCalled();
+      expect(field.getBoundingClientRect().top).toBeGreaterThanOrEqual(0);
+      expect(field.getBoundingClientRect().bottom).toBe(176 - 121);
       // Yakınlaştırma (pinch zoom) klavye sayılmaz: yerleşim daralmaz.
       act(() => {
         viewport.scale = 2;
@@ -567,6 +626,45 @@ describe('Dialog › arka plan, kaydırma, dokunma', () => {
       expect(root).not.toHaveAttribute('data-klavye');
       expect(root.style.getPropertyValue('--aile-dialog-yukseklik')).toBe('');
     } finally {
+      if (original) Object.defineProperty(window, 'visualViewport', original);
+      else delete (window as { visualViewport?: unknown }).visualViewport;
+    }
+  });
+});
+
+describe('Dialog › sanal klavye ve alanın kendi kaydırması', () => {
+  // r-sheet: TextField (a02) klavye açılınca alanı görünür alana kendisi kaydırır; yapışık altlığı bilmez ve dinleyicisi
+  // (odakta bağlanır) diyaloğunkinden sonra çalışır. Son söz katmanındır: diyalog bir sonraki karede yeniden konumlar.
+  it('alanın sonradan çalışan kendi kaydırması altlığın altına iterse diyalog sonraki karede alanı altlığın üstüne getirir', () => {
+    const viewport = Object.assign(new EventTarget(), { height: 320, width: 568, offsetTop: 0, offsetLeft: 0, scale: 1 });
+    const original = Object.getOwnPropertyDescriptor(window, 'visualViewport');
+    Object.defineProperty(window, 'visualViewport', { configurable: true, value: viewport });
+    Object.defineProperty(window, 'innerHeight', { configurable: true, writable: true, value: 320 });
+    const frames: FrameRequestCallback[] = [];
+    const raf = vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => { frames.push(callback); return frames.length; });
+    try {
+      render(inDevice(<Dialog title={title} footer={<button type="button">Kaydet</button>}><label>Terim adı <input /></label></Dialog>, 'phone'));
+      const panel = screen.getByRole('dialog');
+      const footer = panel.querySelector(':scope > .aile-dialog-altlik') as HTMLElement;
+      const field = screen.getByRole('textbox', { name: 'Terim adı' });
+      field.focus();
+      let scrollTop = 0;
+      Object.defineProperty(panel, 'scrollTop', { configurable: true, get: () => scrollTop, set: (value: number) => { scrollTop = value; } });
+      Object.defineProperty(footer, 'offsetHeight', { configurable: true, get: () => 121 });
+      const rect = (top: number, height: number) => ({ top, bottom: top + height, height, left: 0, right: 568, width: 568, x: 0, y: top, toJSON: () => ({}) }) as DOMRect;
+      vi.spyOn(panel, 'getBoundingClientRect').mockImplementation(() => rect(0, 176));
+      vi.spyOn(field, 'getBoundingClientRect').mockImplementation(() => rect(202 - scrollTop, 46));
+      // Alanın kendi dinleyicisi: diyaloğunkinden sonra bağlanır, alanı görünür alanın altına (16 px pay) yaslar.
+      viewport.addEventListener('resize', () => { scrollTop = 202 + 46 - (176 - 16); });
+      act(() => {
+        viewport.height = 176;
+        viewport.dispatchEvent(new Event('resize'));
+      });
+      expect(field.getBoundingClientRect().bottom, 'alanın kendi kaydırması altlığın altına itti').toBeGreaterThan(55);
+      act(() => { for (const callback of frames.splice(0)) callback(performance.now()); });
+      expect(field.getBoundingClientRect().bottom).toBe(176 - 121);
+    } finally {
+      raf.mockRestore();
       if (original) Object.defineProperty(window, 'visualViewport', original);
       else delete (window as { visualViewport?: unknown }).visualViewport;
     }
