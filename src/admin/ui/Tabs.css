@@ -200,103 +200,16 @@
 }
 .aile-tabs__tetik[aria-expanded='true'] .aile-tabs__ok { transform: rotate(180deg); }
 
-/* --- Alttan sayfa (yönetim köküne portallanır): örtü + panel. En çok %85 yükseklik, liste kendi içinde kayar,
-   alt güvenli alan korunur. Panelin yalnız üst köşeleri yuvarlak; kenar çizgisi yok, ayrım yükselti gölgesiyle. ---- */
-.aile-tabs-katman {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  font-family: var(--aile-font-sans);
-  font-size: 16px;
-  line-height: 24px;
-  color: var(--aile-metin);
-}
-.aile-tabs-katman[data-acik='false'] { pointer-events: none; }
-.aile-tabs-katman__ortu {
-  position: absolute;
-  inset: 0;
-  background-color: var(--aile-ortu);
-  opacity: 0;
-  transition: opacity var(--aile-sure) var(--aile-egri);
-}
-.aile-tabs-katman[data-acik='true'] .aile-tabs-katman__ortu { opacity: 1; }
-.aile-tabs-sayfa {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  max-height: 85dvh;
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-  border-radius: var(--aile-kose-panel) var(--aile-kose-panel) 0 0;
-  background-color: var(--aile-yuzey);
-  box-shadow: var(--aile-golge-yukseltilmis);
-  transform: translateY(100%);
-  transition: transform var(--aile-sure) var(--aile-egri);
-}
-.aile-tabs-katman[data-acik='true'] .aile-tabs-sayfa { transform: translateY(0); }
-.aile-tabs-sayfa__tutamac {
-  flex: none;
-  align-self: center;
-  width: var(--aile-bosluk-8);
-  height: var(--aile-bosluk-1);
-  margin-top: var(--aile-bosluk-2);
-  border-radius: var(--aile-bosluk-1);
-  background-color: var(--aile-acik-mavi);
-}
-.aile-tabs-sayfa__ust {
-  flex: none;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--aile-bosluk-3);
-  padding: var(--aile-bosluk-1) var(--aile-bosluk-2) var(--aile-bosluk-1) var(--aile-bosluk-4);
-  border-bottom: 1px solid var(--aile-cizgi);
-}
-.aile-tabs-sayfa .aile-tabs-sayfa__baslik {
-  margin: 0;
-  min-width: 0;
-  font-size: 18px;
-  line-height: 26px;
-  font-weight: 600;
-  color: var(--aile-metin);
-  overflow-wrap: break-word;
-}
-.aile-tabs-sayfa__kapat {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--aile-bosluk-2);
-  min-height: var(--aile-dokunma-hedefi);
-  min-width: var(--aile-dokunma-hedefi);
-  margin: 0;
-  padding: 0 var(--aile-bosluk-3);
-  border: 0;
-  border-radius: var(--aile-kose-kontrol);
-  background-color: transparent;
-  color: var(--aile-metin);
-  font: inherit;
-  font-weight: 500;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: background-color var(--aile-sure) var(--aile-egri);
-}
-@media (hover: hover) {
-  .aile-tabs-sayfa__kapat:hover { background-color: var(--aile-bilgi-yuzey); }
-}
-.aile-tabs-sayfa__kapat:active { background-color: var(--aile-secili); }
-/* Seçenekler arası boşluk odak çizgisini (4 + 3 px) bir sonraki seçeneğin altında bırakmaz. */
+/* --- Alttan sayfa: ortak ui/BottomSheet (örtü, panel, %85 sınırı, başlık + Kapat, alt güvenli alan, hareket,
+   kaydırma gövdesi onda; burada yalnız içerik). Liste gövdenin kaydırmasıyla kayar; seçenekler arası boşluk odak
+   çizgisini (4 + 3 px) bir sonraki seçeneğin altında bırakmaz. ---- */
 .aile-tabs-sayfa__liste {
   display: flex;
   flex-direction: column;
   gap: var(--aile-bosluk-2);
-  min-height: 0;
   margin: 0;
-  padding: var(--aile-bosluk-2) var(--aile-bosluk-4) var(--aile-bosluk-4);
+  padding: 0;
   list-style: none;
-  overflow-y: auto;
-  overscroll-behavior: contain;
 }
 .aile-tabs-sayfa__secenek {
   display: flex;
@@ -351,8 +264,5 @@
   .aile-tabs__ipucu,
   .aile-tabs__tetik,
   .aile-tabs__ok,
-  .aile-tabs-katman__ortu,
-  .aile-tabs-sayfa,
-  .aile-tabs-sayfa__kapat,
   .aile-tabs-sayfa__secenek { transition-duration: 0s; }
 }

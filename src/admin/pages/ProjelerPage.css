@@ -65,7 +65,10 @@
   appearance: none;
   transition: background-color var(--aile-sure) var(--aile-egri);
 }
-.aile-projeler-proje:hover { background: var(--aile-bilgi-yuzey); }
+/* Hover yalnız hover destekleyen birincil işaretçide (dokunmatikte takılı kalmaz); basılı yüzey her girişte. */
+@media (hover: hover) {
+  .aile-projeler-proje:hover { background: var(--aile-bilgi-yuzey); }
+}
 .aile-projeler-proje:active { background: var(--aile-secili); }
 /* Odak çizgisi: klavye modunda, satırın alt kenarında, satır genişliğinde (admin.css tr/[role=row] kuralıyla aynı). */
 html[data-keyboard='true'] .aile-projeler-proje:focus-visible::after {
@@ -77,6 +80,12 @@ html[data-keyboard='true'] .aile-projeler-proje:focus-visible::after {
   height: var(--aile-odak-kalinlik);
   background: var(--aile-odak);
   pointer-events: none;
+}
+/* Son satırda çizgi listenin radiuslu alt kenarındadır: yalnız çizgi görünürken listenin değdiği iki alt köşesi
+   radiussuz (kavisli vurgu kenarı yok); üst köşeler ve işaretçi görünümü korunur, geçiş yok. */
+html[data-keyboard='true'] .aile-projeler-liste:has(> .aile-projeler-liste__oge:last-child :focus-visible) {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
 }
 .aile-projeler-proje__ana { display: flex; flex-direction: column; gap: var(--aile-bosluk-1); min-width: 0; }
 .aile-projeler-proje__ad { font-weight: 600; overflow-wrap: break-word; }

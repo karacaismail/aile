@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
+import { useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type FocusEvent, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
 import { designTokens } from '../../design/tokens.ts';
 import type { ResponsiveColumn } from '../shell/contracts';
 import { Icon } from './icons';
@@ -11,8 +11,11 @@ import './Table.css';
 // (yatay kaydırmada satırın adı görünür kalır; dar alanda kaydırılacak yer bırakmak için yapışmaz). Her sütun minWidth
 // alır; `grow` verilen (açıklama) sütun kalan alanı alır, diğerleri en küçük genişliğinde kalır. Başlık 14/600, kelime
 // ortasından bölünmez; maxHeight verilince gövde kapta kayar ve başlık o alanda yapışkandır. Tutar sütunları sağa ve
-// .aile-tutar ile. Satır tıklanır; Enter/Space açar, oklar/Home/End satırlar arasında odağı taşır. Seçili satır secili
-// yüzey + 600; odak çizgisi satırın altında (admin.css tr:focus-visible::after; burada yapışkan hücrenin üstüne alınır).
+// .aile-tutar ile. Satır tıklanır; Enter/Space açar, oklar/Home/End satırlar arasında odağı taşır. Tıklanabilir satırlar tek
+// sekme durağıdır (dolaşan tabindex: son odaklanan satır, yoksa seçili, o da yoksa ilk satır; seçim değişince durak seçili
+// satıra geçer): Tab tablodan tek adımda çıkar. Açılabildikleri tek, görsel gizli ipucuyla duyurulur (aria-describedby;
+// satırın adı hücrelerden gelir, değişmez). Seçili satır secili yüzey + 600; odak çizgisi satırın altında (admin.css
+// tr:focus-visible::after; burada yapışkan hücrenin üstüne alınır).
 // Sıralanabilir başlık: <th aria-sort> içinde başlık adıyla düğme. Telefon/tablet uyarlaması ResponsiveTable'ın işidir.
 
 /** Tablo sütunu: contracts ResponsiveColumn'un tablo payı (m/only alanları ResponsiveTable'a aittir) + isteğe bağlı sıralama ve büyüme. */
@@ -36,6 +39,8 @@ export interface TableProps<R extends object> {
   selectedKey?: string;
   /** Satıra tıklama ya da Enter/Space; verilmezse satırlar sekme sırasına girmez. */
   onRowClick?(row: R): void;
+  /** Tıklanabilir satırın ekran okuyucu ipucu (aria-describedby); varsayılan "Enter ya da Boşluk ile açılır." */
+  rowHint?: string;
   /** Görsel gizli <caption>; tabloyu ve taşan kaydırma kabını adlandırır. */
   caption?: string;
   /** Verilirse kap bu yükseklikte (CSS px) kendi içinde kayar ve başlık o alanda yapışkan kalır. */
@@ -54,6 +59,7 @@ const COLUMN_PADDING = designTokens.bosluk4 * 2;
 /** Taşan kabın adı caption yoksa. */
 const KAP_ADI = 'Tablo';
 const EMPTY_TEXT = 'Henüz yok';
+const ROW_HINT = 'Enter ya da Boşluk ile açılır.';
 const ROW_NAV_KEYS = new Set(['ArrowDown', 'ArrowUp', 'Home', 'End']);
 
 // Hücre içindeki kontrol (düğme, bağlantı, alan) satırı açmaz; satırın kendisi açar.
@@ -117,8 +123,9 @@ function moveRowFocus(event: KeyboardEvent<HTMLTableRowElement>) {
 }
 
 export function Table<R extends object>({
-  columns, rows, rowKey, selectedKey, onRowClick, caption, maxHeight, sort, defaultSort, onSortChange, className,
+  columns, rows, rowKey, selectedKey, onRowClick, rowHint = ROW_HINT, caption, maxHeight, sort, defaultSort, onSortChange, className,
 }: TableProps<R>) {
+  const hintId = useId();
   const scrollerRef = useRef<HTMLDivElement>(null);
   const area = useScrollArea(scrollerRef);
   const [ownSort, setOwnSort] = useState<TableSort | null>(defaultSort ?? null);
@@ -126,6 +133,20 @@ export function Table<R extends object>({
   const sortColumn = sortColumnOf(columns, requested);
   const activeSort = sortColumn && requested ? requested : null;
   const order = useMemo(() => sortedIndices(rows, columns, activeSort), [rows, columns, activeSort]);
+  const keyOf = (index: number) => (rowKey ? rowKey(rows[index]!) : defaultRowKey(rows[index]!, index));
+
+  // Dolaşan tabindex: son odaklanan satır durak kalır; seçim değişince (açılan kayıt) durak seçili satıra döner
+  // (render sırasında durum ayarlama kalıbı; effect'te boş kare yok).
+  const [focusedKey, setFocusedKey] = useState<string | null>(null);
+  const [seenSelected, setSeenSelected] = useState(selectedKey);
+  if (seenSelected !== selectedKey) {
+    setSeenSelected(selectedKey);
+    setFocusedKey(null);
+  }
+  const keys = onRowClick ? order.map(keyOf) : [];
+  const stopKey = focusedKey !== null && keys.includes(focusedKey) ? focusedKey
+    : selectedKey !== undefined && keys.includes(selectedKey) ? selectedKey
+    : keys[0];
 
   const changeSort = (key: string) => {
     const next = nextSort(activeSort, key);
@@ -163,7 +184,7 @@ export function Table<R extends object>({
 
   const renderRow = (index: number) => {
     const row = rows[index]!;
-    const key = rowKey ? rowKey(row) : defaultRowKey(row, index);
+    const key = keyOf(index);
     const selected = selectedKey !== undefined && key === selectedKey;
     const onClick = onRowClick
       ? (event: MouseEvent<HTMLTableRowElement>) => {
@@ -181,8 +202,23 @@ export function Table<R extends object>({
           }
         }
       : undefined;
+    // Satırın kendisi odak alınca (klavye, ok tuşu, işaretçi) durak olur; hücredeki kontrolün odağı sayılmaz.
+    const onFocus = onRowClick
+      ? (event: FocusEvent<HTMLTableRowElement>) => {
+          if (event.target === event.currentTarget) setFocusedKey(key);
+        }
+      : undefined;
     return (
-      <tr key={key} className="aile-table-satir" aria-selected={selected || undefined} tabIndex={onRowClick ? 0 : undefined} onClick={onClick} onKeyDown={onKeyDown}>
+      <tr
+        key={key}
+        className="aile-table-satir"
+        aria-selected={selected || undefined}
+        aria-describedby={onRowClick ? hintId : undefined}
+        tabIndex={onRowClick ? (key === stopKey ? 0 : -1) : undefined}
+        onClick={onClick}
+        onKeyDown={onKeyDown}
+        onFocus={onFocus}
+      >
         {columns.map(column => (
           <td key={column.key} className={column.align === 'right' ? 'aile-table-hucre aile-tutar' : 'aile-table-hucre'}>
             {column.render ? column.render(row) : defaultCell(row, column.key)}
@@ -222,6 +258,7 @@ export function Table<R extends object>({
           </tbody>
         </table>
       </div>
+      {onRowClick ? <p id={hintId} className="aile-table-ipucu">{rowHint}</p> : null}
     </div>
   );
 }

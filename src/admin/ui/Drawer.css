@@ -70,14 +70,15 @@
 }
 .aile-drawer--full .aile-drawer-section { border-radius: 0; padding-top: env(safe-area-inset-top, 0px); }
 
-/* Başlık: 64 px, tek cizgi ayırıcı; h2 başlık h3 ölçüsünde (18/26, 600), kesilmez. */
+/* Başlık: 64 px (2 × bosluk-8, AccordionList satırıyla aynı türetme), tek cizgi ayırıcı; h2 başlık h3 ölçüsünde (18/26,
+   600), kesilmez. */
 .aile-drawer .aile-drawer-header {
   flex: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--aile-bosluk-3);
-  min-height: 64px;
+  min-height: calc(2 * var(--aile-bosluk-8));
   padding: var(--aile-bosluk-2) var(--aile-bosluk-2) var(--aile-bosluk-2) var(--aile-bosluk-4);
   border-bottom: 1px solid var(--aile-cizgi);
 }

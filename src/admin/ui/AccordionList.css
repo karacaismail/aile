@@ -77,7 +77,11 @@
   transition: background-color var(--aile-sure) var(--aile-egri);
 }
 div.aile-acc-head--flat { cursor: default; }
-button.aile-acc-head:hover { background: var(--aile-bilgi-yuzey); }
+/* Hover yalnız birincil işaretçi hover destekliyorsa: dokunmatikte satırı kapatan dokunuştan sonra hover tonu (açık
+   satır tonuyla aynı) takılı kalmaz, kapalı satır açık görünmez. Basılı yüzey her girişte. */
+@media (hover: hover) {
+  button.aile-acc-head:hover { background: var(--aile-bilgi-yuzey); }
+  }
 button.aile-acc-head:active { background: var(--aile-secili); }
 
 .aile-acc-main {
@@ -161,7 +165,6 @@ button.aile-acc-head:active { background: var(--aile-secili); }
   justify-self: center;
   color: var(--aile-metin-ikincil);
 }
-button.aile-acc-head:hover .aile-acc-tog { background: var(--aile-bilgi-yuzey); }
 
 /* Açık satır: başlık ve gövde bilgi-yuzey, ok kutusu eylem dolgu + yuzey ok, ok 180° döner. */
 .aile-acc-item[data-open='true'] > .aile-acc-head { background: var(--aile-bilgi-yuzey); }
@@ -237,7 +240,9 @@ button.aile-acc-head:hover .aile-acc-tog { background: var(--aile-bilgi-yuzey); 
 /* ODAK — satır başlığı düğmesinde tek 3 px çizgi başlık metninin altında (odak-aralik kadar aşağıda, metin
    genişliğinde). admin.css'in [data-focus-line] çizgisi kontrolün dışına düşer; tam genişlik satırda komşu satıra
    taşacağı ve son satırda radiuslu liste kenarına yaslanacağı için burada kullanılmaz. Yalnız klavye modunda
-   (html[data-keyboard='true']) ve :focus-visible ile görünür; çevreleyen halka yok (admin.css tarayıcı odağını kapatır). */
+   (html[data-keyboard='true']) ve :focus-visible ile görünür; çevreleyen halka yok (admin.css tarayıcı odağını kapatır).
+   Gösterge hareketsizdir (UX hareket sözleşmesi: odak işareti hemen görünür, zorla fade yok): geçiş yazılmaz, tuştan
+   sonraki ilk karede tam opaktır; reduced-motion dalına da gerek yoktur. */
 .aile-acc-ul::after {
   content: "";
   position: absolute;
@@ -248,10 +253,9 @@ button.aile-acc-head:hover .aile-acc-tog { background: var(--aile-bilgi-yuzey); 
   background: var(--aile-odak);
   opacity: 0;
   pointer-events: none;
-  transition: opacity var(--aile-sure) var(--aile-egri);
 }
 html[data-keyboard='true'] button.aile-acc-head:focus-visible .aile-acc-ul::after { opacity: 1; }
 
 @media (prefers-reduced-motion: reduce) {
-  .aile-acc-head, .aile-acc-tog, .aile-acc-chev, .aile-acc-panel, .aile-acc-dl, .aile-acc-ul::after { transition-duration: 0s; }
+  .aile-acc-head, .aile-acc-tog, .aile-acc-chev, .aile-acc-panel, .aile-acc-dl { transition-duration: 0s; }
 }

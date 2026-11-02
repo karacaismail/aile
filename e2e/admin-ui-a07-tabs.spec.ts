@@ -320,7 +320,11 @@ test.describe('Tabs › görünüm modu (/alimlar)', () => {
     const gantt = listbox.getByRole('option', { name: /^Gantt/ });
     await expect(gantt).toHaveAttribute('aria-disabled', 'true');
     await expect(gantt).toContainText('Kullanılamaz');
-    const motion = await sheet.evaluate((el) => ({ duration: getComputedStyle(el).transitionDuration, ease: getComputedStyle(el).transitionTimingFunction }));
+    // Hareket ortak alt sayfanın sarmalındadır (ui/BottomSheet: panel kayar, örtü opaklık); tek süre ve tek eğri.
+    const motion = await sheet.evaluate((el) => {
+      const sarmal = el.closest('.aile-sheet-sarmal')!;
+      return { duration: getComputedStyle(sarmal).transitionDuration, ease: getComputedStyle(sarmal).transitionTimingFunction };
+    });
     expect(motion).toEqual({ duration: '0.24s', ease: 'cubic-bezier(0.65, 0, 0.35, 1)' });
     await expect.poll(async () => {
       const box = await sheet.boundingBox();
@@ -341,7 +345,7 @@ test.describe('Tabs › görünüm modu (/alimlar)', () => {
     await expect(combobox).toHaveAttribute('aria-expanded', 'false');
     await expect(combobox).toBeFocused();
     await expect(combobox).toContainText('Tablo');
-    await expect(page.locator('.aile-tabs-katman')).toHaveCount(0);
+    await expect(page.locator('.aile-tabs-sayfa')).toHaveCount(0);
 
     // Klavye: Tab ile tetiğe; Enter açar (odak seçili seçenekte, çevre halkası yok, alt çizgi var); ↓ taşır; Escape kapatır
     // ve odak tetiğe döner; Tab sayfada kalır (seçenek ↔ Kapat).
@@ -373,12 +377,59 @@ test.describe('Tabs › görünüm modu (/alimlar)', () => {
     await page.keyboard.press('Enter');
     await expect(sheet).toBeVisible();
     await expect(combobox).toHaveAttribute('aria-expanded', 'true');
-    expect(await page.locator('.aile-tabs-sayfa').evaluate((el) => getComputedStyle(el).transitionDuration)).toBe('0s');
-    expect(await page.locator('.aile-tabs-katman__ortu').evaluate((el) => getComputedStyle(el).transitionDuration)).toBe('0s');
+    expect(await page.locator('.aile-tabs-sayfa .aile-sheet-sarmal').evaluate((el) => getComputedStyle(el).transitionDuration)).toBe('0s');
+    expect(await page.locator('.aile-tabs-sayfa .aile-sheet-ortu').evaluate((el) => getComputedStyle(el).transitionDuration)).toBe('0s');
     await page.keyboard.press('Escape');
-    await expect(page.locator('.aile-tabs-katman')).toHaveCount(0, { timeout: 500 });
+    await expect(page.locator('.aile-tabs-sayfa')).toHaveCount(0, { timeout: 500 });
     await expect(combobox).toHaveAttribute('aria-expanded', 'false');
     await expect(combobox).toBeFocused();
+  });
+});
+
+test.describe('Tabs › telefon alt sayfası ortak kipli katman (/alimlar Görünüm modu)', () => {
+  // Telefonda 5+ seçenekli Görünüm modu seçimi ortak alt sayfadır (ui/BottomSheet; Select, Menu ve Dialog ile aynı
+  // katman): arka plan inert ve kaydırması kilitli; işaretçiyle başlığa ya da boş alana dokunulunca odak katmanda kalır,
+  // Tab/Shift+Tab katmanda döner, Escape her yerden kapatır ve odak tetiğe döner.
+  test('arka plan inert + kaydırma kilidi; başlığa dokunuştan sonra Tab katmanda; Escape kapatır, odak tetikte', MATRIX, async ({ page, browserName }) => {
+    await openAdmin(page, '/alimlar');
+    test.skip((await profile(page)) !== 'phone', 'alt sayfa yalnız telefon profilinde (genişte radiogroup)');
+    const combobox = page.getByRole('combobox', { name: 'Görünüm modu' });
+    await combobox.tap();
+    const sheet = page.getByRole('dialog', { name: 'Görünüm modu' });
+    await expect(sheet).toBeVisible();
+    await expect(sheet).toHaveAttribute('aria-modal', 'true');
+    await expect(sheet.getByRole('option', { name: 'Liste' })).toBeFocused();
+
+    // Arka plan (main ve kabuk) inert, sayfa kaydırması kilitli; katmanın kendisi değil.
+    const durum = await sheet.evaluate((el) => ({
+      mainInert: document.querySelector('main#admin-content')!.closest('[inert]') !== null,
+      tetikInert: document.querySelector('[role="combobox"][aria-expanded="true"]')!.closest('[inert]') !== null,
+      katmanInert: el.closest('[inert]') !== null,
+      kaydirma: getComputedStyle(document.body).overflow,
+    }));
+    expect(durum).toEqual({ mainInert: true, tetikInert: true, katmanInert: false, kaydirma: 'hidden' });
+
+    // İşaretçiyle başlığa dokunuş: odak body'ye düşmez, katmanda kalır; Tab ve Shift+Tab katmandan çıkmaz.
+    await sheet.getByRole('heading', { level: 2, name: 'Görünüm modu' }).tap();
+    await expect.poll(() => sheet.evaluate((el) => el.contains(document.activeElement))).toBe(true);
+    for (const tus of [tabKey(browserName), tabKey(browserName), shiftTabKey(browserName), shiftTabKey(browserName), shiftTabKey(browserName)]) {
+      await page.keyboard.press(tus);
+      expect(await sheet.evaluate((el) => el.contains(document.activeElement)), `${tus} sonrası odak katmanda`).toBe(true);
+    }
+    expect(await focusRing(page)).toEqual([]);
+
+    // Başlığa yeniden dokunup Escape: katman kapanır, arka plan serbest, odak tetikte, seçim değişmez.
+    await sheet.getByRole('heading', { level: 2, name: 'Görünüm modu' }).tap();
+    await page.keyboard.press('Escape');
+    await expect(sheet).toBeHidden();
+    await expect(combobox).toHaveAttribute('aria-expanded', 'false');
+    await expect(combobox).toBeFocused();
+    await expect(combobox).toContainText('Liste');
+    await expect(page.locator('.aile-tabs-sayfa')).toHaveCount(0);
+    expect(await page.evaluate(() => ({
+      mainInert: document.querySelector('main#admin-content')!.closest('[inert]') !== null,
+      kaydirma: getComputedStyle(document.body).overflow,
+    }))).toEqual({ mainInert: false, kaydirma: 'visible' });
   });
 });
 

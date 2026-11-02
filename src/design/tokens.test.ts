@@ -330,3 +330,49 @@ describe('fontSans yedek yüzü (src/admin/fonts.css)', () => {
     expect(new Set(yedek.map(weights))).toEqual(outfit);
   });
 });
+
+// Bileşen ve sayfa CSS'lerinin ortak sözleşmesi (kullanıcının kalıcı arayüz kuralları): ölçüler merkezi --aile-*
+// tokenlarından (yalnız tasarım tip ölçeği, 0 ve 1 px kılçizgi düz yazılır), hover yalnız hover destekleyen birincil
+// işaretçide (dokunmatikte takılı kalmaz), okunur metin kullanıcının kök yazı boyutu küçükken de 14 CSS px'in altına
+// inmez. Kaynak metni okunur; hesaplanmış görünüm e2e'dedir (admin-ui-a09-table: odak çizgisi sınırları).
+describe('bileşen ve sayfa CSS sözleşmesi', () => {
+  const read = (path: string) => readFileSync(resolve(__dirname, '..', path), 'utf8');
+  const TIP_OLCEGI = new Set(['0', '1', '14', '16', '18', '20', '24', '26', '32', '40']);
+
+  it('Drawer.css ölçüleri tokendan: başlık 64 px = 2 × bosluk-8; tip ölçeği ve kılçizgi dışında düz px yok', () => {
+    const css = read('admin/ui/Drawer.css').replace(/\/\*[\s\S]*?\*\//g, '');
+    const duz = Array.from(css.matchAll(/(?<![\w-])(\d+(?:\.\d+)?)px\b/g), match => match[1]!).filter(value => !TIP_OLCEGI.has(value));
+    expect(duz).toEqual([]);
+    const baslik = cssRules(css).find(rule => rule.selector === '.aile-drawer .aile-drawer-header');
+    expect(declarations(baslik?.body ?? '')['min-height']).toBe('calc(2 * var(--aile-bosluk-8))');
+  });
+
+  it('hover tonu yalnız (hover: hover) altında: akordeon, Genel ve Projeler satırları dokunmatikte hover tonunda takılı kalmaz', () => {
+    for (const path of ['admin/ui/AccordionList.css', 'admin/pages/GenelPage.css', 'admin/pages/ProjelerPage.css']) {
+      const hover = cssRules(read(path)).filter(rule => rule.selector.includes(':hover'));
+      expect(hover.length, path).toBeGreaterThan(0);
+      for (const rule of hover) expect(rule.media, `${path} › ${rule.selector}`).toBe('@media (hover: hover)');
+    }
+  });
+
+  // Kullanıcı tarayıcıda küçük yazı boyutu seçerse (kök 12 px) rem tabanlı değer küçülür; kural alt sınırı 14 px'tir
+  // ve düğme etiketi gövde metniyle (admin.css .aile-admin 16 px) aynı ölçüde kalır. Büyük kökte büyüme korunur.
+  it('Button.css: düğme etiketi ve devre dışı nedeni kök 10–12 px iken de 16 / 14 px; kök büyüyünce büyür', () => {
+    const rules = cssRules(read('admin/ui/Button.css'));
+    const boyut = (selector: string) => declarations(rules.find(rule => rule.selector === selector)?.body ?? '')['font-size'] ?? '';
+    /** Yalnız bu dosyada kullanılan biçimler: Npx, Nrem, max(...). */
+    const hesapla = (deger: string, kok: number): number => {
+      const max = /^max\((.*)\)$/.exec(deger);
+      if (max) return Math.max(...max[1]!.split(',').map(part => hesapla(part.trim(), kok)));
+      const sayi = /^(\d+(?:\.\d+)?)(px|rem)$/.exec(deger);
+      if (!sayi) throw new Error(`çözülemeyen yazı boyutu: ${deger}`);
+      return Number(sayi[1]) * (sayi[2] === 'rem' ? kok : 1);
+    };
+    for (const kok of [10, 12, 16]) {
+      expect(hesapla(boyut('.aile-dugme'), kok), `.aile-dugme kök ${kok}`).toBe(16);
+      expect(hesapla(boyut('.aile-btn-neden'), kok), `.aile-btn-neden kök ${kok}`).toBe(14);
+    }
+    expect(hesapla(boyut('.aile-dugme'), 20)).toBe(20);
+    expect(hesapla(boyut('.aile-btn-neden'), 20)).toBe(17.5);
+  });
+});

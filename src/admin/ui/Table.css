@@ -11,6 +11,20 @@
   max-width: 100%;
 }
 
+/* Satır ipucu ("Enter ya da Boşluk ile açılır."): tıklanabilir satırların aria-describedby hedefi; ekran okuyucuya
+   açık, görsel gizli (tek kopya). Alanın sol üstünde 1 px kutu: yerleşimi ve kaydırmayı etkilemez. */
+.aile-table-ipucu {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 /* Tablo yalnız kendi kabında kayar; sayfa yatay taşmaz. Kap statik kalır (konumlu değil): odak çizgisinin içerme
    bloğu .aile-table-alan olur ve kabın taşma kırpmasına girmez. */
 .aile-table-kaydirici {

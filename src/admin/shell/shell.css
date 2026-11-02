@@ -8,6 +8,10 @@
      --aile-dokunma-hedefi  dokunma hedefi 44; kaba işaretçi katmanında 48 (bant tokenda).
      --aile-safe-*          güvenli alan (env(safe-area-inset-*) tek yerde, admin.css).
    Tek yerel türetme: --aile-shell-ust-bar üst çubuk 56 = hedef-asgari 44 + bosluk-3 12 (hedef 48 iken dikey pay 4 + 4).
+   Üst çubuğun alt payı odak çizgisini taşır: kabuk düğmesinin çizgisi (admin.css, dolgu kutusunun odak-aralik altında,
+   odak-kalinlik kalınlığında) 1 px kenarlıktan aralik + kalinlik − 1 = 6 px aşağı iner. Alt pay en az bu kadardır ki
+   odak-nav çizgisi tamamıyla lacivert çubukta kalsın (açık zeminde ≈ 1,8:1 olurdu). Çubuk 56 px kalır: kaba işaretçide
+   (hedef 48) artan alt pay üst paydan düşülür (üst 2, alt 6); ince işaretçide 6 + 6 değişmez.
    Profil kararı AdaptiveRoot'un [data-profile] özniteliğinden; genişlik/yükseklik media query türetilmez.
    Odak çizgisini admin.css çizer (a, [data-focus-line]; lacivert yerel yüzeyler data-odak-zemin="nav" taşır: çizgi
    odak-nav, seçili öğede odak); burada outline/box-shadow halkası yok. Tüm kurallar .aile-admin altında: admin.css
@@ -18,6 +22,9 @@
 .aile-admin .aile-admin-shell {
   --aile-shell-ust-bar: calc(var(--aile-hedef-asgari) + var(--aile-bosluk-3));
   --aile-shell-dikey-pay: calc((var(--aile-shell-ust-bar) - var(--aile-dokunma-hedefi)) / 2);
+  --aile-shell-odak-payi: calc(var(--aile-odak-aralik) + var(--aile-odak-kalinlik) - 1px);
+  --aile-shell-alt-pay: max(var(--aile-shell-dikey-pay), var(--aile-shell-odak-payi));
+  --aile-shell-ust-pay: calc(var(--aile-shell-ust-bar) - var(--aile-dokunma-hedefi) - var(--aile-shell-alt-pay));
   display: block;
   position: relative;
   min-height: 100dvh;
@@ -63,7 +70,7 @@
   align-items: center;
   gap: var(--aile-bosluk-2);
   min-height: calc(var(--aile-shell-ust-bar) + var(--aile-safe-top));
-  padding-block: calc(var(--aile-shell-dikey-pay) + var(--aile-safe-top)) var(--aile-shell-dikey-pay);
+  padding-block: calc(var(--aile-shell-ust-pay) + var(--aile-safe-top)) var(--aile-shell-alt-pay);
   padding-inline: calc(var(--aile-yogunluk-kenar) + var(--aile-safe-left)) calc(var(--aile-yogunluk-kenar) + var(--aile-safe-right));
   background: var(--aile-nav);
   color: var(--aile-nav-metin);

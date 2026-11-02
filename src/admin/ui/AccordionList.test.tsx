@@ -263,6 +263,21 @@ describe('AccordionList', () => {
     expect(screen.queryByRole('button', { name: 'Ayrıntıyı aç' })).toBeNull();
   });
 
+  it('gövdedeki eylem düğmesi satırın adıyla açıklanır: görünür ad aynı kalır, aria-describedby satır başlığını gösterir', () => {
+    const items: AccordionItem[] = alimlar.map(item => ({ ...item, onOpen: () => {} }));
+    render(<AccordionList items={items} caption="3 alım" defaultOpenKeys={['a1', 'a2', 'a3']} />);
+    const dugmeler = screen.getAllByRole('button', { name: 'Ayrıntıyı aç' });
+    expect(dugmeler).toHaveLength(3);
+    expect(dugmeler.map(dugme => dugme.textContent)).toEqual(['Ayrıntıyı aç', 'Ayrıntıyı aç', 'Ayrıntıyı aç']);
+    for (const [i, title] of ['Salon koltuğu', 'Mutfak masası', 'Bebek karyolası'].entries()) {
+      expect(dugmeler[i]).toHaveAccessibleName('Ayrıntıyı aç');
+      expect(dugmeler[i]).toHaveAccessibleDescription(title);
+      // Açıklama başlıktaki ad öğesidir (meta, durum ve tutar değil): tek kaynak, ikinci bir gizli metin yok.
+      const id = dugmeler[i]!.getAttribute('aria-describedby')!;
+      expect(document.getElementById(id)).toBe(head(title).querySelector('.aile-acc-ul'));
+    }
+  });
+
   it('seçili satır data-selected taşır (seçim yüzeyi CSS\'te secili + 600)', () => {
     render(<AccordionList items={[{ ...alimlar[0], selected: true }, alimlar[1]]} />);
     expect(head('Salon koltuğu').closest('li')).toHaveAttribute('data-selected', 'true');
@@ -352,6 +367,47 @@ describe('AccordionList', () => {
     fireEvent.pointerUp(second, { pointerType: 'touch', isPrimary: true });
     fireEvent.click(second);
     expect(second).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  // CSS kuralları (yorumsuz) ve bulundukları @media koşulu; iç içe tek düzey @media yeterli.
+  const cssKurallari = (css: string) => {
+    const kurallar: { secici: string; govde: string; medya: string | null }[] = [];
+    const temiz = css.replace(/\/\*[\s\S]*?\*\//g, '');
+    const yuru = (metin: string, medya: string | null) => {
+      let i = 0;
+      while (i < metin.length) {
+        const ac = metin.indexOf('{', i);
+        if (ac < 0) break;
+        const bas = metin.slice(i, ac).trim();
+        let derinlik = 1;
+        let j = ac + 1;
+        for (; j < metin.length && derinlik > 0; j++) {
+          if (metin[j] === '{') derinlik++;
+          else if (metin[j] === '}') derinlik--;
+        }
+        const ic = metin.slice(ac + 1, j - 1);
+        if (bas.startsWith('@media') || bas.startsWith('@container') || bas.startsWith('@starting-style')) yuru(ic, bas.startsWith('@media') ? bas : medya);
+        else kurallar.push({ secici: bas.replace(/\s+/g, ' '), govde: ic, medya });
+        i = j;
+      }
+    };
+    yuru(temiz, null);
+    return kurallar;
+  };
+
+  it('odak göstergesi hareketsizdir: çizgi sözde öğesi hiçbir koşulda geçiş taşımaz (solarak belirmez; UX hareket sözleşmesi)', () => {
+    const kurallar = cssKurallari(read('AccordionList.css')).filter(kural => kural.secici.includes('.aile-acc-ul::after'));
+    expect(kurallar.length).toBeGreaterThan(0);
+    for (const kural of kurallar) expect(kural.govde, kural.secici).not.toMatch(/transition/);
+    // Gösterge yalnız klavye modu + :focus-visible ile görünür; açılış ve kapanış anında (opaklık 0 ↔ 1).
+    const gorunur = kurallar.find(kural => /html\[data-keyboard='true'\][^,]*:focus-visible/.test(kural.secici));
+    expect(gorunur?.govde).toMatch(/opacity:\s*1/);
+  });
+
+  it('hover tonu yalnız hover destekleyen birincil işaretçide: dokunmatikte takılı kalmaz (açık satır tonuyla karışmaz)', () => {
+    const hover = cssKurallari(read('AccordionList.css')).filter(kural => kural.secici.includes(':hover'));
+    expect(hover.length).toBeGreaterThan(0);
+    for (const kural of hover) expect(kural.medya, kural.secici).toBe('@media (hover: hover)');
   });
 
   it('uzun adlar kelime arasından sarılır: başlıkta ve etiketlerde break-all / anywhere yok; başlık sütunu daralabilir', () => {

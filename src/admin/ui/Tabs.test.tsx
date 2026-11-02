@@ -434,7 +434,8 @@ describe('Tabs on a phone', () => {
     expect(combobox).toHaveFocus();
 
     await user.click(combobox);
-    await user.click(document.querySelector<HTMLElement>('.aile-tabs-katman__ortu')!);
+    // Örtü ortak alt sayfanındır (ui/BottomSheet, aria-hidden süsleyici).
+    await user.click(document.querySelector<HTMLElement>('.aile-sheet-ortu')!);
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(combobox).toHaveFocus();
     expect(onChange).not.toHaveBeenCalled();
@@ -455,6 +456,61 @@ describe('Tabs on a phone', () => {
     expect(tablo).toHaveFocus();
     await user.tab({ shift: true });
     expect(kapat).toHaveFocus();
+  });
+
+  // Ortak kipli katman (ui/BottomSheet + BottomSheet.layer): Select, Menu ve Dialog alt sayfalarıyla aynı sözleşme.
+  it('is the shared modal bottom sheet: background inert and scroll-locked while open, released on close', async () => {
+    telefon();
+    const user = userEvent.setup();
+    render(
+      <div className="aile-admin">
+        <main>
+          <button type="button">Arka plan</button>
+          <Tabs label="Görünüm modu" items={MODLAR} activeKey="listing" />
+        </main>
+      </div>,
+    );
+    const arka = screen.getByRole('button', { name: 'Arka plan' });
+    const combobox = screen.getByRole('combobox', { name: 'Görünüm modu' });
+    await user.click(combobox);
+    const sheet = screen.getByRole('dialog', { name: 'Görünüm modu' });
+    expect(arka.closest('[inert]'), 'arka plan inert').not.toBeNull();
+    expect(combobox.closest('[inert]'), 'tetik de arka plandadır').not.toBeNull();
+    expect(sheet.closest('[inert]')).toBeNull();
+    expect(document.body.style.overflow, 'sayfa kaydırması kilitli').toBe('hidden');
+    // Tek kaynak: ortak alt sayfa bileşeni (yerel kopya yok).
+    expect(sheet.closest('.aile-sheet')).not.toBeNull();
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(arka.closest('[inert]')).toBeNull();
+    expect(document.body.style.overflow).toBe('');
+    expect(combobox).toHaveFocus();
+  });
+
+  it('a pointer press on the sheet title keeps focus in the sheet: Tab stays inside, Escape still closes and returns focus', async () => {
+    telefon();
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(
+      <div className="aile-admin">
+        <Tabs label="Görünüm modu" items={MODLAR} activeKey="listing" onChange={onChange} />
+        <button type="button">Sonraki</button>
+      </div>,
+    );
+    const combobox = screen.getByRole('combobox', { name: 'Görünüm modu' });
+    await user.click(combobox);
+    const sheet = screen.getByRole('dialog', { name: 'Görünüm modu' });
+    await user.click(within(sheet).getByRole('heading', { level: 2, name: 'Görünüm modu' }));
+    expect(sheet.contains(document.activeElement), 'odak katmanda').toBe(true);
+    await user.tab();
+    expect(sheet.contains(document.activeElement), 'Tab katmanda kalır').toBe(true);
+    await user.tab({ shift: true });
+    expect(sheet.contains(document.activeElement), 'Shift+Tab katmanda kalır').toBe(true);
+    await user.click(within(sheet).getByRole('heading', { level: 2, name: 'Görünüm modu' }));
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(combobox).toHaveFocus();
+    expect(onChange).not.toHaveBeenCalled();
   });
 
   it('a cancelled touch on an option (pointercancel while the list scrolls) does not pick it', async () => {
@@ -535,6 +591,8 @@ describe('Tabs kaynak kuralları (statik)', () => {
     const graph = staticGraph('Tabs.tsx');
     expect(graph.files).toEqual(expect.arrayContaining([
       'src/admin/ui/Tabs.tsx', 'src/admin/ui/Tabs.secim.tsx', 'src/admin/ui/Tabs.gezinme.ts', 'src/admin/ui/icons.tsx', 'src/admin/device.ts',
+      // Telefon alt sayfası ortak kipli katmandır (yerel, antd'siz).
+      'src/admin/ui/BottomSheet.tsx', 'src/admin/ui/BottomSheet.layer.ts',
     ]));
     expect(graph.files).not.toContain('src/admin/ui/antd.ts');
     expect(graph.files).not.toContain('src/admin/adaptive/WideProviders.tsx');
@@ -602,10 +660,11 @@ describe('Tabs kaynak kuralları (statik)', () => {
     // Hedef tek merkezi tokendan (admin.css › --aile-dokunma-hedefi: 44 px, [data-input-coarse] kökte 48 px; b04/W0):
     // bileşen kaba girişi kendisi yeniden türetmez, portallanan sayfa da <html>'deki değeri alır.
     const block = (selector: string) => css.match(new RegExp(`(?:^|\\n)${selector.replace(/[.[\]]/g, '\\$&')}\\s*\\{[^}]*\\}`))?.[0] ?? '';
-    for (const selector of ['.aile-tabs__oge', '.aile-tabs__tetik', '.aile-tabs-sayfa__secenek', '.aile-tabs-sayfa__kapat', '.aile-tabs__ipucu']) {
+    // Alt sayfanın Kapat düğmesi ortak BottomSheet'indir (aynı token; e2e expectTargets ile ölçülür).
+    for (const selector of ['.aile-tabs__oge', '.aile-tabs__tetik', '.aile-tabs-sayfa__secenek', '.aile-tabs__ipucu']) {
       expect(block(selector), selector).toMatch(/min-height:\s*var\(--aile-dokunma-hedefi\)/);
     }
-    for (const selector of ['.aile-tabs__oge', '.aile-tabs-sayfa__kapat']) {
+    for (const selector of ['.aile-tabs__oge']) {
       expect(block(selector), selector).toMatch(/min-width:\s*var\(--aile-dokunma-hedefi\)/);
     }
     expect(block('.aile-tabs__ipucu')).toMatch(/(?:^|\s)width:\s*var\(--aile-dokunma-hedefi\)/);
