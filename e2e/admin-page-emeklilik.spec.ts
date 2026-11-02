@@ -103,7 +103,8 @@ test.describe('Emeklilik planı › telefon', () => {
     const askerlik = soru(main, 'askerlik');
     const evetSecili = await askerlik.getByRole('radio', { name: 'Evet' }).isChecked();
     const once = (await planlamaAyi(main).textContent())?.trim();
-    await askerlik.getByText(evetSecili ? 'Hayır' : 'Evet', { exact: true }).click();
+    // Yerel radyo girdisi segmentin tamamını kaplar (tüm segment tıklanır); kullanıcının işaretçisi girdiye düşer.
+    await askerlik.getByRole('radio', { name: evetSecili ? 'Hayır' : 'Evet' }).click();
     await expect(askerlik.getByRole('radio', { name: evetSecili ? 'Hayır' : 'Evet' })).toBeChecked();
     await expect(planlamaAyi(main)).not.toHaveText(once ?? '');
     await expect(planlamaAyi(main)).toHaveText(AY);
