@@ -140,7 +140,8 @@
 }
 
 /* İçerik: grid satırı 0fr → 1fr ile yükseklik geçişi (Disclosure ile aynı). React kapalıyken hidden+inert verir;
-   display geçişi allow-discrete ile kapanış süresince kutuyu tutar, @starting-style açılışı 0fr'dan başlatır. */
+   display geçişi allow-discrete ile kapanış süresince kutuyu tutar, @starting-style açılışı 0fr'dan başlatır. Açılış
+   geçişi yalnız kullanıcının aç/kapa yaptığı satırda ([data-gecis]); ilk açık satır ilk çizimde yerindedir. */
 .aile-pivot-panel {
   display: grid;
   grid-template-rows: 1fr;
@@ -154,7 +155,7 @@
   grid-template-rows: 0fr;
 }
 @starting-style {
-  .aile-pivot-panel:not([hidden]) { grid-template-rows: 0fr; }
+  .aile-pivot-panel[data-gecis]:not([hidden]) { grid-template-rows: 0fr; }
 }
 .aile-pivot-inner {
   min-height: 0;

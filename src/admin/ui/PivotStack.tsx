@@ -92,10 +92,14 @@ interface StackProps {
 
 function Stack({ columns, rows, caption, firstOpen, summary, idBase }: StackProps) {
   const [openKeys, setOpenKeys] = useState<ReadonlySet<string>>(() => new Set(firstOpen && rows[0] ? [rows[0][0]] : []));
+  // Kullanıcının aç/kapa yaptığı satırlar: açılış geçişi yalnız bunlarda (ilk açık satır ilk çizimde yerinde).
+  const [gecis, setGecis] = useState<ReadonlySet<string>>(() => new Set());
   const hasRows = rows.length > 0;
   const allOpen = hasRows && rows.every(([label]) => openKeys.has(label));
+  const isaretle = (labels: readonly string[]) => setGecis(prev => (labels.every(label => prev.has(label)) ? prev : new Set([...prev, ...labels])));
 
   const toggleRow = (label: string) => {
+    isaretle([label]);
     setOpenKeys(prev => {
       const next = new Set(prev);
       if (next.has(label)) next.delete(label);
@@ -103,7 +107,10 @@ function Stack({ columns, rows, caption, firstOpen, summary, idBase }: StackProp
       return next;
     });
   };
-  const toggleAll = () => setOpenKeys(allOpen ? new Set() : new Set(rows.map(([label]) => label)));
+  const toggleAll = () => {
+    isaretle(rows.map(([label]) => label));
+    setOpenKeys(allOpen ? new Set() : new Set(rows.map(([label]) => label)));
+  };
 
   return (
     <>
@@ -142,7 +149,7 @@ function Stack({ columns, rows, caption, firstOpen, summary, idBase }: StackProp
                   <Pair value={summary.rowTotals[index]!} />
                   <Icon name="chevronDown" className="aile-pivot-chev" />
                 </button>
-                <div id={panelId} role="region" aria-labelledby={buttonId} className="aile-pivot-panel" hidden={!open} inert={!open}>
+                <div id={panelId} role="region" aria-labelledby={buttonId} className="aile-pivot-panel" hidden={!open} inert={!open} data-gecis={gecis.has(label) ? '' : undefined}>
                   <div className="aile-pivot-inner">
                     <dl className="aile-pivot-cells">
                       {columns.map((column, j) => (

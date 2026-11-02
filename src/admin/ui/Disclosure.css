@@ -58,7 +58,8 @@
 .aile-disc-btn[aria-expanded='true'] .aile-disc-chev { transform: rotate(180deg); }
 
 /* İçerik: grid satırı 0fr → 1fr ile yükseklik geçişi. React kapalıyken hidden+inert verir; display geçişi
-   allow-discrete ile kapanış süresince kutuyu tutar, @starting-style açılışı 0fr'dan başlatır.
+   allow-discrete ile kapanış süresince kutuyu tutar, @starting-style açılışı 0fr'dan başlatır. Açılış geçişi yalnız
+   kullanıcının aç/kapa yaptığı içerikte ([data-gecis]); varsayılan açık içerik ilk çizimde yerindedir.
    Desteklemeyen tarayıcıda geçiş olmaz, davranış aynıdır. */
 .aile-disc-panel {
   display: grid;
@@ -73,7 +74,7 @@
   grid-template-rows: 0fr;
 }
 @starting-style {
-  .aile-disc-panel:not([hidden]) { grid-template-rows: 0fr; }
+  .aile-disc-panel[data-gecis]:not([hidden]) { grid-template-rows: 0fr; }
 }
 .aile-disc-inner {
   min-height: 0;

@@ -187,7 +187,8 @@ button.aile-acc-head:active { background: var(--aile-secili); }
 .aile-acc-item[data-selected='true'] > .aile-acc-head .aile-ikincil { color: var(--aile-metin); }
 
 /* Gövde: grid satırı 0fr → 1fr ile yükseklik geçişi (Disclosure ile aynı). React kapalıyken hidden+inert verir;
-   display geçişi allow-discrete ile kapanış süresince kutuyu tutar, @starting-style açılışı 0fr'dan başlatır. */
+   display geçişi allow-discrete ile kapanış süresince kutuyu tutar, @starting-style açılışı 0fr'dan başlatır. Açılış
+   geçişi yalnız kullanıcının aç/kapa yaptığı gövdede ([data-gecis]); varsayılan açık gövde ilk çizimde yerindedir. */
 .aile-acc-panel {
   display: grid;
   grid-template-rows: 1fr;
@@ -201,7 +202,7 @@ button.aile-acc-head:active { background: var(--aile-secili); }
   grid-template-rows: 0fr;
 }
 @starting-style {
-  .aile-acc-panel:not([hidden]) { grid-template-rows: 0fr; }
+  .aile-acc-panel[data-gecis]:not([hidden]) { grid-template-rows: 0fr; }
 }
 .aile-acc-inner {
   min-height: 0;

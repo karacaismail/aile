@@ -28,6 +28,8 @@ export function Disclosure({ title, children, meta, defaultOpen = false, open, o
   const panelRef = useRef<HTMLDivElement>(null);
   const [innerOpen, setInnerOpen] = useState(defaultOpen);
   const isOpen = open ?? innerOpen;
+  // Açılış geçişi yalnız kullanıcı başlığa bastıktan sonra; varsayılan ya da dışarıdan verilen açık durum ilk çizimde yerinde.
+  const [gecis, setGecis] = useState(false);
 
   // Kapanırken odak içerideyse başlığa taşı: içerik inert olunca odak sessizce body'ye düşmesin.
   useLayoutEffect(() => {
@@ -38,6 +40,7 @@ export function Disclosure({ title, children, meta, defaultOpen = false, open, o
 
   const toggle = () => {
     const next = !isOpen;
+    setGecis(true);
     if (open === undefined) setInnerOpen(next);
     onToggle?.(next);
   };
@@ -59,7 +62,7 @@ export function Disclosure({ title, children, meta, defaultOpen = false, open, o
         {meta ? <span className="aile-disc-meta aile-kucuk">{meta}</span> : null}
         <Icon name="chevronDown" className="aile-disc-chev" />
       </button>
-      <div ref={panelRef} id={panelId} role="region" aria-labelledby={buttonId} className="aile-disc-panel" hidden={!isOpen} inert={!isOpen}>
+      <div ref={panelRef} id={panelId} role="region" aria-labelledby={buttonId} className="aile-disc-panel" hidden={!isOpen} inert={!isOpen} data-gecis={gecis ? '' : undefined}>
         <div className="aile-disc-inner">
           <div className="aile-disc-body">{children}</div>
         </div>

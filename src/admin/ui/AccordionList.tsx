@@ -89,6 +89,9 @@ export function AccordionList({
       setOpen(firstOpen && first ? [first.item.key] : []);
     }
   }
+  // Kullanıcının aç/kapa yaptığı gövdeler: açılış geçişi (@starting-style) yalnız bunlarda çalışır. Varsayılan ya da veri
+  // gelişiyle açılan gövde ilk çizimde yerindedir (hareket sözleşmesi; sayfa hazır olduktan sonra kayma yok).
+  const [gecis, setGecis] = useState<ReadonlySet<string>>(() => new Set());
   const isOpen = (key: string) => open.includes(key);
   const allOpen = expandable.length > 0 && expandable.every(row => isOpen(row.item.key));
   const showBar = Boolean(caption) || items.length > 3;
@@ -106,8 +109,15 @@ export function AccordionList({
     }
   }, [open]);
 
-  const toggle = (key: string) => setOpen(prev => (prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]));
-  const toggleAll = () => setOpen(allOpen ? [] : expandable.map(row => row.item.key));
+  const isaretle = (keys: readonly string[]) => setGecis(prev => (keys.every(key => prev.has(key)) ? prev : new Set([...prev, ...keys])));
+  const toggle = (key: string) => {
+    isaretle([key]);
+    setOpen(prev => (prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]));
+  };
+  const toggleAll = () => {
+    isaretle(expandable.map(row => row.item.key));
+    setOpen(allOpen ? [] : expandable.map(row => row.item.key));
+  };
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (!NAV_KEYS.has(event.key)) return;
@@ -160,7 +170,7 @@ export function AccordionList({
           <div className="aile-acc-head aile-acc-head--flat">{head}</div>
         )}
         {canExpand ? (
-          <div id={panelId} className="aile-acc-panel" hidden={!rowOpen} inert={!rowOpen}>
+          <div id={panelId} className="aile-acc-panel" hidden={!rowOpen} inert={!rowOpen} data-gecis={gecis.has(item.key) ? '' : undefined}>
             <div className="aile-acc-inner">
               <div className="aile-acc-body">
                 <dl className="aile-acc-dl">
