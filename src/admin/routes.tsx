@@ -7,6 +7,7 @@ import { PageHeader } from './shell/PageHeader';
 import { adminLeads, adminNav, defaultAdminPath, type AdminPageKey } from './shell/navigation';
 import { ErrorState } from './ui/ErrorState';
 import { LoadingShell } from './ui/LoadingShell';
+import { preloadIcons } from './ui/icons';
 
 // Rota → sayfa: navigation.ts yolları (/genel … /veri, /emeklilik, /ayarlar) tek kaynaktır; etiket ve amaç oradan gelir.
 // - Her sayfa React.lazy ile kendi parçasında yüklenir, yalnız rotası çizildiğinde. Başka sayfa ya da geniş (*.wide)
@@ -23,7 +24,8 @@ import { LoadingShell } from './ui/LoadingShell';
 //   anlam: büyük/küçük harf duyarsız, sonda "/" serbest). Alımlar ayrıntısı "/alimlar/:id?" ile aynı Route öğesindedir
 //   (liste ↔ ayrıntı geçişinde sayfa yeniden kurulmaz); AlimlarPage seçili kaydı hash'ten (parseAlimlarHash) okur.
 // - Bilinmeyen konum varsayılan sayfaya (Genel durum) geçmişe kayıt eklemeden (replace) gider.
-// ui modülleri tek tek içe aktarılır (barrel değil): telefon teslimi yalnız burada çizilen bileşenleri çeker.
+// ui modülleri tek tek içe aktarılır (barrel değil): telefon teslimi yalnız burada çizilen bileşenleri çeker; ui/icons
+// yalnız çekirdek dışı simgeleri sayfa parçasıyla birlikte istemek için (preloadIcons).
 
 export type AdminRouteKey = AdminPageKey | 'ayarlar';
 export interface RoutePageProps { location: string }
@@ -37,20 +39,27 @@ export interface AdminRoutesOptions {
 /** Sayfa parçası için otomatik yeniden deneme beklemesi; geniş parçalarla (lazyWide) aynı. */
 export const PAGE_RETRY_DELAY_MS = WIDE_RETRY_DELAY_MS;
 
+/**
+ * Sayfa parçası + çekirdek dışı simgeler (ui/icons.extra): Genel durum dışındaki sayfalar onları ilk çizimde kullanır;
+ * ikisi paralel iner, sayfa simgeleri hazır çizilir. Simge parçası yüklenemezse sayfa yine açılır (simge aynı ölçüde boş
+ * kutu, sonraki çizimde yeniden istenir). Genel durum (telefon ilk rotası) yalnız çekirdek simgeleri çizer: istemez.
+ */
+const withIcons = <M,>(page: Promise<M>): Promise<M> => Promise.all([page, preloadIcons().catch(() => null)]).then(([module]) => module);
+
 const PAGE_LOADERS: Readonly<Record<AdminRouteKey, PageLoader>> = {
   genel: () => import('./pages/GenelPage').then(m => ({ location }: RoutePageProps) => <m.GenelPage location={location} />),
-  butce: () => import('./pages/ButcePage').then(m => ({ location }: RoutePageProps) => <m.ButcePage location={location} />),
-  odemeler: () => import('./pages/OdemelerPage').then(m => ({ location }: RoutePageProps) => <m.OdemelerPage location={location} />),
-  hesaplar: () => import('./pages/HesaplarPage').then(m => ({ location }: RoutePageProps) => <m.HesaplarPage location={location} />),
-  emeklilik: () => import('./pages/EmeklilikPage').then(m => () => <m.EmeklilikPage />),
-  alimlar: () => import('./pages/AlimlarPage').then(m => ({ location }: RoutePageProps) => <m.AlimlarPage location={location} />),
-  ev: () => import('./pages/EvPage').then(m => () => <m.EvPage />),
-  projeler: () => import('./pages/ProjelerPage').then(m => () => <m.ProjelerPage />),
-  taraflar: () => import('./pages/TaraflarPage').then(m => () => <m.TaraflarPage />),
-  raporlar: () => import('./pages/RaporlarPage').then(m => ({ location }: RoutePageProps) => <m.RaporlarPage location={location} />),
-  sozlukler: () => import('./pages/SozluklerPage').then(m => ({ location }: RoutePageProps) => <m.SozluklerPage location={location} />),
-  veri: () => import('./pages/VeriPage').then(m => () => <m.VeriPage />),
-  ayarlar: () => import('./pages/AyarlarPage').then(m => () => <m.AyarlarPage />),
+  butce: () => withIcons(import('./pages/ButcePage')).then(m => ({ location }: RoutePageProps) => <m.ButcePage location={location} />),
+  odemeler: () => withIcons(import('./pages/OdemelerPage')).then(m => ({ location }: RoutePageProps) => <m.OdemelerPage location={location} />),
+  hesaplar: () => withIcons(import('./pages/HesaplarPage')).then(m => ({ location }: RoutePageProps) => <m.HesaplarPage location={location} />),
+  emeklilik: () => withIcons(import('./pages/EmeklilikPage')).then(m => () => <m.EmeklilikPage />),
+  alimlar: () => withIcons(import('./pages/AlimlarPage')).then(m => ({ location }: RoutePageProps) => <m.AlimlarPage location={location} />),
+  ev: () => withIcons(import('./pages/EvPage')).then(m => () => <m.EvPage />),
+  projeler: () => withIcons(import('./pages/ProjelerPage')).then(m => () => <m.ProjelerPage />),
+  taraflar: () => withIcons(import('./pages/TaraflarPage')).then(m => () => <m.TaraflarPage />),
+  raporlar: () => withIcons(import('./pages/RaporlarPage')).then(m => ({ location }: RoutePageProps) => <m.RaporlarPage location={location} />),
+  sozlukler: () => withIcons(import('./pages/SozluklerPage')).then(m => ({ location }: RoutePageProps) => <m.SozluklerPage location={location} />),
+  veri: () => withIcons(import('./pages/VeriPage')).then(m => () => <m.VeriPage />),
+  ayarlar: () => withIcons(import('./pages/AyarlarPage')).then(m => () => <m.AyarlarPage />),
 };
 
 interface AdminRoute { key: AdminRouteKey; path: string; pattern: string | RegExp }

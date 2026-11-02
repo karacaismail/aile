@@ -262,10 +262,21 @@ describe('routes.tsx kaynağı (telefon teslimi)', () => {
     expect(refs.filter(ref => ref.kind === 'static' && /\/pages\/|\.wide$/.test(ref.specifier))).toEqual([]);
   });
 
-  it('ui barrel, antd, ECharts yok; yalnız çizdiği ui modülleri', () => {
+  it('ui barrel, antd, ECharts yok; yalnız çizdiği ui modülleri ve simge ön yüklemesi', () => {
     const specifiers = refs.filter(ref => ref.kind === 'static').map(ref => ref.specifier);
     expect(specifiers.filter(specifier => /^\.\/ui(?:\/index)?$/.test(specifier))).toEqual([]);
     expect(specifiers.filter(specifier => /(^|\/)(antd|@ant-design|echarts|zrender)(\/|$)|ui\/antd/.test(specifier))).toEqual([]);
-    expect(specifiers.filter(specifier => specifier.startsWith('./ui/')).sort()).toEqual(['./ui/ErrorState', './ui/LoadingShell']);
+    // ui/icons zaten telefon girişindedir (ErrorState çizer); burada yalnız preloadIcons için alınır.
+    expect(specifiers.filter(specifier => specifier.startsWith('./ui/')).sort()).toEqual(['./ui/ErrorState', './ui/LoadingShell', './ui/icons']);
+  });
+
+  it('çekirdek dışı simgeler Genel dışındaki her sayfanın parçasıyla paralel istenir; telefon ilk rotası (Genel) istemez', () => {
+    const loaders = [...source.matchAll(/^\s{2}(\w+): \(\) => (.+)$/gm)].map(([, key, body]) => [key!, body!] as const);
+    expect(loaders.map(([key]) => key)).toHaveLength(13);
+    for (const [key, body] of loaders) {
+      if (key === 'genel') expect(body, key).toMatch(/^import\('\.\/pages\/GenelPage'\)\.then\(/);
+      else expect(body, key).toMatch(/^withIcons\(import\('\.\/pages\/[A-Za-z]+Page'\)\)\.then\(/);
+    }
+    expect(source).toMatch(/const withIcons = .*Promise\.all\(\[page, preloadIcons\(\)\.catch\(\(\) => null\)\]\)/);
   });
 });

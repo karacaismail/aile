@@ -125,8 +125,27 @@ export function wideResource<M>(key: string, importer: () => Promise<M>, options
   return createResource(key, importer, options, anyModule);
 }
 
-function createResource<M>(key: string, importer: () => Promise<M>, options: WideOptions, valid: (module: M) => boolean): WideResource<M> {
-  const existing = registry.get(key);
+/**
+ * Her profilde kullanılabilen, ilk niyette inen tembel modül (geniş-özel değil; ör. kabuğun Sayfalar çekmecesi). Aynı
+ * kayıt, tek yeniden deneme ve hata ayrımı (error / stale-build) wideResource gibidir; hazır sinyaline (useWideLoading,
+ * data-wide-loading) sayılmaz ve kendiliğinden yüklenmez: çağıran load()/retry() ile ister (useWideModule(kaynak, false)).
+ */
+export function lazyResource<M>(key: string, importer: () => Promise<M>, options: WideOptions = {}): WideResource<M> {
+  return createResource(key, importer, options, anyModule, plainRegistry);
+}
+
+// lazyResource kayıtları ayrı tutulur: wideManifest yalnız geniş kaynakları listeler, hazır sinyali onları saymaz.
+const plainRegistry = new Map<string, WideResource<unknown>>();
+
+function createResource<M>(
+  key: string,
+  importer: () => Promise<M>,
+  options: WideOptions,
+  valid: (module: M) => boolean,
+  store: Map<string, WideResource<unknown>> = registry,
+): WideResource<M> {
+  const countPending = store === registry;
+  const existing = store.get(key);
   if (existing) return existing as WideResource<M>;
   const retryDelayMs = options.retryDelayMs ?? WIDE_RETRY_DELAY_MS;
   let state: WideState<M> = IDLE;
@@ -157,10 +176,10 @@ function createResource<M>(key: string, importer: () => Promise<M>, options: Wid
       if (inflight) return inflight;
       if (state.status === 'error' || state.status === 'stale-build') return Promise.reject(state.error);
       set(LOADING);
-      changePending(1);
+      if (countPending) changePending(1);
       inflight = attempt().then(
-        module => { inflight = null; set({ status: 'ready', module }); changePending(-1); return module; },
-        (error: unknown) => { inflight = null; set({ status: failureStatus(error), error }); changePending(-1); throw error; },
+        module => { inflight = null; set({ status: 'ready', module }); if (countPending) changePending(-1); return module; },
+        (error: unknown) => { inflight = null; set({ status: failureStatus(error), error }); if (countPending) changePending(-1); throw error; },
       );
       return inflight;
     },
@@ -169,7 +188,7 @@ function createResource<M>(key: string, importer: () => Promise<M>, options: Wid
       return resource.load();
     },
   };
-  registry.set(key, resource as WideResource<unknown>);
+  store.set(key, resource as WideResource<unknown>);
   return resource;
 }
 
@@ -200,9 +219,12 @@ export function useWideModule<M>(resource: WideResource<M> | null, enabled: bool
   return state;
 }
 
-/** Kurtarılabilir bildirim: düz <button> (antd'siz), odak çizgisi admin.css [data-focus-line] ile. */
-export function WideNotice({ kind, onAction }: { kind: 'error' | 'stale-build'; onAction(): void }) {
-  const text = kind === 'stale-build' ? 'Yeni sürüm var' : 'Geniş görünüm yüklenemedi; temel görünüm kullanılıyor.';
+/**
+ * Kurtarılabilir bildirim: düz <button> (antd'siz), odak çizgisi admin.css [data-focus-line] ile. message verilirse hata
+ * metni odur (ör. kabuğun tembel Sayfalar çekmecesi); verilmezse geniş görünüm metni. stale-build metni sabittir.
+ */
+export function WideNotice({ kind, onAction, message }: { kind: 'error' | 'stale-build'; onAction(): void; message?: string }) {
+  const text = kind === 'stale-build' ? 'Yeni sürüm var' : (message ?? 'Geniş görünüm yüklenemedi; temel görünüm kullanılıyor.');
   const action = kind === 'stale-build' ? 'Yenile' : 'Yeniden dene';
   return createElement(
     'div',

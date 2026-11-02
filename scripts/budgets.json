@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "entry": "admin.html",
-  "recorded": "2026-11-02, entegrasyon (Emeklilik planı ve telefon barrel düzeltmesi sonrası), VITE_BUDGET_SHEET_ID=synthetic-budget-sheet-2098, Node v24.21.0, Vite 8.3.5",
+  "recorded": "2026-11-02, p-phonejs (telefon ilk rota JS bölmesi; taban 429e068), VITE_BUDGET_SHEET_ID=synthetic-budget-sheet-2098, Node v24.21.0, Vite 8.3.5",
   "units": {
     "kb": 1000,
     "measure": "gzip",
@@ -83,19 +83,17 @@
   ],
   "measured": {
     "note": "Kayıtlı ölçüm (recorded koşulları, ilk rota /genel): node scripts/check-budgets.mjs dist. Tavanlar ve wide-antd istisnası bu değerlerin aynısıdır, pay yok; check-budgets.test.mjs eşitliği doğrular. Önce/sonra: docs/ADMIN-BUDGETS.md",
-    "phone-html": 2079,
-    "phone-js": 174066,
-    "phone-css": 9945,
+    "phone-html": 2045,
+    "phone-js": 118807,
+    "phone-css": 9663,
     "phone-capability": 0,
-    "phone-transfer": 282274,
-    "wide-js": 174576,
+    "phone-transfer": 226699,
+    "wide-js": 121447,
     "wide-antd": 0
   },
   "ratchet": {
     "policy": "Geçiş ratchet'i: tavan, bütçeyi aşan kayıtlı ölçümdür ve yalnız düşer. check-budgets 'daraltılabilir' derse tavanı yeni ölçüme indirin; 'silinebilir' derse kaydı silin. Tavan yükseltmek ya da yeni kayıt eklemek bütçeyi gevşetir: yalnız entegrasyon sahibinin açık kararıyla; tavanlar scripts/check-budgets.test.mjs CEILING_LOCK ile kilitlidir. Liste boşalınca kapı --strict ile koşar.",
-    "ceilings": {
-      "phone-js": 174066
-    },
-    "karar": "2 Kasım 2026, entegrasyon sahibi: phone-js tavanı 171040 → 174066 B (+3026 B). Kaynak: dördüncü tur ve son tur düzeltmeleri (gerçekleşen anlamı, CSV koruması, kurtarma ve hazır sinyali, erişilebilirlik düzeltmeleri) ve Emeklilik planının gezinme kaydı; aynı ölçümde telefon sayfalarındaki ui barrel sızıntısı (Chart, Overview) kapatıldı. wide-js bütçe içinde (174576 ≤ 180000), tavanı kaldırıldı. 120 KB telefon hedefi açık iştir: ortak çekirdek 69,3 KB, yönetim girişi 49,8 KB, veri katmanı 30,9 KB (gzip)."
+    "ceilings": {},
+    "karar": "2 Kasım 2026, p-phonejs: phone-js 174066 → 118807 B, bütçe (120000) içinde; ratchet kaydı ve CEILING_LOCK girdisi silindi, ratchet listesi boş (check-budgets --strict de PASS). Kazanç: Zod ve sözleşme şemaları nesil okunurken tembel (store.ts), kabuk e-tablo adresi dashboard/data.ts'siz, girişin veri barrel'ı yerine sağlayıcı modülü, indeks/sorgu katmanı useGeneration.rows.tsx'te, Phosphor simgeleri derlemede yalnız regular ağırlıkla ve ilk rotada yalnız 6 çekirdek simge, Sayfalar çekmecesi ilk niyette. Önceki karar (aynı gün, entegrasyon sahibi): phone-js tavanı 171040 → 174066 B (+3026 B; dördüncü/son tur düzeltmeleri ve Emeklilik planının gezinme kaydı). Ayrıntı ve önce/sonra: docs/ADMIN-BUDGETS.md."
   }
 }

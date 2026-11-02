@@ -2,7 +2,7 @@ import { Router, useLocation } from 'wouter';
 import { useHashLocation } from 'wouter/use-hash-location';
 import { aileCssVars } from '../design/tokens.ts';
 import { AdaptiveRoot } from './adaptive/AdaptiveRoot';
-import { GenerationProvider } from './data';
+import { GenerationProvider } from './data/useGeneration.provider';
 import { WorkspaceShell } from './shell/WorkspaceShell';
 import { AdminRoutes } from './routes';
 

@@ -497,7 +497,9 @@ describe('check-budgets: depodaki scripts/budgets.json', () => {
   // Bütçe aşımı kalmayınca tavan silinir ve kapı --strict koşar. Kayıt: 2026-11-02 r4-gates (taban 006ee49; wide grubu
   // sayfa başına bölündü, preloadRecovery kaldırıldı). Tavansız bütçe kimliği eklemek de bu listeyi değiştirmez.
   // 2 Kasım 2026 entegrasyon kararı: phone-js 171040 → 174066 (gerekçe budgets.json ratchet.karar); wide-js bütçe içinde, kilitten çıktı.
-  const CEILING_LOCK = Object.freeze({ 'phone-js': 174066 });
+  // 2 Kasım 2026 p-phonejs: phone-js 174066 → 118807 B (≤ 120000 bütçe); ratchet kaydı silindi, kilit boş. Yeni tavan
+  // eklemek bütçeyi gevşetir (entegrasyon sahibinin açık kararı). Ölçüm ve kazanç dağılımı: docs/ADMIN-BUDGETS.md.
+  const CEILING_LOCK = Object.freeze({});
   it('ratchet tavanları kilitlidir: yalnız düşer, kilitte olmayan bütçeye tavan eklenmez', () => {
     const ceilings = doc.ratchet?.ceilings ?? {};
     for (const [id, ceiling] of Object.entries(ceilings)) {

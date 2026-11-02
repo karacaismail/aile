@@ -1,4 +1,3 @@
-import { sheetUrl } from '../../dashboard/data';
 import type { IconName } from '../ui/icons';
 import type { NavGroup, NavLink } from './contracts';
 
@@ -61,7 +60,12 @@ const settingsItem: AdminNavItem = {
   purpose: 'Aile bilgilerini, biçimleri, e-tablo bağlantısını ve üyeleri yönetin.',
 };
 
-/** "E-tabloyu aç": kaynak e-tablo, yeni sekmede. Kimlik VITE_BUDGET_SHEET_ID'den gelir (src/dashboard/data.ts). */
+// E-tablo adresi derlemeye gömülü kimlikten (VITE_BUDGET_SHEET_ID) burada kurulur; src/dashboard/data.ts sheetUrl ile aynı
+// biçimdir (src/admin/phoneEntry.test.ts eşitliği sınar). O modül GViz okuyucusunu ve Zod şemalarını taşır; telefon
+// girişi yalnız bu adres için onu (ve Zod'u) statik çekmez.
+const sheetUrl = `https://docs.google.com/spreadsheets/d/${import.meta.env.VITE_BUDGET_SHEET_ID ?? ''}/edit`;
+
+/** "E-tabloyu aç": kaynak e-tablo, yeni sekmede. Kimlik VITE_BUDGET_SHEET_ID'den gelir. */
 export const sheetLink: AdminExternalLink = {
   key: 'sheet', path: sheetUrl, href: sheetUrl, label: 'E-tabloyu aç', section: 'Uygulama',
   purpose: 'Kaynak e-tabloyu yeni sekmede açar; panel ondan okur, ona yazmaz.',

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type RefObject } from 'react';
-import { lazyWide, useProfile, useWideLoading, useWideModule } from '../adaptive';
+import { WideNotice, lazyResource, lazyWide, useProfile, useWideLoading, useWideModule } from '../adaptive';
+import { reloadPage } from '../adaptive/reload';
 import type { WorkspaceShellProps } from './contracts';
-import { MobileNavDrawer, ShellIcon } from './MobileNavDrawer';
 import { currentAdminLink } from './navigation';
+import { ShellIcon } from './ShellIcon';
 import './shell.css';
 
 // Tasarım: tasarim-sistemi/README.md › Kabuk + Uyarlanır teslim, components/AppShell/README.md; W0 uyarlamalı teslim.
@@ -26,6 +27,16 @@ const NAV_REGION = '[data-shell-region="nav"]';
 /** Masaüstü yan gezinmesi (geniş-özel). */
 const WideNav = lazyWide('shell-nav', () => import('./wide/WorkspaceNav.wide'));
 
+// Sayfalar çekmecesi (MobileNavDrawer) kapalıyken hiçbir şey çizmez; telefon ilk boyaması onu gerektirmez. Modülü ilk
+// niyette istenir: Sayfalar düğmesine işaretçi basınca, düğme odak alınca ya da düğme seçilince; üst çubuk ve düğme
+// statiktir. Yüklenirken düğme aria-expanded="true" + aria-busy taşır; çekmece hazır olunca açılır (aria-controls ve inert
+// arka plan o karede). Çekmece örtüdür: düzen kaymaz. İndirilemezse bir kez kendiliğinden yeniden denenir (lazyResource:
+// rota ve geniş parçalarla aynı bekleme); yine olmazsa içerik alanının başında kurtarma bildirimi: çevrim içiyken parça
+// hatası "Yeni sürüm var · Yenile" (sayfa yenilenir), diğerleri "Sayfalar yüklenemedi · Yeniden dene".
+const DrawerModule = lazyResource('shell-sayfalar', () => import('./MobileNavDrawer'));
+const DRAWER_FAILED = 'Sayfalar yüklenemedi.';
+const requestDrawer = () => { DrawerModule.retry().catch(() => {}); };
+
 /** Odak kayboldu mu: belge/gövde, sökülmüş öğe ya da inert alt ağaç (kapanan alt sayfa, inert arka plan). */
 function focusLost(): boolean {
   const active = document.activeElement;
@@ -34,14 +45,21 @@ function focusLost(): boolean {
 
 interface TopBarProps {
   label: string;
+  /** Sayfalar istendi (çekmece açık ya da yükleniyor). */
   open: boolean;
+  /** Çekmece açık ve modal: aria-controls onu gösterir. */
+  controls: boolean;
+  /** Çekmece modülü yükleniyor. */
+  busy: boolean;
   inert: boolean;
   onOpen(): void;
+  /** İlk niyet (işaretçi basma, odak): çekmece modülünü önceden ister. */
+  onIntent(): void;
   buttonRef: RefObject<HTMLButtonElement | null>;
   barRef: RefObject<HTMLElement | null>;
 }
 
-function TopBar({ label, open, inert, onOpen, buttonRef, barRef }: TopBarProps) {
+function TopBar({ label, open, controls, busy, inert, onOpen, onIntent, buttonRef, barRef }: TopBarProps) {
   return (
     <header ref={barRef} className="aile-admin-topbar" data-shell-region="nav" data-odak-zemin="nav" inert={inert}>
       <p className="aile-admin-topbar-title">
@@ -56,7 +74,10 @@ function TopBar({ label, open, inert, onOpen, buttonRef, barRef }: TopBarProps) 
         data-focus-line=""
         aria-haspopup="dialog"
         aria-expanded={open}
-        aria-controls={open ? DRAWER_ID : undefined}
+        aria-controls={controls ? DRAWER_ID : undefined}
+        aria-busy={busy ? true : undefined}
+        onPointerDown={onIntent}
+        onFocus={onIntent}
         onClick={onOpen}
       >
         <ShellIcon name="menu" />
@@ -220,7 +241,11 @@ export function WorkspaceShell({ location, children }: WorkspaceShellProps) {
   const pagesButton = useRef<HTMLButtonElement | null>(null);
   const topBar = useRef<HTMLElement | null>(null);
   const [navOpen, setNavOpen] = useState(false);
-  const drawerOpen = navOpen && !side;
+  const drawer = useWideModule(DrawerModule, false);
+  const Drawer = drawer.status === 'ready' ? drawer.module.MobileNavDrawer : null;
+  const navRequested = navOpen && !side;
+  const drawerOpen = navRequested && Drawer !== null;
+  const drawerFailure = navRequested && (drawer.status === 'error' || drawer.status === 'stale-build') ? drawer.status : null;
   const layout = `${profile}:${side ? 'yan' : 'ust'}`;
 
   useEffect(() => { document.title = `${current.label} · aile`; }, [current.label]);
@@ -279,7 +304,10 @@ export function WorkspaceShell({ location, children }: WorkspaceShellProps) {
   }, [location, drawerOpen]);
 
   const markNavigation = useCallback(() => { fromNav.current = true; }, []);
-  const openNav = useCallback(() => setNavOpen(true), []);
+  const openNav = useCallback(() => {
+    setNavOpen(true);
+    requestDrawer();
+  }, []);
   const closeNav = useCallback(() => setNavOpen(false), []);
 
   // Skip link: hash yönlendirme "#admin-content"i rota sayardı; bağlantı yalnız odağı taşır.
@@ -291,19 +319,37 @@ export function WorkspaceShell({ location, children }: WorkspaceShellProps) {
   return (
     <div ref={shell} className="aile-admin-shell" data-device={profile} data-gezinme={side ? 'yan' : 'ust'}>
       <a className="aile-admin-skip" href={`#${MAIN_ID}`} onClick={skipToContent} inert={drawerOpen}>İçeriğe geç</a>
-      {!side && <TopBar label={current.label} open={drawerOpen} inert={drawerOpen} onOpen={openNav} buttonRef={pagesButton} barRef={topBar} />}
+      {!side && (
+        <TopBar
+          label={current.label}
+          open={navRequested && drawerFailure === null}
+          controls={drawerOpen}
+          busy={navRequested && drawer.status === 'loading'}
+          inert={drawerOpen}
+          onOpen={openNav}
+          onIntent={requestDrawer}
+          buttonRef={pagesButton}
+          barRef={topBar}
+        />
+      )}
       {desktop && <WideNav location={location} onNavigate={markNavigation} />}
       <main ref={main} id={MAIN_ID} tabIndex={-1} className="aile-admin-main" inert={drawerOpen}>
-        <div className="aile-admin-main-inner">{children}</div>
+        <div className="aile-admin-main-inner">
+          {drawerFailure === 'error' ? <WideNotice kind="error" message={DRAWER_FAILED} onAction={requestDrawer} /> : null}
+          {drawerFailure === 'stale-build' ? <WideNotice kind="stale-build" onAction={reloadPage} /> : null}
+          {children}
+        </div>
       </main>
-      <MobileNavDrawer
-        id={DRAWER_ID}
-        open={drawerOpen}
-        onClose={closeNav}
-        location={location}
-        returnFocusTo={pagesButton}
-        onNavigate={markNavigation}
-      />
+      {Drawer ? (
+        <Drawer
+          id={DRAWER_ID}
+          open={drawerOpen}
+          onClose={closeNav}
+          location={location}
+          returnFocusTo={pagesButton}
+          onNavigate={markNavigation}
+        />
+      ) : null}
     </div>
   );
 }

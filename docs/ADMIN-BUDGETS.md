@@ -8,7 +8,7 @@ Bu belge `admin.html` girişinin ilk rotası için profil bazlı aktarım bütç
 VITE_BUDGET_SHEET_ID=synthetic-budget-sheet-2098 pnpm build
 pnpm check:delivery                             # node scripts/check-delivery.mjs dist --strict; dist/delivery-report.json
 pnpm check:budgets                              # node scripts/check-budgets.mjs dist (ratchet, tavanlar ölçüme eşit)
-node scripts/check-budgets.mjs dist --strict    # tavan listesi boşalınca (bugün beklenen FAIL: phone-js, wide-js)
+node scripts/check-budgets.mjs dist --strict    # tavan listesi boş (p-phonejs sonrası): PASS
 ```
 
 Aynı iki kapı `src/admin/vite-config.test.ts` içinde gerçek üretim derlemesiyle de koşar (vitest): `check-delivery --strict`
@@ -83,7 +83,88 @@ Seçilmeyen satırlar ve gerekçeleri:
 
 `phone-capability` sıfır istek hedefidir. Küçük bir bayt payına çevrilmez.
 
-## Kayıtlı ölçüm (r4-gates)
+## Kayıtlı ölçüm (p-phonejs, 2 Kasım 2026)
+
+Ölçüm 2026-11-02 tarihinde, entegrasyon tabanı `429e068` üzerinde `p-phonejs` değişikliğiyle ve yukarıdaki koşullarla
+alındı (`VITE_BUDGET_SHEET_ID=synthetic-budget-sheet-2098`, Node v24.21.0, Vite 8.3.5, gzip seviye 9, 1 KB = 1000 B, ilk
+rota `/genel`). `phone-js` bütçe içine indi: ratchet kaydı ve `CEILING_LOCK` girdisi silindi, tavan listesi boş;
+`check-budgets` hem ratchet hem `--strict` PASS. `check-delivery --strict` PASS (telefon profilinde antd, pro, icons,
+echarts ve wide yok).
+
+### Önce ve sonra (p-phonejs)
+
+| Ölçüt | Önce, `429e068` | Sonra, `p-phonejs` | Fark | Bütçe |
+|---|---:|---:|---:|---:|
+| `phone-html` | 2079 B | 2045 B | −34 B | 50000 B |
+| `phone-js` | 174066 B | 118807 B | −55259 B | 120000 B |
+| `phone-css` | 9945 B | 9663 B | −282 B | 35000 B |
+| `phone-capability` | 0 istek | 0 istek | 0 | 0 istek |
+| `phone-transfer` | 282274 B | 226699 B | −55575 B | 500000 B |
+| `wide-js` (antd hariç) | 174576 B | 121447 B | −53129 B | 180000 B |
+| `wide-antd` | 0 B | 0 B | 0 | 0 B |
+| Telefon JS dosyası | 14 | 12 | −2 | — |
+| Telefon statik kapanış (JS + CSS) | 12 dosya, gzip 171910 B | 9 dosya, gzip 114995 B | −56915 B | — |
+
+Gerçek tarayıcı kanıtı (üretim önizlemesi, Chromium 320×568 ve WebKit 390×844, soğuk açılış `admin.html#/genel`):
+istenen JS tam olarak ölçülen 12 dosyadır (gzip 118807 B); ölçüm dışı ek JS isteği yok. Sayfalar düğmesine basınca
+yalnız `MobileNavDrawer` parçası (2092 B) iner. Emülasyondur, gerçek cihaz ölçümü yoktur (`not_run`).
+
+### Değişiklik başına kazanç
+
+Her satır önceki satırın üstüne uygulanmış derlemenin ölçümüdür (aynı koşullar).
+
+| Adım | Değişiklik | `phone-js` | Fark |
+|---|---|---:|---:|
+| 0 | Önce (`429e068`) | 174066 B | — |
+| 1 | `App.tsx` sağlayıcıyı veri barrel'ı yerine doğrudan alır; `vite.config.ts` `src/admin/data/*.ts` modüllerini yan etkisiz sayar (barrel'dan kullanılmayan katman — canlı veri, görünüm, CSV — sayfa parçasına da girmez). Yalnız birinci kısım +1061 B'dir (parça bölünmesi), ikisi birlikte: | 171196 B | −2870 B |
+| 2 | Kabuğun e-tablo adresi `src/dashboard/data.ts` (GViz okuyucusu + Zod) içe aktarılmadan aynı biçimde kurulur (`shell/navigation.ts`) | 166133 B | −5063 B |
+| 3 | Sözleşme doğrulaması (`data/contract.ts` + Zod) depodan tembel yüklenir (`data/store.ts` `loadContract`) | 138300 B | −27833 B |
+| 4 | Phosphor simgeleri derlemede yalnız regular ağırlığıyla paketlenir (`ui/icons.build.ts` eklentisi; çıktı aynı SVG) | 127015 B | −11285 B |
+| 5 | `useGeneration` modül sınırları: sağlayıcı (`useGeneration.provider.tsx`), bağlam (`useGeneration.context.ts`), satır/sorgu (`useGeneration.rows.tsx`: `indexes.ts`, `query.ts` girişte yok) | 123189 B | −3826 B |
+| 6 | Sayfalar çekmecesi (`MobileNavDrawer`) ilk niyette iner (`adaptive` `lazyResource`); üst çubuk simgesi `shell/ShellIcon.tsx` | 121655 B | −1534 B |
+| 7 | Simgeler: ilk rotanın çizdiği 6 çekirdek simge statik, 17'si `ui/icons.extra.tsx` parçasında (rota yükleyicisi Genel dışındaki sayfalarla paralel ister) | 119080 B | −2575 B |
+| 8 | Sayfa hook'ları (`useGeneration`, `useChangeSet` …) bağlam modülünde: ayrı küçük sayfa parçası kalktı | 118746 B | −334 B |
+| 9 | Doğrulama modülü manifest okumasıyla paralel istenir; kaynak baştan belliyse (geliştirme, `VITE_AILE_GENERATION_URL`) açılışta | 118807 B | +61 B |
+| | Sonra | 118807 B | −55259 B |
+
+Tembel kalan parçalar ve ne zaman indikleri (delivery-report `lazy`):
+
+| Kök | Gzip | Ne zaman |
+|---|---:|---|
+| `chunk:contract` (+ Zod `schemas` parçası) | 28623 B (2 dosya) | Bir nesil okunurken: klasör içe aktarılınca ya da kaynak verilmişse ilk okumada; geliştirme ve `VITE_AILE_GENERATION_URL` ile açılışta. Üretim varsayılanında (kaynak seçilmemiş) telefon ilk rotası istemez. |
+| `ui/icons.extra.tsx` | 2734 B | Genel durum dışındaki bir sayfa parçasıyla paralel ya da çekirdek dışı bir simge ilk çizildiğinde. Gelmeden çizilen simge aynı kutu ve erişilebilir adla boştur. |
+| `shell/MobileNavDrawer.tsx` | 2092 B | Sayfalar düğmesine ilk basış ya da odak; hata olursa "Sayfalar yüklenemedi · Yeniden dene" ya da "Yeni sürüm var · Yenile". |
+
+### Telefon ilk rota (p-phonejs)
+
+| Parça | Sınıf | Gzip B | Not |
+|---|---|---:|---|
+| `chunk:shared` | shared | 69276 | React, ReactDOM, scheduler, wouter hash kancası (değişmedi) |
+| `admin.html` girişi | entry | 31963 | kabuk, uyarlama, rotalar, nesil sağlayıcısı, depo, değişiklik kümesi, PageHeader (Menu/BottomSheet dahil), 6 simge |
+| `src/admin/pages/GenelPage.tsx` | page | 6308 | ilk sayfa |
+| `chunk:Money` | app | 2466 | `Money` + `data/actuals.ts` (ilk sayfa kapanışı) |
+| `chunk:tokens` | tokens | 2341 | |
+| `chunk:router` | router | 2088 | |
+| `chunk:AccordionList` | app | 1764 | ilk sayfa kapanışı |
+| `chunk:context` | app | 1042 | profil bağlamı |
+| `chunk:IconBase.es` | app | 851 | Phosphor `IconBase` + idb-keyval (ana uygulamayla ortak) |
+| `chunk:rolldown-runtime` | app | 429 | |
+| `chunk:views.sums` | app | 208 | |
+| `chunk:reload` | app | 71 | |
+
+Önceki dağılım (`429e068`): ortak çekirdek 69276 B, giriş 49774 B, `chunk:data` (Zod + `src/dashboard/data.ts`) 30937 B,
+`chunk:X.es` (Phosphor + idb-keyval) 6764 B, Genel sayfası 6351 B, kalan küçük parçalar 10964 B.
+
+Önbellek: ana uygulamanın ön belleği 19 → 20 girdi (899,92 → 899,96 KiB). Aynı modüller (Zod ve `src/dashboard/data.ts`)
+iki ana grafik parçasına bölündü (`schemas`, `data`), çünkü yönetim girişi artık `data` parçasını statik çekmez; ön
+bellek üyelik kuralları aynıdır (yalnız ana grafik + kök kabuk dosyaları, yönetim parçası yok; `vite-config.test.ts` PASS).
+
+Kalan sabit bedel: telefon JS'inin %58'i (69276 B) React/ReactDOM ortak çekirdeğidir. Girişte, Genel'in çizmediği ama
+`PageHeader` → `OverflowActions` → `Menu` → `BottomSheet` yoluyla statik kalan açılır menü/alt sayfa kodu vardır (modül
+gzip toplamı ~12 KB); `PageHeader` sözleşmesi (telefonda "Diğer" düğmesi ve menünün eşzamanlı açılması) değişmeden tembel
+yapılamaz. Yön: Menu'nün açılır içeriğini ilk açılışta yükleyen bir ui sınırı (a06-menu, a05-sheet).
+
+## Önceki kayıt: r4-gates
 
 Ölçüm 2026-11-02 tarihinde, entegrasyon tabanı `006ee49` üzerinde `r4-gates` değişikliğiyle ve yukarıdaki koşullarla alındı. Değişiklik: geniş-özel kod tek `wide` parçası yerine sayfa/birim başına parçalara bölündü; kendiliğinden sayfa yenileyen `preloadRecovery` (giriş parçası) kaldırıldı; yükleyici geçersiz modülü hata sayar. İlk rota `/genel`. `node scripts/check-delivery.mjs dist --strict` PASS: telefon profilinde (giriş kapanışı 14 dosya, ham 565490 B, gzip 169652 B + 12 rota sayfasının kapanışı; toplam 69 dosya, gzip 317469 B) antd, pro, icons, echarts ve wide yok.
 
@@ -154,7 +235,7 @@ Aynı koşullar (`VITE_BUDGET_SHEET_ID=synthetic-budget-sheet-2098`, Node v24.21
 
 Kesimin telefona etkisi (`/genel`): JS −90811 B (antd 84404 B, icons 3608 B, babel-runtime 1873 B ve antd yüzeyinin giriş kodu), aktarım −90853 B, yetenek isteği 2 → 0. Geniş profilin ilk rotası neredeyse aynıdır: antd ve icons artık statik kapanış yerine tembel WideProviders kökünden gelir (+1177 B WideProviders parçası). `wide-js` kesim öncesinde de bütçeyi aşıyordu ve tavanı yoktu (ratchet FAIL); aşım kesimden değil, tek `wide` grubunun statik kapanışından gelir (aşağıda).
 
-## Güncel ölçüm ayrıntısı (r4-gates)
+## Önceki ölçüm ayrıntısı (r4-gates)
 
 ### Telefon ilk rota
 
@@ -236,7 +317,7 @@ Tavanlar iki yerde kilitlidir: `budgets.json` `ratchet.ceilings` (ölçüme eşi
 
 Geçiş kesimi (x-cut) yapıldı: `PHONE_WITHOUT_ANTD=true`, `scripts/delivery-baseline.json` boş ve `check-delivery --strict` PASS; `phone-capability` ve `phone-transfer` tavanları silindi, `phone-js` tavanı 410050 → 170163 B indi, `wide-js` için kesim sonrası ölçüm (280464 B) entegrasyonun kararıyla tavan olarak kaydedildi. `t3-root` tavanları yeniden ölçüme sabitledi (`phone-js` 171767 B, `wide-js` 275959 B; yukarıda). Kalan açıklar:
 
-1. `phone-js` 120 KB'ın 51767 B üstünde. Aday kaynaklar:
+1. (Kapandı, p-phonejs: `phone-js` 118807 B ≤ 120000 B; yukarıdaki tablo.) Önceki durum: `phone-js` 120 KB'ın 51767 B üstünde. Aday kaynaklar:
    - `chunk:data` (30490 B, büyük kısmı zod): ilk ekranda zorunlu olmayan doğrulama sonraya alınabilir.
    - `admin.html` girişi (39052 B): ortak kabuk ve ilk ekranda görünmeyen ui bileşenleri (diyalog, alt sayfa, menü) tembel yapılabilir.
    - `chunk:icons` (7818 B) ve `chunk:X.es` (6764 B): Phosphor simgeleri; yalnız ilk ekranın simgeleri statik kalabilir.
@@ -266,6 +347,12 @@ Rapor mutlak yol taşımaz. `delivery-report.json` gibi `dist` içinde durur. `c
 - `node --test scripts/check-budgets.test.mjs` ve `pnpm exec vitest run scripts/check-budgets.test.mjs` sentetik manifest, graph ve delivery-report kullanır. Kapsanan konular: rota kümeleri, font çözümleme, yetenek kaynağı (tembel ilk sayfa ve karma parça dahil), ratchet ve strict, bütçe dosyası doğrulaması, CLI çıkış kodları ve mutlak yolsuz rapor. Ayrıca `budgets.json` aday değerleri, ilk rotanın `navigation.ts` ile `routes.tsx`'e uyumu (iki yazım biçimi için çözümleyici testleriyle), kesim sonrası tavan sözleşmesi (yetenek ve aktarım tavanı yok; tavanlar ve antd istisnası kayıtlı ölçüme eşit) ve tavan kilidi (`CEILING_LOCK`: tavanlar yalnız düşer, bütçe değerleri sabit) test edilir.
 - Gerçek derleme: `pnpm exec vitest run src/admin/vite-config.test.ts` geçici klasöre sentetik kimlikle üretim derlemesi yapar; `check-delivery --strict` ve `check-budgets` o derlemede PASS olmalıdır.
 - Gerçek ölçüm: yukarıdaki komut sırası. Bu belgedeki sayılar o çıktıdan alındı.
+- Telefon girişinin kaynak düzeyi kuralı: `src/admin/phoneEntry.test.ts` (`main.tsx` statik kapanışında Zod, `contract.ts`,
+  `src/dashboard/data.ts`, veri barrel'ı, canlı veri/görünüm/CSV/indeks/sorgu katmanları ve `MobileNavDrawer` yok; kabuğun
+  e-tablo adresi `dashboard/data.ts` ile aynı; `store.ts` sözleşmeyi yalnız dinamik içe aktarır). Tembel doğrulamanın
+  sıkılığı ve indirme hatası: `src/admin/data/store.contract.test.ts`. Simge derleme eklentisinin çıktısı paketin kendi
+  bileşeniyle 23 simgede birebir aynı SVG'dir: `src/admin/ui/icons.build.test.tsx`. Çekmece hata/yeniden deneme yolu:
+  `src/admin/shell/WorkspaceShell.drawer.test.tsx`.
 
 ## Entegrasyon kararı — 2 Kasım 2026 (Emeklilik planı ve barrel düzeltmesi sonrası)
 
@@ -279,4 +366,4 @@ Rapor mutlak yol taşımaz. `delivery-report.json` gibi `dist` içinde durur. `c
 
 Aynı ölçümde sayfa ve kabuk modüllerindeki `../ui` barrel importları doğrudan modül importlarına çevrildi; Alımlar ve Ödemeler telefon kapanışından Chart ve Overview parçaları çıktı (kural testi: `src/admin/pages/barrelKurali.test.ts`).
 
-Açık iş: telefon ilk rota JS hedefi 120 KB; bugün 174,1 KB. Dağılım (gzip): ortak çekirdek (React) 69,3 KB, yönetim girişi (kabuk, uyarlama, rotalar) 49,8 KB, veri katmanı (Zod dahil) 30,9 KB, simge parçası 6,8 KB, Genel sayfası 6,4 KB. Azaltma yönü: veri katmanını ve girişi rota başına bölmek.
+Açık iş (kapandı, p-phonejs: 118807 B; "Kayıtlı ölçüm (p-phonejs)"): telefon ilk rota JS hedefi 120 KB; o gün 174,1 KB. Dağılım (gzip): ortak çekirdek (React) 69,3 KB, yönetim girişi (kabuk, uyarlama, rotalar) 49,8 KB, veri katmanı (Zod dahil) 30,9 KB, simge parçası 6,8 KB, Genel sayfası 6,4 KB. Azaltma yönü: veri katmanını ve girişi rota başına bölmek.

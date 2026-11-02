@@ -18,9 +18,37 @@
 // tek bekleyen ise okuma da kesilir. Parça okumaları manifestin generation_id'siyle sabitlenir (HTTP: ?generation=).
 // Yayını değiştiren iş (ilk manifest, yenileme) tektir ve yayındaki nesilden süren okumaların bitmesini bekler.
 import { createStore, del, get, keys, set, type UseStore } from 'idb-keyval';
-import { parseManifest, parsePartition } from './contract';
-import { abortError, isAbortError, type ReadTextOptions } from './sources';
+import { UnselectedGenerationSource, abortError, defaultGenerationSource, isAbortError, type ReadTextOptions } from './sources';
 import type { BaseRecord, CollectionName, GenerationState, Manifest, ManifestFile, PartitionEnvelope } from './types';
+
+// Sözleşme doğrulaması (contract.ts + zod) ayrı parçadır ve yalnız bir nesil okunurken iner: depo modülünü (dolayısıyla
+// telefon girişini) zod'a statik bağlamaz. Kaynak seçilmemişken (üretim varsayılanı) hiç istenmez; manifest metni
+// okununca bir kez yüklenir ve aynı modül tüm parçaları doğrular; doğrulama sıkılığı aynıdır (aynı şemalar). İndirme
+// başarısız olursa ad verilen bir hatayla okuma reddedilir (durum error/stale, "Yeniden dene" yeniden ister).
+type ContractModule = typeof import('./contract');
+let contractModule: Promise<ContractModule> | null = null;
+/** Yüklenmiş modül: sonraki manifest ve parça doğrulamaları ek bekleme olmadan (eşzamanlı) çalışır. */
+let contractLoaded: ContractModule | null = null;
+
+/** Doğrulama parçası indirilemedi (bağlantı ya da yeni sürüm); okuma reddedilir, yenileme yeniden dener. */
+export const CONTRACT_LOAD_FAILED = 'Doğrulama modülü yüklenemedi. Bağlantıyı denetleyip yeniden deneyin; sürüm yenilendiyse sayfayı yenileyin.';
+
+/** contract.ts'i (zod) bir kez yükler; başarısız yükleme önbelleğe alınmaz, sonraki okuma yeniden ister. */
+export function loadContract(): Promise<ContractModule> {
+  contractModule ??= import('./contract').then(
+    (module) => (contractLoaded = module),
+    (error: unknown) => {
+      contractModule = null;
+      throw new Error(CONTRACT_LOAD_FAILED, { cause: error });
+    },
+  );
+  return contractModule;
+}
+
+// Nesil okunacağı baştan belliyse (geliştirme sunucusu ya da VITE_AILE_GENERATION_URL: defaultGenerationSource ile aynı
+// koşul) doğrulama modülü açılışta istenir ve veri isteğini beklemez. Üretim varsayılanında (kaynak seçilmemiş, telefon
+// ilk rotası) istenmez; klasör içe aktarılınca ya da kaynak verilince ilk okumada iner.
+if (!(defaultGenerationSource() instanceof UnselectedGenerationSource)) loadContract().catch(() => {});
 
 /** Hücre/satır dökümleri ağırdır; panel bunları hiçbir koşulda indirmez. */
 export const HEAVY_COLLECTIONS: readonly string[] = ['source_cells', 'source_rows'];
@@ -708,8 +736,9 @@ export class GenerationStore {
       const release = await this.gate.acquire(controller.signal);
       try {
         const text = await this.readPartitionText(snapshot.generationId, file, controller.signal);
+        const contract = contractLoaded ?? (await loadContract());
         if (controller.signal.aborted) throw abortError();
-        return this.parsePartition(collection, file, text);
+        return this.parsePartition(contract, collection, file, text);
       } finally {
         release();
       }
@@ -730,13 +759,22 @@ export class GenerationStore {
   }
 
   private async readManifest(): Promise<Snapshot> {
-    const text = await this.source.readText('manifest.json');
+    const reading = this.source.readText('manifest.json');
+    // Doğrulama modülü manifest okumasıyla paralel istenir ve metinden önce beklenir: metin gelince doğrulama ve yayın
+    // eşzamanlı çalışır. Seçilmemiş kaynak hiçbir şey okumaz; modülü de istemez (üretim varsayılanı, telefon ilk rotası).
+    if (!contractLoaded && !(this.source instanceof UnselectedGenerationSource)) {
+      // Modül beklenirken okuma reddedilirse işlenmemiş ret sayılmasın; hata aşağıdaki await ile yine fırlar.
+      reading.catch(() => {});
+      await loadContract();
+    }
+    const text = await reading;
     let raw: unknown;
     try {
       raw = JSON.parse(text);
     } catch (error) {
       throw new ContractError('manifest.json', errorMessage(error));
     }
+    const { parseManifest } = contractLoaded ?? (await loadContract());
     let manifest: Manifest;
     try {
       manifest = parseManifest(raw) as Manifest;
@@ -774,7 +812,7 @@ export class GenerationStore {
     return text;
   }
 
-  private parsePartition(name: CollectionName, file: ManifestFile, text: string): BaseRecord[] {
+  private parsePartition({ parsePartition }: ContractModule, name: CollectionName, file: ManifestFile, text: string): BaseRecord[] {
     const { path } = file;
     let raw: unknown;
     try {
