@@ -8,7 +8,7 @@
 //   - İçinde bulunulan aydan (Europe/Istanbul) sonraki dönemin Gerçekleşen kaydı gösterilmez: "Henüz yok".
 //   - Oran ve "harcandı" metni yalnız payment_evidence === true iken üretilir; aksi halde "Kaynakta yazılı" (oran yok).
 //   - Gerçekleşen aylık toplamları kaynak gözlemi olarak kalır, ödeme olayına çevrilmez.
-//   - 'unclassified' ve bilinmeyen basis hiçbir sayıya katılmaz (views.ts OWNED_SUMS ile aynı kural); silinmiş kayıt da.
+//   - 'unclassified' ve bilinmeyen basis hiçbir sayıya katılmaz (data/views.sums.ts ve views.pivotMeasures ile aynı kural); silinmiş kayıt da.
 //   - Plan ve gerçek asla tek sayıda birleşmez; toplamlar basis başına ayrıdır.
 // Para veri platformunun Money zarfıdır (metin ondalık + ISO 4217). Aritmetik bigint ile kesindir (kayan nokta yok,
 // yuvarlama yok); farklı para birimleri toplanmaz. Ara toplam/yaprak sahipliği nesilde yoktur: toplamı hangi satırlar

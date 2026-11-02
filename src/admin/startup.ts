@@ -6,7 +6,7 @@ import { aileCssVars } from '../design/tokens.ts';
 //  2. a plain-HTML failure screen for an entry module that cannot load (a stale admin.html from the HTTP cache naming
 //     chunks a new deploy removed, or a dropped connection). Without it the page stays blank. It is drawn only while
 //     the React root is still empty, so later resource errors never replace a running panel. Lazy page chunks are
-//     not script elements; their failures go to preloadRecovery.ts and the route error boundary instead.
+//     not script elements; their failures go to the route error boundary and lazyWide (no automatic reload).
 // No React, data or persistence here; colours, spacing, radius and focus come from tokens.ts (--aile-*).
 
 export const ADMIN_STARTUP_FAILURE = {
