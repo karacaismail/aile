@@ -6,6 +6,7 @@ import { realpathSync } from 'node:fs';
 import { startupFailureScript, startupMarkup, startupStyles } from './src/app/startup.ts';
 import { adminStartupScript } from './src/admin/startup.ts';
 import { privateDataPlugin } from './src/admin/devServer/privateData.ts';
+import { phosphorRegularOnly } from './src/admin/ui/icons.build.ts';
 
 // PWA ön belleğinin dışında kalan dosyalar. İlk 12 glob ana uygulamanın bilinçli tembel parçalarıdır (ana kabuk
 // bunlara inmez); son 6'sı yönetim girişi, adıyla yönetime ait sağlayıcı parçaları ve geniş-özel `wide-*` parçalarıdır.
@@ -181,6 +182,13 @@ const CHUNK_GROUPS: ChunkGroup[] = [
   { name: 'shared', priority: 0, test: (id: string) => /node_modules[\\/](react|react-dom|scheduler|use-sync-external-store|clsx)[\\/]/.test(id) || WOUTER_BOOT.test(id) || /src[\\/]dashboard[\\/]keyboard\.ts$/.test(id) || /vite\/(modulepreload-polyfill|preload-helper)/.test(id) },
 ];
 
+// Yönetim veri katmanı (src/admin/data/*.ts) içe aktarılmakla yan etki yapmaz: modül düzeyinde sabit, şema, sınıf ve
+// modül içi durum vardır; genel kayıt ya da global değişiklik yoktur (store.ts'in açılış ön yüklemesi yalnız modül
+// kullanılınca anlamlıdır). rolldown bu yüzden barrel ('../data') üzerinden içe aktaran parçaya yalnız gerçekten
+// kullanılan modülleri koyar: Genel sayfası canlı veri, görünüm kataloğu, CSV ve sözleşme şemalarını çekmez (ölçüm:
+// docs/ADMIN-BUDGETS.md, kural: src/admin/phoneEntry.test.ts).
+const ADMIN_PURE_MODULE = /[\\/]src[\\/]admin[\\/]data[\\/][^\\/]+\.tsx?$/;
+
 // rolldown codeSplitting grupları: ad işlevi her dönen adı ayrı grup sayar (wide birimleri); öncelik ve test aynı.
 const SPLIT_GROUPS = CHUNK_GROUPS.map(({ name, chunkName, priority, test }) => ({ name: chunkName ?? name, priority, test }));
 
@@ -303,6 +311,8 @@ export default defineConfig({
     // Yalnız dev sunucusu: AILE_GENERATION_DIR altındaki özel nesli /__aile/generation/* yolundan salt okunur servis eder.
     // apply:'serve' olduğu için build çıktısına hiçbir şey eklemez.
     privateDataPlugin(),
+    // Yalnız derleme: yönetim simgeleri (ui/icons.tsx) Phosphor tanımının yalnız regular ağırlığını taşır (çıktı aynı SVG).
+    phosphorRegularOnly(),
     precacheScope.plugin,
     entryPreload.plugin,
     deliveryGraph(CHUNK_GROUPS),
@@ -360,6 +370,7 @@ export default defineConfig({
     // `index` keeps the main entry's `index-*.js` basename.
     rolldownOptions: {
       input: { index: 'index.html', admin: 'admin.html' },
+      treeshake: { moduleSideEffects: [{ test: ADMIN_PURE_MODULE, sideEffects: false }] },
       output: {
         codeSplitting: {
           // Admin-only vendor code gets its own chunks (never precached). Dependencies are NOT pulled in

@@ -13,7 +13,8 @@ function MarkerProviders({ children }: { children: ReactNode }) {
   return <div data-testid="wide-providers">{children}</div>;
 }
 
-vi.mock('../data', async () => {
+// App sağlayıcıyı doğrudan modülünden alır (telefon girişi veri barrel'ını statik çekmez; src/admin/phoneEntry.test.ts).
+vi.mock('../data/useGeneration.provider', async () => {
   const { useEffect } = await import('react');
   function GenerationProvider({ children }: { children: ReactNode }) {
     useEffect(() => { counts.dataMounts += 1; }, []);

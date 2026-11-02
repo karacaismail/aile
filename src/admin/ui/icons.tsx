@@ -1,48 +1,69 @@
+import { useEffect, useSyncExternalStore } from 'react';
 import type { Icon as PhosphorIcon } from '@phosphor-icons/react/dist/lib/types';
-import { ArrowCounterClockwiseIcon } from '@phosphor-icons/react/dist/csr/ArrowCounterClockwise';
-import { ArrowLeftIcon } from '@phosphor-icons/react/dist/csr/ArrowLeft';
-import { ArrowSquareOutIcon } from '@phosphor-icons/react/dist/csr/ArrowSquareOut';
 import { ArrowsClockwiseIcon } from '@phosphor-icons/react/dist/csr/ArrowsClockwise';
-import { CalendarBlankIcon } from '@phosphor-icons/react/dist/csr/CalendarBlank';
 import { CaretDownIcon } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretRightIcon } from '@phosphor-icons/react/dist/csr/CaretRight';
 import { CheckIcon } from '@phosphor-icons/react/dist/csr/Check';
-import { ColumnsIcon } from '@phosphor-icons/react/dist/csr/Columns';
-import { DotsThreeIcon } from '@phosphor-icons/react/dist/csr/DotsThree';
-import { DownloadSimpleIcon } from '@phosphor-icons/react/dist/csr/DownloadSimple';
-import { FunnelIcon } from '@phosphor-icons/react/dist/csr/Funnel';
-import { GearIcon } from '@phosphor-icons/react/dist/csr/Gear';
-import { ImageBrokenIcon } from '@phosphor-icons/react/dist/csr/ImageBroken';
-import { InfoIcon } from '@phosphor-icons/react/dist/csr/Info';
-import { ListIcon } from '@phosphor-icons/react/dist/csr/List';
-import { MagnifyingGlassIcon } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
-import { PencilSimpleIcon } from '@phosphor-icons/react/dist/csr/PencilSimple';
-import { PlusIcon } from '@phosphor-icons/react/dist/csr/Plus';
-import { SortAscendingIcon } from '@phosphor-icons/react/dist/csr/SortAscending';
 import { TableIcon } from '@phosphor-icons/react/dist/csr/Table';
 import { WarningIcon } from '@phosphor-icons/react/dist/csr/Warning';
-import { XIcon } from '@phosphor-icons/react/dist/csr/X';
+import type { EXTRA_ICONS } from './icons.extra';
 
 // Tasarım README › İkonografi: Aile.Icon adları (menu … edit) + P0b ekleri (calendar, undo, compare).
-// Tek simge seti Phosphor, weight regular, 20 px, currentColor. Ham paket importu yalnız bu dosyada ve simge başına
-// (dist/csr/<Ad>): paket barrel'ı 3000+ simgeyi modül grafiğine sokar (geliştirme sunucusu, Vitest dönüşümü), telefon
-// statik kapanışı yalnız kullanılan 23 simgeyi taşır. antd/@ant-design yok.
-const ICONS = {
-  menu: ListIcon, close: XIcon, search: MagnifyingGlassIcon, filter: FunnelIcon, refresh: ArrowsClockwiseIcon,
-  chevronDown: CaretDownIcon, chevronRight: CaretRightIcon, back: ArrowLeftIcon, check: CheckIcon, plus: PlusIcon,
-  download: DownloadSimpleIcon, more: DotsThreeIcon, alert: WarningIcon, info: InfoIcon, imageOff: ImageBrokenIcon,
-  sheet: TableIcon, settings: GearIcon, external: ArrowSquareOutIcon, sort: SortAscendingIcon, edit: PencilSimpleIcon,
-  calendar: CalendarBlankIcon, undo: ArrowCounterClockwiseIcon, compare: ColumnsIcon,
+// Tek simge seti Phosphor, weight regular, 20 px, currentColor. Ham paket importu yalnız bu dosyada ve icons.extra.tsx'te,
+// simge başına (dist/csr/<Ad>): paket barrel'ı 3000+ simgeyi modül grafiğine sokar. antd/@ant-design yok. Derlemede
+// her simge modülü yalnız regular ağırlığını taşır (ui/icons.build.ts; çıktı aynı SVG).
+// Teslim: telefon ilk rotasının (Genel durum) çizdiği altı simge burada statiktir (çekirdek); kalan on yedisi
+// icons.extra.tsx'tedir ve ilk gerektiğinde tek parça olarak iner. Rota yükleyicisi (routes.tsx) başka bir sayfayı
+// indirirken onu da birlikte ister (preloadIcons): o sayfa ilk çizildiğinde simgeler hazırdır. Parça henüz yoksa simge
+// aynı ölçü ve niteliklerle boş çizilir (yerleşim kaymaz, erişilebilir ad korunur) ve parça gelince dolar.
+const CORE_ICONS = {
+  refresh: ArrowsClockwiseIcon, chevronDown: CaretDownIcon, chevronRight: CaretRightIcon, check: CheckIcon, alert: WarningIcon,
+  sheet: TableIcon,
 } satisfies Record<string, PhosphorIcon>;
 
-export type IconName = keyof typeof ICONS;
-export const ICON_NAMES = Object.keys(ICONS) as readonly IconName[];
+type CoreIconName = keyof typeof CORE_ICONS;
+type ExtraIcons = typeof EXTRA_ICONS;
+export type IconName = CoreIconName | keyof ExtraIcons;
+
+/** Tasarımdaki simge adları (README sırası). */
+export const ICON_NAMES = [
+  'menu', 'close', 'search', 'filter', 'refresh', 'chevronDown', 'chevronRight', 'back', 'check', 'plus', 'download', 'more',
+  'alert', 'info', 'imageOff', 'sheet', 'settings', 'external', 'sort', 'edit', 'calendar', 'undo', 'compare',
+] as const satisfies readonly IconName[];
 
 /**
  * Simge boyutu (CSS px), tasarım README › İkonografi: "Simgeler 20 px, metinle birlikte". tokens.json'da simge boyutu
  * tokenı yok; tek kaynak bu sabittir (bileşenler sabit sayı yazmak yerine bunu ya da size prop'unu kullanır).
  */
 export const ICON_SIZE = 20;
+
+let extraIcons: ExtraIcons | null = null;
+let extraRequest: Promise<ExtraIcons> | null = null;
+const listeners = new Set<() => void>();
+
+/** Çekirdek dışı simgeleri bir kez ister; uçuştaki istek paylaşılır, başarısız istek saklanmaz (sonraki çizim yeniden ister). */
+export function preloadIcons(): Promise<ExtraIcons> {
+  extraRequest ??= import('./icons.extra').then(
+    (module) => {
+      extraIcons = module.EXTRA_ICONS;
+      for (const listener of [...listeners]) listener();
+      return module.EXTRA_ICONS;
+    },
+    (error: unknown) => {
+      extraRequest = null;
+      throw error;
+    },
+  );
+  return extraRequest;
+}
+
+const subscribe = (listener: () => void) => {
+  listeners.add(listener);
+  return () => { listeners.delete(listener); };
+};
+const readExtra = () => extraIcons;
+const ignore = () => {};
+const isCore = (name: IconName): name is CoreIconName => name in CORE_ICONS;
 
 export interface IconProps {
   name: IconName;
@@ -54,7 +75,16 @@ export interface IconProps {
 }
 
 export function Icon({ name, size = ICON_SIZE, label, className }: IconProps) {
-  const Glyph = ICONS[name];
+  const core = isCore(name);
+  const extra = useSyncExternalStore(subscribe, readExtra, readExtra);
+  useEffect(() => {
+    if (!core && !extra) preloadIcons().catch(ignore);
+  }, [core, extra]);
+  const Glyph: PhosphorIcon | undefined = core ? CORE_ICONS[name] : extra?.[name];
   const a11y = label ? { role: 'img', 'aria-label': label } : { 'aria-hidden': true as const };
+  if (!Glyph) {
+    // Phosphor IconBase ile aynı kutu ve nitelikler; yol parça gelince eklenir.
+    return <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} fill="currentColor" viewBox="0 0 256 256" className={className} data-icon={name} {...a11y} />;
+  }
   return <Glyph size={size} weight="regular" color="currentColor" className={className} data-icon={name} {...a11y} />;
 }

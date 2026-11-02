@@ -7,7 +7,8 @@ export {
 export type { AdaptiveSnapshot, AdaptiveWindow, InputLayers, Profile, Viewport } from './profile';
 export { AdaptiveProvider, InputLayersContext, ProfileContext, useAdaptiveWatcher, useInputLayers, useProfile } from './context';
 export {
-  Adaptive, WIDE_RETRY_DELAY_MS, WideNotice, WideOnly, isChunkLoadError, lazyWide, useWideLoading, useWideModule, wideManifest, wideResource,
+  Adaptive, WIDE_RETRY_DELAY_MS, WideNotice, WideOnly, isChunkLoadError, lazyResource, lazyWide, useWideLoading, useWideModule, wideManifest,
+  wideResource,
 } from './loader';
 export type { AdaptiveProps, LazyWideOptions, WideComponent, WideOptions, WideProps, WideResource, WideState, WideStatus } from './loader';
 export { AdaptiveRoot } from './AdaptiveRoot';
