@@ -1,19 +1,20 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, type ReactNode, type RefObject } from 'react';
+import { useId, type ReactNode, type RefObject } from 'react';
+import { createPortal } from 'react-dom';
 import { designTokens } from '../../design/tokens.ts';
-import { AntButton, AntDrawer } from './antd';
+import { useModalLayer } from './BottomSheet.layer';
 import { Icon } from './icons';
 import './Drawer.css';
 
 // Tasarım: aile-tasarim/tasarim-sistemi/components/Drawer/README.md + index.d.ts DrawerProps; referans davranış
 // bundle.js Drawer/useModal (odak içeri, Escape kapatır, kapanınca açan düğmeye döner). Kenardan açılan modal katman:
-// dar ekranda gezinme (tone "nav", side "left") ve filtreler (full), gerektiğinde form (footer = FormFooter).
-// antd Drawer: closeIcon yerine metinli, her zaman görünür "Kapat"; örtü tıklaması ve Escape kapatır (keyboard, maskClosable);
-// odak tuzağı antd'de (focusable.trap). Odak girişi ve dönüşü burada, referans useModal gibi: antd'nin autoFocus'u portal
-// kabı belgeye eklenmeden önce çalışıp boşa düşebilir, dönüşü ise kapanış hareketinin sonunu bekler ve hareket bitmeden
-// kapatılınca (destroyOnHidden) hiç çalışmaz. Bu yüzden açılınca odak bir sonraki karede role="dialog" paneline girer,
-// open false olduğu anda returnFocusTo'ya ya da açıldığı anda odaklı olan öğeye döner.
+// dar ekranda gezinme (tone "nav", side "left") ve filtreler (full), geniş ekranda ayrıntı ya da form (footer = FormFooter).
+// Yerel HTML + ARIA APG "Dialog (Modal)"; antd gerekmez, bu yüzden tek uygulama tüm profillere hizmet eder (.wide dosyası
+// yok). Kip, odak (tek sahip, aynı commit), inert arka plan, kaydırma kilidi, Tab tuzağı, Escape (en üstteki katman),
+// hareket aşamaları ve sanal klavye BottomSheet.layer.ts'te. Kapatma her zaman görünür metinli "Kapat", Escape ve örtü.
 // Görsel kurallar Drawer.css (yalnız --aile tokenları): iç köşeler kose-panel, gölge golge-yukseltilmis, arkada ortu,
-// kenar yalnız cizgi ayırıcı; odak çizgisini admin.css çizer, nav üzerinde rengi Drawer.css acik-mavi yapar.
+// kenar yalnız cizgi ayırıcı; hareket 240 ms proje eğrisi, reduced-motion'da anlık. Odak çizgisini yalnız merkezi admin.css
+// çizer: kök data-aile-katman taşır (body'ye portallansa da kapsam), Kapat data-focus-line; nav tonunda yüzey
+// data-odak-zemin="nav" (çizgi odak-nav, seçili öğede odak).
 export interface DrawerProps {
   /** h2 başlık; diyaloğun erişilebilir adı. */
   title: string;
@@ -30,7 +31,7 @@ export interface DrawerProps {
   tone?: 'nav';
   /** CSS px; varsayılan ayrinti-genislik 384. Viewport'tan genişse yüzde yüze iner. */
   width?: number;
-  /** Portal yerine yerinde çizim (önizleme ve yalıtık test). */
+  /** Portal yerine yerinde, kipsiz çizim (önizleme, yalıtık test, akıştaki yan panel): arka plan inert değil, aria-modal yok. */
   inline?: boolean;
   /** Görünür kapatma düğmesinin metni. */
   closeLabel?: string;
@@ -39,88 +40,54 @@ export interface DrawerProps {
   className?: string;
 }
 
-const nextFrame = (callback: () => void): (() => void) => {
-  if (typeof window.requestAnimationFrame === 'function') {
-    const frame = window.requestAnimationFrame(callback);
-    return () => window.cancelAnimationFrame(frame);
-  }
-  const timer = window.setTimeout(callback, 0);
-  return () => window.clearTimeout(timer);
-};
-
 export function Drawer({
   title, children, footer, open = true, onClose, side = 'right', full, tone, width = designTokens.ayrintiGenislik,
   inline, closeLabel = 'Kapat', returnFocusTo, className,
 }: DrawerProps) {
-  const nav = tone === 'nav';
-  const rootClass = ['aile-drawer', `aile-drawer--${side}`, full && 'aile-drawer--full', nav && 'aile-drawer--nav', className]
-    .filter(Boolean).join(' ');
-  const close = () => onClose?.();
+  const titleId = `aile-drawer-baslik${useId()}`;
+  const layer = useModalLayer({ open, modal: !inline, onClose, returnFocusTo });
+  if (layer.stage === 'yok' || (!inline && !layer.container)) return null;
 
-  // role="dialog" paneli (antd panelRef). Odaklanabilmesi için tabIndex -1 burada yazılır; React bu özniteliği yönetmez.
-  const panel = useRef<HTMLDivElement | null>(null);
-  const panelRef = useCallback((element: HTMLDivElement | null) => {
-    panel.current = element;
-    if (element) element.tabIndex = -1;
-  }, []);
+  const closing = !open;
+  const rootClass = [
+    'aile-drawer', `aile-drawer--${side}`, full && 'aile-drawer--full', tone === 'nav' && 'aile-drawer--nav',
+    inline && 'aile-drawer--inline', className,
+  ].filter(Boolean).join(' ');
 
-  // Odak dönüşü: açılırken (antd henüz odağı taşımadan, layout aşamasında) odaklı öğe saklanır; open false olunca ya da
-  // açıkken sökülünce odak returnFocusTo'ya, yoksa o öğeye döner. Odak bu arada çekmece dışına taşındıysa dokunulmaz.
-  const returnTarget = useRef(returnFocusTo);
-  returnTarget.current = returnFocusTo;
-  useLayoutEffect(() => {
-    if (!open) return;
-    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    return () => {
-      const active = document.activeElement;
-      const current = panel.current;
-      const outside = active && active !== document.body && active !== document.documentElement
-        && !(current && (active.contains(current) || current.contains(active)));
-      if (outside) return;
-      const target = returnTarget.current?.current ?? opener;
-      if (target?.isConnected) target.focus({ preventScroll: true });
-    };
-  }, [open]);
-
-  // Odak girişi: panel portal kabıyla birlikte belgeye eklendikten sonra, bir sonraki karede.
-  useEffect(() => {
-    if (!open) return;
-    return nextFrame(() => panel.current?.focus({ preventScroll: true }));
-  }, [open]);
-
-  return (
-    <AntDrawer
-      open={open}
-      onClose={close}
-      placement={side}
-      size={full ? '100%' : width}
-      destroyOnHidden
-      getContainer={inline ? false : undefined}
-      panelRef={panelRef}
-      // Dönüş burada yapılır; antd'nin hareket sonundaki dönüşü returnFocusTo'yu ezmesin.
-      focusable={{ focusTriggerAfterClose: false }}
-      closable={false}
-      title={<h2 className="aile-drawer-title">{title}</h2>}
-      extra={
-        <AntButton
-          htmlType="button"
-          variant="text"
-          color="primary"
-          icon={<Icon name="close" />}
-          onClick={close}
-          className="aile-drawer-close"
-        >
-          {closeLabel}
-        </AntButton>
-      }
-      footer={footer}
-      rootClassName={rootClass}
-      classNames={{
-        mask: 'aile-drawer-mask', wrapper: 'aile-drawer-wrapper', section: 'aile-drawer-section',
-        header: 'aile-drawer-header', body: 'aile-drawer-body', footer: 'aile-drawer-footer',
-      }}
+  const drawer = (
+    <div
+      ref={layer.rootRef}
+      className={rootClass}
+      data-aile-katman=""
+      data-durum={layer.stage === 'acik' ? 'acik' : 'kapali'}
+      aria-hidden={closing || undefined}
+      inert={closing || undefined}
+      onKeyDown={inline ? layer.onKeyDown : undefined}
     >
-      {children}
-    </AntDrawer>
+      <div className="aile-drawer-mask" aria-hidden="true" onClick={layer.requestClose} />
+      <div ref={layer.motionRef} className="aile-drawer-wrapper" style={{ width: full ? '100%' : `${width}px` }}>
+        <div
+          ref={layer.panelRef}
+          className="aile-drawer-section"
+          role="dialog"
+          aria-modal={inline ? undefined : true}
+          aria-labelledby={titleId}
+          tabIndex={-1}
+          data-odak-zemin={tone === 'nav' ? 'nav' : undefined}
+        >
+          <div className="aile-drawer-header">
+            <h2 id={titleId} className="aile-drawer-title">{title}</h2>
+            <button type="button" className="aile-drawer-close" data-focus-line onClick={layer.requestClose}>
+              <Icon name="close" />
+              <span>{closeLabel}</span>
+            </button>
+          </div>
+          <div className="aile-drawer-body">{children}</div>
+          {footer != null && footer !== false ? <div className="aile-drawer-footer">{footer}</div> : null}
+        </div>
+      </div>
+    </div>
   );
+
+  return inline ? drawer : createPortal(drawer, layer.container as HTMLElement);
 }
