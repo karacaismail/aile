@@ -63,6 +63,48 @@ describe('AccordionList', () => {
     expect(head('Bebek karyolası')).toHaveAttribute('aria-expanded', 'true');
   });
 
+  it('yeni kayıt kümesinde açık satırların hiçbiri yoksa (filtre, dönem) ilk gövdeli satır yeniden açılır; kalanlar korunur', async () => {
+    const user = userEvent.setup();
+    const yeni: AccordionItem[] = [
+      { key: 'b1', title: 'Çalışma masası', body: [['Planlanan', '₺9.000,00']] },
+      { key: 'b2', title: 'Kitaplık', body: [['Planlanan', '₺4.500,00']] },
+    ];
+    const { rerender } = render(<AccordionList items={alimlar} />);
+    await user.click(head('Mutfak masası'));
+    expect(head('Salon koltuğu')).toHaveAttribute('aria-expanded', 'true');
+    expect(head('Mutfak masası')).toHaveAttribute('aria-expanded', 'true');
+
+    // Açık satırlardan biri yeni kümede varsa durum korunur (ör. "daha fazla göster" satır ekler).
+    rerender(<AccordionList items={[...alimlar.slice(1), ...yeni]} />);
+    expect(head('Mutfak masası')).toHaveAttribute('aria-expanded', 'true');
+    expect(head('Çalışma masası')).toHaveAttribute('aria-expanded', 'false');
+
+    // Hiçbiri yoksa ilk gövdeli satır açık gelir (tablolar akordeon, ilk açık).
+    rerender(<AccordionList items={yeni} />);
+    expect(head('Çalışma masası')).toHaveAttribute('aria-expanded', 'true');
+    expect(head('Kitaplık')).toHaveAttribute('aria-expanded', 'false');
+
+    // Kullanıcı hepsini kapattıysa yeni küme bunu bozmaz; firstOpen={false} hiç açmaz.
+    await user.click(head('Çalışma masası'));
+    rerender(<AccordionList items={alimlar} />);
+    for (const title of ['Salon koltuğu', 'Mutfak masası', 'Bebek karyolası']) expect(head(title)).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('kayıtlar sonradan gelirse (boş liste → veri) ilk gövdeli satır açık gelir', () => {
+    const { rerender } = render(<AccordionList items={[]} caption="0 alım" />);
+    rerender(<AccordionList items={alimlar} caption="3 alım" />);
+    expect(head('Salon koltuğu')).toHaveAttribute('aria-expanded', 'true');
+    expect(head('Mutfak masası')).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('firstOpen={false}: açık satırlar yeni kümede yoksa hiçbir satır açılmaz', async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<AccordionList items={alimlar} firstOpen={false} />);
+    await user.click(head('Mutfak masası'));
+    rerender(<AccordionList items={[{ key: 'b1', title: 'Çalışma masası', body: [['Planlanan', '₺9.000,00']] }]} firstOpen={false} />);
+    expect(head('Çalışma masası')).toHaveAttribute('aria-expanded', 'false');
+  });
+
   it('tıklama açar ve kapatır; birden çok satır aynı anda açık kalabilir; gövde etiket–değer listesidir (dl)', async () => {
     const user = userEvent.setup();
     render(<AccordionList items={alimlar} />);
@@ -156,6 +198,23 @@ describe('AccordionList', () => {
     // İlk açık satır listenin ilk gövdeli satırıdır, grup sırasından bağımsız.
     expect(head('Salon koltuğu')).toHaveAttribute('aria-expanded', 'true');
     expect(head('Mutfak masası')).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('headingLevel: grup başlıkları verilen düzeyde (h1 altında h2 yoksa 2; başlık sırası atlamaz); varsayılan h3 kalır', () => {
+    const grouped: AccordionItem[] = [
+      { ...alimlar[0], group: 'Tarihi geçenler' },
+      { ...alimlar[1], group: 'Mart 2027' },
+    ];
+    const { unmount } = render(<AccordionList items={grouped} caption="2 tahmini ödeme" headingLevel={2} />);
+    expect(screen.getAllByRole('heading', { level: 2 }).map(h => h.textContent)).toEqual(['Tarihi geçenler1', 'Mart 20271']);
+    expect(screen.queryByRole('heading', { level: 3 })).toBeNull();
+    // Bölge adı ve sayım düzeyden bağımsızdır.
+    expect(screen.getByRole('region', { name: 'Tarihi geçenler' })).toBeVisible();
+    unmount();
+
+    render(<AccordionList items={grouped} caption="2 tahmini ödeme" />);
+    expect(screen.getAllByRole('heading', { level: 3 })).toHaveLength(2);
+    expect(screen.queryByRole('heading', { level: 2 })).toBeNull();
   });
 
   it('grupsuz listede grup başlığı yoktur; bölge adı caption olur', () => {

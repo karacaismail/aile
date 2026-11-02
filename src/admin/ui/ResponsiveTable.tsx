@@ -2,7 +2,7 @@ import { Fragment, isValidElement, useRef, useState, type ReactNode } from 'reac
 import { designTokens } from '../../design/tokens.ts';
 import { useContainerWidth, useDevice } from '../device';
 import type { AccordionItem, ResponsiveColumn } from '../shell/contracts';
-import { AccordionList } from './AccordionList';
+import { AccordionList, type AccordionHeadingLevel } from './AccordionList';
 import { Table, type TableColumn } from './Table';
 import { sortedIndices, type TableSort } from './Table.sort';
 import './ResponsiveTable.css';
@@ -13,7 +13,8 @@ import './ResponsiveTable.css';
 // sütunlarının minWidth toplamı + sütun başına iki yanlık hücre dolgusu (2 × bosluk-4; README'deki sütun dolgusu), alanın gerçek
 // genişliğiyle (ResizeObserver) karşılaştırılır. Sütun rolleri m: title (kapalıyken başlık) | meta (başlık altı,
 // " · " ile) | status (etiket) | lead (sağdaki ana tutar) | body (varsayılan; açılınca etiket–değer) | hide.
-// groupBy telefonda grup başlıkları üretir; geciken grup her zaman üstte, diğerleri ilk görüldükleri sırada.
+// groupBy telefonda grup başlıkları üretir; geciken grup ("Gecikenler" ya da tahmin olaylarının "Tarihi geçenler"i) her
+// zaman üstte, diğerleri ilk görüldükleri sırada.
 // Sıralama (sortable sütun, aria-sort) burada tutulur: tabloda seçilen sıra telefona geçişte korunur ve akordeon da
 // aynı sırayla dizilir (Table.sort; eksik değer sonda). sort verilirse denetimlidir, ResponsiveTable durum tutmaz.
 
@@ -44,6 +45,8 @@ export interface ResponsiveTableProps<R extends object> {
   defaultOpenKeys?: readonly string[];
   /** Akordeon gövdesindeki ayrıntı düğmesinin etiketi ("Ayrıntıyı aç"). */
   openLabel?: string;
+  /** Akordeon grup başlıklarının düzeyi (AccordionList; varsayılan h3). Sayfada h2 yoksa 2: başlık sırası atlamaz. */
+  headingLevel?: AccordionHeadingLevel;
   /** Denetimli sıralama; null sıralamasız. Verilmezse ResponsiveTable kendi durumunu tutar (defaultSort ile başlar). */
   sort?: TableSort | null;
   defaultSort?: TableSort;
@@ -57,7 +60,8 @@ const COLUMN_PADDING = designTokens.bosluk4 * 2;
 /** Bu sayıda ve daha az anlamlı sütun telefonda düz listedir (README). */
 const LIST_COLUMN_LIMIT = 3;
 const META_SEPARATOR = ' · ';
-const LATE_GROUP = /gecik/;
+/** Geciken grup adı: "Gecikenler" ya da ödeme gerçeği bilinmeyen olayların "Tarihi geçenler"i. */
+const LATE_GROUP = /gecik|tarihi geç/;
 
 /** Sığma ölçüsü: masaüstü sütunlarının minWidth toplamı + sütun başına dolgu. Dışa açık (test ve sayfa hesabı). */
 export function requiredTableWidth<R extends object>(columns: readonly ResponsiveColumn<R>[]): number {
@@ -95,7 +99,7 @@ function orderByGroup(items: AccordionItem[]): AccordionItem[] {
 
 export function ResponsiveTable<R extends object>({
   columns, rows, caption, selectedKey, onRowClick, maxHeight, mobileMode, mobileCaption, groupBy, narrow, defaultOpenKeys, openLabel,
-  sort, defaultSort, onSortChange, className,
+  headingLevel, sort, defaultSort, onSortChange, className,
 }: ResponsiveTableProps<R>) {
   const ref = useRef<HTMLDivElement>(null);
   const width = useContainerWidth(ref);
@@ -161,7 +165,13 @@ export function ResponsiveTable<R extends object>({
 
   return (
     <div ref={ref} className={rootClass} data-layout={mode}>
-      <AccordionList items={items} caption={mobileCaption ?? caption} defaultOpenKeys={defaultOpenKeys} openLabel={openLabel} />
+      <AccordionList
+        items={items}
+        caption={mobileCaption ?? caption}
+        defaultOpenKeys={defaultOpenKeys}
+        openLabel={openLabel}
+        headingLevel={headingLevel}
+      />
     </div>
   );
 }

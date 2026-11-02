@@ -30,6 +30,7 @@ interface AccordionMockProps {
   firstOpen?: boolean;
   defaultOpenKeys?: readonly string[];
   openLabel?: string;
+  headingLevel?: number;
 }
 
 vi.mock('./Table', () => ({
@@ -71,6 +72,7 @@ vi.mock('./AccordionList', () => ({
       data-open-label={props.openLabel}
       data-first-open={props.firstOpen === undefined ? 'default' : String(props.firstOpen)}
       data-default-open={props.defaultOpenKeys?.join(',')}
+      data-heading-level={props.headingLevel}
     >
       {props.items.map(item => (
         <li key={item.key} data-key={item.key} data-group={item.group} data-selected={String(item.selected ?? false)} data-has-body={item.body ? 'true' : 'false'}>
@@ -399,6 +401,24 @@ describe('ResponsiveTable › telefon', () => {
       ['ODM-0325', 'Sonra'],
       ['ODM-0319', 'Ödenenler'],
     ]);
+  });
+
+  it('"Tarihi geçenler" de geciken gruptur: veri sırasında sonda olsa da üste çıkar (tahmin olayı "Gecikti" demez)', () => {
+    const grouped: Row[] = [
+      { ...rows[0]!, key: 'OLY-2', ad: 'Kira', g: 'Bu hafta' },
+      { ...rows[0]!, key: 'OLY-3', ad: 'Elektrik faturası', g: 'Mart 2027' },
+      { ...rows[0]!, key: 'OLY-1', ad: 'Karartma perde seti', g: 'Tarihi geçenler' },
+    ];
+    render(<ResponsiveTable caption="Tahmini ödemeler" columns={fullColumns} rows={grouped} groupBy={row => row.g ?? 'Bilinmiyor'} />);
+    expect(items().map(item => item.getAttribute('data-group'))).toEqual(['Tarihi geçenler', 'Bu hafta', 'Mart 2027']);
+  });
+
+  it('headingLevel akordeonun grup başlığı düzeyi olarak AccordionList\'e geçer; verilmezse AccordionList varsayılanı (h3)', () => {
+    const { container, unmount } = render(<ResponsiveTable caption="Tahmini ödemeler" columns={fullColumns} rows={rows} groupBy={() => 'Bu hafta'} headingLevel={2} />);
+    expect(container.querySelector('ul')).toHaveAttribute('data-heading-level', '2');
+    unmount();
+    const { container: varsayilan } = render(<ResponsiveTable caption="Tahmini ödemeler" columns={fullColumns} rows={rows} groupBy={() => 'Bu hafta'} />);
+    expect(varsayilan.querySelector('ul')).not.toHaveAttribute('data-heading-level');
   });
 
   it('groupBy yokken satırlar veri sırasında ve grupsuzdur', () => {

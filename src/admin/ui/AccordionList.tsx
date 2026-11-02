@@ -8,9 +8,11 @@ import './AccordionList.css';
 // davranış bundle.js AccordionList. Bir yüzey içinde açılır satırlar; telefonda tablonun yerine geçer (ResponsiveTable
 // kurar). Satırın tamamı düğmedir (44+ px hedef): aria-expanded + aria-controls; sağdaki 32 px çerçeveli ok kutusu
 // açılabilirliği ilk bakışta gösteren süsleyicidir (aria-hidden). Birden çok satır açık kalabilir; ilk gövdeli satır
-// açık gelir (firstOpen), defaultOpenKeys bunu geçersiz kılar. Üst satır: caption ya da "N kayıt" + "ayrıntı için
-// satıra dokunun" + "Tümünü aç / kapat" (caption verildiğinde ya da 3'ten çok kayıtta). Gruplar ilk görülme sırasıyla
-// birer bölgedir (section + h3 + sayım). body yoksa satır düzdür: onOpen varsa düğme ayrıntıya gider.
+// açık gelir (firstOpen), defaultOpenKeys bunu geçersiz kılar; yeni kayıt kümesinde açık satırların hiçbiri yoksa ilk
+// gövdeli satır yeniden açılır. Üst satır: caption ya da "N kayıt" + "ayrıntı için satıra dokunun" + "Tümünü aç /
+// kapat" (caption verildiğinde ya da 3'ten çok kayıtta). Gruplar ilk görülme sırasıyla birer bölgedir (section +
+// başlık + sayım); başlık düzeyi headingLevel (varsayılan h3; sayfada h2 yoksa çağıran 2 verir, başlık sırası
+// atlamasın). body yoksa satır düzdür: onOpen varsa düğme ayrıntıya gider.
 // antd Collapse kullanılmaz (envanter eşlemesi bilgi amaçlı): Collapse başlığı tek düğme değildir, panel region
 // ve ikon konumu tasarımla örtüşmez. Görsel kurallar AccordionList.css (yalnız --aile tokenları); kapalı gövde
 // hidden + inert; kapanırken odak gövdedeyse satır başlığına döner (Disclosure ile aynı). Klavye: Enter/Space satır,
@@ -24,8 +26,12 @@ export interface AccordionListProps {
   defaultOpenKeys?: readonly string[];
   /** Gövdedeki ayrıntı düğmesinin etiketi; varsayılan "Ayrıntıyı aç". */
   openLabel?: string;
+  /** Grup başlıklarının düzeyi (varsayılan 3). Liste h1'in hemen altındaysa 2 verilir: başlık sırası atlamaz. */
+  headingLevel?: AccordionHeadingLevel;
   className?: string;
 }
+
+export type AccordionHeadingLevel = 2 | 3 | 4 | 5 | 6;
 
 const AYRINTIYI_AC = 'Ayrıntıyı aç';
 const DOKUNUN = 'ayrıntı için satıra dokunun';
@@ -54,8 +60,11 @@ function groupRows(rows: readonly Row[]): Group[] {
   return groups;
 }
 
-export function AccordionList({ items, caption, firstOpen = true, defaultOpenKeys, openLabel = AYRINTIYI_AC, className }: AccordionListProps) {
+export function AccordionList({
+  items, caption, firstOpen = true, defaultOpenKeys, openLabel = AYRINTIYI_AC, headingLevel = 3, className,
+}: AccordionListProps) {
   const id = useId();
+  const GroupHeading = `h${headingLevel}` as const;
   const rootRef = useRef<HTMLDivElement>(null);
   const rows: Row[] = items.map((item, index) => ({ item, index, expandable: hasBody(item) }));
   const expandable = rows.filter(row => row.expandable);
@@ -64,6 +73,21 @@ export function AccordionList({ items, caption, firstOpen = true, defaultOpenKey
     const first = expandable[0];
     return firstOpen && first ? [first.item.key] : [];
   });
+  // Yeni kayıt kümesi (veri gelişi, filtre, dönem): açık satırların hiçbiri kalmadıysa ya da önceki küme boşsa ilk gövdeli
+  // satır açılır (firstOpen). Açık satırlardan biri duruyorsa ("daha fazla göster") ya da kullanıcı hepsini kapattıysa
+  // durum korunur. Önceki render'ın anahtarlarıyla karşılaştırılır, render sırasında düzeltilir (effect'teki boş kare yok).
+  const keySignature = expandable.map(row => row.item.key).join('\u0000');
+  const [seenSignature, setSeenSignature] = useState(keySignature);
+  if (seenSignature !== keySignature) {
+    setSeenSignature(keySignature);
+    const present = new Set(expandable.map(row => row.item.key));
+    const vanished = open.length > 0 && !open.some(key => present.has(key));
+    const arrived = seenSignature === '' && open.length === 0;
+    if (vanished || arrived) {
+      const first = expandable[0];
+      setOpen(firstOpen && first ? [first.item.key] : []);
+    }
+  }
   const isOpen = (key: string) => open.includes(key);
   const allOpen = expandable.length > 0 && expandable.every(row => isOpen(row.item.key));
   const showBar = Boolean(caption) || items.length > 3;
@@ -169,10 +193,10 @@ export function AccordionList({ items, caption, firstOpen = true, defaultOpenKey
       {groupRows(rows).map(group => (
         <section key={group.name || '_'} className="aile-acc-group" aria-label={group.name || caption}>
           {group.name ? (
-            <h3 className="aile-acc-gtitle">
+            <GroupHeading className="aile-acc-gtitle">
               {group.name}
               <span className="aile-acc-gcount aile-kucuk">{group.rows.length}</span>
-            </h3>
+            </GroupHeading>
           ) : null}
           <ul className="aile-acc-list">{group.rows.map(renderRow)}</ul>
         </section>

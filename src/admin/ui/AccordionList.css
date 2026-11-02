@@ -92,7 +92,14 @@ button.aile-acc-head:active { background: var(--aile-secili); }
   overflow-wrap: normal;
   word-break: keep-all;
 }
-.aile-acc-ul { position: relative; }
+/* Çizgi konağı blok kutudur: satır içi (inline) span satıra sarılınca ::after'ın kapsayıcı bloğu ilk ve son satır
+   parçasından kurulur; çizgi metinden dar kalır (Chromium) ya da blok içerikte 0 px olur (WebKit). Blok konak başlık
+   sütununun kutusudur: çizgi sarılan adın bütün satırlarını kaplar, son satırın altında durur; başlıktaki tek öğe olduğu
+   için yerleşim değişmez (blok içerik, ör. Overview kalemi, yine tam genişlikte kalır). */
+.aile-acc-ul {
+  position: relative;
+  display: block;
+}
 .aile-acc-meta { color: var(--aile-metin-ikincil); }
 .aile-acc-status {
   display: flex;
