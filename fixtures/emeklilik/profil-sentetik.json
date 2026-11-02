@@ -1,0 +1,36 @@
+{
+  "surum": 1,
+  "sentetik": true,
+  "kayitTarihi": "2026-11-02",
+  "dogumTarihi": "1986-03-10",
+  "ilkSigortaGirisi": "1999-02-01",
+  "hedefGun": 5900,
+  "sigortalilikYili": 25,
+  "kayitliGun": { "gun": 3500, "sonAy": "2026-09", "once2008Gun": 1400, "sonra2008Gun": 2100 },
+  "gunDuzeltmesi": { "gun": -1, "aciklama": "Sentetik: bir ayın 31 günlük kaydı 30'a iner." },
+  "planlananCalisma": [
+    { "baslangicAy": "2026-10", "bitisAy": "2027-01", "ayBasinaGun": 30, "aciklama": "Sentetik: dört ay tahmini SSK." },
+    { "baslangicAy": "2027-02", "bitisAy": null, "ayBasinaGun": 30, "aciklama": "Sentetik: Şubat 2027 sonrası SSK." }
+  ],
+  "kazanc": {
+    "sonPekTl": "120000.00",
+    "sonPekAyi": "2026-09",
+    "netUcretTl": "80000.00",
+    "ucretZamOrani": 0.25,
+    "sonra2008KatToplam": 6000,
+    "once2008OrtalamaKat": 1.5
+  },
+  "sgkReferansAylik": { "tl": "25000.00", "tarih": "2026-11-02", "gun": 3500, "ekOdemeTl": "1000.00" },
+  "varsayilanAylikModeli": "sgkReferans",
+  "secenekler": {
+    "askerlik": { "gun": 360, "azamiGun": 360, "gunlukBedelTl": null, "aciklama": "Sentetik askerlik süresi." },
+    "bagkur": {
+      "gun": 600,
+      "borc": { "tur": "aralik", "altTl": "300000.00", "ustTl": "450000.00", "kaynak": "Sentetik aralık" },
+      "yalnizSskYolundaOdenecek": { "tur": "bilinen", "tl": "50000.00", "kaynak": "Sentetik ortak ödeme" },
+      "aciklama": "Sentetik Bağ-Kur dönemi."
+    },
+    "ihya": { "gun": 500, "gunlukBedelTl": null, "aciklama": "Sentetik ihya süresi." }
+  },
+  "kaynaklar": ["Sentetik test profili; gerçek kişiye ait değildir."]
+}
