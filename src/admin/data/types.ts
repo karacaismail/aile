@@ -1,5 +1,6 @@
-// Veri platformu sözleşmesi (data-platform/schemas/*.json, normalize.mjs, taxonomy.mjs). Panel yalnız doğrulanmış
-// JSON neslini okur. Bilinmeyen alanlar unknown kalır; gerçek nesil Git dışındadır, burada yalnız tipler var.
+// Veri platformu sözleşmesi (data-platform/schemas/*.json, postgres-mapping.json, normalize.mjs, taxonomy.mjs). Panel yalnız
+// doğrulanmış JSON neslini okur. Bilinmeyen alanlar unknown kalır; gerçek nesil Git dışındadır, burada yalnız tipler var.
+// contract.ts'in ayrıştırdığı kayıt (ParsedRecord) bu tiplere atanabilir olmalıdır; types.test.ts bunu tip düzeyinde sınar.
 
 export type UUID = string;
 /** "^-?[0-9]+(\.[0-9]+)?$" — para ve ölçüler metin ondalıktır; sayıya çevirip yuvarlama panelde yapılmaz. */
@@ -112,8 +113,13 @@ export interface BudgetObservation extends BaseRecord {
   label: string;
   /** YYYY-MM */
   period: string;
+  /** Sözleşmede decimal NOT NULL (contract.ts reddeder); null yalnız elle kurulan kayıtlarda "Bilinmiyor" demek içindir. */
   value: { decimal: Decimal | null; currency: string | null };
   basis: 'planned' | 'recorded_aggregate' | 'unclassified' | string;
+  /**
+   * Zorunlu boolean (eşleme: boolean NOT NULL). Eşleme kontrolü "payment_evidence = false": gözlem ödeme kanıtı taşımaz ve
+   * contract.ts true değeri reddeder. Tip boolean kalır; actuals.ts kanıt yolunu yalnız === true ile açar.
+   */
   payment_evidence: boolean;
 }
 
@@ -134,7 +140,8 @@ export interface ViewDefinition extends BaseRecord {
   [key: string]: unknown;
 }
 
-export interface WorkflowTransition { from_term_id: UUID | undefined; to_term_id: UUID | undefined; requires_evidence: boolean }
+/** Geçişin iki ucu da iş akışının sözlüğündeki terimdir (validate.mjs). */
+export interface WorkflowTransition { from_term_id: UUID; to_term_id: UUID; requires_evidence: boolean }
 export interface WorkflowDefinition extends BaseRecord {
   key: string;
   version: number;

@@ -33,6 +33,7 @@ const partitions = manifestRaw.files.filter((f) => f.kind === 'partition');
 const TENANT = '89bb71d8-2e82-56a2-b231-843cbc783ba2';
 const ID = '07a8cb8b-8cd5-5475-a49f-f07dfa0759fc';
 const TERM = 'e9e8380c-00ed-5e8d-b54e-24ee8fae5645';
+const SOURCE = '6edfe45e-b55d-5905-9c03-28b30dee686d';
 
 function purchaseNeedFixture(): Record<string, unknown> {
   const env = readJson('data/purchase_needs/household/00000.json') as { records: Record<string, unknown>[] };
@@ -202,21 +203,27 @@ describe('contract: kayıt şemaları', () => {
   it('budget_observation: period, basis, value.decimal metin', () => {
     const base = { id: ID, tenant_id: TENANT, kind: 'budget_observation', label: 'Satır', basis: 'planned', payment_evidence: false };
     expect(BudgetObservation.parse({ ...base, period: '2027-10', value: { decimal: '8500.00', currency: 'TRY' } }).value.decimal).toBe('8500.00');
-    expect(BudgetObservation.parse({ ...base, period: '2027-10', value: { decimal: null, currency: null } }).value.decimal).toBeNull();
+    // Para birimi bilinmeyebilir (yerel biçim TRY demiyorsa); tutar ise sözleşmede NOT NULL (validate.mjs + postgres-mapping).
+    expect(BudgetObservation.parse({ ...base, period: '2027-10', value: { decimal: '8500.00', currency: null } }).value.currency).toBeNull();
+    expect(() => BudgetObservation.parse({ ...base, period: '2027-10', value: { decimal: null, currency: null } })).toThrow(ZodError);
+    expect(() => BudgetObservation.parse({ ...base, period: '2027-10', value: { currency: 'TRY' } })).toThrow(ZodError);
     expect(() => BudgetObservation.parse({ ...base, period: '2027-10', value: { decimal: 8500, currency: 'TRY' } })).toThrow(ZodError);
     expect(() => BudgetObservation.parse({ ...base, period: '2027/10', value: { decimal: '1', currency: 'TRY' } })).toThrow(ZodError);
     expect(() => BudgetObservation.parse({ ...base, period: '2027-10', value: { decimal: '1', currency: 'TRY' }, basis: 7 })).toThrow(ZodError);
   });
 
   it('forecast_event: occurred_on ISO gün, cash_change Money', () => {
-    const base = { id: ID, tenant_id: TENANT, kind: 'forecast_event', forecast_id: TERM, event_type: 'purchase' };
+    const base = {
+      id: ID, tenant_id: TENANT, kind: 'forecast_event', forecast_id: TERM, event_type: 'purchase', record_basis: 'forecast',
+      source_id: SOURCE, source_record_id: 'olay-1', label: 'Olay', occurred_on: '2026-11-01',
+    };
     expect(ForecastEvent.parse({ ...base, occurred_on: '2026-11-01', cash_change: { amount: '16600.00', currency: 'TRY' } }).occurred_on).toBe('2026-11-01');
     expect(() => ForecastEvent.parse({ ...base, occurred_on: '01.11.2026' })).toThrow(ZodError);
     expect(() => ForecastEvent.parse({ ...base, cash_change: { amount: '16,600', currency: 'TRY' } })).toThrow(ZodError);
   });
 
   it('view_definition ve workflow: sürüm/geçiş alanları', () => {
-    const vd = ViewDefinition.parse({ id: ID, tenant_id: TENANT, key: 'table', version: 1, status: 'proposed_template', capabilities: ['filter'], supported_kinds: ['purchase_need'], aggregation: null });
+    const vd = ViewDefinition.parse({ id: ID, tenant_id: TENANT, key: 'table', label: 'Tablo', version: 1, status: 'proposed_template', capabilities: ['filter'], supported_kinds: ['purchase_need'], aggregation: null });
     expect(vd.key).toBe('table');
     expect(() => ViewDefinition.parse({ id: ID, tenant_id: TENANT, key: 'table', version: '1', status: 'proposed_template' })).toThrow(ZodError);
 
@@ -228,5 +235,212 @@ describe('contract: kayıt şemaları', () => {
 
   it('bilinmeyen koleksiyon adı için parsePartition hata verir', () => {
     expect(() => parsePartition('payments' as CollectionName, { schemaVersion: 1, collection: 'payments', records: [] })).toThrow();
+  });
+});
+
+// --- Sözleşme sertleştirmesi: data-platform ile hizalı kurallar -------------------------------------------------
+const firstOf = (collection: CollectionName): Record<string, unknown> => {
+  const file = partitions.find((p) => p.collection === collection);
+  if (!file) throw new Error(`Sentetik nesilde koleksiyon yok: ${collection}`);
+  return structuredClone((readJson(file.path) as { records: Record<string, unknown>[] }).records[0]!);
+};
+const envelopeOf = (collection: CollectionName, records: unknown[] = [firstOf(collection)]) => ({ schemaVersion: 1, collection, records });
+const isPlain = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
+const isMoney = (v: Record<string, unknown>) => Object.keys(v).sort().join(',') === 'amount,currency';
+const UNKNOWN_KEY = '__gelecek_alan__';
+/** Bilinmeyen anahtara konacak değer adayları: serbest nesne, para, ISO gün, uuid. Düğümün kabul ettiği ilki kullanılır. */
+const UNKNOWN_VALUES: unknown[] = [{ not: 'ileride eklenen alan' }, { amount: '1.00', currency: 'TRY' }, '2026-01-01', TERM, ['x'], 0];
+
+function objectPaths(node: unknown, path: (string | number)[] = []): (string | number)[][] {
+  if (Array.isArray(node)) return node.length ? objectPaths(node[0], [...path, 0]) : [];
+  if (!isPlain(node)) return [];
+  // Para zarfı şemada additionalProperties:false'tur; bilinmeyen anahtar orada reddedilir (aşağıda ayrıca sınanır).
+  if (isMoney(node)) return [];
+  return [path, ...Object.entries(node).flatMap(([k, v]) => objectPaths(v, [...path, k]))];
+}
+const at = (doc: unknown, path: (string | number)[]) => path.reduce<unknown>((n, k) => (n as Record<string | number, unknown>)[k], doc);
+
+describe('contract: bilinmeyen alanlar kaybolmaz', () => {
+  it.each(partitions.map((p) => p.collection as CollectionName).filter((c, i, all) => all.indexOf(c) === i))(
+    '%s: kaydın her nesne düğümüne eklenen bilinmeyen alan ayrıştırmadan aynen çıkar',
+    (collection) => {
+      const record = firstOf(collection);
+      const lost: string[] = [];
+      for (const path of objectPaths(record)) {
+        const kept = UNKNOWN_VALUES.some((value) => {
+          const copy = structuredClone(record);
+          (at(copy, path) as Record<string, unknown>)[UNKNOWN_KEY] = value;
+          const result = collectionSchemas[collection].safeParse(copy);
+          return result.success && JSON.stringify((at(result.data, path) as Record<string, unknown>)[UNKNOWN_KEY]) === JSON.stringify(value);
+        });
+        if (!kept) lost.push(path.join('.') || '(kayıt)');
+      }
+      expect(lost).toEqual([]);
+    },
+  );
+
+  it('manifest: kök, dosya ve kaynak düğümlerindeki bilinmeyen alanlar korunur', () => {
+    const raw = readJson('manifest.json') as Record<string, unknown>;
+    const lost: string[] = [];
+    for (const path of objectPaths(raw)) {
+      const kept = UNKNOWN_VALUES.some((value) => {
+        const copy = structuredClone(raw);
+        (at(copy, path) as Record<string, unknown>)[UNKNOWN_KEY] = value;
+        const result = Manifest.safeParse(copy);
+        return result.success && JSON.stringify((at(result.data, path) as Record<string, unknown>)[UNKNOWN_KEY]) === JSON.stringify(value);
+      });
+      if (!kept) lost.push(path.join('.') || '(kök)');
+    }
+    expect(lost).toEqual([]);
+  });
+
+  it('zarf ve para zarfı kapalıdır: bilinmeyen alan sessizce düşürülmez, reddedilir (şema additionalProperties:false)', () => {
+    expect(() => parsePartition('rooms', { ...envelopeOf('rooms'), ek: true })).toThrow(ZodError);
+    expect(() => PartitionEnvelope.parse({ ...envelopeOf('rooms'), ek: true })).toThrow(ZodError);
+    expect(() => Money.parse({ amount: '1.00', currency: 'TRY', ek: 1 })).toThrow(ZodError);
+    const r = purchaseNeedFixture();
+    (r.amounts as Record<string, unknown>).planned = { amount: '700.00', currency: 'TRY', kur: '1' };
+    expect(() => PurchaseNeed.parse(r)).toThrow(ZodError);
+  });
+});
+
+describe('contract: schemaVersion yalnız 1', () => {
+  const BAD_VERSIONS: unknown[] = [2, 0, -1, 1.5, '1', null, true, undefined];
+
+  it('manifest: 1 dışı her değer ve eksik sürüm reddedilir', () => {
+    const raw = readJson('manifest.json') as Record<string, unknown>;
+    for (const schemaVersion of BAD_VERSIONS) {
+      const doc = { ...raw, schemaVersion };
+      if (schemaVersion === undefined) delete doc.schemaVersion;
+      expect(Manifest.safeParse(doc).success, String(schemaVersion)).toBe(false);
+    }
+  });
+
+  it.each(collectionNames())('%s: zarf 1 dışı sürümle reddedilir', (collection) => {
+    for (const schemaVersion of BAD_VERSIONS) {
+      const doc: Record<string, unknown> = { ...envelopeOf(collection), schemaVersion };
+      if (schemaVersion === undefined) delete doc.schemaVersion;
+      expect(() => parsePartition(collection, doc), String(schemaVersion)).toThrow(ZodError);
+    }
+    expect(parsePartition(collection, envelopeOf(collection)).schemaVersion).toBe(1);
+  });
+});
+
+function collectionNames(): CollectionName[] {
+  return Object.keys(collectionSchemas) as CollectionName[];
+}
+
+describe('contract: para ondalık dizgedir, sayıya çevrilmeden doğrulanır', () => {
+  it('çok basamaklı ve hassas ondalıklar birebir korunur (Number hassasiyeti aşılır)', () => {
+    for (const amount of ['9007199254740993.01', '12345678901234567890.123456789012345678', '0.1', '-0.00', '007', '-12.5']) {
+      expect(Decimal.parse(amount)).toBe(amount);
+      expect(Money.parse({ amount, currency: 'TRY' }).amount).toBe(amount);
+    }
+  });
+
+  it('sayı, üslü, NaN, boşluklu, satır sonlu ve yerel rakamlı tutarlar reddedilir', () => {
+    for (const amount of [8500, 1.5, 0, '1e3', '1E3', 'NaN', 'Infinity', '+1', ' 1', '1 ', '1.5\n', '٣', '1_000', '0x10', '1.2.3']) {
+      expect(Decimal.safeParse(amount).success, JSON.stringify(amount)).toBe(false);
+    }
+  });
+
+  it('her para taşıyan alanda sayı tipindeki tutar reddedilir', () => {
+    const asNumber = { amount: 8500, currency: 'TRY' };
+    const cases: [CollectionName, (r: Record<string, unknown>) => void][] = [
+      ['purchase_needs', (r) => { (r.amounts as Record<string, unknown>).estimated_min = asNumber; }],
+      ['purchase_needs', (r) => { (r.amounts as Record<string, unknown>).gelecek_tutar = asNumber; }],
+      ['budget_observations', (r) => { (r.value as Record<string, unknown>).decimal = 8500; }],
+      ['forecast_events', (r) => { r.cash_change = asNumber; }],
+      ['forecast_events', (r) => { (r.measures as Record<string, unknown>).planned = asNumber; }],
+      ['forecast_months', (r) => { (r.measures as Record<string, unknown>).balance = asNumber; }],
+      ['rooms', (r) => { r.amount = asNumber; }],
+    ];
+    for (const [collection, mutate] of cases) {
+      const r = firstOf(collection);
+      mutate(r);
+      expect(collectionSchemas[collection].safeParse(r).success, `${collection}: ${JSON.stringify(r).slice(0, 60)}`).toBe(false);
+    }
+  });
+});
+
+describe('contract: data-platform ile hizalı kayıt kuralları', () => {
+  it('budget_observation: payment_evidence sözleşmede yalnız false; true, "false" ve eksik reddedilir', () => {
+    const r = firstOf('budget_observations');
+    expect(BudgetObservation.parse(r).payment_evidence).toBe(false);
+    for (const payment_evidence of [true, 'false', 0, null]) {
+      expect(BudgetObservation.safeParse({ ...r, payment_evidence }).success, String(payment_evidence)).toBe(false);
+    }
+    const { payment_evidence: _omit, ...without } = r;
+    expect(BudgetObservation.safeParse(without).success).toBe(false);
+  });
+
+  it('tahmin kayıtları record_basis "forecast" taşımak zorunda (gerçek işlem iddiası reddedilir)', () => {
+    for (const collection of ['forecasts', 'forecast_events', 'forecast_months'] as const) {
+      const r = firstOf(collection);
+      expect(collectionSchemas[collection].safeParse(r).success, collection).toBe(true);
+      expect(collectionSchemas[collection].safeParse({ ...r, record_basis: 'actual' }).success, collection).toBe(false);
+      const { record_basis: _omit, ...without } = r;
+      expect(collectionSchemas[collection].safeParse(without).success, collection).toBe(false);
+    }
+  });
+
+  it('kalem koleksiyonu yalnız kendi türünü kabul eder', () => {
+    const lighting = firstOf('lighting_specs');
+    expect(() => parsePartition('purchase_needs', envelopeOf('purchase_needs', [lighting]))).toThrow(ZodError);
+    expect(parsePartition('lighting_specs', envelopeOf('lighting_specs', [lighting])).records[0]!.kind).toBe('lighting_spec');
+  });
+
+  it('uygulama kayıtları (ayar, oda, kalem) etiket, kaynak kimliği ve öznitelik taşır', () => {
+    for (const collection of ['settings', 'rooms', 'purchase_needs'] as const) {
+      for (const key of ['label', 'source_id', 'source_record_id', 'source_attributes', 'attributes']) {
+        const r = firstOf(collection);
+        delete r[key];
+        expect(collectionSchemas[collection].safeParse(r).success, `${collection}.${key}`).toBe(false);
+      }
+    }
+  });
+
+  it('deleted_at saat dilimli ISO zaman damgasıdır', () => {
+    const r = purchaseNeedFixture();
+    expect(PurchaseNeed.safeParse({ ...r, deleted_at: '2026-10-20T09:30:00.000Z' }).success).toBe(true);
+    expect(PurchaseNeed.safeParse({ ...r, deleted_at: '2026-10-20T12:30:00+03:00' }).success).toBe(true);
+    for (const deleted_at of ['dün', '2026-10-20', '2026-10-20T09:30:00', '']) {
+      expect(PurchaseNeed.safeParse({ ...r, deleted_at }).success, deleted_at).toBe(false);
+    }
+  });
+
+  it('terim: parent_id (null olabilir) ve legacy zorunlu', () => {
+    const r = firstOf('terms');
+    for (const key of ['parent_id', 'legacy']) {
+      const copy = { ...r };
+      delete copy[key];
+      expect(Term.safeParse(copy).success, key).toBe(false);
+    }
+  });
+
+  it('iş akışı geçişi iki uçta da terim kimliği taşır', () => {
+    const r = firstOf('workflows') as { transitions: Record<string, unknown>[] };
+    const copy = structuredClone(r);
+    delete copy.transitions[0]!.from_term_id;
+    expect(WorkflowDefinition.safeParse(copy).success).toBe(false);
+  });
+
+  it('issue: detail zorunlu, null olamaz', () => {
+    const r = firstOf('issues');
+    expect(collectionSchemas.issues.safeParse({ ...r, detail: null }).success).toBe(false);
+    const { detail: _omit, ...without } = r;
+    expect(collectionSchemas.issues.safeParse(without).success).toBe(false);
+  });
+
+  it('manifest: parça dosyası koleksiyon adı ve kayıt sayısı taşır; nesil kimliği sha256', () => {
+    const raw = readJson('manifest.json') as { files: Record<string, unknown>[] } & Record<string, unknown>;
+    const index = raw.files.findIndex((f) => f.kind === 'partition');
+    for (const key of ['collection', 'count']) {
+      const copy = structuredClone(raw);
+      delete copy.files[index]![key];
+      expect(Manifest.safeParse(copy).success, key).toBe(false);
+    }
+    expect(Manifest.safeParse({ ...raw, generation_id: 'gen-1' }).success).toBe(false);
+    expect(Manifest.safeParse({ ...raw, generation_id: 'A'.repeat(64) }).success).toBe(false);
   });
 });
