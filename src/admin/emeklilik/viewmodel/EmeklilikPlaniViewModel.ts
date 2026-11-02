@@ -7,12 +7,14 @@ import {
   type Oneri,
   type Secim,
   type SecenekAnahtari,
+  type TutarBilgisi,
   type Varsayimlar,
 } from '../contract';
 import { TurkceSayiAyristirici } from './ayristirma';
 import { TurkceBicimleyici } from './bicim';
+import { BORC_ALANI, BorcKaynagiSecici } from './borcKaynagi';
 import { EkranSunucu, bilesimAnahtari, secimEsit, type HesapDurumu, type Hesaplar } from './EkranSunucu';
-import type { AlanAnahtari, BayrakAnahtari, EmeklilikEkrani, IhyaAlanAnahtari, IhyaYolu } from './ekran';
+import type { AlanAnahtari, BayrakAnahtari, BorcKaynagiAnahtari, EmeklilikEkrani, IhyaAlanAnahtari, IhyaYolu } from './ekran';
 import { VarsayimFormu, type IhyaGirdileri } from './form';
 import { Hatirlayici } from './hatirlayici';
 
@@ -23,6 +25,8 @@ import { Hatirlayici } from './hatirlayici';
 // Hesap kuralları modelindir; ViewModel hesap yapmaz, yalnız ayrıştırır, doğrular, önbelleğe alır ve adlandırır.
 // Önbellek: sekiz bileşim ve öneri yalnız varsayımlara bağlıdır; seçim değişince yeniden hesaplanmaz.
 // Hata: planlayıcı hata atarsa ekran "Hesap yapılamadı: …" durumuna geçer (sayfa çökmez); sonraki komut yeniden dener.
+// Bağ-Kur borcunun kaynağı (borcKaynagi.ts): varsayılan "SGK düzeltilmiş tutarı bilinmiyor"dur; planlayıcının varsayılan
+// varsayımlarındaki profil borcu bu yüzden seçili kaynağın borcuyla değiştirilir (ilk yüklemede ve sıfırlamada).
 
 export interface ViewModelAyarlari {
   /** Doğrulama sınırları için mevzuat (borç kesintisi tavanı). Verilmezse oran %0–100 ile sınırlanır. */
@@ -40,6 +44,8 @@ export interface EmeklilikPlaniKomutlari {
   bilesimSec(anahtar: string): void;
   alanGuncelle(alan: AlanAnahtari, metin: string): void;
   aylikModeliSec(model: AylikModeliAdi): void;
+  /** Bağ-Kur borcunun kaynağı: bilinmiyor (varsayılan), sade araç tahmini (profilde varsa) ya da girilen tutar. */
+  borcKaynagiSec(kaynak: BorcKaynagiAnahtari): void;
   bayrakDegistir(bayrak: BayrakAnahtari, deger: boolean): void;
   varsayimlariSifirla(): void;
   ihyaAylikGuncelle(yol: IhyaYolu, metin: string): void;
@@ -57,6 +63,11 @@ const IHYA_ALANI: Readonly<Record<IhyaYolu, IhyaAlanAnahtari>> = { ihyali: 'ihya
 /** Sıfırlamada korunan girdiler: ihya karşılaştırmasının elle girilen aylıkları varsayım değildir. */
 const KORUNAN_IHYA_ALANLARI: ReadonlySet<string> = new Set(Object.values(IHYA_ALANI));
 
+/** Varsayımlardaki Bağ-Kur borcunu değiştirir (değişmez kopya). */
+function borcYaz(v: Varsayimlar, borc: TutarBilgisi): Varsayimlar {
+  return { ...v, secenekGirdileri: { ...v.secenekGirdileri, bagkur: { ...v.secenekGirdileri.bagkur, borc } } };
+}
+
 const istanbulGunu = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Istanbul', year: 'numeric', month: '2-digit', day: '2-digit' });
 
 function hataMetni(hata: unknown): string {
@@ -73,6 +84,7 @@ export class EmeklilikPlaniViewModel implements EmeklilikPlaniKomutlari, Emeklil
   private readonly dinleyiciler = new Set<() => void>();
   private readonly form: VarsayimFormu;
   private readonly sunucu: EkranSunucu;
+  private readonly borcKaynagi: BorcKaynagiSecici;
   private readonly varsayimHesaplari = new Hatirlayici<{ bilesimler: Hesaplar['bilesimler']; oneri: Oneri }>();
   private readonly secimHesaplari = new Hatirlayici<Pick<Hesaplar, 'karsilastirma' | 'etkiler'>>();
   private readonly ihyaHesabi = new Hatirlayici<Pick<Hesaplar, 'ihya' | 'ihyaVarsayim'>>();
@@ -89,6 +101,7 @@ export class EmeklilikPlaniViewModel implements EmeklilikPlaniKomutlari, Emeklil
     this.bugun = ayarlar.bugun ?? (() => new Date());
     this.form = new VarsayimFormu(profil, { kesintiTavani: ayarlar.mevzuat?.borcKesintiTavani ?? 1 }, { bicimleyici, ayristirici });
     this.sunucu = new EkranSunucu(profil, this.form, bicimleyici);
+    this.borcKaynagi = new BorcKaynagiSecici(profil);
     // Başlangıç seçimi öneridir (iki kaynak aracın ortak davranışı); öneri alınamazsa hiçbir şey seçili değildir.
     if (this.varsayimlariYukle()) {
       try {
@@ -132,16 +145,21 @@ export class EmeklilikPlaniViewModel implements EmeklilikPlaniKomutlari, Emeklil
     this.yenile();
   }
 
-  /** Metni ayrıştırır ve doğrular; geçerliyse varsayımı günceller, değilse hatayı alanın yanında gösterir. */
+  /**
+   * Metni ayrıştırır ve doğrular; geçerliyse varsayımı günceller, değilse hatayı alanın yanında gösterir. Bağ-Kur borcu
+   * tutarı yazılırsa kaynak "Tutarı gir" olur; geçerli tutar o kaynak için saklanır.
+   */
   alanGuncelle(alan: AlanAnahtari, metin: string): void {
     const tanim = this.form.alan(alan);
-    if (this.taslaklar.get(alan) === metin) return;
+    const kaynakDegisti = alan === BORC_ALANI && this.borcKaynagiUygula('elle');
+    if (this.taslaklar.get(alan) === metin && !kaynakDegisti) return;
     this.taslaklar.set(alan, metin);
     if (this.varsayim) {
       const sonuc = tanim.uygula(this.varsayim, metin);
       if (sonuc.tamam) {
         this.hatalar.delete(alan);
         this.varsayim = sonuc.durum;
+        if (alan === BORC_ALANI) this.borcKaynagi.elleAyarla(sonuc.durum.secenekGirdileri.bagkur.borc);
       } else {
         this.hatalar.set(alan, sonuc.hata);
       }
@@ -153,6 +171,14 @@ export class EmeklilikPlaniViewModel implements EmeklilikPlaniKomutlari, Emeklil
     if (!this.varsayim || this.varsayim.aylikModeli === model) return;
     this.varsayim = { ...this.varsayim, aylikModeli: model };
     this.yenile();
+  }
+
+  /**
+   * Bağ-Kur borcunun kaynağını seçer; borç, sonuç, öneri ve bileşimler anında yeniden hesaplanır, seçim korunur. Profilde
+   * tahmin yoksa 'tahmin' yok sayılır; varsayımlar yoksa (hesap hatası) bir şey yapmaz.
+   */
+  borcKaynagiSec(kaynak: BorcKaynagiAnahtari): void {
+    if (this.borcKaynagiUygula(kaynak)) this.yenile();
   }
 
   bayrakDegistir(bayrak: BayrakAnahtari, deger: boolean): void {
@@ -167,6 +193,7 @@ export class EmeklilikPlaniViewModel implements EmeklilikPlaniKomutlari, Emeklil
       for (const anahtar of [...harita.keys()]) if (!KORUNAN_IHYA_ALANLARI.has(anahtar)) harita.delete(anahtar);
     }
     const onceki = this.ihyaGirdileri;
+    this.borcKaynagi.sifirla();
     this.varsayim = null;
     this.ihyaGirdileri = null;
     if (this.varsayimlariYukle() && onceki) {
@@ -186,6 +213,13 @@ export class EmeklilikPlaniViewModel implements EmeklilikPlaniKomutlari, Emeklil
   }
 
   // --- İç işleyiş ---------------------------------------------------------------------------------------------------
+  /** Kaynağı değiştirip borcu varsayımlara yazar; değiştiyse true (bildirim çağıranındır). */
+  private borcKaynagiUygula(kaynak: BorcKaynagiAnahtari): boolean {
+    if (!this.varsayim || !this.borcKaynagi.sec(kaynak)) return false;
+    this.varsayim = borcYaz(this.varsayim, this.borcKaynagi.deger());
+    return true;
+  }
+
   private ihyaAlaniGuncelle(anahtar: IhyaAlanAnahtari, metin: string): void {
     if (this.taslaklar.get(anahtar) === metin) return;
     this.taslaklar.set(anahtar, metin);
@@ -201,10 +235,13 @@ export class EmeklilikPlaniViewModel implements EmeklilikPlaniKomutlari, Emeklil
     this.yenile();
   }
 
-  /** Varsayımlar yoksa planlayıcıdan alır (hata atabilir); ihya süresi varsayımdaki karşılaştırma süresiyle başlar. */
+  /**
+   * Varsayımlar yoksa planlayıcıdan alır (hata atabilir); Bağ-Kur borcu seçili kaynağın borcudur (varsayılan: bilinmiyor).
+   * İhya süresi varsayımdaki karşılaştırma süresiyle başlar.
+   */
   private varsayimlariAl(): Varsayimlar {
     if (this.varsayim) return this.varsayim;
-    const varsayim = this.planlayici.varsayilanVarsayimlar();
+    const varsayim = borcYaz(this.planlayici.varsayilanVarsayimlar(), this.borcKaynagi.deger());
     this.varsayim = varsayim;
     this.ihyaGirdileri ??= { ihyaliTl: null, ihyasizTl: null, sureYil: varsayim.karsilastirmaSuresiYil };
     return varsayim;
@@ -258,6 +295,7 @@ export class EmeklilikPlaniViewModel implements EmeklilikPlaniKomutlari, Emeklil
       taslaklar: this.taslaklar,
       hatalar: this.hatalar,
       ihyaGirdileri: this.ihyaGirdileri,
+      borcKaynagi: this.borcKaynagi,
       bugun: istanbulGunu.format(this.bugun()),
     });
   }

@@ -5,7 +5,8 @@ export type { EmeklilikEkranDeposu, EmeklilikPlaniKomutlari, ViewModelAyarlari }
 export { TurkceBicimleyici } from './bicim';
 export { TurkceSayiAyristirici } from './ayristirma';
 export type {
-  AlanAnahtari, AlanGorunumu, AylikModeliSecenegi, BayrakAnahtari, BayrakGorunumu, BilesimSatiri, EmeklilikEkrani, FormGorunumu,
+  AlanAnahtari, AlanGorunumu, AylikModeliSecenegi, BayrakAnahtari, BayrakGorunumu, BilesimSatiri, BorcKaynagiAnahtari, BorcKaynagiGorunumu,
+  BorcKaynagiSecenegi, EmeklilikEkrani, FormGorunumu,
   FormGrubuGorunumu, IhyaAlanAnahtari, IhyaGorunumu, IhyaYolGorunumu, IhyaYolu, OdemeKalemiGorunumu, Olcu, OneriGorunumu, PayGorunumu,
   ProfilGorunumu, SonucGorunumu, SoruGorunumu, Ton,
 } from './ekran';

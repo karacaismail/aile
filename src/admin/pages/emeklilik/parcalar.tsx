@@ -1,7 +1,7 @@
-import { useId, useSyncExternalStore, type KeyboardEvent, type ReactNode } from 'react';
+import { Fragment, useId, useSyncExternalStore, type KeyboardEvent, type ReactNode } from 'react';
 import type {
-  AlanGorunumu, BilesimSatiri, EmeklilikEkranDeposu, EmeklilikEkrani, EmeklilikPlaniKomutlari, FormGorunumu, IhyaGorunumu, Olcu,
-  OneriGorunumu, PayGorunumu, SonucGorunumu, SoruGorunumu,
+  AlanGorunumu, BilesimSatiri, BorcKaynagiGorunumu, EmeklilikEkranDeposu, EmeklilikEkrani, EmeklilikPlaniKomutlari, FormGorunumu, IhyaGorunumu,
+  Olcu, OneriGorunumu, PayGorunumu, SonucGorunumu, SoruGorunumu,
 } from '../../emeklilik/viewmodel';
 import type { ResponsiveTableColumn } from '../../ui/ResponsiveTable';
 import { Button } from '../../ui/Button';
@@ -82,6 +82,8 @@ function radyoOklari(sec: (girdi: HTMLInputElement) => void) {
 }
 
 // --- Öneri ------------------------------------------------------------------------------------------------------------
+// Sıra: ad → ana eylem → gerekçe. Gerekçe uzunluğu öneriye göre değişir (en erken tarih senaryosu nedenini de yazar);
+// ana eylem 320×568'de ilk ekranda kalsın diye gerekçeden önce gelir.
 export function OneriBolumu({ oneri, komutlar }: { oneri: OneriGorunumu; komutlar: EmeklilikPlaniKomutlari }) {
   return (
     <Bolum baslik="Öneri" className="aile-em-oneri">
@@ -89,7 +91,6 @@ export function OneriBolumu({ oneri, komutlar }: { oneri: OneriGorunumu; komutla
         <span className="aile-ikincil">{oneri.etiket}: </span>
         <strong>{oneri.secimAdi}</strong>
       </p>
-      <p className="aile-em-oneri__gerekce aile-kucuk aile-ikincil">{oneri.gerekce} {oneri.saglamlik}</p>
       <div className="aile-em-oneri__eylem">
         <Button
           variant="primary"
@@ -100,6 +101,7 @@ export function OneriBolumu({ oneri, komutlar }: { oneri: OneriGorunumu; komutla
           {oneri.eylem}
         </Button>
       </div>
+      <p className="aile-em-oneri__gerekce aile-kucuk aile-ikincil">{oneri.gerekce} {oneri.saglamlik}</p>
     </Bolum>
   );
 }
@@ -145,6 +147,8 @@ export function SecimlerBolumu({ ekran, komutlar }: EmeklilikSunumProps) {
 }
 
 // --- Sonuç özeti ---------------------------------------------------------------------------------------------------------
+// Fark hesaplanamıyorsa neden ölçülerin yanında zaten yazılıdır (fark "Bilinmiyor · …", "Ödemeyi karşılayan" notu); ayrı
+// satırda yinelenmez: panel kısa kalır, masaüstünde yapışkan sütun ilk ekranın altına taşmaz.
 export function SonucBolumu({ sonuc, hataOzeti }: { sonuc: SonucGorunumu; hataOzeti: string | null }) {
   return (
     <Bolum baslik="Sonuç" className="aile-em-sonuc">
@@ -165,7 +169,6 @@ export function SonucBolumu({ sonuc, hataOzeti }: { sonuc: SonucGorunumu; hataOz
         </ul>
       ) : null}
       <p className="aile-kucuk aile-ikincil">{sonuc.calisarak}</p>
-      {sonuc.hesaplanamayanNeden ? <p className="aile-kucuk aile-ikincil">Fark hesaplanamadı: {sonuc.hesaplanamayanNeden}</p> : null}
     </Bolum>
   );
 }
@@ -270,38 +273,71 @@ function Onay({ etiket, aciklama, deger, onChange }: { etiket: string; aciklama:
   );
 }
 
-function AylikModeliSecimi({ form, komutlar }: { form: FormGorunumu; komutlar: EmeklilikPlaniKomutlari }) {
+interface AciklamaliSecenek<T extends string> { readonly deger: T; readonly etiket: string; readonly aciklama: string }
+
+/**
+ * Açıklamalı yerel radyo grubu (APG radio group: fieldset + legend, oklarla gezinme radyoOklari): her seçenek görünür
+ * radyo + ad + açıklama satırıdır; satırın tamamı etikettir (dokunma hedefi ≥ --aile-dokunma-hedefi). Native select yok.
+ */
+function AciklamaliRadyoGrubu<T extends string>({ baslik, secili, secenekler, onSec }: {
+  baslik: string;
+  secili: T;
+  secenekler: readonly AciklamaliSecenek<T>[];
+  onSec(deger: T): void;
+}) {
   const id = useId();
   return (
     <fieldset
       role="radiogroup"
       aria-labelledby={`${id}-baslik`}
-      className="aile-em-model"
+      className="aile-em-radyo"
       onKeyDown={radyoOklari(girdi => {
-        const secenek = form.aylikModeli.secenekler.find(s => s.deger === girdi.value);
-        if (secenek) komutlar.aylikModeliSec(secenek.deger);
+        const secenek = secenekler.find(s => s.deger === girdi.value);
+        if (secenek) onSec(secenek.deger);
       })}
     >
-      <legend id={`${id}-baslik`} className="aile-em-soru__baslik">Aylık modeli</legend>
-      {form.aylikModeli.secenekler.map(secenek => (
-        <label key={secenek.deger} className="aile-em-model__secenek" data-focus-line="" data-secili={form.aylikModeli.secili === secenek.deger || undefined}>
+      <legend id={`${id}-baslik`} className="aile-em-soru__baslik">{baslik}</legend>
+      {secenekler.map(secenek => (
+        <label key={secenek.deger} className="aile-em-radyo__secenek" data-focus-line="" data-secili={secili === secenek.deger || undefined}>
           <input
             type="radio"
-            name={`${id}-model`}
+            name={`${id}-secim`}
             value={secenek.deger}
-            className="aile-em-model__girdi"
-            checked={form.aylikModeli.secili === secenek.deger}
+            className="aile-em-radyo__girdi"
+            checked={secili === secenek.deger}
             aria-labelledby={`${id}-${secenek.deger}`}
             aria-describedby={`${id}-${secenek.deger}-aciklama`}
-            onChange={() => komutlar.aylikModeliSec(secenek.deger)}
+            onChange={() => onSec(secenek.deger)}
           />
-          <span className="aile-em-model__metin">
-            <span id={`${id}-${secenek.deger}`} className="aile-em-model__ad">{secenek.etiket}</span>
+          <span className="aile-em-radyo__metin">
+            <span id={`${id}-${secenek.deger}`} className="aile-em-radyo__ad">{secenek.etiket}</span>
             <span id={`${id}-${secenek.deger}-aciklama`} className="aile-kucuk aile-ikincil">{secenek.aciklama}</span>
           </span>
         </label>
       ))}
     </fieldset>
+  );
+}
+
+function AylikModeliSecimi({ form, komutlar }: { form: FormGorunumu; komutlar: EmeklilikPlaniKomutlari }) {
+  return (
+    <AciklamaliRadyoGrubu
+      baslik="Aylık modeli"
+      secili={form.aylikModeli.secili}
+      secenekler={form.aylikModeli.secenekler}
+      onSec={model => komutlar.aylikModeliSec(model)}
+    />
+  );
+}
+
+/** Bağ-Kur borcunun kaynağı: üç kaynak radyo grubu; "Tutarı gir" seçiliyken altında Türkçe TL alanı. Seçim anında hesaplanır. */
+function BorcKaynagiSecimi({ borc, komutlar }: { borc: BorcKaynagiGorunumu; komutlar: EmeklilikPlaniKomutlari }) {
+  const alan = borc.alan;
+  return (
+    <div className="aile-em-kaynak">
+      <AciklamaliRadyoGrubu baslik={borc.baslik} secili={borc.secili} secenekler={borc.secenekler} onSec={kaynak => komutlar.borcKaynagiSec(kaynak)} />
+      {alan ? <Alan alan={alan} onChange={metin => komutlar.alanGuncelle(alan.anahtar, metin)} /> : null}
+    </div>
   );
 }
 
@@ -314,7 +350,10 @@ export function VarsayimlarBolumu({ form, komutlar }: { form: FormGorunumu; komu
           <div className="aile-em-form">
             {grup.anahtar === 'maasVeAylik' ? <AylikModeliSecimi form={form} komutlar={komutlar} /> : null}
             {grup.alanlar.map(alan => (
-              <Alan key={alan.anahtar} alan={alan} onChange={metin => komutlar.alanGuncelle(alan.anahtar, metin)} />
+              <Fragment key={alan.anahtar}>
+                <Alan alan={alan} onChange={metin => komutlar.alanGuncelle(alan.anahtar, metin)} />
+                {alan.anahtar === form.borcKaynagi.sonra ? <BorcKaynagiSecimi borc={form.borcKaynagi} komutlar={komutlar} /> : null}
+              </Fragment>
             ))}
             {grup.bayraklar.map(bayrak => (
               <Onay key={bayrak.anahtar} etiket={bayrak.etiket} aciklama={bayrak.aciklama} deger={bayrak.deger} onChange={deger => komutlar.bayrakDegistir(bayrak.anahtar, deger)} />

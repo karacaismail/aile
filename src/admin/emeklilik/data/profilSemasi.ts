@@ -101,7 +101,8 @@ export const EmeklilikProfiliSemasi = z
         askerlik: z
           .object({ gun: Gun, azamiGun: Gun, gunlukBedelTl: Tl.nullable(), aciklama: Metin })
           .refine(askerlik => !Number.isInteger(askerlik.gun) || !Number.isInteger(askerlik.azamiGun) || askerlik.gun <= askerlik.azamiGun, { error: 'askerlik günü azami günü aşamaz', path: ['gun'] }),
-        bagkur: z.object({ gun: Gun, borc: TutarBilgisi, yalnizSskYolundaOdenecek: TutarBilgisi, aciklama: Metin }),
+        // tahminiBorc isteğe bağlıdır (sade aracın tahmini); varsa aynı TutarBilgisi kurallarıyla doğrulanır, null kabul edilmez.
+        bagkur: z.object({ gun: Gun, borc: TutarBilgisi, tahminiBorc: TutarBilgisi.optional(), yalnizSskYolundaOdenecek: TutarBilgisi, aciklama: Metin }),
         ihya: z.object({ gun: Gun, gunlukBedelTl: Tl.nullable(), aciklama: Metin }),
       }),
       kaynaklar: z.array(Metin, { error: 'liste olmalı' }),

@@ -226,7 +226,7 @@
   cursor: pointer;
 }
 .aile-em-onay__girdi,
-.aile-em-model__girdi {
+.aile-em-radyo__girdi {
   flex: none;
   width: var(--aile-bosluk-6);
   height: var(--aile-bosluk-6);
@@ -234,7 +234,8 @@
   accent-color: var(--aile-eylem);
   cursor: pointer;
 }
-.aile-em-model {
+/* Açıklamalı radyo grubu (aylık modeli, Bağ-Kur borcunun kaynağı): satırın tamamı etiket ve dokunma hedefi. */
+.aile-em-radyo {
   margin: 0;
   padding: 0;
   border: 0;
@@ -243,7 +244,7 @@
   flex-direction: column;
   gap: var(--aile-bosluk-1);
 }
-.aile-em-model__secenek {
+.aile-em-radyo__secenek {
   position: relative;
   display: flex;
   align-items: flex-start;
@@ -254,9 +255,16 @@
   cursor: pointer;
   transition: background-color var(--aile-sure) var(--aile-egri);
 }
-.aile-em-model__secenek[data-secili] { background: var(--aile-bilgi-yuzey); }
-.aile-em-model__metin { display: flex; flex-direction: column; min-width: 0; }
-.aile-em-model__ad { font-weight: 500; }
+.aile-em-radyo__secenek[data-secili] { background: var(--aile-bilgi-yuzey); }
+.aile-em-radyo__metin { display: flex; flex-direction: column; min-width: 0; overflow-wrap: break-word; }
+.aile-em-radyo__ad { font-weight: 500; }
+/* Bağ-Kur borcunun kaynağı: grup ve ("Tutarı gir" seçiliyken) altındaki tutar alanı. */
+.aile-em-kaynak {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-3);
+  min-width: 0;
+}
 .aile-em-sifirla { display: flex; justify-content: flex-start; }
 
 /* --- İhya ------------------------------------------------------------------------------------------------------------------ */
@@ -312,4 +320,5 @@
 
 /* ₺ tutarı taşıyan açıklama ve gerekçe metinleri: rakamlar hizalı (₺8.500,00, tabular-nums). */
 .aile-em-soru__aciklama,
-.aile-em-oneri__gerekce { font-variant-numeric: tabular-nums; }
+.aile-em-oneri__gerekce,
+.aile-em-radyo__metin { font-variant-numeric: tabular-nums; }

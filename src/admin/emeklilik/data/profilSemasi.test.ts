@@ -242,6 +242,48 @@ describe('profilDogrula › TutarBilgisi ayrık birleşimi', () => {
   });
 });
 
+// Sade aracın Bağ-Kur borcu tahmini (aralık): isteğe bağlı alan. Varsa TutarBilgisi kurallarıyla doğrulanır ve korunur;
+// yoksa profil yine geçerlidir (Codex aracının profili bu alanı taşımaz).
+describe('profilDogrula › Bağ-Kur borcu tahmini (isteğe bağlı)', () => {
+  it('sentetik fikstürdeki tahmin aralığı korunur ve dondurulur', () => {
+    const profil = gecerli(sentetik());
+    expect(profil.secenekler.bagkur.tahminiBorc).toEqual(sentetik().secenekler.bagkur.tahminiBorc);
+    expect(profil.secenekler.bagkur.tahminiBorc?.tur).toBe('aralik');
+    expect(Object.isFrozen(profil.secenekler.bagkur.tahminiBorc)).toBe(true);
+  });
+
+  it('alan yoksa profil geçerlidir ve sonuçta alan yoktur', () => {
+    const girdi = sentetik();
+    delete girdi.secenekler.bagkur.tahminiBorc;
+    const profil = gecerli(girdi);
+    expect(profil.secenekler.bagkur).not.toHaveProperty('tahminiBorc');
+  });
+
+  it('bilinen ve bilinmiyor biçimleri de kabul edilir', () => {
+    const bilinen = sentetik();
+    bilinen.secenekler.bagkur.tahminiBorc = { tur: 'bilinen', tl: '1234.56', kaynak: 'Sentetik tek tahmin' };
+    expect(gecerli(bilinen).secenekler.bagkur.tahminiBorc).toEqual({ tur: 'bilinen', tl: '1234.56', kaynak: 'Sentetik tek tahmin' });
+    const bilinmiyor = sentetik();
+    bilinmiyor.secenekler.bagkur.tahminiBorc = { tur: 'bilinmiyor', neden: 'Sentetik: tahmin yapılmadı.' };
+    expect(gecerli(bilinmiyor).secenekler.bagkur.tahminiBorc).toEqual({ tur: 'bilinmiyor', neden: 'Sentetik: tahmin yapılmadı.' });
+  });
+
+  it('bozuk tahmin alan yoluyla reddedilir (null, bilinmeyen tür, ters aralık, yerel biçimli tutar)', () => {
+    const vakalar: unknown[] = [
+      null,
+      { tur: 'tahmin', tl: '1.00', kaynak: 'x' },
+      { tur: 'aralik', altTl: '500.00', ustTl: '100.00', kaynak: 'x' },
+      { tur: 'aralik', altTl: '280.000,00', ustTl: '420000.00', kaynak: 'x' },
+      { tur: 'bilinen', tl: '1.00', kaynak: '' },
+    ];
+    for (const deger of vakalar) {
+      const girdi = sentetik();
+      girdi.secenekler.bagkur.tahminiBorc = deger;
+      expect(reddedilir(girdi), JSON.stringify(deger)).toContain('secenekler.bagkur.tahminiBorc');
+    }
+  });
+});
+
 describe('profilDogrula › aylık modeli', () => {
   it('yalnız sgkReferans, kazancTahmini ve elle', () => {
     for (const model of ['sgkReferans', 'kazancTahmini', 'elle']) {

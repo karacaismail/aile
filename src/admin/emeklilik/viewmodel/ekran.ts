@@ -18,6 +18,11 @@ export type BayrakAnahtari = 'gunDuzeltmesiUygula' | 'isUcretiDevam';
 export type AlanGrubuAnahtari = 'gunVeTutar' | 'maasVeAylik';
 /** İhya karşılaştırmasında iki yol: ihya eklenen (erken) ve ihyasız (bekleyen). */
 export type IhyaYolu = 'ihyali' | 'ihyasiz';
+/**
+ * Bağ-Kur borcunun kaynağı: 'bilinmiyor' SGK düzeltilmiş tutarı bilinmiyor (varsayılan; tutar uydurulmaz), 'tahmin' sade
+ * aracın tahmini (yalnız profilde varsa), 'elle' kullanıcının girdiği tutar.
+ */
+export type BorcKaynagiAnahtari = 'bilinmiyor' | 'tahmin' | 'elle';
 
 /**
  * Etiket + değer (+ ikincil not) + ton; ton yalnız destekler, anlam metindedir. bicim 'tutar': değer biçimli tutardır
@@ -135,9 +140,25 @@ export interface FormGrubuGorunumu {
 
 export interface AylikModeliSecenegi { readonly deger: AylikModeliAdi; readonly etiket: string; readonly aciklama: string }
 
+export interface BorcKaynagiSecenegi { readonly deger: BorcKaynagiAnahtari; readonly etiket: string; readonly aciklama: string }
+
+/** Bağ-Kur borcunun kaynağı (radyo grubu) ve "Tutarı gir" seçiliyken tutar alanı. */
+export interface BorcKaynagiGorunumu {
+  /** Grubun adı (legend). */
+  readonly baslik: string;
+  readonly secili: BorcKaynagiAnahtari;
+  /** Profilde tahmin yoksa 'tahmin' seçeneği listede yoktur. */
+  readonly secenekler: readonly BorcKaynagiSecenegi[];
+  /** Yalnız 'elle' seçiliyken borç tutarı alanı (Türkçe TL; tek tutar ya da aralık); diğer kaynaklarda null. */
+  readonly alan: AlanGorunumu<AlanAnahtari> | null;
+  /** Grup "Gün ve tutarları düzenle" içinde bu alandan hemen sonra çizilir. */
+  readonly sonra: AlanAnahtari;
+}
+
 export interface FormGorunumu {
   readonly gruplar: readonly FormGrubuGorunumu[];
   readonly aylikModeli: { readonly secili: AylikModeliAdi; readonly secenekler: readonly AylikModeliSecenegi[] };
+  readonly borcKaynagi: BorcKaynagiGorunumu;
   /** Hata varsa "N alanda hata var; …". */
   readonly hataOzeti: string | null;
 }

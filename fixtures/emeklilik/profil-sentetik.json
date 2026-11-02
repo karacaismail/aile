@@ -27,6 +27,7 @@
     "bagkur": {
       "gun": 600,
       "borc": { "tur": "aralik", "altTl": "300000.00", "ustTl": "450000.00", "kaynak": "Sentetik aralık" },
+      "tahminiBorc": { "tur": "aralik", "altTl": "280000.00", "ustTl": "420000.00", "kaynak": "Sentetik sade araç tahmini: çakışan aylar silinirse alt, silinmezse üst uç; gecikme zammı dahil" },
       "yalnizSskYolundaOdenecek": { "tur": "bilinen", "tl": "50000.00", "kaynak": "Sentetik ortak ödeme" },
       "aciklama": "Sentetik Bağ-Kur dönemi."
     },

@@ -13,9 +13,10 @@ import {
 } from '../contract';
 import type { FormAlani } from './alanlar';
 import { BILINMIYOR, type TurkceBicimleyici } from './bicim';
+import { BORC_ALANI, BORC_KAYNAGI_BASLIGI, BORC_KAYNAGI_KONUMU, type BorcKaynagiSecici } from './borcKaynagi';
 import type {
-  AlanAnahtari, AlanGorunumu, BilesimSatiri, IhyaAlanAnahtari, EmeklilikEkrani, FormGorunumu, IhyaGorunumu, IhyaYolGorunumu, Olcu, OneriGorunumu, PayGorunumu,
-  SonucGorunumu, SoruGorunumu,
+  AlanAnahtari, AlanGorunumu, BilesimSatiri, BorcKaynagiGorunumu, IhyaAlanAnahtari, EmeklilikEkrani, FormGorunumu, IhyaGorunumu, IhyaYolGorunumu, Olcu,
+  OneriGorunumu, PayGorunumu, SonucGorunumu, SoruGorunumu,
 } from './ekran';
 import { AYLIK_MODELI_ETIKETI, GRUP_BASLIKLARI, type IhyaGirdileri, type VarsayimFormu } from './form';
 
@@ -44,6 +45,8 @@ export interface SunumGirdisi {
   /** Ayrıştırma hataları (alan anahtarı → "Hata: …"). */
   hatalar: ReadonlyMap<string, string>;
   ihyaGirdileri: IhyaGirdileri | null;
+  /** Bağ-Kur borcunun kaynağı (seçili kaynak ve sunulan seçenekler); sunucu yalnız okur. */
+  borcKaynagi: Pick<BorcKaynagiSecici, 'secili' | 'secenekler'>;
   /** Bugünün İstanbul takvim günü ('YYYY-MM-DD'); profil tazeliği için. */
   bugun: string;
 }
@@ -315,11 +318,27 @@ export class EkranSunucu {
         anahtar: bayrak.anahtar, etiket: bayrak.etiket, aciklama: bayrak.aciklama, deger: v[bayrak.anahtar],
       })),
     }));
-    const hatali = gruplar.flatMap(g => g.alanlar).filter(alan => alan.hata !== null).length;
+    const borcKaynagi = this.borcKaynagi(girdi);
+    // Hata özeti yalnız görünen alanları sayar: başka kaynak seçiliyken "Tutarı gir" alanının taslak hatası sayılmaz.
+    const gorunenler = [...gruplar.flatMap(g => g.alanlar), ...(borcKaynagi.alan ? [borcKaynagi.alan] : [])];
+    const hatali = gorunenler.filter(alan => alan.hata !== null).length;
     return {
       gruplar,
       aylikModeli: { secili: v.aylikModeli, secenekler: [...this.form.aylikModelleri] },
+      borcKaynagi,
       hataOzeti: hatali ? `${this.b.sayi(hatali)} alanda hata var; sonuç son geçerli değerlerle hesaplandı.` : null,
+    };
+  }
+
+  /** Bağ-Kur borcunun kaynağı: radyo seçenekleri; "Tutarı gir" seçiliyse borç tutarı alanı. */
+  private borcKaynagi(girdi: SunumGirdisi): BorcKaynagiGorunumu {
+    const { secili } = girdi.borcKaynagi;
+    return {
+      baslik: BORC_KAYNAGI_BASLIGI,
+      secili,
+      secenekler: girdi.borcKaynagi.secenekler(this.b),
+      alan: secili === 'elle' ? this.alanGorunumu(this.form.alan(BORC_ALANI), girdi.varsayim!, girdi) : null,
+      sonra: BORC_KAYNAGI_KONUMU,
     };
   }
 

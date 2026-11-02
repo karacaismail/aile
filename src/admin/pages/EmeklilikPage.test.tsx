@@ -169,6 +169,9 @@ describe('EmeklilikPage › telefon yolculuğu', () => {
     const dugme = within(oneri).getByRole('button', { name: 'Bunu seç' });
     expect(dugme).toBeDisabled();
     expect(oneri).toHaveTextContent('Öneri şu an seçili.');
+    // Ana eylem gerekçeden önce: uzun gerekçe (en erken tarih senaryosu) 320×568'de eylemi ilk ekrandan itmez.
+    const gerekce = within(oneri).getByText(/Sahte gerekçe/);
+    expect(dugme.compareDocumentPosition(gerekce) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     const sira = [oneri, bolge('Seçimler'), bolge('Sonuç')];
     for (let i = 1; i < sira.length; i++) {
       expect(sira[i - 1]!.compareDocumentPosition(sira[i]!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
@@ -232,7 +235,8 @@ describe('EmeklilikPage › telefon yolculuğu', () => {
     expect(tanim('Geçmiş günler için ödeme')).toHaveTextContent('₺425.700,00');
     expect(tanim('Aylık')).toHaveTextContent('₺25.000,00');
     expect(tanim('Aylık')).toHaveTextContent('SGK referansı');
-    expect(tanim('Borç kesintisi')).toHaveTextContent('%10 kesinti · 30 ay');
+    // Varsayılan borç kaynağı "SGK düzeltilmiş tutarı bilinmiyor": kesinti süresi adıyla bilinmiyor.
+    expect(tanim('Borç kesintisi')).toHaveTextContent('%10 kesinti · süre bilinmiyor');
     expect(tanim('Ortak dönem sonunda fark (10 yıl)')).toHaveTextContent('+₺274.300,00');
     expect(tanim('Ödemeyi karşılayan')).toHaveTextContent('18 emekli aylığı');
     expect(within(sonuc).getByRole('list', { name: 'Ödeme kalemleri' })).toHaveTextContent('Askerlik borçlanması₺178.200,00');
@@ -275,12 +279,76 @@ describe('EmeklilikPage › telefon yolculuğu', () => {
     await userEvent.type(gun, '0');
     expect(gun).not.toHaveAttribute('aria-invalid', 'true');
     expect(ay()).toHaveTextContent('Ağustos 2031');
-    const borc = screen.getByLabelText('Düzeltilmiş Bağ-Kur borcu');
-    expect(borc).toHaveValue('300.000,00 – 450.000,00');
     const duzeltme = screen.getByRole('checkbox', { name: /Kayıttaki gün düzeltmesini uygula/ });
     expect(duzeltme).not.toBeChecked();
     await userEvent.click(duzeltme);
     expect(duzeltme).toBeChecked();
+  });
+
+  it('Bağ-Kur borcunun kaynağı: yerel radyo grubu, varsayılan "bilinmiyor"; tahmin ve girilen tutar sonucu anında değiştirir; sıfırla varsayılana döner', async () => {
+    const { container } = ciz('phone', { profilKaynagi: new SahteProfilKaynagi(hazir()) });
+    await userEvent.click(screen.getByRole('button', { name: 'Gün ve tutarları düzenle' }));
+    const grup = screen.getByRole('radiogroup', { name: 'Bağ-Kur borcunun kaynağı' });
+    const radyolar = within(grup).getAllByRole('radio');
+    expect(radyolar.map(r => (r as HTMLInputElement).type)).toEqual(['radio', 'radio', 'radio']);
+    const bilinmiyor = within(grup).getByRole('radio', { name: 'SGK düzeltilmiş tutarı bilinmiyor' });
+    const tahmin = within(grup).getByRole('radio', { name: 'Sade araç tahmini (aralık)' });
+    const elle = within(grup).getByRole('radio', { name: 'Tutarı gir' });
+    expect(bilinmiyor).toBeChecked();
+    expect(tahmin).toHaveAccessibleDescription(expect.stringMatching(/^₺280\.000,00 – ₺420\.000,00 · /));
+    expect(screen.queryByLabelText('Düzeltilmiş Bağ-Kur borcu')).not.toBeInTheDocument();
+    // Grup Bağ-Kur günü alanından sonra, ortak ödeme alanından önce durur.
+    const gun = screen.getByLabelText('Kabul edilecek Bağ-Kur günü');
+    const ortak = screen.getByLabelText('Yalnız SSK yolunda da ödenecek Bağ-Kur tutarı');
+    expect(gun.compareDocumentPosition(grup) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(grup.compareDocumentPosition(ortak) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    const bagkurEvet = within(soru('Bağ-Kur borcunu ödeyecek misiniz?')).getByRole('radio', { name: 'Evet' });
+    expect(bagkurEvet).toHaveAccessibleDescription('600 gün · Bilinmiyor · SGK düzeltilmiş tutarı bilinmiyor');
+    const tanim = (etiket: string) => within(bolge('Sonuç')).getByText(etiket, { selector: 'dt' }).nextElementSibling as HTMLElement;
+    expect(tanim('Borç kesintisi')).toHaveTextContent('%10 kesinti · süre bilinmiyor');
+    // Bağ-Kur'lu yolda fark bilinmiyor: neden değerlerin yanında yazılır, ayrı bir "Fark hesaplanamadı" satırında
+    // yinelenmez (sonuç paneli kısa kalır; masaüstünde yapışkan panel ilk ekranın altına taşmaz).
+    await userEvent.click(bagkurEvet);
+    expect(tanim('Ortak dönem sonunda fark (10 yıl)')).toHaveTextContent('Bilinmiyor · SGK düzeltilmiş tutarı bilinmiyor');
+    expect(tanim('Ödemeyi karşılayan')).toHaveTextContent('BilinmiyorSGK düzeltilmiş tutarı bilinmiyor');
+    expect(within(bolge('Sonuç')).queryByText(/^Fark hesaplanamadı/)).not.toBeInTheDocument();
+    await userEvent.click(within(soru('Bağ-Kur borcunu ödeyecek misiniz?')).getByRole('radio', { name: 'Hayır' }));
+
+    await userEvent.click(tahmin);
+    expect(tahmin).toBeChecked();
+    expect(bagkurEvet).toHaveAccessibleDescription('600 gün · ₺280.000,00 – ₺420.000,00');
+    expect(tanim('Borç kesintisi')).toHaveTextContent('%10 kesinti · 30 ay');
+
+    // APG: ok tuşu sonraki seçeneğe geçer ve seçer.
+    tahmin.focus();
+    await userEvent.keyboard('{ArrowDown}');
+    expect(elle).toHaveFocus();
+    expect(elle).toBeChecked();
+    const tutar = screen.getByLabelText('Düzeltilmiş Bağ-Kur borcu');
+    expect(tutar).toHaveValue('300.000,00 – 450.000,00');
+    await userEvent.clear(tutar);
+    expect(tutar).toHaveAttribute('aria-invalid', 'true');
+    await userEvent.type(tutar, '350.000,00');
+    expect(tutar).not.toHaveAttribute('aria-invalid', 'true');
+    expect(bagkurEvet).toHaveAccessibleDescription('600 gün · ₺350.000,00');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Varsayımları sıfırla' }));
+    expect(bilinmiyor).toBeChecked();
+    expect(screen.queryByLabelText('Düzeltilmiş Bağ-Kur borcu')).not.toBeInTheDocument();
+    expect(bagkurEvet).toHaveAccessibleDescription('600 gün · Bilinmiyor · SGK düzeltilmiş tutarı bilinmiyor');
+    expect(container.querySelector('select')).toBeNull();
+  });
+
+  it('Bağ-Kur borcunun kaynağı: profilde tahmin yoksa yalnız "bilinmiyor" ve "Tutarı gir" sunulur', async () => {
+    const profil = structuredClone(PROFIL);
+    delete (profil.secenekler.bagkur as { tahminiBorc?: unknown }).tahminiBorc;
+    ciz('phone', { profilKaynagi: new SahteProfilKaynagi({ tur: 'hazir', profil, kaynak: 'gelistirme' }) });
+    await userEvent.click(screen.getByRole('button', { name: 'Gün ve tutarları düzenle' }));
+    const grup = screen.getByRole('radiogroup', { name: 'Bağ-Kur borcunun kaynağı' });
+    expect(within(grup).getAllByRole('radio').map(r => r.getAttribute('aria-labelledby') && (document.getElementById(r.getAttribute('aria-labelledby')!)?.textContent ?? ''))).toEqual([
+      'SGK düzeltilmiş tutarı bilinmiyor', 'Tutarı gir',
+    ]);
   });
 
   it('maaş ve aylık: model seçimi radyo grubu; "Elle girilen" zorunlu alanı açar; sıfırla varsayımları geri getirir', async () => {

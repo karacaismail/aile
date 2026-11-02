@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { test, expect, type Locator, type Page } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
 import { enterKeyboardMode, gotoAdmin, horizontalOverflow, openAdmin, tabKey } from './admin-helpers';
 import { accentEdges, focusRing, overflow, smallText, touchTargets } from './admin-detectors';
 
@@ -224,4 +225,100 @@ test('Emeklilik planı uyarlanır yerleşim: başlık, öneri eylemi ve sorular 
   const kaba = await page.evaluate(() => matchMedia('(any-pointer: coarse)').matches);
   expect(await touchTargets(page, { root: '[data-bolum="secimler"]' }), `dokunma hedefi ≥ ${kaba ? HEDEF_KABA : HEDEF}`).toEqual([]);
   await kurallar(page);
+});
+
+// Bağ-Kur borcunun kaynağı (iki kaynak aracın seçenekleri): "SGK düzeltilmiş tutarı bilinmiyor" (varsayılan, Codex aracı),
+// "Sade araç tahmini (aralık)" (sentetik profilde tahminiBorc var) ve "Tutarı gir" (Türkçe TL). Sentetik profille:
+// tutar bilinmezken mali sıralama yapılamaz → "En erken tarih senaryosu"; aralık ya da girilen tutarla → "Senaryo önerisi".
+// Seçim sonucu, öneriyi ve bileşim tablosunu anında günceller; aralık "alt – üst" yazılır; sıfırla varsayılana döner.
+// Telefon (chromium 320×568, webkit 390×844) ve masaüstü (chromium-desktop); @matrix ile dar/kısa/yatay/tablet de.
+const ARALIK_FARK = /[+-]?₺\d{1,3}(?:\.\d{3})*,\d{2} – [+-]?₺\d{1,3}(?:\.\d{3})*,\d{2}/;
+const KAYNAK_GRUBU = 'Bağ-Kur borcunun kaynağı';
+
+test('Bağ-Kur borcunun kaynağı: varsayılan "bilinmiyor" en erken tarih senaryosu; sade araç aralığı ve girilen tutar senaryo önerisi; sonuç, öneri ve bileşimler anında; sıfırla varsayılana döner', { tag: '@matrix' }, async ({ page, browserName }) => {
+  const { main, istekler, google, profil } = await emeklilikAc(page);
+  const oneri = main.getByRole('region', { name: 'Öneri' });
+  const bilesimler = main.getByRole('region', { name: 'Sekiz bileşim' });
+  const donemFarki = sonuc(main).getByText(/^Ortak dönem sonunda fark/).locator('xpath=following-sibling::dd[1]');
+  const bagkurAciklamasi = soru(main, 'bagkur').locator('.aile-em-soru__aciklama');
+
+  // 1. Varsayılan: SGK düzeltilmiş tutarı bilinmiyor → mali sıralama yok, ad "En erken tarih senaryosu".
+  await expect(oneri).toContainText('En erken tarih senaryosu');
+  await expect(donemFarki).toContainText('Bilinmiyor');
+  await expect(bagkurAciklamasi).toHaveText(/^600 gün · Bilinmiyor · SGK düzeltilmiş tutarı bilinmiyor$/);
+  await expect(bilesimler).toContainText('SGK düzeltilmiş tutarı bilinmiyor');
+
+  // 2. "Gün ve tutarları düzenle" içinde yerel radyo grubu; üç seçenek, varsayılan seçili; select yok.
+  const duzenle = main.getByRole('button', { name: 'Gün ve tutarları düzenle' });
+  await duzenle.scrollIntoViewIfNeeded();
+  await duzenle.click();
+  const grup = main.getByRole('radiogroup', { name: KAYNAK_GRUBU });
+  await expect(grup.getByRole('radio')).toHaveCount(3);
+  const bilinmiyor = grup.getByRole('radio', { name: 'SGK düzeltilmiş tutarı bilinmiyor' });
+  const tahmin = grup.getByRole('radio', { name: 'Sade araç tahmini (aralık)' });
+  const elle = grup.getByRole('radio', { name: 'Tutarı gir' });
+  await expect(bilinmiyor).toBeChecked();
+  await expect(main.locator('select')).toHaveCount(0);
+  await expect(main.getByLabel('Düzeltilmiş Bağ-Kur borcu')).toHaveCount(0);
+  await grup.scrollIntoViewIfNeeded();
+  const kaba = await page.evaluate(() => matchMedia('(any-pointer: coarse)').matches);
+  // Dokunma hedefi: radyo + etiket satırı ≥ 44 px; kaba girişte ≥ 48 px (ortak dedektör etiketi hedefe katar).
+  expect(await touchTargets(page, { root: '.aile-em-kaynak' }), `kaynak seçenekleri ≥ ${kaba ? HEDEF_KABA : HEDEF}`).toEqual([]);
+  for (const satir of await grup.locator('label').all()) {
+    expect((await satir.boundingBox())!.height, 'seçenek satırının yüksekliği').toBeGreaterThanOrEqual(kaba ? HEDEF_KABA : HEDEF);
+  }
+
+  // 3. Sade araç tahmini: aralık "₺alt – ₺üst"; öneri senaryo önerisine döner; fark aralık olur.
+  await expect(grup.getByText(/^₺280\.000,00 – ₺420\.000,00 · /)).toBeVisible();
+  await tahmin.click();
+  await expect(tahmin).toBeChecked();
+  await expect(oneri).toContainText('Senaryo önerisi');
+  await expect(bagkurAciklamasi).toHaveText('600 gün · ₺280.000,00 – ₺420.000,00');
+  await expect(donemFarki).toHaveText(ARALIK_FARK);
+  await expect(bilesimler).not.toContainText('SGK düzeltilmiş tutarı bilinmiyor');
+  await expect(bilesimler).toContainText(ARALIK_FARK);
+
+  // 4. Tutarı gir: alan Türkçe tutarı ayrıştırır; tek tutarla fark tek değer olur.
+  await elle.click();
+  await expect(elle).toBeChecked();
+  const tutar = main.getByLabel('Düzeltilmiş Bağ-Kur borcu');
+  await expect(tutar).toBeVisible();
+  await tutar.fill('350.000,00');
+  await tutar.blur();
+  await expect(tutar).not.toHaveAttribute('aria-invalid', 'true');
+  await expect(bagkurAciklamasi).toHaveText('600 gün · ₺350.000,00');
+  await expect(oneri).toContainText('Senaryo önerisi');
+  await expect(donemFarki).toHaveText(/^[+-]?₺\d{1,3}(?:\.\d{3})*,\d{2}$/);
+  await tutar.fill('');
+  await tutar.blur();
+  await expect(tutar).toHaveAttribute('aria-invalid', 'true');
+  await expect(main.getByText(/^Hata: Tutarı girin; bilinmiyorsa/)).toBeVisible();
+
+  // 5. Kurallar seçenekler ve alan açıkken: taşma yok, metin ≥ 14 px, kavisli vurgu kenarı yok; axe (WCAG A/AA, kısmi
+  //    otomatik kanıt) kaynak grubunda ve hatalı tutar alanında ihlal bulmaz.
+  await kurallar(page);
+  const axe = await new AxeBuilder({ page }).include('.aile-em-kaynak').withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze();
+  expect(axe.violations.map(ihlal => `${ihlal.id}: ${ihlal.nodes.map(n => n.target.join(' ')).join(', ')}`), 'axe ihlali').toEqual([]);
+
+  // 6. Sıfırla: varsayılan kaynağa ve en erken tarih senaryosuna döner; alan kalkar.
+  const sifirla = main.getByRole('button', { name: 'Varsayımları sıfırla' });
+  await sifirla.scrollIntoViewIfNeeded();
+  await sifirla.click();
+  await expect(bilinmiyor).toBeChecked();
+  await expect(main.getByLabel('Düzeltilmiş Bağ-Kur borcu')).toHaveCount(0);
+  await expect(oneri).toContainText('En erken tarih senaryosu');
+  await expect(bagkurAciklamasi).toHaveText(/^600 gün · Bilinmiyor · SGK düzeltilmiş tutarı bilinmiyor$/);
+
+  // 7. Klavye: odak kaynak grubunda tek alt çizgi; ok tuşu sonraki seçeneği seçer ve sonucu günceller.
+  await enterKeyboardMode(page, browserName);
+  await bilinmiyor.focus();
+  expect(await focusRing(page), 'kaynak seçeneğinde tek alt çizgi, halka yok').toEqual([]);
+  await page.keyboard.press('ArrowDown');
+  await expect(tahmin).toBeFocused();
+  await expect(tahmin).toBeChecked();
+  await expect(oneri).toContainText('Senaryo önerisi');
+  expect(await focusRing(page), 'okla seçimden sonra tek alt çizgi').toEqual([]);
+
+  if (profil === 'phone') expect(istekler.filter(yol => GENIS_ISTEK.test(yol)), 'telefonda geniş/antd/grafik modülü').toEqual([]);
+  expect(google, "Google'a istek").toEqual([]);
 });
