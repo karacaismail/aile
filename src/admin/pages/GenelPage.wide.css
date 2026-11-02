@@ -1,0 +1,40 @@
+/* GenelPage.wide — yalnız geniş sunum (tablet/masaüstü; wide parçası). Aylık blok: masaüstünde grafik ve değer tablosu
+   yan yana (grafik tek bilgi kaynağı değil), tablette alt alta. Tablo kendi kapsayıcısında yatay kayar; sayfa kaymaz.
+   Yalnız --aile-* tokenları; tutarlar sağa (.aile-tutar: tabular-nums). Başlık hücreleri kelime ortasından bölünmez. */
+.aile-genel-genis {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-6);
+  min-width: 0;
+}
+
+.aile-genel-grafik-govde.aile-chart {
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  align-items: start;
+  gap: var(--aile-bosluk-6);
+}
+.aile-genel-genis--dar .aile-genel-grafik-govde.aile-chart {
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--aile-bosluk-4);
+}
+
+.aile-genel-grafik .aile-chart-aciklama { min-width: 0; overflow-x: auto; }
+.aile-genel-aylik {
+  width: 100%;
+  border-collapse: collapse;
+}
+.aile-genel-aylik caption {
+  text-align: left;
+  padding-bottom: var(--aile-bosluk-2);
+}
+.aile-genel-aylik th,
+.aile-genel-aylik td {
+  padding: var(--aile-bosluk-2) var(--aile-bosluk-3);
+  border-bottom: 1px solid var(--aile-cizgi);
+  text-align: left;
+  white-space: nowrap;
+  vertical-align: baseline;
+}
+.aile-genel-aylik thead th { color: var(--aile-metin-ikincil); font-weight: 500; }
+.aile-genel-aylik tbody th { font-weight: 500; }
+.aile-genel-aylik .aile-genel-sag { text-align: right; }
