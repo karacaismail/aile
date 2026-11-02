@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { useEffect, useState } from 'react';
-import { wideManifest } from '../adaptive';
+import { useProfile, useWideModule, wideManifest, wideResource, type WideResource } from '../adaptive';
 import { importsOf, isAntdSurface, wideRuleViolations } from '../adaptive/sourceRules';
 import { installViewport } from '../adaptive/testing';
 import { WorkspaceShell } from './WorkspaceShell';
@@ -305,6 +305,152 @@ describe('WorkspaceShell · profil değişimi', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     await waitFor(() => expect(within(aside).getByRole('link', { name: 'Raporlar' })).toHaveFocus());
     expect(screen.getByRole('main')).not.toHaveAttribute('inert');
+  });
+});
+
+// --- Kaydırma çapası: geniş adalar yerleşene kadar korunur ----------------------------------------------------------
+// Profil değişiminde kabuk kendi yerleşimi değişince çapayı geri kurar; ama sayfanın geniş adası (ör. Alımlar masaüstü
+// yerleşimi) yan gezinmeden SONRA gelip içeriğin yüksekliğini değiştirebilir. WebKit/Safari'de yerel kaydırma çapası
+// (overflow-anchor) yoktur: kabuk çapayı geniş yükleme bitene ve ResizeObserver sakinleşene kadar tutmalıdır (e2e
+// admin-shell "profil değişimi telefon ↔ masaüstü" [webkit] 1532 px kayıyordu). Geometri ölçüm anında DOM'dan türetilir
+// (tarayıcı gibi): sınama alanının üstü = üstteki içerik yüksekliği (data-ust) − scrollY. ResizeObserver tarayıcının
+// yerleşim sonrası bildirimidir; test onu içerik değişince elle çağırır.
+
+interface Kapi { promise: Promise<void>; ac(): void }
+const kapi = (): Kapi => {
+  let ac!: () => void;
+  const promise = new Promise<void>(resolve => { ac = resolve; });
+  return { promise, ac };
+};
+let adaSayaci = 0;
+const adaKaynagi = (gate: Kapi) => wideResource(`sinama-kabuk-ada-${++adaSayaci}`, () => gate.promise.then(() => ({ yerlesti: true })));
+
+const UST_DAR = 800;
+const UST_GENIS = 2400;
+const ALAN = 'sinama-alan';
+
+/** Geniş adası yerleşince üstteki içeriği büyüten sayfa (Alımlar: dar liste → masaüstü yerleşimi). */
+function AdaliSayfa({ ada }: { ada: WideResource<unknown> }) {
+  const genis = useProfile() === 'desktop';
+  const durum = useWideModule(ada, genis);
+  return (
+    <>
+      <div data-ust={genis && durum.status === 'ready' ? UST_GENIS : UST_DAR} />
+      <div id={ALAN}><button type="button">Sınama</button></div>
+    </>
+  );
+}
+
+describe('WorkspaceShell · kaydırma çapası geniş adalar yerleşene kadar', () => {
+  const originalObserver = window.ResizeObserver;
+  const originalScrollY = Object.getOwnPropertyDescriptor(window, 'scrollY');
+  let scrollY = 0;
+  const observers = new Set<{ notify(): void }>();
+  const kare = () => new Promise<void>(resolve => { window.requestAnimationFrame(() => resolve()); });
+  const alanUstu = () => document.getElementById(ALAN)!.getBoundingClientRect().top;
+  /** Kullanıcı kaydırması: konum değişir, kaydırma olayı gelir, çapa bir sonraki karede kaydedilir. */
+  const kullaniciKaydirir = async (y: number) => {
+    scrollY = y;
+    await act(async () => { window.dispatchEvent(new Event('scroll')); await kare(); await kare(); });
+  };
+  /** Tarayıcı yerleşimden sonra boyut değişimini bildirir. */
+  const yerlesimBildir = () => act(() => { for (const observer of [...observers]) observer.notify(); });
+
+  beforeEach(() => {
+    wideGate.release();
+    scrollY = 0;
+    observers.clear();
+    class FakeResizeObserver {
+      constructor(private readonly callback: ResizeObserverCallback) {}
+      observe() { observers.add(this); }
+      unobserve() {}
+      disconnect() { observers.delete(this); }
+      notify() { this.callback([], this as unknown as ResizeObserver); }
+    }
+    window.ResizeObserver = FakeResizeObserver as unknown as typeof ResizeObserver;
+    Object.defineProperty(window, 'scrollY', { configurable: true, get: () => scrollY });
+    // Tarayıcıda scrollBy konumu hemen değiştirir, kaydırma olayı bir sonraki karede gelir.
+    vi.spyOn(window, 'scrollBy').mockImplementation(((x?: number | ScrollToOptions, y?: number) => {
+      const dy = typeof x === 'number' ? (y ?? 0) : (x?.top ?? 0);
+      scrollY = Math.max(0, scrollY + dy);
+      window.requestAnimationFrame(() => window.dispatchEvent(new Event('scroll')));
+    }) as typeof window.scrollBy);
+    Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: () => document.getElementById(ALAN) });
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function rect(this: Element) {
+      const ust = Number(document.querySelector('[data-ust]')?.getAttribute('data-ust') ?? 0);
+      const alan = this.id === ALAN;
+      const icerik = this.matches('main, .aile-admin-main-inner');
+      const top = alan ? ust - scrollY : icerik ? -scrollY : 0;
+      const height = alan ? 3000 : icerik ? ust + 3000 : 0;
+      return { x: 0, y: top, top, left: 0, width: 1000, height, right: 1000, bottom: top + height, toJSON: () => ({}) } as DOMRect;
+    });
+  });
+  afterEach(() => {
+    window.ResizeObserver = originalObserver;
+    if (originalScrollY) Object.defineProperty(window, 'scrollY', originalScrollY);
+    else delete (window as { scrollY?: number }).scrollY;
+    delete (document as { elementFromPoint?: unknown }).elementFromPoint;
+    vi.restoreAllMocks();
+  });
+
+  it('an island that settles after the side navigation keeps the anchored content where the user left it', async () => {
+    const gate = kapi();
+    const ada = adaKaynagi(gate);
+    const viewport = installViewport(PHONE);
+    render(<WorkspaceShell location="/alimlar"><AdaliSayfa ada={ada} /></WorkspaceShell>);
+    await kullaniciKaydirir(UST_DAR - 300);
+    expect(alanUstu()).toBe(300);
+
+    act(() => viewport.set(DESKTOP));
+    await sideNav();
+    expect(alanUstu(), 'yan gezinme geldi, ada hâlâ yükleniyor').toBe(300);
+
+    // Ada yerleşir: üstteki içerik 1600 px büyür (yan gezinmeden sonra; kabuk yerleşim anahtarı değişmez).
+    await act(async () => { gate.ac(); await ada.load(); });
+    yerlesimBildir();
+    expect(alanUstu(), 'ada yerleşince çapa korunmadı').toBe(300);
+  });
+
+  it('a user scroll while the island loads becomes the new anchor; once the islands settle the hold ends', async () => {
+    const gate = kapi();
+    const ada = adaKaynagi(gate);
+    const viewport = installViewport(PHONE);
+    render(<WorkspaceShell location="/alimlar"><AdaliSayfa ada={ada} /></WorkspaceShell>);
+    await kullaniciKaydirir(UST_DAR - 300);
+
+    act(() => viewport.set(DESKTOP));
+    await sideNav();
+    // Yükleme sürerken kullanıcı 100 px daha kaydırır: yeni konum onun seçimidir, eski çapaya geri çekilmez.
+    await kullaniciKaydirir(scrollY + 100);
+    expect(alanUstu()).toBe(200);
+
+    await act(async () => { gate.ac(); await ada.load(); });
+    yerlesimBildir();
+    expect(alanUstu(), 'kullanıcının yeni çapası korunmadı').toBe(200);
+
+    // Adalar yerleşti ve boyut bildirimi sustu: tutma biter. Sonraki içerik değişimi (ör. kullanıcının açtığı bölüm)
+    // kabuk tarafından geri çekilmez.
+    await act(async () => { for (let i = 0; i < 4; i += 1) await kare(); });
+    const once = scrollY;
+    document.querySelector('[data-ust]')!.setAttribute('data-ust', String(UST_GENIS + 500));
+    yerlesimBildir();
+    expect(scrollY, 'tutma bitmedi: kabuk sonraki değişimi de geri çekti').toBe(once);
+  });
+
+  it('a route change ends the hold: the new page is not pulled back to the previous page anchor', async () => {
+    const gate = kapi();
+    const ada = adaKaynagi(gate);
+    const viewport = installViewport(PHONE);
+    const view = render(<WorkspaceShell location="/alimlar"><AdaliSayfa ada={ada} /></WorkspaceShell>);
+    await kullaniciKaydirir(UST_DAR - 300);
+    act(() => viewport.set(DESKTOP));
+    await sideNav();
+
+    view.rerender(<WorkspaceShell location="/genel"><AdaliSayfa ada={ada} /></WorkspaceShell>);
+    const once = scrollY;
+    await act(async () => { gate.ac(); await ada.load(); });
+    yerlesimBildir();
+    expect(scrollY, 'rota değişti ama kabuk eski çapaya kaydırdı').toBe(once);
   });
 });
 
