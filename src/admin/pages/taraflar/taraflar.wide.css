@@ -1,0 +1,92 @@
+/* Taraflar — geniş (tablet/masaüstü) teklif karşılaştırması. Kaynak: bundle.css › .pg-compare, .pg-offer, .pg-offer-head.
+   Yalnız --aile-* tokenları; sabit renk yok. Kart/kenarlık yağmuru yok: yuva yalnız yuzey tonu + kose-kart alır
+   (kenarlık ve tek kenar şerit yok; en düşük fiyatı "En düşük fiyat" etiketi sözcükle söyler). Odak çizgisini admin.css
+   çizer; burada outline/halka/box-shadow yok. Bu dosya *.wide adlıdır: yalnız geniş parçayla gelir, telefon indirmez. */
+
+.aile-taraflar-gruplar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-6);
+  min-width: 0;
+}
+
+.aile-taraflar-grup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-3);
+  min-width: 0;
+}
+
+.aile-taraflar-grup__baslik {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--aile-bosluk-1) var(--aile-bosluk-4);
+}
+
+/* Grup başlığı gövde ölçüsünde 600 (AccordionList grup başlığıyla aynı); admin.css h3 18/26'yı özgüllükle geçer. */
+.aile-admin .aile-taraflar-grup__h3 {
+  font-size: inherit;
+  line-height: inherit;
+  font-weight: 600;
+  overflow-wrap: break-word;
+}
+
+.aile-taraflar-grup__olcu {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Yuvalar alan izin verdikçe yan yana; dar tablet alanında alt alta (container ölçüsü, genişlik medya sorgusu yok). */
+.aile-taraflar-karsilastirma {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr));
+  gap: var(--aile-bosluk-4);
+  min-width: 0;
+}
+
+.aile-taraflar-yuva {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-3);
+  padding: var(--aile-bosluk-4);
+  background: var(--aile-yuzey);
+  border-radius: var(--aile-kose-kart);
+  min-width: 0;
+}
+
+.aile-taraflar-yuva__baslik {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--aile-bosluk-2);
+  overflow-wrap: break-word;
+}
+
+.aile-taraflar-yuva__alanlar {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--aile-bosluk-2) var(--aile-bosluk-4);
+  align-items: center;
+}
+
+.aile-taraflar-yuva__alanlar > div {
+  display: contents;
+}
+
+.aile-taraflar-yuva__alanlar dd {
+  margin: 0;
+  justify-self: end;
+  text-align: right;
+  overflow-wrap: break-word;
+}
+
+/* Tutar 18/26 600 (bundle .pg-offer tutar). */
+.aile-admin .aile-taraflar-yuva__tutar {
+  font-size: 18px;
+  line-height: 26px;
+  font-weight: 600;
+}
