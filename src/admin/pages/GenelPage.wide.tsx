@@ -1,5 +1,4 @@
 import { useId, useMemo } from 'react';
-import type { RecordedTotal } from '../data';
 import { useProfile } from '../adaptive';
 import { Chart, chartSeriesColors, type ChartProps } from '../ui/Chart';
 import { HENUZ_YOK } from '../ui/Money';
@@ -16,26 +15,16 @@ import {
 import './GenelPage.wide.css';
 
 // Genel durum › geniş sunum (tablet ve masaüstü). Yalnız GenelPage'deki lazyWide('genel-genis') ile yüklenir; telefon
-// profili bu modülü, Overview'un antd parçalarını (Checkbox, Progress) ve ECharts'ı hiç indirmez. Tasarım: components/
-// Overview (masaüstünde iki sütun: solda Yaklaşan ödemeler + Bütçe tablosu, sağda Dikkat isteyenler + görevler; tablette
-// tek sütun) ve Raporlar'ın plan/gerçek çubukları: aylık grafik + yanında aynı değerlerin tablosu (grafik tek bilgi
-// kaynağı değil). Veri telefonla aynı saf modelden (genel/model.ts → data/actuals.ts).
-// Overview satırı bugün yalnız `actual` (Money | null) alır ve ondan yüzde/"harcandı" türetir; a10-overview satıra
-// `recorded` (RecordedValue | RecordedTotal; actuals.ts spendLabel ile) kabulünü paralelde ekliyor ve iki alan birlikte
-// verilince `recorded`ı yeğliyor. Satır bu yüzden ikisini de taşır: `actual` geçiş için kaynak değeri, `recorded`
-// Gerçekleşenin anlamı (gelecek ay not_yet, kanıt bayrağı). Kaydı olmayan kalemde `recorded` verilmez ("Henüz yok").
+// profili bu modülü hiç indirmez. Tasarım: components/Overview (masaüstünde iki sütun: solda Yaklaşan ödemeler + Bütçe
+// tablosu, sağda Dikkat isteyenler + görevler; tablette tek sütun) ve Raporlar'ın plan/gerçek çubukları: aylık grafik +
+// yanında aynı değerlerin tablosu (grafik tek bilgi kaynağı değil). Veri telefonla aynı saf modelden (genel/model.ts →
+// data/actuals.ts).
+// Bütçe satırı Gerçekleşeni `recorded` (RecordedTotal) olarak taşır; Overview oranı ve "harcandı"yı yalnız ondan
+// (actuals.spendLabel) türetir. Kaydı olmayan kalemde `recorded` verilmez ("Henüz yok").
 
-type GenelOverviewSatiri = OverviewBudgetRow & { recorded?: RecordedTotal };
-
-function overviewSatiri(satir: GenelButceSatiri): GenelOverviewSatiri {
-  const recorded = satir.recorded;
-  const row: GenelOverviewSatiri = {
-    id: satir.id,
-    label: satir.label,
-    planned: satir.planned.money,
-    actual: recorded && recorded.kind === 'recorded' ? recorded.money : null,
-  };
-  if (recorded) row.recorded = recorded;
+function overviewSatiri(satir: GenelButceSatiri): OverviewBudgetRow {
+  const row: OverviewBudgetRow = { id: satir.id, label: satir.label, planned: satir.planned.money };
+  if (satir.recorded) row.recorded = satir.recorded;
   return row;
 }
 

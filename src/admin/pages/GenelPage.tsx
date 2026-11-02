@@ -56,6 +56,8 @@ import './GenelPage.css';
 // Veri durumları ayrı ve adıyla (data-durum): yükleniyor (LoadingShell), hata (ErrorState, tutar yok), eski (son iyi veri
 // + DataStatus "yenilenemedi"), hazır. Nesilde olmayan koleksiyon "Kaynakta … kaydı yok" der.
 // Bekleyen işler: işaretlemek yerel değişiklik kümesine fulfillment → installed yazar (geri alınabilir); Sheets'e yazma yok.
+// Yükleme: tahmin olayları (forecast_events, olay ayına göre parçalı) yalnız 7 günlük pencerenin aylarından okunur; kapsamlı
+// satırlar boş olabilir, kaynağın boş olup olmadığını nesil manifestinin sayımı söyler.
 
 export interface GenelPageProps {
   /** Hash yolu; başlık bölüm/ad/amaç buradan türetilir. */
@@ -70,6 +72,10 @@ const RAPOR_YOLU = '/raporlar';
 const OKUNUYOR = 'Genel durum okunuyor';
 const KURULDU = 'installed';
 const simdi = () => new Date();
+const GUN_MS = 24 * 60 * 60 * 1000;
+
+/** Ödeme penceresinin [an, an + PENCERE_GUN gün] İstanbul takvim ayları (pencere bir aydan kısa: bir ya da iki ay). */
+const pencereDonemleri = (an: Date) => [...new Set([currentPeriod(an), currentPeriod(new Date(an.getTime() + PENCERE_GUN * GUN_MS))])];
 
 const GenelGenis = lazyWide<GenelSunumProps>('genel-genis', () => import('./GenelPage.wide'));
 
@@ -84,8 +90,15 @@ export function GenelPage({ location = YOL, now }: GenelPageProps) {
   const [, navigate] = useLocation();
   const generation = useGeneration();
   const changeSet = useChangeSet();
+  // "Bugün" bağlama başına bir kez okunur; dönem ve gün İstanbul takviminden (cihazın yerel saat dilimi değil).
+  const an = useMemo(() => (now ?? simdi)(), [now]);
+  const bugun = useMemo(() => istanbulGunu(an), [an]);
+  const donem = useMemo(() => currentPeriod(an), [an]);
+  // Ödeme penceresi [bugün, bugün + 7 gün) en çok iki takvim ayına düşer; yalnız o ayların parçaları istenir.
+  const olayDonemleri = useMemo(() => pencereDonemleri(an), [an]);
+
   const aylar = useCollection('forecast_months');
-  const olaylar = useCollection('forecast_events');
+  const olaylar = useCollection('forecast_events', { periods: olayDonemleri });
   const gozlemler = useCollection('budget_observations');
   const alimlar = useCollection('purchase_needs');
   const isler = useCollection('work_orders');
@@ -94,11 +107,8 @@ export function GenelPage({ location = YOL, now }: GenelPageProps) {
   const terimler = useCollection('terms');
   const sozlukler = useCollection('vocabularies');
   const parcalar = [aylar, olaylar, gozlemler, alimlar, isler, medya, sorunlar, terimler, sozlukler];
-
-  // "Bugün" bağlama başına bir kez okunur; dönem ve gün İstanbul takviminden (cihazın yerel saat dilimi değil).
-  const an = useMemo(() => (now ?? simdi)(), [now]);
-  const bugun = useMemo(() => istanbulGunu(an), [an]);
-  const donem = useMemo(() => currentPeriod(an), [an]);
+  // Pencere dışındaki aylar okunmadığından "kaynakta tahmin olayı yok" kararı kapsamlı satırlardan değil, sayımdan.
+  const olayKaydiYok = (generation.manifest?.counts.forecast_events ?? 0) === 0;
 
   const gecikenler = useMemo(() => gecikenKayitlar([...alimlar.rows, ...isler.rows], bugun), [alimlar.rows, isler.rows, bugun]);
   const odemeler = useMemo(() => yaklasanOdemeler(olaylar.rows, bugun), [olaylar.rows, bugun]);
@@ -156,7 +166,7 @@ export function GenelPage({ location = YOL, now }: GenelPageProps) {
         title: `Yaklaşan ödemeler · ${PENCERE_GUN} gün`,
         link: BAGLANTI.butce,
         items: odemeler,
-        empty: olaylar.rows.length === 0 ? KAYNAKTA_YOK.forecast_events : `Önümüzdeki ${PENCERE_GUN} günde ödeme yok`,
+        empty: olayKaydiYok ? KAYNAKTA_YOK.forecast_events : `Önümüzdeki ${PENCERE_GUN} günde ödeme yok`,
       },
       dikkat: { title: 'Dikkat isteyenler', link: BAGLANTI.veri, items: dikkat, empty: 'Dikkat isteyen kayıt yok' },
       butce: {
@@ -179,7 +189,7 @@ export function GenelPage({ location = YOL, now }: GenelPageProps) {
         empty: gozlemler.rows.length === 0 ? KAYNAKTA_YOK.budget_observations : 'Aylık bütçe toplamı yok',
       },
     }),
-    [odemeler, olaylar.rows.length, dikkat, ayAdi, butce, gozlemler.rows.length, aynaNotu, gorevler, isler.rows.length, aylik],
+    [odemeler, olayKaydiYok, dikkat, ayAdi, butce, gozlemler.rows.length, aynaNotu, gorevler, isler.rows.length, aylik],
   );
 
   const sayfa = currentAdminLink(location);
@@ -201,7 +211,7 @@ export function GenelPage({ location = YOL, now }: GenelPageProps) {
   const durumAdi = nesilHatasi || (koleksiyonHatasi && !yukleniyor) ? 'hata' : yukleniyor ? 'yukleniyor' : generation.state === 'stale' ? 'eski' : 'hazir';
 
   const ozet: readonly PageHeaderSummary[] | undefined = hazir
-    ? [kalanNakit(aylar.rows, donem), odenecekOlcusu(odemeler, olaylar.rows.length === 0), gecikenOlcusu(gecikenler, alimlar.rows.length === 0 && isler.rows.length === 0)]
+    ? [kalanNakit(aylar.rows, donem), odenecekOlcusu(odemeler, olayKaydiYok), gecikenOlcusu(gecikenler, alimlar.rows.length === 0 && isler.rows.length === 0)]
     : undefined;
   const isaretle = changeSet.ready ? (id: string, done: boolean) => void gorevIsaretle(id, done) : undefined;
 

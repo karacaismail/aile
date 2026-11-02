@@ -513,6 +513,43 @@ describe('GenelPage › veri durumları', () => {
     expect(within(region('Bekleyen işler')).getByText('Kaynakta iş emri kaydı yok')).toBeInTheDocument();
   });
 
+  it('yaklaşan ödemeler yalnız 7 günlük pencerenin aylarındaki tahmin olayı parçalarını okur (ay sınırında iki ay)', async () => {
+    const temel = fixtureSource();
+    const okunan: string[] = [];
+    const kaynak: GenerationSource = {
+      kind: 'fixture',
+      label: 'sentetik',
+      readText: async path => {
+        okunan.push(path);
+        return temel.readText(path);
+      },
+    } as GenerationSource;
+    const olayParcalari = () => okunan.filter(path => path.includes('forecast_events/')).map(path => /\/(\d{4}-\d{2})\//.exec(path)?.[1] ?? path);
+
+    // 05.12.2026: pencere 05–11.12 → yalnız 2026-12 (nesilde 20 ayın parçası var).
+    const { unmount } = renderPage({ device: 'phone', provider: { source: kaynak } });
+    await telefonHazir();
+    expect(within(region(/^Yaklaşan ödemeler/)).getAllByRole('listitem')).toHaveLength(1);
+    expect([...new Set(olayParcalari())]).toEqual(['2026-12']);
+    unmount();
+
+    // 28.11.2026 23:30 İstanbul: pencere Kasım sonundan Aralık başına uzanır → 2026-11 ve 2026-12.
+    okunan.length = 0;
+    renderPage({ device: 'phone', provider: { source: kaynak }, now: () => new Date('2026-11-28T20:30:00Z') });
+    await telefonHazir();
+    expect([...new Set(olayParcalari())].sort()).toEqual(['2026-11', '2026-12']);
+  });
+
+  it('pencerenin ayında tahmin olayı parçası yoksa kaynak boş sayılmaz: "Önümüzdeki 7 günde ödeme yok" (manifest sayımı)', async () => {
+    // 10.04.2027: nesilde 2027-04 parçası yok, koleksiyonda 20 kayıt var.
+    renderPage({ device: 'phone', now: () => new Date(2027, 3, 10, 9, 0, 0) });
+    await telefonHazir();
+    expect(within(region(/^Yaklaşan ödemeler/)).getByText('Önümüzdeki 7 günde ödeme yok')).toBeInTheDocument();
+    const odenecek = within(screen.getByRole('list', { name: 'Özet' })).getAllByRole('listitem')[1]!;
+    expect(odenecek).toHaveTextContent('Ödeme yok');
+    expect(odenecek).not.toHaveTextContent('Kaynakta tahmin olayı kaydı yok');
+  });
+
   it('pencerede ödeme yoksa kaynak dolu olsa da "Önümüzdeki 7 günde ödeme yok" ve ölçü ₺0,00 · Ödeme yok', async () => {
     renderPage({ device: 'phone', now: () => new Date(2026, 10, 2, 9, 0, 0) });
     await telefonHazir();
