@@ -1,0 +1,96 @@
+/* TaraflarPage — Taraflar ve teklifler. Kaynak: bundle.css › .ai-ov-block, .ai-ov-head, .ai-opt-count, .pg-compare,
+   .pg-offer, .pg-compare--dar. Yalnız --aile-* tokenları; sabit renk yok. Kart/kenarlık yağmuru yok: bölümler zeminde
+   boşlukla ayrılır; teklif yuvası yalnız yuzey tonu + kose-kart alır (kenarlık yok, tek kenar şerit yok).
+   Odak çizgisini admin.css çizer; burada outline/halka/box-shadow yok. Yerleşim değişimi (yan yana → alt alta)
+   semantik güncellemedir, geçişsiz. Metin ≥ 14 px: küçük metinler admin.css .aile-kucuk (14/20). */
+
+.aile-taraflar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-8);
+  min-width: 0;
+}
+
+.aile-taraflar__not {
+  grid-column: 1 / -1;
+  margin: 0;
+  max-width: 720px;
+}
+
+.aile-taraflar__bolum {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-3);
+  min-width: 0;
+}
+
+.aile-taraflar__bolum-baslik {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--aile-bosluk-3);
+  flex-wrap: wrap;
+}
+
+/* h3 ölçüsü (18/26) bölüm başlığı; admin.css h2 24/32'yi sayfa içinde küçültür (bundle.css .ai-ov-head .ai-h3). */
+.aile-taraflar__h2 {
+  font-size: 18px;
+  line-height: 26px;
+}
+
+.aile-taraflar__sayim,
+.aile-taraflar__aciklama {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.aile-taraflar__aciklama {
+  max-width: 720px;
+}
+
+/* Karşılaştırma: masaüstü/tablette üç eşit sütun, telefonda alt alta (bundle.css .pg-compare / --dar). */
+.aile-taraflar__karsilastirma {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--aile-bosluk-4);
+  min-width: 0;
+}
+
+.aile-taraflar__karsilastirma[data-layout='alt-alta'] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.aile-taraflar__yuva {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-3);
+  padding: var(--aile-bosluk-4);
+  background: var(--aile-yuzey);
+  border-radius: var(--aile-kose-kart);
+  min-width: 0;
+}
+
+.aile-taraflar__yuva-baslik {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--aile-bosluk-2);
+  flex-wrap: wrap;
+}
+
+.aile-taraflar__alanlar {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--aile-bosluk-2) var(--aile-bosluk-4);
+}
+
+.aile-taraflar__alanlar > div {
+  display: contents;
+}
+
+.aile-taraflar__alanlar dd {
+  margin: 0;
+  text-align: right;
+  overflow-wrap: break-word;
+}

@@ -1,0 +1,79 @@
+/* Chart — ECharts sarmalayıcısı; yalnız --aile tokenları (admin.css / aileCssVars). Referans bundle.css .pg-bars /
+   .pg-legend: grafik ve değer listesi aynı yuzey alanında, kart/kenarlık yok. Yükseklik --aile-chart-yukseklik
+   (bileşen prop'tan yazar); genişlik kapsayıcıdan, ResizeObserver tuvali izler. Metin 14/20 (alt sınır).
+   Tuvalde odaklanacak kontrol yok; odak çizgisi gerekmez. Hareket yalnız ECharts animasyonu (chartMotion),
+   CSS geçişi yok; reduced-motion'ı bileşen matchMedia ile okur. */
+
+.aile-chart {
+  display: grid;
+  gap: var(--aile-bosluk-3);
+  min-width: 0;
+}
+
+.aile-chart-gorsel,
+.aile-chart-bekleme,
+.aile-chart-hata {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  height: var(--aile-chart-yukseklik);
+  margin: 0;
+}
+
+.aile-chart-tuval {
+  width: 100%;
+  height: 100%;
+}
+
+/* Bekleme: iskeletle aynı nötr yüzey (liste-zemin), aynı yükseklik; içerik gelince yerleşim kaymaz. */
+.aile-chart-bekleme {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--aile-bosluk-3);
+  border-radius: var(--aile-kose-kart);
+  background: var(--aile-liste-zemin);
+  color: var(--aile-metin-ikincil);
+  text-align: center;
+}
+
+/* Hata: metin sözcükle söyler ("Hata: …"); hata-yuzey destekler, tek işaret değildir. */
+.aile-chart-hata {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--aile-bosluk-3);
+  border-radius: var(--aile-kose-kart);
+  background: var(--aile-hata-yuzey);
+  color: var(--aile-hata);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  text-align: center;
+}
+
+.aile-chart-aciklama {
+  margin: 0;
+  min-width: 0;
+  overflow-x: auto;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--aile-metin);
+}
+
+/* Açıklama tablo ise: tutarlar sağa, tabular; dar ekranda tablo kendi içinde kayar, sayfa taşmaz. */
+.aile-chart-aciklama table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.aile-chart-aciklama th,
+.aile-chart-aciklama td {
+  padding: var(--aile-bosluk-2) var(--aile-bosluk-3);
+  border-bottom: 1px solid var(--aile-cizgi);
+  text-align: left;
+  word-break: keep-all;
+}
+.aile-chart-aciklama td {
+  text-align: right;
+}

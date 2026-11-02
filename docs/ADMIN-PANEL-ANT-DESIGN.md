@@ -23,7 +23,7 @@ Plan bu kararlar alınmadan uygulamaya geçmez. Öneri, gerekçe ve alternatif b
 | # | Karar | Öneri | Gerekçe | Alternatif |
 |---|---|---|---|---|
 | D1 | antd ana sürümü | **antd 6.x** | React 19 için ek yama gerekmez; Ant Design X 2.x ileride AI-first yüzeyler için bu sürümü ister; yeni panelde eski sürüme başlamak ikinci bir göç yaratır | antd 5.29 + `@ant-design/v5-patch-for-react-19` + Pro Components 2.8 stabil; X yalnız 1.x |
-| D2 | Pro Components | **Başlangıçta kullanılmaz.** Shell, tablo ve form doğrudan antd + kendi ince renderer'larımızla kurulur | antd 6 uyumlu Pro sürümü beta; altı görünüm ve sorgu AST zaten özel renderer gerektiriyor; Pro'nun ProTable/ProForm soyutlaması bu sözleşmeyle çakışır | Pro beta kararlı sürüme geçince `ProLayout` yalnız kabuk için değerlendirilir; ayrı karar |
+| D2 | Pro Components | **Kullanıcı kararı (1 Kas 2026): `@ant-design/pro-components` beta (3.x, antd ^6) kullanılır.** ProLayout kabuk, ProTable tablo modu, ProList liste modu, ProDescriptions ayrıntı, ProForm düzenleme için; altı görünüm ve sorgu AST yine proje renderer'larında kalır | Kullanıcı beta kararlılığını kabul etti; hızlı CRUD iskelesi | Beta API değişirse sarmalayıcı yüzeyi (`src/admin/ui/`) tek değişim noktasıdır; sürüm pin'lenir |
 | D3 | Gerçek verinin panele ulaşması | **Pre-MVP: yerel nesil yükleme.** Kullanıcı özel nesil klasörünü tarayıcıya aktarır; veri cihazda (OPFS/IndexedDB) kalır, Pages'e hiçbir gerçek kayıt gitmez | Sunucu, kimlik ve tenant sınırı yok; bu yol hiçbir aile verisini ağa çıkarmaz ve mevcut güvenlik sınırını korur | Kimlikli HTTP adaptörü: oturum + yetkili uç nokta. Server tarafı Hüseyin Cengiz'in teknik görevi; maturity aşamasına ait |
 | D4 | Panelden yazma | **Değişiklik kümesi (change set) katmanı.** Düzenlemeler nesilin üstünde sürümlü, idempotent işlem olarak tutulur; Sheets'te karşılığı olan tablolar (`app_kalemler`, `app_ayarlar`, `app_nakit`) için mevcut Apps Script batch yoluna aktarılır; karşılığı olmayan sözlük/workflow değişiklikleri "öneri" olarak dışa aktarılır | Sheets kaynak sahipliği korunur; iki yönlü otomatik eşitleme kurulmaz (PRE-MVP-UI §1) | Doğrudan Sheets yazımı yok; PostgreSQL yazımı P3 |
 | D5 | Eski Mantine ekranlarının kaderi | **Dondur ve rota rota emekliye ayır (strangler).** Yeni panel ayrı giriş noktası; aynı yolculuğu kapsayan rota kabul edilince eskisi kaldırılır; son adımda Mantine bağımlılığı silinir | Tek seferde yeniden yazım pre-MVP'de doğrulanamaz; dondurma ikili bakım maliyetini sınırlar | İki kütüphaneyi süresiz birlikte yaşatma: **reddedilir** (aşağıda) |
@@ -117,6 +117,8 @@ Kullanıcı verinin "istediği gibi" geliştirilmesini önkoşul koydu. Bu kapı
 7. D3 ve D4 kararları alınmış; nesil yükleme biçimi (klasör/zip) ve change set dışa aktarma hedefi belli.
 8. Sentetik test nesli: gerçek değer içermeyen, şema ile birebir aynı, `fixtures/generation-synthetic/` altında Git'te; tüm UI testleri yalnız bunu kullanır.
 
+Not (P0c): Sentetik nesil `node scripts/synthetic-generation.mjs` ile deterministik üretilir ve `fixtures/generation-synthetic/<sha256>/` altında Git'tedir; `data-platform/cli.mjs validate` kapısından geçer. Gerçek nesil yalnız dev sunucusunda, `AILE_GENERATION_DIR` ortam değişkeniyle `/__aile/generation/*` yolundan salt okunur servis edilir (`src/admin/devServer/privateData.ts`, `apply: 'serve'`); build çıktısına girmez.
+
 ## 6. Dilimler
 
 Her dilim tek başına incelenebilir ve geri alınabilir; önce başarısız test, sonra en küçük düzeltme, aynı testte yeşil; ardından bağımsız `standards-reviewer` incelemesi (salt okunur). 320 kabulü diğer genişliklerden önce gelir. Firefox çalıştırılmaz. Chromium/WebKit sonucu gerçek Chrome/Safari sayılmaz; gerçek cihaz ayrı rapor edilir.
@@ -125,7 +127,7 @@ Her dilim tek başına incelenebilir ve geri alınabilir; önce başarısız tes
 
 - Amaç: D1–D6 kararlarını `docs/` içine ADR olarak işlemek; antd kurulumu; `admin.html` giriş noktası; token köprüsü; kabuk (Layout + Menu + `PageHeader` eşleniği + boş Work Canvas); §4.3 kapılarının hepsi.
 - RED önce: kütüphane sınırı testi (admin'de Mantine import eden sahte dosya FAIL), odak halkası testi (antd varsayılan Button FAIL), `fontSizeSM` testi (varsayılan 12 FAIL), vurgu kenarı testi (Menu varsayılan FAIL), 320 taşma testi.
-- Uygulama: `antd`, `@ant-design/icons` eklenir (sürüm D1'e göre, pin'li); `vite.config.ts` çoklu giriş; `src/design/tokens.ts` taşıma + re-export; `antdTheme.ts`; `src/admin/ui/` ilk sarmalayıcılar; ESLint kuralları.
+- Uygulama: `antd`, `@ant-design/icons`, `@ant-design/pro-components@beta` eklenir (pin'li; beta kararı D2); `vite.config.ts` çoklu giriş; `src/design/tokens.ts` taşıma + re-export; `antdTheme.ts`; `src/admin/ui/` ilk sarmalayıcılar; ESLint kuralları.
 - Kabul: `pnpm typecheck`, `pnpm test`, `pnpm build` yeşil; eski uygulamanın E2E paketi değişmeden yeşil; `dist/admin.html` üretildi; paket boyutu önce/sonra kaydedildi (admin chunk'ları eski giriş noktasına girmiyor, service worker precache listesi admin'i içermiyor); 320 ve 1440 ekran görüntüleri kanıt.
 - Dışında: hiçbir gerçek veri, hiçbir iş ekranı.
 
@@ -210,7 +212,7 @@ Bu plan canlı Google paylaşımı, Apps Script dağıtımı, yeni servis, cron/
 | antd varsayılanlarının proje kurallarını delmesi (odak, 12 px, Menu şeridi) | Kural ihlali | §4.3 kapıları S0'da kurulur, her PR'da çalışır |
 | Gerçek verinin yanlışlıkla `dist/`/Git'e girmesi | P0 sızıntı | Build sonrası tarama kapısı, exporter'ın mevcut reddi, yalnız sentetik fixture |
 | Change set ile Sheets'in çakışması | Veri kaybı | Sürüm/önkoşul (mevcut Apps Script `precondition_failed`), çatışma UI, sessiz ezme yok |
-| Pro Components beklentisi | Hızlı CRUD iskelesi kaybı | D2 bilinçli; beta kararlılaşınca yalnız kabuk için yeniden değerlendirme |
+| Pro Components beta API değişimi | Sarmalayıcı yüzeyinde kırılma | Sürüm pin'li; `src/admin/ui/` tek değişim noktası; her Pro güncellemesi ayrı incelemeli commit |
 | Kapsam kayması: altı modun hepsi birden | Teslim gecikir | S2 tek dikey dilim; sonraki modlar veri uygunluğuna bağlı |
 
 ## 11. Bu belgenin doğrulama durumu

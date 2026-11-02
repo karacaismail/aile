@@ -1,0 +1,93 @@
+/* Diyalog (ui/Dialog.tsx) — antd Modal üstüne tasarım kuralları. Kaynak: components/Dialog/README.md ve bundle.css
+   .ai-dialog-wrap / .ai-dialog / .ai-dialog-head. Yalnız --aile tokenları (admin.css :root yedekleri portal katmanına
+   da ulaşır). Kök .aile-dialog, parçalar antd semantik classNames ile adlandırılır; .aile-dialog-panel antd'nin
+   role="dialog" öğesidir (genişliği antd inline yazar: 560 px, Dialog.tsx DIALOG_WIDTH). Hareket (240 ms, tek eğri) ve
+   reduced-motion antd tema token'ı + admin.css'ten gelir. */
+
+/* Başlık ölçüsü tokens.json › type h2 (24/32, 600); admin.css'in .aile-admin h2 kuralı portala ulaşmaz. */
+.aile-dialog {
+  --aile-dialog-baslik-boyut: 24px;
+  --aile-dialog-baslik-satir: 32px;
+}
+
+/* Sarmal: ortalı ızgara, kenarlardan bosluk-4 pay; panel viewport'u aşmaz (560 → 320'de tam genişlik). */
+.aile-dialog .aile-dialog-sarmal { padding: var(--aile-bosluk-4); }
+.aile-dialog .aile-dialog-panel {
+  max-width: 100%;
+  max-height: 100%;
+  padding-bottom: 0;
+}
+
+/* Yükseltilmiş yüzey: yuzey zemini, kose-panel, gölge yalnız burada; iç yerleşim sütun + bosluk-4 aralık. */
+.aile-dialog .aile-dialog-kutu {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-4);
+  max-height: calc(100dvh - 2 * var(--aile-bosluk-4));
+  overflow: auto;
+  padding: var(--aile-bosluk-6);
+  background: var(--aile-yuzey);
+  color: var(--aile-metin);
+  font-family: var(--aile-font-sans);
+  font-size: 16px;
+  line-height: 24px;
+  border-radius: var(--aile-kose-panel);
+  box-shadow: var(--aile-golge-yukseltilmis);
+}
+
+/* Başlık satırı: h2 solda, Kapat düğmesi için sağda hedef kadar pay; başlık kesilmez, kelime arasından sarılır. */
+.aile-dialog .aile-dialog-ust {
+  margin: 0;
+  padding-inline-end: calc(var(--aile-hedef-asgari) + var(--aile-bosluk-2));
+}
+.aile-dialog .aile-dialog-baslik {
+  margin: 0;
+  font-size: var(--aile-dialog-baslik-boyut);
+  line-height: var(--aile-dialog-baslik-satir);
+  font-weight: 600;
+  color: var(--aile-metin);
+  white-space: normal;
+  overflow-wrap: normal;
+  word-break: keep-all;
+}
+
+/* Kapat: 44 px kare (antd modalCloseBtnSize = controlHeight), başlık satırına ortalı, kose-kontrol; durumlar yüzey tonuyla. */
+.aile-dialog .aile-dialog-kapat {
+  top: calc(var(--aile-bosluk-6) - (var(--aile-hedef-asgari) - var(--aile-dialog-baslik-satir)) / 2);
+  inset-inline-end: var(--aile-bosluk-4);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--aile-hedef-asgari);
+  height: var(--aile-hedef-asgari);
+  border-radius: var(--aile-kose-kontrol);
+  color: var(--aile-eylem);
+  background: transparent;
+  transition: background-color var(--aile-sure) var(--aile-egri), color var(--aile-sure) var(--aile-egri);
+}
+.aile-dialog .aile-dialog-kapat:hover { background: var(--aile-bilgi-yuzey); color: var(--aile-eylem); }
+.aile-dialog .aile-dialog-kapat:active { background: var(--aile-secili); color: var(--aile-nav); }
+
+/* Odak: admin.css'in çizgi kuralı .ant-btn ve [data-focus-line] içindir; antd'nin kapatıcısı ikisi de değildir ve
+   closable yalnız aria-* alır. Aynı çizgi (3 px, 4 px altta, kontrol genişliğinde, ::after) burada yinelenir;
+   halka/outline yok (admin.css .ant-modal-root :focus sıfırlar). */
+html[data-keyboard='true'] .aile-dialog .aile-dialog-kapat:focus-visible::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(-1 * (var(--aile-odak-aralik) + var(--aile-odak-kalinlik)));
+  height: var(--aile-odak-kalinlik);
+  border-radius: 2px;
+  background: var(--aile-odak);
+  pointer-events: none;
+}
+
+/* Gövde ve altlık: aralığı kutu verir; antd'nin başlık/altlık kenar boşlukları sıfırlanır. */
+.aile-dialog .aile-dialog-govde { min-height: 0; }
+.aile-dialog .aile-dialog-altlik { margin: 0; }
+
+/* Yerinde çizim (inline): örtü ve sarmal kapsayıcıya bağlı kalır; portal katmanı değildir. */
+.aile-dialog.aile-dialog--inline { position: relative; }
+.aile-dialog.aile-dialog--inline .aile-dialog-ortu,
+.aile-dialog.aile-dialog--inline .aile-dialog-sarmal { position: absolute; }

@@ -1,0 +1,45 @@
+/* Select — yerleşim; renk, boşluk, köşe ve hareket değerleri --aile-* tokenlarından (src/design/tokens.ts).
+   Tetik ve açılır liste antd Select'tir (tema: theme/antdTheme.ts › Select); odak çizgisini admin.css çizer.
+   Telefon listesi BottomSheet içinde kendi işaretlemesiyle (.aile-select-liste). */
+.aile-select { display: flex; flex-direction: column; gap: var(--aile-bosluk-1); min-width: 0; }
+.aile-select-etiket { font-weight: 500; color: var(--aile-metin); }
+.aile-select-etiket--gizli { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.aile-select-kontrol { width: 100%; }
+.aile-select-yardim { margin: 0; font-size: 14px; line-height: 20px; color: var(--aile-metin-ikincil); }
+.aile-select-hata { margin: 0; display: flex; gap: var(--aile-bosluk-2); align-items: flex-start; font-size: 14px; line-height: 20px; color: var(--aile-hata); }
+.aile-select-hata svg { flex: none; margin-top: 0; }
+
+/* Hatalı tetik: kenar hata (antd status) + hata yüzeyi (tasarım .is-invalid). */
+.aile-select .ant-select-status-error:not(.ant-select-disabled) .ant-select-selector { background: var(--aile-hata-yuzey); }
+
+/* Seçenek içeriği (açılır liste ve telefon listesi ortak): etiket solda, not 14 px ikincil. */
+.aile-select-secenek { display: flex; align-items: center; gap: var(--aile-bosluk-2); min-width: 0; }
+.aile-select-secenek-etiket { flex: 1; min-width: 0; }
+.aile-select-secenek-not { font-size: 14px; line-height: 20px; color: var(--aile-metin-ikincil); }
+.ant-select-item-option-selected .aile-select-secenek-not,
+.aile-select-liste-secenek.is-secili .aile-select-secenek-not { color: var(--aile-metin); }
+.aile-select-bos { display: flex; align-items: center; min-height: var(--aile-hedef-asgari); padding: 0 var(--aile-bosluk-3); color: var(--aile-metin-ikincil); }
+
+/* Telefon: BottomSheet içinde liste. Tek yüzey, kart/kenar yok; ayrım boşlukla. */
+.aile-select-sayfa { display: flex; flex-direction: column; gap: var(--aile-bosluk-3); }
+.aile-select-liste { margin: 0; padding: 0; list-style: none; }
+.aile-select-liste-secenek {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--aile-bosluk-2);
+  min-height: var(--aile-hedef-asgari);
+  padding: 0 var(--aile-bosluk-3);
+  border-radius: var(--aile-kose-kontrol);
+  color: var(--aile-metin);
+  cursor: pointer;
+  transition: background-color var(--aile-sure) var(--aile-egri);
+}
+.aile-select-liste-secenek:hover { background: var(--aile-bilgi-yuzey); }
+.aile-select-liste-secenek:active { background: var(--aile-secili); }
+.aile-select-liste-secenek.is-secili { background: var(--aile-secili); font-weight: 600; }
+.aile-select-liste-secenek.is-devre-disi { color: var(--aile-metin-ikincil); cursor: not-allowed; background: transparent; }
+.aile-select-liste-secenek svg { flex: none; }
+@media (prefers-reduced-motion: reduce) {
+  .aile-select-liste-secenek { transition-duration: 0s; }
+}

@@ -1,0 +1,123 @@
+/* aile Button — tasarım: components/Button/README.md, bundle.css › BUTTON. Tek kaynak tokenlar --aile-* (admin.css :root
+   yedekleri portallanan çekmece/diyalog içinde de çözer). Sabit renk ve sabit px ölçü yok.
+
+   antd 6 Button renkleri --ant-btn-* değişkenleriyle çizer (bg-color, text-color, border-color + -hover/-active/-disabled);
+   hover/active şablonu antd'de kalır, biz yalnız değişkenleri bağlarız. antd'nin en özgül ataması
+   .ant-btn.ant-btn-color-x.ant-btn-variant-y (0,3,0); bizim seçici button.ant-btn.aile-btn.aile-btn--x (0,3,1) her zaman kazanır.
+   Odak çizgisi admin.css'tedir (::after, 4 px altta, 3 px); burada outline/box-shadow yok. */
+
+button.ant-btn.aile-btn {
+  gap: var(--aile-bosluk-2);
+  min-height: var(--aile-hedef-asgari);
+  min-width: var(--aile-hedef-asgari);
+  padding-inline: var(--aile-bosluk-4);
+  border-radius: var(--aile-kose-kontrol);
+  font-weight: 500;
+  white-space: nowrap;
+  text-decoration: none;
+  transition:
+    background-color var(--aile-sure) var(--aile-egri),
+    color var(--aile-sure) var(--aile-egri),
+    border-color var(--aile-sure) var(--aile-egri);
+}
+button.ant-btn.aile-btn .aile-btn-metin { display: inline-block; }
+/* Tıklama dalgası (Wave) yayılan gölge halkasıdır; tasarımda basılı durum yalnız dolgu değişimidir. */
+button.ant-btn.aile-btn .ant-wave { display: none; }
+
+/* Birincil: eylem dolgu + yuzey metin; hover nav, basılı metin dolgu. */
+button.ant-btn.aile-btn.aile-btn--primary {
+  --ant-btn-border-color: transparent;
+  --ant-btn-border-color-hover: transparent;
+  --ant-btn-border-color-active: transparent;
+  --ant-btn-text-color: var(--aile-yuzey);
+  --ant-btn-text-color-hover: var(--aile-yuzey);
+  --ant-btn-text-color-active: var(--aile-yuzey);
+  --ant-btn-bg-color: var(--aile-eylem);
+  --ant-btn-bg-color-hover: var(--aile-nav);
+  --ant-btn-bg-color-active: var(--aile-metin);
+}
+
+/* İkincil: yuzey dolgu, eylem kenar ve metin; hover bilgi-yuzey, basılı secili + nav metin. */
+button.ant-btn.aile-btn.aile-btn--secondary {
+  --ant-btn-border-color: var(--aile-eylem);
+  --ant-btn-border-color-hover: var(--aile-eylem);
+  --ant-btn-border-color-active: var(--aile-eylem);
+  --ant-btn-text-color: var(--aile-eylem);
+  --ant-btn-text-color-hover: var(--aile-eylem);
+  --ant-btn-text-color-active: var(--aile-nav);
+  --ant-btn-bg-color: var(--aile-yuzey);
+  --ant-btn-bg-color-hover: var(--aile-bilgi-yuzey);
+  --ant-btn-bg-color-active: var(--aile-secili);
+}
+
+/* Sessiz: kenarsız, saydam; hover bilgi-yuzey, basılı secili + nav metin. */
+button.ant-btn.aile-btn.aile-btn--quiet {
+  --ant-btn-border-color: transparent;
+  --ant-btn-border-color-hover: transparent;
+  --ant-btn-border-color-active: transparent;
+  --ant-btn-text-color: var(--aile-eylem);
+  --ant-btn-text-color-hover: var(--aile-eylem);
+  --ant-btn-text-color-active: var(--aile-nav);
+  --ant-btn-bg-color: transparent;
+  --ant-btn-bg-color-hover: var(--aile-bilgi-yuzey);
+  --ant-btn-bg-color-active: var(--aile-secili);
+}
+
+/* Tehlike: yuzey dolgu, hata kenar ve metin; hover hata-yuzey, basılı hata dolgu + yuzey metin. Anlam etikette, renkte değil. */
+button.ant-btn.aile-btn.aile-btn--danger {
+  --ant-btn-border-color: var(--aile-hata);
+  --ant-btn-border-color-hover: var(--aile-hata);
+  --ant-btn-border-color-active: var(--aile-hata);
+  --ant-btn-text-color: var(--aile-hata);
+  --ant-btn-text-color-hover: var(--aile-hata);
+  --ant-btn-text-color-active: var(--aile-yuzey);
+  --ant-btn-bg-color: var(--aile-yuzey);
+  --ant-btn-bg-color-hover: var(--aile-hata-yuzey);
+  --ant-btn-bg-color-active: var(--aile-hata);
+}
+
+/* nav üzerinde: saydam, nav-metin, acik-mavi kenar (sessizde kenarsız); hover nav-hover, basılı nav-basili. */
+button.ant-btn.aile-btn.aile-btn--nav {
+  --ant-btn-border-color: var(--aile-acik-mavi);
+  --ant-btn-border-color-hover: var(--aile-acik-mavi);
+  --ant-btn-border-color-active: var(--aile-acik-mavi);
+  --ant-btn-text-color: var(--aile-nav-metin);
+  --ant-btn-text-color-hover: var(--aile-nav-metin);
+  --ant-btn-text-color-active: var(--aile-nav-metin);
+  --ant-btn-bg-color: transparent;
+  --ant-btn-bg-color-hover: var(--aile-nav-hover);
+  --ant-btn-bg-color-active: var(--aile-nav-basili);
+}
+button.ant-btn.aile-btn.aile-btn--nav.aile-btn--quiet {
+  --ant-btn-border-color: transparent;
+  --ant-btn-border-color-hover: transparent;
+  --ant-btn-border-color-active: transparent;
+}
+/* Odak çizgisini admin.css çizer; nav üzerinde rengi odak-nav olur. */
+html[data-keyboard='true'] button.ant-btn.aile-btn.aile-btn--nav:focus-visible::after { background: var(--aile-odak-nav); }
+
+/* Seçili (aria-pressed=true): secili yüzey + nav kenar + metin, 600 ağırlık; hover/basılı seçimi bozmaz. */
+button.ant-btn.aile-btn.aile-btn--secili {
+  --ant-btn-border-color: var(--aile-nav);
+  --ant-btn-border-color-hover: var(--aile-nav);
+  --ant-btn-border-color-active: var(--aile-nav);
+  --ant-btn-text-color: var(--aile-metin);
+  --ant-btn-text-color-hover: var(--aile-metin);
+  --ant-btn-text-color-active: var(--aile-metin);
+  --ant-btn-bg-color: var(--aile-secili);
+  --ant-btn-bg-color-hover: var(--aile-secili);
+  --ant-btn-bg-color-active: var(--aile-secili);
+  font-weight: 600;
+}
+
+/* Devre dışı: liste-zemin dolgu, kenarsız, metin-ikincil; sessizde saydam kalır. Nedeni yakınında yazılı olmalı. */
+button.ant-btn.aile-btn:disabled {
+  border-color: transparent;
+  background: var(--aile-liste-zemin);
+  color: var(--aile-metin-ikincil);
+  cursor: not-allowed;
+}
+button.ant-btn.aile-btn.aile-btn--quiet:disabled { background: transparent; }
+
+/* Tam genişlik (dar ekranda). Kenar kalınlığı antd lineWidth'ten (--ant-btn-border-width) gelir; burada sabit ölçü yok. */
+button.ant-btn.aile-btn.aile-btn--blok { width: 100%; }

@@ -1,0 +1,63 @@
+/* RaporlarPage — tasarım bundle.css › .pg-report (240 px rapor menüsü + gövde), .pg-col, .ai-qb-row, .ai-ov-head,
+   .pg-legend/.pg-bars (Chart.css karşılar). Tek kaynak tokenlar --aile-*; sabit renk yok. Rapor menüsü yuzey üstünde
+   çerçevesiz durur (kenarlık yağmuru yok); tablo ve grafik ResponsiveTable/Chart yüzeyinde. Odak çizgisini admin.css
+   çizer; burada outline/halka/box-shadow yok. Geçiş yok: rapor ve dönem değişimi semantik güncellemedir, anında olur. */
+
+.aile-raporlar {
+  --aile-rapor-nav-genislik: 240px; /* bundle.css .pg-report ilk sütun */
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--aile-bosluk-6);
+  align-items: start;
+  min-width: 0;
+}
+
+/* Masaüstü: solda rapor menüsü, sağda gövde. */
+.aile-raporlar--genis {
+  grid-template-columns: var(--aile-rapor-nav-genislik) minmax(0, 1fr);
+}
+
+.aile-raporlar__nav {
+  background: var(--aile-yuzey);
+  border-radius: var(--aile-kose-kart);
+  padding: var(--aile-bosluk-2);
+  min-width: 0;
+}
+
+.aile-raporlar__govde,
+.aile-raporlar__rapor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-6);
+  min-width: 0;
+}
+
+.aile-raporlar__rapor { gap: var(--aile-bosluk-4); }
+
+/* Seçiciler yan yana (220 px), dar alanda tam genişlik; not satırı altta. */
+.aile-raporlar__secim {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--aile-bosluk-3);
+  align-items: flex-end;
+}
+
+.aile-raporlar__secim > .aile-select { flex: 0 1 220px; min-width: 0; }
+.aile-raporlar__secim > .aile-raporlar__not { flex: 1 1 100%; }
+
+.aile-raporlar:not(.aile-raporlar--genis) .aile-raporlar__secim > .aile-select { flex: 1 1 100%; }
+
+/* Rapor başlığı: h2 (admin.css 24/32) + sağda kısa meta; sarar, kesilmez. */
+.aile-raporlar__baslik {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--aile-bosluk-3);
+  min-width: 0;
+}
+
+.aile-raporlar__not { margin: 0; overflow-wrap: break-word; }
+
+/* Fark durum metni tutar taşır ("Plan üstü ₺1.900,00"): rakamlar tabular-nums ile hizalanır (StatusText'e miras). */
+.aile-raporlar__fark { font-variant-numeric: tabular-nums; }

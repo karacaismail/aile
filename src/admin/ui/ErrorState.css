@@ -1,0 +1,34 @@
+/* ErrorState — tasarım bundle.css .ai-state / .ai-state--hata karşılığı. Tek yuzey bloğu: kenar yalnız cizgi,
+   tüm köşeler kose-kart (tek kenar renkli şerit yok). Renk ve boşluk yalnız --aile-* tokenlarından; tipografi
+   admin.css h3 ölçüsü (18/26). Odak çizgisini admin.css .ant-btn kuralı çizer; burada odak/outline yok. */
+.aile-error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--aile-bosluk-3);
+  padding: var(--aile-bosluk-6) var(--aile-bosluk-4);
+  background: var(--aile-yuzey);
+  border: 1px solid var(--aile-cizgi);
+  border-radius: var(--aile-kose-kart);
+  color: var(--aile-metin);
+}
+.aile-error-state p { margin: 0; }
+.aile-error-state__head {
+  display: flex;
+  gap: var(--aile-bosluk-2);
+  align-items: flex-start;
+}
+.aile-error-state__icon {
+  flex: none;
+  margin-top: 3px; /* (26 - 20) / 2: simge başlığın ilk satırına ortalanır */
+  color: var(--aile-hata);
+}
+.aile-error-state .aile-error-state__title {
+  margin: 0;
+  font-size: 18px;
+  line-height: 26px;
+  font-weight: 600;
+  overflow-wrap: break-word;
+}
+.aile-error-state__message { max-width: 60ch; }
+.aile-error-state__detail { max-width: 60ch; }

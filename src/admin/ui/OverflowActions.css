@@ -1,0 +1,62 @@
+/* OverflowActions — tasarım: components/OverflowActions/README.md, bundle.css › .ai-pop / .ai-menu. Tek kaynak tokenlar
+   --aile-* (src/design/tokens.ts; admin.css :root yedekleri portallanan menüde de çözer). Sabit renk yok.
+
+   Masaüstü/tablet paneli antd Dropdown'dur: köşe (kose-kart), gölge (golge-yukseltilmis), iç boşluk (bosluk-1) ve
+   hover/basılı yüzeyleri (bilgi-yuzey / secili) antd temasından gelir (theme/antdTheme.ts). Burada yalnız 44 px öğe,
+   simge-metin aralığı ve hareket süresi bağlanır. Odak çizgisini admin.css çizer ([role=menuitem]:focus-visible::after);
+   outline/halka/box-shadow yok. Min genişlik (240) bileşen sabitidir (OVERFLOW_MENU_MIN_WIDTH), stile buradan değil
+   bileşenden iner. */
+
+.aile-overflow { position: relative; display: inline-flex; }
+
+/* Açılır menü öğesi (antd li[role=menuitem]). */
+.aile-overflow-menu .aile-overflow-eylem {
+  display: flex;
+  align-items: center;
+  gap: var(--aile-bosluk-3);
+  min-height: var(--aile-hedef-asgari);
+  padding-inline: var(--aile-bosluk-3);
+  font-weight: 500;
+  color: var(--aile-metin);
+  white-space: nowrap;
+  transition: background-color var(--aile-sure) var(--aile-egri);
+}
+.aile-overflow-menu .aile-overflow-simge { display: inline-flex; flex: none; }
+.aile-overflow-menu .aile-overflow-simge svg { display: block; }
+
+/* Telefon listesi (BottomSheet içinde): tek yüzey, kart/kenar yok; ayrım boşlukla. */
+.aile-overflow-liste {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-1);
+}
+.aile-overflow-secenek {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--aile-bosluk-3);
+  width: 100%;
+  min-height: var(--aile-hedef-asgari);
+  padding: 0 var(--aile-bosluk-3);
+  border: 0;
+  border-radius: var(--aile-kose-kontrol);
+  background: transparent;
+  font: inherit;
+  font-weight: 500;
+  color: var(--aile-metin);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--aile-sure) var(--aile-egri);
+}
+.aile-overflow-secenek:hover { background: var(--aile-bilgi-yuzey); }
+.aile-overflow-secenek:active { background: var(--aile-secili); }
+.aile-overflow-secenek svg { flex: none; }
+.aile-overflow-secenek-etiket { flex: 1; min-width: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .aile-overflow-menu .aile-overflow-eylem,
+  .aile-overflow-secenek { transition-duration: 0s; }
+}

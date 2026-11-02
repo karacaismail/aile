@@ -1,0 +1,73 @@
+/* EmptyState — tasarım bundle.css .ai-state / .ai-filterlist / .ai-tag--removable karşılığı. Tek yuzey bloğu: kenar
+   yalnız cizgi, tüm köşeler kose-kart (tek kenar renkli şerit yok); büyük çizim yok. Renk, boşluk, köşe, hedef ve
+   hareket yalnız --aile-* tokenlarından; tipografi tokens.json › type (h3 18/26, kucuk 14/20). Odak çizgisini
+   admin.css çizer (.ant-btn ve [data-focus-line]); burada odak/outline/box-shadow yok. Reduced-motion'ı admin.css
+   .aile-admin * kuralı anlık yapar. */
+.aile-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--aile-bosluk-3);
+  padding: var(--aile-bosluk-6) var(--aile-bosluk-4);
+  background: var(--aile-yuzey);
+  border: 1px solid var(--aile-cizgi);
+  border-radius: var(--aile-kose-kart);
+  color: var(--aile-metin);
+}
+.aile-empty-state p { margin: 0; }
+/* h2 düzeyi (sayfa h1'inin altı), h3 ölçüsü; admin.css .aile-admin h2 (24/32) kuralını özgüllükle geçer. */
+.aile-empty-state .aile-empty-state__title {
+  margin: 0;
+  font-size: 18px;
+  line-height: 26px;
+  font-weight: 600;
+  overflow-wrap: break-word;
+}
+.aile-empty-state__message { max-width: 60ch; }
+.aile-empty-state__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--aile-bosluk-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+/* Kaldırılabilir filtre etiketi: 14/500, kose-kontrol, 44 px yüksek (README › Tag). Etiket kesilmez, sarar. */
+.aile-empty-state__filter {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--aile-bosluk-1);
+  min-height: var(--aile-hedef-asgari);
+  padding: 0 var(--aile-bosluk-3);
+  border-radius: var(--aile-kose-kontrol);
+  background: var(--aile-liste-zemin);
+  color: var(--aile-metin);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+}
+.aile-empty-state__filter:has(.aile-empty-state__remove) { padding-right: 0; }
+.aile-empty-state__filter-label { padding: var(--aile-bosluk-1) 0; }
+/* Kaldır düğmesi 44 × 44; yalnız simgeli, adı aria-label ("Filtreyi kaldır: …"). */
+.aile-empty-state__remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--aile-hedef-asgari);
+  min-height: var(--aile-hedef-asgari);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--aile-kose-kontrol);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  transition: background-color var(--aile-sure) var(--aile-egri), color var(--aile-sure) var(--aile-egri);
+}
+.aile-empty-state__remove:hover { background: var(--aile-bilgi-yuzey); }
+.aile-empty-state__remove:active { background: var(--aile-secili); color: var(--aile-nav); }
+.aile-empty-state__action {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--aile-bosluk-2);
+}

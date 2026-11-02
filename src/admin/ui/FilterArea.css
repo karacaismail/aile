@@ -1,0 +1,97 @@
+/* FilterArea — tasarım › components/FilterArea (bundle.css › ÇALIŞMA ALANI + "Filtre alanı"), tokenlar --aile-*
+   (src/design/tokens.ts). Masaüstü ızgarası: filtre sütunu (filtre-genislik 272 ya da 56 px şerit) · sonuçlar · verilirse
+   ayrıntı (ayrinti-genislik 384); sütun arası bosluk-6. Panel ↔ şerit geçişi grid-template-columns ile 240 ms tek eğri;
+   reduced-motion'da anlık. Kenar yalnız şerit düğmesinin kontrol sınırı (kenar-kontrol); kart/kenarlık yağmuru yok.
+   Odak çizgisini admin.css çizer (.ant-btn, [data-focus-line]); burada outline/halka/box-shadow yok. */
+.aile-filtre-alani {
+  /* tokens.json'da şerit ölçüsü yok; değerler tasarım bundle.css › .ai-work--rail / .ai-rail-btn / .ai-rail-n.
+     tokens.ts bu görevde salt okunur; ölçüler yalnız burada, tek yerde tanımlı. */
+  --aile-filtre-serit-genislik: 56px;
+  --aile-filtre-serit-yukseklik: 96px;
+  --aile-filtre-sayi-asgari: 24px;
+
+  display: grid;
+  grid-template-columns: var(--aile-filtre-genislik) minmax(0, 1fr);
+  gap: var(--aile-bosluk-6);
+  align-items: start;
+  min-width: 0;
+  transition: grid-template-columns var(--aile-sure) var(--aile-egri);
+}
+.aile-filtre-alani--serit { grid-template-columns: var(--aile-filtre-serit-genislik) minmax(0, 1fr); }
+.aile-filtre-alani--ayrinti { grid-template-columns: var(--aile-filtre-genislik) minmax(0, 1fr) var(--aile-ayrinti-genislik); }
+.aile-filtre-alani--serit.aile-filtre-alani--ayrinti {
+  grid-template-columns: var(--aile-filtre-serit-genislik) minmax(0, 1fr) var(--aile-ayrinti-genislik);
+}
+
+/* Tablet ve telefon: yalnız sonuçlar; ızgara yok. */
+.aile-filtre-alani--dar { display: block; }
+
+.aile-filtre-alani-sol,
+.aile-filtre-alani-sonuclar,
+.aile-filtre-alani-ayrinti { min-width: 0; }
+
+/* Açık panel: üstte sağa dayalı "Paneli gizle", altında FilterPanel (bare). */
+.aile-filtre-alani-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-1);
+}
+.aile-filtre-alani-panel[hidden] { display: none; }
+.aile-filtre-alani-gizle {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: calc(-1 * var(--aile-bosluk-2));
+}
+.aile-filtre-alani-gizle button.ant-btn.aile-btn { padding-inline: var(--aile-bosluk-2); }
+
+/* Şerit: sayfa kayarken üstte kalır. */
+.aile-filtre-alani-serit-kutu {
+  position: sticky;
+  top: var(--aile-bosluk-4);
+}
+
+/* Şerit düğmesi: dikey Funnel · "Filtre" · sayı; 56 px geniş, en az 96 px yüksek (44 px hedefin üstünde),
+   yuzey dolgu, kenar-kontrol çerçeve, eylem metin; hover bilgi-yuzey, basılı secili. */
+.aile-filtre-alani-serit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--aile-bosluk-1);
+  width: var(--aile-filtre-serit-genislik);
+  min-width: var(--aile-hedef-asgari);
+  min-height: var(--aile-filtre-serit-yukseklik);
+  padding: var(--aile-bosluk-3) 0;
+  border: 1px solid var(--aile-kenar-kontrol);
+  border-radius: var(--aile-kose-kontrol);
+  background: var(--aile-yuzey);
+  color: var(--aile-eylem);
+  font: inherit;
+  cursor: pointer;
+  transition: background-color var(--aile-sure) var(--aile-egri), color var(--aile-sure) var(--aile-egri);
+}
+.aile-filtre-alani-serit:hover { background: var(--aile-bilgi-yuzey); }
+.aile-filtre-alani-serit:active { background: var(--aile-secili); color: var(--aile-nav); }
+
+/* "Filtre": 14/20 (.aile-kucuk, admin.css), 500; kesilmez. */
+.aile-filtre-alani-serit-metin {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Etkin sayı rozeti: eylem dolgu, yuzey metin, 600, tabular; sayı renge değil metne dayanır (erişilebilir ad "N etkin"). */
+.aile-filtre-alani-sayi {
+  min-width: var(--aile-filtre-sayi-asgari);
+  padding: 0 var(--aile-bosluk-1);
+  border-radius: var(--aile-kose-kontrol);
+  background: var(--aile-eylem);
+  color: var(--aile-yuzey);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.aile-filtre-alani-serit:active .aile-filtre-alani-sayi { background: var(--aile-nav); }
+
+@media (prefers-reduced-motion: reduce) {
+  .aile-filtre-alani, .aile-filtre-alani-serit { transition-duration: 0s; }
+}

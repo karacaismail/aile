@@ -1,0 +1,8 @@
+/* ResponsiveTable — yalnız ölçüm kabı. Renk, boşluk, yapışkan sütun ve odak Table / AccordionList'tedir; burada
+   hiçbir görsel kural yok. min-width: 0, grid/flex ebeveyninde kabın küçülebilmesi ve ResizeObserver'ın gerçek alanı
+   ölçmesi için; aksi hâlde tablonun içeriği kabı genişletir ve sığma hesabı hep "sığıyor" der. */
+.aile-rtable {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+}

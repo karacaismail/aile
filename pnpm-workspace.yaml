@@ -8,3 +8,4 @@ minimumReleaseAgeExclude:
   - '@mantine/modals@9.7.4'
   - '@mantine/notifications@9.7.4'
   - '@mantine/store@9.7.4'
+  - '@ant-design/pro-components@3.1.15-9'

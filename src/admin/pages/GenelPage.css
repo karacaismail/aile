@@ -1,0 +1,46 @@
+/* GenelPage — Genel durum. Yalnız --aile tokenları (admin.css / aileCssVars); renk, outline ya da gölge yok.
+   Overview kendi iki sütununu kurar; burada yalnız sayfa dikeyi ve altındaki "Aylık plan ve gerçek" bloğu vardır:
+   masaüstünde grafik ve değer tablosu yan yana (grafik tek bilgi kaynağı değil), dar yerleşimde alt alta. Tablo kendi
+   kapsayıcısında yatay kayar; sayfa kaymaz. Yazı boyutu gövdeden (admin.css) gelir, 14 px altına inmez; tutarlar sağa
+   (.aile-tutar: tabular-nums). */
+.aile-genel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-6);
+  min-width: 0;
+}
+
+.aile-genel-grafik { min-width: 0; }
+
+.aile-genel-grafik-govde.aile-chart {
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  align-items: start;
+  gap: var(--aile-bosluk-6);
+}
+.aile-genel-grafik--dar .aile-genel-grafik-govde.aile-chart {
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--aile-bosluk-4);
+}
+
+/* Değer tablosu: tek yuzey alanı, satırlar cizgi ile ayrılır; başlık ve ay sütunu kelime ortasından bölünmez. */
+.aile-genel-grafik .aile-chart-aciklama { min-width: 0; overflow-x: auto; }
+.aile-genel-aylik {
+  width: 100%;
+  border-collapse: collapse;
+}
+.aile-genel-aylik caption {
+  text-align: left;
+  padding-bottom: var(--aile-bosluk-2);
+}
+.aile-genel-aylik th,
+.aile-genel-aylik td {
+  padding: var(--aile-bosluk-2) var(--aile-bosluk-3);
+  border-bottom: 1px solid var(--aile-cizgi);
+  text-align: left;
+  white-space: nowrap;
+  vertical-align: baseline;
+}
+.aile-genel-aylik thead th { color: var(--aile-metin-ikincil); font-weight: 500; }
+.aile-genel-aylik tbody th { font-weight: 500; }
+.aile-genel-sag { text-align: right; }
+.aile-genel-aylik .aile-genel-sag { text-align: right; }

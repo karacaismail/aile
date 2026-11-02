@@ -1,0 +1,70 @@
+/* Çekmece (ui/Drawer.tsx) — antd Drawer üstüne tasarım kuralları. Yalnız --aile tokenları (admin.css :root yedekleri
+   portal katmanına da ulaşır). Kök .aile-drawer, parçalar antd semantik classNames ile adlandırılır. */
+
+/* Yükseltilmiş yüzey: gölge yalnız burada; genişlik viewport'u aşmaz (384 → 320'de tam genişlik). */
+.aile-drawer .aile-drawer-wrapper {
+  max-width: 100%;
+  box-shadow: var(--aile-golge-yukseltilmis);
+}
+/* Panel: yuzey; iç köşeler kose-panel (sağ çekmecede sol köşeler, soldakinde sağ köşeler). */
+.aile-drawer .aile-drawer-section {
+  display: flex;
+  flex-direction: column;
+  background: var(--aile-yuzey);
+  color: var(--aile-metin);
+  font-family: var(--aile-font-sans);
+  border-radius: var(--aile-kose-panel) 0 0 var(--aile-kose-panel);
+  overflow: hidden;
+}
+.aile-drawer--left .aile-drawer-section { border-radius: 0 var(--aile-kose-panel) var(--aile-kose-panel) 0; }
+.aile-drawer--full .aile-drawer-section { border-radius: 0; }
+
+/* Başlık: 64 px, tek cizgi ayırıcı; h2 başlık h3 ölçüsünde (18/26, 600), kesilmez. */
+.aile-drawer .aile-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--aile-bosluk-3);
+  min-height: 64px;
+  padding: var(--aile-bosluk-2) var(--aile-bosluk-2) var(--aile-bosluk-2) var(--aile-bosluk-4);
+  border-bottom: 1px solid var(--aile-cizgi);
+}
+.aile-drawer .aile-drawer-title {
+  margin: 0;
+  font-size: 18px;
+  line-height: 26px;
+  font-weight: 600;
+  color: inherit;
+  white-space: normal;
+  overflow-wrap: normal;
+  word-break: keep-all;
+}
+.aile-drawer .aile-drawer-close { flex: none; }
+
+/* Gövde kaydırılır; altlık yuzey üstünde tek cizgi ile ayrılır. */
+.aile-drawer .aile-drawer-body { flex: 1; min-height: 0; overflow: auto; padding: var(--aile-bosluk-4); }
+.aile-drawer .aile-drawer-footer {
+  flex-shrink: 0;
+  padding: var(--aile-bosluk-3) var(--aile-bosluk-4) var(--aile-bosluk-4);
+  border-top: 1px solid var(--aile-cizgi);
+  background: var(--aile-yuzey);
+}
+
+/* Gezinme tonu: nav zemini, nav-metin; örtü 16 px görünür kalır; ayırıcılar nav-basili. */
+.aile-drawer--nav .aile-drawer-wrapper { max-width: calc(100% - var(--aile-bosluk-4)); }
+.aile-drawer--nav .aile-drawer-section { background: var(--aile-nav); color: var(--aile-nav-metin); }
+.aile-drawer--nav .aile-drawer-header { border-bottom-color: var(--aile-nav-basili); }
+.aile-drawer--nav .aile-drawer-body { display: flex; flex-direction: column; padding: var(--aile-bosluk-3); }
+.aile-drawer--nav .aile-drawer-footer { background: var(--aile-nav); border-top-color: var(--aile-nav-basili); }
+.aile-drawer--nav .aile-drawer-close.ant-btn,
+.aile-drawer--nav .aile-drawer-close.ant-btn:hover { color: var(--aile-nav-metin); }
+.aile-drawer--nav .aile-drawer-close.ant-btn:hover { background: var(--aile-nav-hover); }
+.aile-drawer--nav .aile-drawer-close.ant-btn:active { background: var(--aile-nav-basili); }
+
+/* Odak çizgisi (admin.css çizer) nav üzerinde acik-mavi; seçili gezinme öğesinde odak rengine döner.
+   admin.css'in nav kuralı .aile-admin kapsamındadır ve portal katmanına ulaşmaz; burada yinelenir. */
+html[data-keyboard='true'] .aile-drawer--nav
+  :is(.ant-btn, a, [role=menuitem], .ant-menu-item, [data-focus-line]):focus-visible::after { background: var(--aile-odak-nav); }
+html[data-keyboard='true'] .aile-drawer--nav
+  :is(.ant-menu-item-selected, [aria-current='page'], [aria-selected='true']):focus-visible::after,
+html[data-keyboard='true'] .aile-drawer--nav .ant-menu-item-selected :is(a, [role=menuitem]):focus-visible::after { background: var(--aile-odak); }

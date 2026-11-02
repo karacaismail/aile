@@ -1,0 +1,98 @@
+/* AyarlarPage — tasarım › bundle.css .pg-settings / .pg-set-row / .pg-set-fields / .pg-settings--dar.
+   Tek yuzey alanı; satırlar yalnız cizgi ayırıcıyla ayrılır (kart ve kenarlık yağmuru yok, renkli şerit yok).
+   Değerler yalnız --aile-* tokenlarından (src/design/tokens.ts). Başlık sütunu filtre-genislik (272 px) tokenını
+   kullanır; dar düzen tek sütun. Odak çizgisini admin.css çizer ([data-focus-line], .ant-btn); burada outline yok.
+   Geçiş yok: düzen değişimi semantik güncellemedir, anında olur. */
+
+.aile-ayarlar {
+  display: flex;
+  flex-direction: column;
+  max-width: var(--aile-icerik-azami);
+  min-width: 0;
+  padding: 0 var(--aile-bosluk-6);
+  background: var(--aile-yuzey);
+  border-radius: var(--aile-kose-kart);
+}
+
+.aile-ayarlar__satir {
+  display: grid;
+  grid-template-columns: var(--aile-filtre-genislik) minmax(0, 1fr);
+  gap: var(--aile-bosluk-6);
+  padding: var(--aile-bosluk-6) 0;
+  border-bottom: 1px solid var(--aile-cizgi);
+  min-width: 0;
+}
+.aile-ayarlar__satir:last-child { border-bottom: 0; }
+
+.aile-ayarlar__baslik { min-width: 0; }
+
+/* Satır başlığı h3 ölçüsünde (tokens.json type h3 18/26); hiyerarşi h1 → h2 korunur. */
+.aile-ayarlar__h2 {
+  font-size: 18px;
+  line-height: 26px;
+  overflow-wrap: break-word;
+}
+
+.aile-ayarlar__yardim { margin: var(--aile-bosluk-1) 0 0; }
+
+.aile-ayarlar__alanlar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-4);
+  min-width: 0;
+}
+
+/* Salt okunur değer listesi: etiket üstte küçük, değer gövde ölçüsünde. */
+.aile-ayarlar__liste {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(var(--aile-filtre-genislik), 1fr));
+  gap: var(--aile-bosluk-4);
+  margin: 0;
+}
+.aile-ayarlar__deger { min-width: 0; }
+.aile-ayarlar__etiket { display: block; }
+.aile-ayarlar__dd { margin: var(--aile-bosluk-1) 0 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+
+.aile-ayarlar__durum {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--aile-bosluk-1) var(--aile-bosluk-3);
+}
+
+.aile-ayarlar__bekleyen { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* Hata metni "Hata: …" ile başlar; renk yalnız destekler. */
+.aile-ayarlar__hata { margin: 0; color: var(--aile-hata); }
+
+.aile-ayarlar__onizleme {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-2);
+}
+.aile-ayarlar__onizleme > p { margin: 0; }
+
+/* JSON yalnız kendi içinde kayar; sayfa yana kaymaz. Kod metni 14 px alt sınırında. */
+.aile-ayarlar__json {
+  position: relative;
+  margin: 0;
+  padding: var(--aile-bosluk-3) var(--aile-bosluk-4);
+  max-height: 24rem;
+  overflow: auto;
+  background: var(--aile-zemin);
+  border-radius: var(--aile-kose-kontrol);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--aile-metin);
+  tab-size: 2;
+}
+
+/* Dar düzen (telefon ve tablet): başlık ve alanlar alt alta; iç boşluk 16. FormFooter kendi kurallarıyla yapışır. */
+.aile-ayarlar--dar { padding: 0 var(--aile-bosluk-4); }
+.aile-ayarlar--dar .aile-ayarlar__satir {
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--aile-bosluk-3);
+  padding: var(--aile-bosluk-4) 0;
+}
+.aile-ayarlar--dar .aile-ayarlar__liste { grid-template-columns: minmax(0, 1fr); }

@@ -1,0 +1,85 @@
+/* TextField — tasarım components/TextField/README.md. Renk ve ölçüler yalnız --aile-* değişkenlerinden
+   (src/design/tokens.ts › aileCssVars); kutu rengi, hover ve hata durumu antd tema token'larının üstüne
+   tasarımın istediği değerleri koyar. Odak çizgisini admin.css çizer; burada outline/halka/box-shadow yok. */
+.aile-textfield {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-1);
+  min-width: 0;
+}
+.aile-textfield-label {
+  font-weight: 500;
+  color: var(--aile-metin);
+}
+/* Görsel gizli, erişilebilir (hideLabel): etiket DOM'da ve htmlFor ile bağlı kalır. */
+.aile-gorsel-gizli {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Kutu: kenar kenar-kontrol (antd colorBorder), hover'da metin; 44 px hedef antd controlHeight'tan gelir. */
+.aile-textfield :is(.aile-textfield-control, .ant-input-affix-wrapper):not(.ant-input-disabled, .ant-input-affix-wrapper-disabled):hover {
+  border-color: var(--aile-metin);
+}
+.aile-textfield .ant-input-affix-wrapper > .ant-input,
+.aile-textfield .ant-input-affix-wrapper > .ant-input:hover,
+.aile-textfield .ant-input-affix-wrapper > .ant-input:focus {
+  background: transparent;
+  box-shadow: none;
+}
+.aile-textfield .ant-input-prefix,
+.aile-textfield-suffix {
+  color: var(--aile-metin-ikincil);
+}
+.aile-textfield .ant-input-prefix svg {
+  display: block;
+}
+
+/* Geçersiz: kenar hata, zemin hata-yuzey; hover ve odakta da aynı kalır (renk tek işaret değil: metin "Hata: …"). */
+.aile-textfield[data-invalid='true'] :is(.aile-textfield-control, .ant-input-affix-wrapper),
+.aile-textfield[data-invalid='true'] :is(.aile-textfield-control, .ant-input-affix-wrapper):hover,
+.aile-textfield[data-invalid='true'] :is(.aile-textfield-control, .ant-input-affix-wrapper):focus,
+.aile-textfield[data-invalid='true'] :is(.aile-textfield-control, .ant-input-affix-wrapper):focus-within {
+  border-color: var(--aile-hata);
+  background: var(--aile-hata-yuzey);
+}
+.aile-textfield[data-invalid='true'] .ant-input-prefix,
+.aile-textfield[data-invalid='true'] .aile-textfield-suffix {
+  color: var(--aile-metin-ikincil);
+}
+
+/* Devre dışı: liste-zemin zemin, cizgi kenar, ikincil metin. */
+.aile-textfield[data-disabled='true'] :is(.aile-textfield-control, .ant-input-affix-wrapper) {
+  background: var(--aile-liste-zemin);
+  border-color: var(--aile-cizgi);
+  color: var(--aile-metin-ikincil);
+}
+
+/* Yardım / hata: kutunun altında; üst boşluk odak çizgisine (4 + 3 px) yer bırakır. 14/20 tasarım tip ölçeği
+   (.aile-kucuk ile aynı); metin kesilmez, doğal sarılır. */
+.aile-textfield-note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--aile-bosluk-2);
+  margin: var(--aile-bosluk-1) 0 0;
+  font-size: 14px;
+  line-height: 20px;
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: break-word;
+}
+.aile-textfield-note--hata {
+  color: var(--aile-hata);
+}
+.aile-textfield-note-icon {
+  flex: none;
+  margin-top: 1px;
+}

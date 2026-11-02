@@ -1,0 +1,57 @@
+/* FormFooter — tasarım › components/FormFooter. Değerler yalnız --aile-* tokenlarından (src/design/tokens.ts);
+   burada yalnız yerleşim. Kenar yalnız üstte cizgi ayırıcı (kart yok, radius yok, renkli şerit yok).
+   Odak çizgisini düğmeler kendisi taşır (admin.css ::after); burada outline/box-shadow yok. */
+.aile-ff {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--aile-bosluk-3) var(--aile-bosluk-4);
+  padding-top: var(--aile-bosluk-4);
+  border-top: 1px solid var(--aile-cizgi);
+  background: var(--aile-yuzey);
+}
+
+/* Yapışkan: formun altına yapışır; telefonda alt güvenli alan kadar iç boşluk alır. */
+.aile-ff--yapiskan {
+  position: sticky;
+  bottom: 0;
+  padding-bottom: calc(var(--aile-bosluk-4) + env(safe-area-inset-bottom, 0px));
+}
+
+/* Durum metni: küçük metin (14/20, alt sınır), ikincil renk; ton yalnız rengi değiştirir, metin "Hata: " ile başlar.
+   Metin kesilmez, kelimeler arasından sarılır. */
+.aile-ff-status {
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--aile-metin-ikincil);
+}
+.aile-ff-status[data-tone='uyari'] { color: var(--aile-uyari); }
+.aile-ff-status[data-tone='hata'] { color: var(--aile-hata); }
+
+/* Eylemler sağda: ikincil, birincil. */
+.aile-ff-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--aile-bosluk-3);
+  margin-left: auto;
+}
+
+/* Dar: tam genişlik, birincil üstte (DOM sırası da aynı), iki düğme tam genişlik. */
+.aile-ff--dar {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+}
+.aile-ff--dar .aile-ff-status:not(:empty) { margin-bottom: var(--aile-bosluk-3); }
+.aile-ff--dar .aile-ff-actions {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--aile-bosluk-4);
+  margin-left: 0;
+}
+.aile-ff--dar .aile-ff-actions > * { width: 100%; }

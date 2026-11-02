@@ -1,0 +1,169 @@
+/* PivotStack — tasarım › components/PivotStack (bundle.css › Pivot yığını + AccordionList), tokenlar --aile-*
+   (src/design/tokens.ts). Genel toplam zemin tonunda tek yüzey; satırlar tek yüzey alanı, kenar yalnız cizgi ayırıcı.
+   Başlık 44 px / 600; tutarlar tabular, 500; etiket ve tutar kesilmez. Ok ve içerik 240 ms tek eğri, reduced-motion
+   anlık. Odak çizgisini admin.css çizer ([data-focus-line]); burada outline/halka/box-shadow yok. */
+.aile-pivot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-3);
+  min-width: 0;
+}
+
+/* Genel toplam: zemin tonu ile ayrılır; tek kutu, şerit yok. */
+.aile-pivot-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--aile-bosluk-3);
+  padding: var(--aile-bosluk-3) var(--aile-bosluk-4);
+  background: var(--aile-zemin);
+  border-radius: var(--aile-kose-kart);
+}
+.aile-pivot-total-label {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  overflow-wrap: normal;
+  word-break: keep-all;
+}
+
+/* Üst satır: özet + Tümünü aç/kapat. */
+.aile-pivot-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--aile-bosluk-2);
+  min-height: var(--aile-hedef-asgari);
+}
+.aile-pivot-caption {
+  margin: 0;
+  min-width: 0;
+}
+
+.aile-pivot-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+.aile-pivot-row {
+  border-bottom: 1px solid var(--aile-cizgi);
+}
+
+/* Satır başlığı: ad · Planlanan/Gerçekleşen çifti · ok. Hover bilgi-yuzey, basılı secili. */
+.aile-pivot-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--aile-bosluk-3);
+  width: 100%;
+  min-height: var(--aile-hedef-asgari);
+  padding: var(--aile-bosluk-2) var(--aile-bosluk-1);
+  border: 0;
+  border-radius: var(--aile-kose-kontrol);
+  background: transparent;
+  font: inherit;
+  color: var(--aile-metin);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--aile-sure) var(--aile-egri);
+}
+.aile-pivot-head:hover { background: var(--aile-bilgi-yuzey); }
+.aile-pivot-head:active { background: var(--aile-secili); }
+
+/* Satır adı kesilmez; kelime arasından sarılır. */
+.aile-pivot-title {
+  min-width: 0;
+  font-weight: 600;
+  overflow-wrap: normal;
+  word-break: keep-all;
+}
+
+.aile-pivot-chev {
+  flex: none;
+  color: var(--aile-metin-ikincil);
+  transition: transform var(--aile-sure) var(--aile-egri);
+}
+.aile-pivot-head[aria-expanded='true'] .aile-pivot-chev { transform: rotate(180deg); }
+
+/* Planlanan / Gerçekleşen çifti: iki satır, başlıkta sağa yaslı; etiket 14/20 ikincil, tutar tabular 500. */
+.aile-pivot-pair {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--aile-bosluk-1);
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.aile-pivot-pair-line {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: baseline;
+  gap: 0 var(--aile-bosluk-1);
+}
+.aile-pivot-k {
+  color: var(--aile-metin-ikincil);
+  font-weight: 400;
+}
+.aile-pivot-pair .aile-tutar {
+  font-weight: 500;
+  text-align: inherit;
+}
+.aile-pivot-eksik {
+  color: var(--aile-metin-ikincil);
+  font-weight: 400;
+}
+
+/* İçerik: grid satırı 0fr → 1fr ile yükseklik geçişi (Disclosure ile aynı). React kapalıyken hidden+inert verir;
+   display geçişi allow-discrete ile kapanış süresince kutuyu tutar, @starting-style açılışı 0fr'dan başlatır. */
+.aile-pivot-panel {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition-property: grid-template-rows, display;
+  transition-duration: var(--aile-sure);
+  transition-timing-function: var(--aile-egri);
+  transition-behavior: allow-discrete;
+}
+.aile-pivot-panel[hidden] {
+  display: none;
+  grid-template-rows: 0fr;
+}
+@starting-style {
+  .aile-pivot-panel:not([hidden]) { grid-template-rows: 0fr; }
+}
+.aile-pivot-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Sütun değerleri: ad solda, çift sağında sola yaslı; ayırıcı yalnız üst cizgi. */
+.aile-pivot-cells {
+  display: grid;
+  grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
+  gap: var(--aile-bosluk-2) var(--aile-bosluk-4);
+  margin: 0;
+  padding: var(--aile-bosluk-2) var(--aile-bosluk-1) var(--aile-bosluk-3);
+}
+.aile-pivot-cell { display: contents; }
+.aile-pivot-cell-k {
+  color: var(--aile-metin-ikincil);
+  overflow-wrap: normal;
+  word-break: keep-all;
+}
+.aile-pivot-cell-v {
+  margin: 0;
+  min-width: 0;
+}
+.aile-pivot-cells .aile-pivot-pair {
+  align-items: flex-start;
+  text-align: left;
+}
+.aile-pivot-cells .aile-pivot-pair-line { justify-content: flex-start; }
+
+.aile-pivot-bos { margin: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .aile-pivot-head, .aile-pivot-chev, .aile-pivot-panel { transition-duration: 0s; }
+}

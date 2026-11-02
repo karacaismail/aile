@@ -1,0 +1,189 @@
+/* Outfit web fontu (public/fonts, OFL): kabuğun ilk ailesi --aile-font-sans; yüklenmezse system-ui yedeği. Yollar dashboard.css ile aynı. */
+@font-face { font-family: Outfit; src: url('/aile/fonts/outfit-regular.ttf') format('truetype'); font-style: normal; font-weight: 400 500; font-display: swap; }
+@font-face { font-family: Outfit; src: url('/aile/fonts/outfit-bold.ttf') format('truetype'); font-style: normal; font-weight: 600 800; font-display: swap; }
+
+/* aile yönetim kabuğu — taban stiller.
+   Tokenlar: tek kaynak src/design/tokens.ts (designTokens → aileCssVars). App bu değişkenleri .aile-admin köküne verir;
+   :root yedekleri antd'nin body'ye portallanan katmanları (çekmece, diyalog, açılır liste) ve ilk boya için aynı değerleri taşır.
+   Bu blok src/design/tokens.test.ts ile aileCssVars'a karşı doğrulanır; elle farklı değer yazma. */
+:root {
+  --aile-metin: #203A51;
+  --aile-metin-ikincil: #52697C;
+  --aile-nav: #1B3E55;
+  --aile-eylem: #326B94;
+  --aile-acik-mavi: #A6BED0;
+  --aile-yuzey: #FFFFFF;
+  --aile-zemin: #F5F7FA;
+  --aile-liste-zemin: #E1E9EF;
+  --aile-cizgi: #DCE4EB;
+  --aile-secili: #C9DBE7;
+  --aile-bilgi-yuzey: #EAF1F6;
+  --aile-olumlu: #316653;
+  --aile-olumlu-yuzey: #EFF7F3;
+  --aile-hata: #9F4E48;
+  --aile-hata-yuzey: #FCF0EE;
+  --aile-uyari: #805C22;
+  --aile-uyari-yuzey: #FCF8EE;
+  --aile-kenar-kontrol: #52697C;
+  --aile-odak: #326B94;
+  --aile-odak-nav: #A6BED0;
+  --aile-nav-metin: #FFFFFF;
+  --aile-nav-hover: rgba(166, 190, 208, 0.16);
+  --aile-nav-basili: rgba(166, 190, 208, 0.28);
+  --aile-ortu: rgba(27, 62, 85, 0.48);
+  --aile-font-sans: Outfit, system-ui, sans-serif;
+  --aile-bosluk-1: 4px;
+  --aile-bosluk-2: 8px;
+  --aile-bosluk-3: 12px;
+  --aile-bosluk-4: 16px;
+  --aile-bosluk-6: 24px;
+  --aile-bosluk-8: 32px;
+  --aile-kose-kontrol: 8px;
+  --aile-kose-kart: 12px;
+  --aile-kose-panel: 16px;
+  --aile-golge-yukseltilmis: 0 2px 4px rgba(27, 62, 85, 0.18), 0 8px 20px rgba(27, 62, 85, 0.14);
+  --aile-nav-genislik: 272px;
+  --aile-filtre-genislik: 272px;
+  --aile-ayrinti-genislik: 384px;
+  --aile-icerik-azami: 1480px;
+  --aile-kirilim-tablet: 600px;
+  --aile-kirilim-genis: 1024px;
+  --aile-hedef-asgari: 44px;
+  --aile-fotograf-liste: 56px;
+  --aile-odak-kalinlik: 3px;
+  --aile-odak-aralik: 4px;
+  --aile-sure: 240ms;
+  --aile-egri: cubic-bezier(.65,0,.35,1);
+}
+
+body { margin: 0; }
+.aile-admin, .aile-admin *, .aile-admin *::before, .aile-admin *::after { box-sizing: border-box; }
+
+/* Tipografi (tokens.json › type): gövde 16/24, h1 32/40, h2 24/32, h3 18/26, başlıklar 600; alt sınır 14 px. */
+.aile-admin {
+  min-height: 100dvh;
+  font-family: var(--aile-font-sans);
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 400;
+  color: var(--aile-metin);
+  background: var(--aile-zemin);
+  -webkit-font-smoothing: antialiased;
+}
+.aile-admin h1, .aile-admin h2, .aile-admin h3 { margin: 0; font-weight: 600; color: var(--aile-metin); }
+.aile-admin h1 { font-size: 32px; line-height: 40px; }
+.aile-admin h2 { font-size: 24px; line-height: 32px; }
+.aile-admin h3 { font-size: 18px; line-height: 26px; }
+.aile-admin .aile-kucuk, .ant-drawer .aile-kucuk, .ant-modal .aile-kucuk { font-size: 14px; line-height: 20px; }
+.aile-admin .aile-ikincil { color: var(--aile-metin-ikincil); }
+.aile-admin .aile-tutar, .ant-drawer .aile-tutar, .ant-modal .aile-tutar {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  text-align: right;
+  white-space: nowrap;
+}
+.aile-admin th { word-break: keep-all; }
+.aile-admin a { color: var(--aile-eylem); }
+
+/* ODAK — tek 3 px alt çizgi, kontrolün 4 px altında, kontrol genişliğinde (::after). Çevreleyen halka,
+   outline ve box-shadow hiçbir giriş yönteminde yok; çizgi yalnız klavye modunda (html[data-keyboard='true'],
+   installKeyboardMode: Tab açar, pointer kapatır) ve :focus-visible ile görünür. Antd popup kökleri body'ye
+   portallanır; aynı kuralları alırlar. antd 6 Select'te .ant-select-selector yoktur: çerçeveli kök .ant-select'tir,
+   odakta .ant-select-focused alır; çizgi bu kökün ::after'ıdır (combobox girdisi kökün içindedir). */
+:is(.aile-admin, .ant-drawer, .ant-modal, .ant-modal-root, .ant-dropdown, .ant-select-dropdown, .ant-popover, .ant-tooltip, .ant-picker-dropdown) :focus,
+:is(.aile-admin, .ant-drawer, .ant-modal, .ant-modal-root, .ant-dropdown, .ant-select-dropdown, .ant-popover, .ant-tooltip, .ant-picker-dropdown) :focus-visible,
+:is(.aile-admin, .ant-drawer, .ant-modal, .ant-modal-root, .ant-dropdown, .ant-select-dropdown, .ant-popover, .ant-picker-dropdown) .ant-select-focused,
+:is(.aile-admin, .ant-drawer, .ant-modal, .ant-modal-root, .ant-dropdown, .ant-select-dropdown, .ant-popover, .ant-picker-dropdown)
+  :is(.ant-input-affix-wrapper-focused, .ant-input-number-focused, .ant-picker-focused, .ant-input-outlined:focus, .ant-input-outlined:focus-within),
+.ant-drawer-content-wrapper:focus, .ant-modal-content:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+/* Çizginin taşıyıcıları: konumlanır ve taşmayı göstermeye izin verir. */
+:is(.aile-admin, .ant-drawer, .ant-modal, .ant-dropdown, .ant-select-dropdown, .ant-popover)
+  :is(.ant-btn, a, [role=tab], [role=menuitem], .ant-menu-item, .ant-segmented-item, .ant-checkbox-wrapper, .ant-radio-wrapper, .ant-collapse-header, [data-focus-line],
+      .ant-select, .ant-input-affix-wrapper, .ant-input-number, .ant-picker) {
+  position: relative;
+  overflow: visible;
+}
+.aile-admin :has(> .ant-input:focus) { position: relative; }
+
+html[data-keyboard='true'] :is(.aile-admin, .ant-drawer, .ant-modal, .ant-dropdown, .ant-select-dropdown, .ant-popover)
+  :is(.ant-btn, a, [role=tab], [role=menuitem], .ant-menu-item, .ant-segmented-item, .ant-checkbox-wrapper, .ant-radio-wrapper, .ant-collapse-header, [data-focus-line]):focus-visible::after,
+html[data-keyboard='true'] :is(.aile-admin, .ant-drawer, .ant-modal, .ant-dropdown, .ant-select-dropdown, .ant-popover)
+  :is(.ant-checkbox-wrapper, .ant-radio-wrapper, .ant-collapse-header, [data-focus-line]):has(:focus-visible)::after,
+html[data-keyboard='true'] :is(.aile-admin, .ant-drawer, .ant-modal, .ant-dropdown, .ant-select-dropdown, .ant-popover) .ant-select.ant-select-focused::after,
+html[data-keyboard='true'] :is(.aile-admin, .ant-drawer, .ant-modal, .ant-dropdown, .ant-select-dropdown, .ant-popover)
+  :is(.ant-input-affix-wrapper-focused, .ant-input-number-focused, .ant-picker-focused)::after,
+html[data-keyboard='true'] .aile-admin :has(> .ant-input:focus)::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(-1 * (var(--aile-odak-aralik) + var(--aile-odak-kalinlik)));
+  height: var(--aile-odak-kalinlik);
+  border-radius: 2px;
+  background: var(--aile-odak);
+  pointer-events: none;
+}
+/* nav üzerinde çizgi acik-mavi (odak-nav); seçili nav öğesinde odak rengine döner. */
+html[data-keyboard='true'] .aile-admin :is(.admin-sidebar, .ant-layout-sider, .aile-admin-nav, .ant-menu-dark)
+  :is(.ant-btn, a, [role=menuitem], .ant-menu-item, [data-focus-line]):focus-visible::after { background: var(--aile-odak-nav); }
+html[data-keyboard='true'] .aile-admin :is(.admin-sidebar, .ant-layout-sider, .aile-admin-nav, .ant-menu-dark)
+  :is(.ant-menu-item-selected, [aria-current='page'], [aria-selected='true']):focus-visible::after,
+html[data-keyboard='true'] .aile-admin :is(.admin-sidebar, .ant-layout-sider, .aile-admin-nav, .ant-menu-dark)
+  .ant-menu-item-selected :is(a, [role=menuitem]):focus-visible::after { background: var(--aile-odak); }
+/* Liste ve tablo satırında çizgi satırın alt kenarındadır. */
+html[data-keyboard='true'] .aile-admin :is(tr, [role=row], .ant-list-item):focus-visible { position: relative; }
+html[data-keyboard='true'] .aile-admin :is(tr, [role=row], .ant-list-item):focus-visible::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--aile-odak-kalinlik);
+  background: var(--aile-odak);
+  pointer-events: none;
+}
+@media (forced-colors: active) {
+  html[data-keyboard='true'] :is(.aile-admin, .ant-drawer, .ant-modal, .ant-modal-root, .ant-dropdown, .ant-select-dropdown, .ant-popover, .ant-tooltip, .ant-picker-dropdown) :focus-visible { outline: 2px solid CanvasText; }
+}
+
+/* Hareket: tek süre ve tek eğri antd tema token'ından gelir; reduced-motion'da kabuk ve popup katmanları anlık. */
+@media (prefers-reduced-motion: reduce) {
+  .aile-admin, .aile-admin *, .aile-admin *::before, .aile-admin *::after,
+  :is(.ant-drawer, .ant-modal, .ant-modal-root, .ant-dropdown, .ant-select-dropdown, .ant-popover, .ant-tooltip, .ant-picker-dropdown, .ant-message, .ant-notification),
+  :is(.ant-drawer, .ant-modal, .ant-modal-root, .ant-dropdown, .ant-select-dropdown, .ant-popover, .ant-tooltip, .ant-picker-dropdown, .ant-message, .ant-notification) *,
+  :is(.ant-drawer, .ant-modal, .ant-modal-root, .ant-dropdown, .ant-select-dropdown, .ant-popover, .ant-tooltip, .ant-picker-dropdown, .ant-message, .ant-notification) *::before,
+  :is(.ant-drawer, .ant-modal, .ant-modal-root, .ant-dropdown, .ant-select-dropdown, .ant-popover, .ant-tooltip, .ant-picker-dropdown, .ant-message, .ant-notification) *::after {
+    transition-duration: 0s !important;
+    animation: none !important;
+  }
+}
+
+/* İskelet yerleşimi; gerçek kabuk (ProLayout) işaretlemeyi değiştirir, sınıf adları ve landmark'lar kalır.
+   1024 px kırılımı tokens.json › kirilim-genis; media query var() alamaz, değer tokens.test.ts ile korunur. */
+.aile-admin-shell { display: grid; grid-template-columns: minmax(0, 1fr); min-height: 100dvh; }
+.aile-admin-nav { background: var(--aile-nav); color: var(--aile-nav-metin); padding: var(--aile-bosluk-4); }
+.aile-admin-nav h2 { margin: var(--aile-bosluk-3) 0 var(--aile-bosluk-1); font-size: 14px; line-height: 20px; font-weight: 500; color: var(--aile-acik-mavi); }
+.aile-admin-nav a {
+  display: flex; align-items: center;
+  min-height: var(--aile-hedef-asgari);
+  padding: 0 var(--aile-bosluk-3);
+  color: inherit; text-decoration: none; font-weight: 500;
+  border-radius: var(--aile-kose-kontrol);
+  transition: background-color var(--aile-sure) var(--aile-egri), color var(--aile-sure) var(--aile-egri);
+}
+.aile-admin-nav a:hover { background: var(--aile-nav-hover); }
+.aile-admin-nav a:active { background: var(--aile-nav-basili); }
+.aile-admin-nav a[aria-current='page'] { background: var(--aile-secili); color: var(--aile-metin); font-weight: 600; }
+.aile-admin-main { padding: var(--aile-bosluk-4); max-width: var(--aile-icerik-azami); min-width: 0; }
+@media (min-width: 1024px) {
+  .aile-admin-shell { grid-template-columns: var(--aile-nav-genislik) minmax(0, 1fr); }
+  .aile-admin-main { padding: var(--aile-bosluk-6) var(--aile-bosluk-8); }
+}
+.page-header { display: grid; gap: var(--aile-bosluk-2); margin-bottom: var(--aile-bosluk-6); }
+.page-header-caption { margin: 0; font-size: 14px; line-height: 20px; font-weight: 500; color: var(--aile-metin-ikincil); }
+.page-header-lead { margin: 0; color: var(--aile-metin-ikincil); }
+.page-header-actions { display: flex; flex-wrap: wrap; gap: var(--aile-bosluk-2); }

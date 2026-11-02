@@ -1,0 +1,82 @@
+/* VeriPage — Veri kalitesi ve içe aktarma. Kaynak: bundle.css .pg-col, .ai-ov-block, .ai-ov-head, .ai-opt-count,
+   .ai-num; bundle.js VeriKalitesi. Yalnız --aile tokenları; sabit renk/px yok. Kart ve kenarlık yağmuru yok: bölümler
+   boşlukla ayrılır, tablo tek yuzey alanıdır (ResponsiveTable/Table kendi yüzeyini kurar). Radiuslu kutuda tek kenar
+   renkli şerit yok; hata metni rengini sözcük ("Hata:") taşır. Odak çizgisini admin.css çizer. Hareket yok. */
+.aile-veri {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-6);
+  min-width: 0;
+}
+.aile-veri-icerik {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-8);
+  min-width: 0;
+}
+.aile-veri--dar .aile-veri-icerik { gap: var(--aile-bosluk-6); }
+
+.aile-veri-bolum {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-3);
+  min-width: 0;
+}
+.aile-veri-bolum-bas {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--aile-bosluk-3);
+  flex-wrap: wrap;
+}
+/* Bölüm başlığı h3 ölçüsünde (tokens.json › h3), sayfa h1/h2 hiyerarşisi PageHeader'dadır. */
+.aile-veri .aile-veri-bolum-baslik {
+  font-size: 18px;
+  line-height: 26px;
+}
+.aile-veri-sayim {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Başlık altı notu ve kaynak hatası: kutusuz metin; hata rengi + "Hata:" sözcüğü birlikte. */
+.aile-veri-not { margin: 0; }
+.aile-veri-hata {
+  margin: 0;
+  color: var(--aile-hata);
+}
+
+/* Nesil bilgisi: etiket–değer listesi, kutusuz; değerler tabular. */
+.aile-veri-nesil {
+  display: grid;
+  grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
+  column-gap: var(--aile-bosluk-6);
+  row-gap: var(--aile-bosluk-2);
+  margin: 0;
+  padding: var(--aile-bosluk-4);
+  background: var(--aile-yuzey);
+  border-radius: var(--aile-kose-kart);
+}
+.aile-veri-nesil-satir { display: contents; }
+.aile-veri-nesil dt { margin: 0; align-self: baseline; }
+.aile-veri-nesil dd {
+  margin: 0;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.aile-veri--dar .aile-veri-nesil { grid-template-columns: minmax(0, 1fr); row-gap: var(--aile-bosluk-1); }
+.aile-veri--dar .aile-veri-nesil dd { margin-bottom: var(--aile-bosluk-2); }
+/* Nesil kimliği 64 hex: sabit genişlikli, 14 px alt sınırın üstünde, kesilmez ve kelime içinden sarılır (kimlikte kelime yok). */
+.aile-veri-kimlik {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 14px;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+.aile-veri-bos {
+  margin: 0;
+  padding: var(--aile-bosluk-3) var(--aile-bosluk-4);
+  background: var(--aile-yuzey);
+  border-radius: var(--aile-kose-kart);
+}

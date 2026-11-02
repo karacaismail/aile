@@ -1,0 +1,108 @@
+/* DetailPanel (ui/DetailPanel.tsx) — tasarım: components/DetailPanel/README.md, bundle.css › .ai-detail*. Yalnız --aile
+   tokenları (admin.css :root yedekleri çekmece portalına da ulaşır). Geniş ekranda kök çekmecenin köküdür
+   (.aile-drawer.aile-detail--genis; çekmece zemini, köşesi, gölgesi ve başlığı Drawer.css'ten), dar ekranda tam sayfa
+   section (.aile-detail--dar). Kart ya da kenarlık yağmuru yok: bölümler tek yüzeyde, aralarında yalnız cizgi ayırıcı.
+   Yazı ölçüleri tokens.json › type (h3 18/26, kucuk 14/20); alt sınır 14 px. Odak çizgisini admin.css çizer. Hareket yok. */
+
+.aile-detail .aile-detail-sec {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-3);
+  padding: var(--aile-bosluk-4) 0;
+  border-bottom: 1px solid var(--aile-cizgi);
+}
+.aile-detail .aile-detail-sec:last-child { border-bottom: 0; }
+.aile-detail--dar .aile-detail-sec:first-of-type { padding-top: 0; }
+
+/* Dar ekran: zemin üstünde çerçevesiz; üstte "Listeye dön" (sessiz düğme, sol kenara hizalı). */
+.aile-detail--dar {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  color: var(--aile-metin);
+}
+.aile-detail--dar .aile-detail-bar {
+  display: flex;
+  align-items: center;
+  padding-bottom: var(--aile-bosluk-3);
+  margin-inline-start: calc(-1 * var(--aile-bosluk-3));
+}
+
+/* Başlıklar: çekmece portalında admin.css'in .aile-admin h2/h3 kuralı ulaşmaz; ölçü burada da yazılır. */
+.aile-detail h2, .aile-detail h3 { margin: 0; font-weight: 600; color: var(--aile-metin); }
+.aile-detail .aile-detail-baslik { font-size: 24px; line-height: 32px; }
+.aile-detail h3 { font-size: 18px; line-height: 26px; }
+
+/* Kimlik satırları ve diğer 14 px ikincil metinler. */
+.aile-detail .aile-detail-id { display: flex; flex-direction: column; gap: var(--aile-bosluk-1); }
+.aile-detail .aile-detail-meta { margin: 0; font-size: 14px; line-height: 20px; color: var(--aile-metin-ikincil); }
+.aile-detail .aile-detail-eksik { color: var(--aile-metin-ikincil); font-weight: 400; }
+.aile-detail .aile-detail-not { margin: 0; }
+
+/* Fotoğraf: doğrulanmış görsel 3:2, kose-kart. "Fotoğraf yok" alanı liste-zemin, ortalı, sözcük + not + eylem. */
+.aile-detail .aile-detail-foto { margin: 0; display: flex; flex-direction: column; gap: var(--aile-bosluk-2); }
+.aile-detail .aile-detail-foto img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  border-radius: var(--aile-kose-kart);
+}
+.aile-detail .aile-detail-fotoyok {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--aile-bosluk-2);
+  padding: var(--aile-bosluk-6) var(--aile-bosluk-4);
+  text-align: center;
+  color: var(--aile-metin);
+  background: var(--aile-liste-zemin);
+  border-radius: var(--aile-kose-kart);
+}
+.aile-detail .aile-detail-fotoyok [data-icon] { color: var(--aile-metin-ikincil); }
+
+/* Plan | Gerçek: iki ayrı sütun; aradaki düz cizgi ayırıcı radiuslu bir kutunun kenarı değildir. */
+.aile-detail .aile-detail-pg {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--aile-bosluk-4);
+}
+.aile-detail .aile-detail-pg-col { display: flex; flex-direction: column; gap: var(--aile-bosluk-2); min-width: 0; }
+.aile-detail .aile-detail-pg-col + .aile-detail-pg-col {
+  padding-inline-start: var(--aile-bosluk-4);
+  border-inline-start: 1px solid var(--aile-cizgi);
+}
+
+/* Etiket–değer listeleri (dl): etiket 14 px ikincil, değer gövde. Tutar ui/Money (.aile-tutar: tabular-nums, 500);
+   tarih aynı rakam dizgisiyle. */
+.aile-detail dl { margin: 0; display: flex; flex-direction: column; gap: var(--aile-bosluk-2); }
+.aile-detail dt { font-size: 14px; line-height: 20px; color: var(--aile-metin-ikincil); }
+.aile-detail dd { margin: 0; }
+.aile-detail .aile-detail-tarih { font-variant-numeric: tabular-nums; font-weight: 500; }
+
+/* Fark sözcükle; renk yalnız destekler (olumlu / uyari), sözcük anlamı taşır. */
+.aile-detail .aile-detail-fark { margin: 0; font-size: 14px; line-height: 20px; font-weight: 500; color: var(--aile-metin); }
+.aile-detail .aile-detail-fark--olumlu { color: var(--aile-olumlu); }
+.aile-detail .aile-detail-fark--uyari { color: var(--aile-uyari); }
+.aile-detail .aile-detail-fark--notr { color: var(--aile-metin-ikincil); }
+
+/* Eylemler alt alta; seçim kutusu tam genişlik, "Geri al" sola hizalı. */
+.aile-detail .aile-detail-eylemler { display: flex; flex-direction: column; align-items: flex-start; gap: var(--aile-bosluk-3); }
+.aile-detail .aile-detail-eylemler .aile-detail-durum-sec { width: 100%; }
+
+/* Bağlı kayıtlar: bağlantı satırları 44 px, yalnız cizgi ayırıcı; hover tek yol değil (altı çizili bağlantı). */
+.aile-detail .aile-detail-baglar { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.aile-detail .aile-detail-bag {
+  display: flex;
+  align-items: center;
+  min-height: var(--aile-hedef-asgari);
+  padding: var(--aile-bosluk-2) 0;
+  color: var(--aile-eylem);
+  font-weight: 500;
+  text-decoration: none;
+  border-bottom: 1px solid var(--aile-cizgi);
+}
+.aile-detail .aile-detail-baglar li:last-child .aile-detail-bag { border-bottom: 0; }
+.aile-detail .aile-detail-bag:hover { text-decoration: underline; }
+.aile-detail .aile-detail-bag:active { color: var(--aile-nav); }

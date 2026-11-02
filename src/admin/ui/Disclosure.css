@@ -1,0 +1,85 @@
+/* Disclosure — tasarım › components/Disclosure (bundle.css › DISCLOSURE), tokenlar --aile-* (src/design/tokens.ts).
+   Kenar yalnız cizgi ayırıcı; başlık 44 px / 600; ok 240 ms döner; içerik aynı süre ve eğriyle açılır.
+   Odak çizgisini admin.css çizer ([data-focus-line]); burada outline/halka yok. */
+.aile-disc {
+  border-bottom: 1px solid var(--aile-cizgi);
+}
+
+.aile-disc-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--aile-bosluk-2);
+  width: 100%;
+  min-height: var(--aile-hedef-asgari);
+  padding: var(--aile-bosluk-2) var(--aile-bosluk-1);
+  border: 0;
+  border-radius: var(--aile-kose-kontrol);
+  background: transparent;
+  font: inherit;
+  font-weight: 600;
+  color: var(--aile-metin);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--aile-sure) var(--aile-egri), color var(--aile-sure) var(--aile-egri);
+}
+.aile-disc-btn:hover { background: var(--aile-bilgi-yuzey); }
+.aile-disc-btn:active { background: var(--aile-secili); }
+.aile-disc-btn:active .aile-disc-meta { color: var(--aile-metin); }
+.aile-disc-btn:disabled {
+  color: var(--aile-metin-ikincil);
+  background: transparent;
+  cursor: not-allowed;
+}
+.aile-disc-btn:disabled .aile-disc-meta { color: var(--aile-metin-ikincil); }
+
+/* Başlık kesilmez; kelime arasından sarılır. */
+.aile-disc-title {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: normal;
+  word-break: keep-all;
+}
+
+/* Sayım: 14/20 (.aile-kucuk, admin.css), 500, eylem rengi; kapalıyken de görünür. */
+.aile-disc-meta {
+  flex: none;
+  font-weight: 500;
+  color: var(--aile-eylem);
+}
+
+.aile-disc-chev {
+  flex: none;
+  color: var(--aile-metin-ikincil);
+  transition: transform var(--aile-sure) var(--aile-egri);
+}
+.aile-disc-btn[aria-expanded='true'] .aile-disc-chev { transform: rotate(180deg); }
+
+/* İçerik: grid satırı 0fr → 1fr ile yükseklik geçişi. React kapalıyken hidden+inert verir; display geçişi
+   allow-discrete ile kapanış süresince kutuyu tutar, @starting-style açılışı 0fr'dan başlatır.
+   Desteklemeyen tarayıcıda geçiş olmaz, davranış aynıdır. */
+.aile-disc-panel {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition-property: grid-template-rows, display;
+  transition-duration: var(--aile-sure);
+  transition-timing-function: var(--aile-egri);
+  transition-behavior: allow-discrete;
+}
+.aile-disc-panel[hidden] {
+  display: none;
+  grid-template-rows: 0fr;
+}
+@starting-style {
+  .aile-disc-panel:not([hidden]) { grid-template-rows: 0fr; }
+}
+.aile-disc-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+.aile-disc-body {
+  padding: var(--aile-bosluk-1) 0 var(--aile-bosluk-3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aile-disc-btn, .aile-disc-chev, .aile-disc-panel { transition-duration: 0s; }
+}

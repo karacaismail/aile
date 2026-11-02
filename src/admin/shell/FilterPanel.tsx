@@ -1,0 +1,178 @@
+import { useEffect, useId, useState } from 'react';
+import { Button, Disclosure, Select, TextField } from '../ui';
+import { Checkbox } from '../ui/antd';
+import type { FilterFacet, FilterOption, FilterPanelProps } from './contracts';
+import './FilterPanel.css';
+
+// Tasarım: aile-tasarim/tasarim-sistemi/components/FilterPanel/README.md + README "Filtre boyutları"; referans davranış
+// bundle.js FilterPanel/Opt (section aria-label "Filtreler"; başlık + quiet "Temizle" yalnız bare değilken; her boyut
+// Disclosure, meta seçili sayısı; seçenek = kutu + etiket + sayım; ağaçta alt dallar içeride ve not "Üst kategori
+// seçilince tüm alt dalları kapsar."; tarih = tür Select + Başlangıç/Bitiş gg.aa.yyyy numeric; tutar = En az/En çok ₺
+// decimal). antd Collapse yerine bizim Disclosure; kutu antd Checkbox (ui/antd), odak çizgisini admin.css çizer.
+//
+// Durum dışarıdadır (facet.selected); panel yalnız onToggle(facetId, value) bildirir:
+// - checkbox/tree: seçeneğin value'su. Ağaçta üst değer seçiliyse alt dallar kapsanmış sayılır (işaretli görünür);
+//   yalnız bazı alt dallar seçiliyse üst kutu indeterminate (aria-checked="mixed").
+// - date: tür Select seçeneğin value'su; aralık `baslangic=gg.aa.yyyy` / `bitis=gg.aa.yyyy` (çağıran aynı önekli
+//   eski girdiyi değiştirir; boş değer `baslangic=` girdiyi kaldırır). Alan değeri blur'da bildirilir.
+// - amount: `enaz=1234.50` / `encok=…` aynı kuralla.
+// "Bilinmiyor" her listede sondadır (UNKNOWN_VALUE ya da etiket "Bilinmiyor").
+
+export const UNKNOWN_VALUE = 'bilinmiyor';
+const UNKNOWN_LABEL = 'Bilinmiyor';
+export const RANGE_KEYS = { baslangic: 'baslangic=', bitis: 'bitis=', enAz: 'enaz=', enCok: 'encok=' } as const;
+type RangePrefix = (typeof RANGE_KEYS)[keyof typeof RANGE_KEYS];
+const RANGE_PREFIXES: readonly string[] = Object.values(RANGE_KEYS);
+const TREE_NOTE = 'Üst kategori seçilince tüm alt dalları kapsar.';
+const DEFAULT_OPEN_COUNT = 3;
+
+const cx = (...names: (string | false | undefined)[]) => names.filter(Boolean).join(' ');
+const isUnknown = (option: FilterOption) => option.value === UNKNOWN_VALUE || option.label === UNKNOWN_LABEL;
+/** Verilen sırayı korur, yalnız "Bilinmiyor"u sona alır. */
+const unknownLast = (options: readonly FilterOption[]) => [...options.filter(o => !isUnknown(o)), ...options.filter(isUnknown)];
+/** Aralık girdisinin değeri ("baslangic=28.10.2026" → "28.10.2026"); yoksa "". */
+export const rangeValue = (selected: readonly string[], prefix: RangePrefix) =>
+  selected.find(entry => entry.startsWith(prefix))?.slice(prefix.length) ?? '';
+
+/** Disclosure meta: seçili sayısı. Aralık boyutlarında yalnız dolu aralık girdileri sayılır. */
+function selectedCount(facet: FilterFacet) {
+  if (facet.kind === 'date' || facet.kind === 'amount') {
+    return facet.selected.filter(entry => RANGE_PREFIXES.some(prefix => entry.startsWith(prefix) && entry.length > prefix.length)).length;
+  }
+  return facet.selected.length;
+}
+
+export function FilterPanel({ facets, onToggle, onClear, openKeys, bare = false }: FilterPanelProps) {
+  const open = new Set(openKeys ?? facets.slice(0, DEFAULT_OPEN_COUNT).map(facet => facet.id));
+  return (
+    <section className={cx('aile-filtre', bare && 'aile-filtre--bare')} aria-label="Filtreler">
+      {!bare && (
+        <div className="aile-filtre-baslik">
+          <h3>Filtreler</h3>
+          <Button variant="quiet" onClick={() => onClear()}>Temizle</Button>
+        </div>
+      )}
+      {facets.map(facet => {
+        const count = selectedCount(facet);
+        return (
+          <Disclosure key={facet.id} title={facet.label} meta={count > 0 ? `${count} seçili` : undefined} defaultOpen={open.has(facet.id)}>
+            <FacetBody facet={facet} onToggle={onToggle} />
+          </Disclosure>
+        );
+      })}
+    </section>
+  );
+}
+
+interface FacetProps { facet: FilterFacet; onToggle: FilterPanelProps['onToggle'] }
+
+function FacetBody({ facet, onToggle }: FacetProps) {
+  switch (facet.kind) {
+    case 'tree': return <TreeFacet facet={facet} onToggle={onToggle} />;
+    case 'date': return <DateFacet facet={facet} onToggle={onToggle} />;
+    case 'amount': return <AmountFacet facet={facet} onToggle={onToggle} />;
+    default: return <CheckboxFacet facet={facet} onToggle={onToggle} />;
+  }
+}
+
+function CheckboxFacet({ facet, onToggle }: FacetProps) {
+  return (
+    <div className="aile-filtre-secenekler">
+      {unknownLast(facet.options).map(option => (
+        <Option key={option.value} option={option} checked={facet.selected.includes(option.value)} onToggle={() => onToggle(facet.id, option.value)} />
+      ))}
+    </div>
+  );
+}
+
+function TreeFacet({ facet, onToggle }: FacetProps) {
+  const selected = new Set(facet.selected);
+  const roots = unknownLast(facet.options.filter(option => !option.parent));
+  const childrenOf = (parent: FilterOption) => unknownLast(facet.options.filter(option => option.parent === parent.value));
+  return (
+    <div className="aile-filtre-secenekler">
+      <p className="aile-filtre-not aile-kucuk aile-ikincil">{TREE_NOTE}</p>
+      {roots.map(root => {
+        const children = childrenOf(root);
+        const picked = children.filter(child => selected.has(child.value)).length;
+        const rootChecked = selected.has(root.value) || (children.length > 0 && picked === children.length);
+        const mixed = !rootChecked && picked > 0;
+        return (
+          <div key={root.value} className="aile-filtre-dal">
+            <Option option={root} checked={rootChecked} indeterminate={mixed} onToggle={() => onToggle(facet.id, root.value)} />
+            {children.map(child => (
+              <Option key={child.value} option={child} alt checked={rootChecked || selected.has(child.value)} onToggle={() => onToggle(facet.id, child.value)} />
+            ))}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+interface OptionProps { option: FilterOption; checked: boolean; indeterminate?: boolean; alt?: boolean; onToggle(): void }
+
+/** Seçenek: antd Checkbox (kutu + etiket) ve sağda sayım. Erişilebilir ad etiket, sayım açıklama. */
+function Option({ option, checked, indeterminate = false, alt = false, onToggle }: OptionProps) {
+  const countId = `${useId()}-sayim`;
+  const hasCount = option.count !== undefined;
+  return (
+    <div className={cx('aile-filtre-secenek', alt && 'aile-filtre-secenek--alt')}>
+      <Checkbox
+        className="aile-filtre-kutu"
+        checked={checked}
+        indeterminate={indeterminate}
+        aria-checked={indeterminate ? 'mixed' : undefined}
+        aria-label={option.label}
+        aria-describedby={hasCount ? countId : undefined}
+        onChange={onToggle}
+      >
+        <span className="aile-filtre-etiket">{option.label}</span>
+      </Checkbox>
+      {hasCount && <span id={countId} className="aile-filtre-sayim aile-kucuk aile-ikincil">{option.count}</span>}
+    </div>
+  );
+}
+
+function DateFacet({ facet, onToggle }: FacetProps) {
+  const types = facet.options.map(({ value, label }) => ({ value, label }));
+  const current = facet.selected.find(entry => types.some(type => type.value === entry)) ?? types[0]?.value;
+  return (
+    <div className="aile-filtre-aralik-govde">
+      {types.length > 0 && <Select label="Tarih türü" options={types} value={current} onChange={value => onToggle(facet.id, value)} />}
+      <div className="aile-filtre-aralik">
+        <RangeField label="Başlangıç" prefix={RANGE_KEYS.baslangic} facet={facet} onToggle={onToggle} placeholder="gg.aa.yyyy" inputMode="numeric" />
+        <RangeField label="Bitiş" prefix={RANGE_KEYS.bitis} facet={facet} onToggle={onToggle} placeholder="gg.aa.yyyy" inputMode="numeric" />
+      </div>
+    </div>
+  );
+}
+
+function AmountFacet({ facet, onToggle }: FacetProps) {
+  return (
+    <div className="aile-filtre-aralik">
+      <RangeField label="En az" prefix={RANGE_KEYS.enAz} facet={facet} onToggle={onToggle} suffix="₺" inputMode="decimal" />
+      <RangeField label="En çok" prefix={RANGE_KEYS.enCok} facet={facet} onToggle={onToggle} suffix="₺" inputMode="decimal" />
+    </div>
+  );
+}
+
+interface RangeFieldProps extends FacetProps {
+  label: string;
+  prefix: RangePrefix;
+  placeholder?: string;
+  suffix?: string;
+  inputMode: 'numeric' | 'decimal';
+}
+
+/** Metin alanı yazarken yerel kalır; blur'da değişmişse `${prefix}${değer}` bildirir. Dış değer değişince eşitlenir. */
+function RangeField({ label, prefix, facet, onToggle, placeholder, suffix, inputMode }: RangeFieldProps) {
+  const committed = rangeValue(facet.selected, prefix);
+  const [draft, setDraft] = useState(committed);
+  useEffect(() => { setDraft(committed); }, [committed]);
+  const commit = () => {
+    const value = draft.trim();
+    if (value !== committed) onToggle(facet.id, `${prefix}${value}`);
+  };
+  return <TextField label={label} value={draft} onChange={setDraft} onBlur={commit} placeholder={placeholder} suffix={suffix} inputMode={inputMode} />;
+}

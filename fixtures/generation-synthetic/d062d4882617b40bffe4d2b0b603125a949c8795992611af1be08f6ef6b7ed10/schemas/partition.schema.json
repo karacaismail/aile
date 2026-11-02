@@ -1,0 +1,205 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:aile:data-platform:partition:v1",
+  "title": "Framework-independent Aile data partition",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "collection",
+    "records"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "collection": {
+      "type": "string",
+      "pattern": "^[a-z_]+$"
+    },
+    "records": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/record"
+      }
+    }
+  },
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "decimal": {
+      "type": "string",
+      "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+    },
+    "money": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "required": [
+        "amount",
+        "currency"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "amount": {
+          "$ref": "#/$defs/decimal"
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        }
+      }
+    },
+    "provenance": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "required": [
+        "source_key",
+        "source_id",
+        "sheet_id",
+        "sheet_title",
+        "row",
+        "column",
+        "a1"
+      ],
+      "properties": {
+        "source_key": {
+          "type": "string"
+        },
+        "source_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "sheet_id": {
+          "type": "integer"
+        },
+        "sheet_title": {
+          "type": "string"
+        },
+        "row": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "column": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "a1": {
+          "type": "string"
+        }
+      }
+    },
+    "record": {
+      "type": "object",
+      "required": [
+        "id",
+        "tenant_id"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "tenant_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "amount": {
+          "$ref": "#/$defs/money"
+        },
+        "occurred_on": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "source_attributes": {
+          "type": "object"
+        },
+        "attributes": {
+          "type": "object"
+        },
+        "state_snapshot": {
+          "type": "object",
+          "required": [
+            "decision",
+            "fulfillment",
+            "inspection",
+            "payment"
+          ],
+          "properties": {
+            "decision": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "fulfillment": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "inspection": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "payment": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        "amounts": {
+          "type": "object",
+          "properties": {
+            "estimated_min": {
+              "$ref": "#/$defs/money"
+            },
+            "estimated_max": {
+              "$ref": "#/$defs/money"
+            },
+            "recorded_price": {
+              "$ref": "#/$defs/money"
+            },
+            "quote": {
+              "$ref": "#/$defs/money"
+            }
+          }
+        },
+        "state_term_ids": {
+          "type": "object",
+          "required": [
+            "decision",
+            "fulfillment",
+            "inspection",
+            "payment"
+          ],
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

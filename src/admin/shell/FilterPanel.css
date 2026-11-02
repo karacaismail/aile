@@ -1,0 +1,91 @@
+/* FilterPanel — tasarım › components/FilterPanel (bundle.css › .ai-filters, CHECKBOX, .ai-range), tokenlar --aile-*
+   (src/design/tokens.ts; admin.css :root yedekleri çekmece içinde de çözer). Panel zeminde çerçevesiz durur; kenar
+   yalnız cizgi ayırıcı (başlık altı ve Disclosure.css). Seçenek satırı 44 px hedef, hover bilgi-yuzey (hover tek yol
+   değil: kutu her zaman görünür). Odak çizgisini admin.css çizer (.ant-checkbox-wrapper ::after, antd alan sarmalayıcı);
+   burada outline/box-shadow/halka yok. Sabit renk ve sabit px yok; tek istisna 1 px ayırıcı. */
+.aile-filtre {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.aile-filtre-baslik {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--aile-bosluk-2);
+  padding-bottom: var(--aile-bosluk-2);
+  border-bottom: 1px solid var(--aile-cizgi);
+}
+
+.aile-filtre-not {
+  margin: 0 0 var(--aile-bosluk-1);
+}
+
+.aile-filtre-secenekler {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Seçenek satırı: kutu + etiket solda esner, sayım sağda; tüm satır dokunma hedefi. */
+.aile-filtre-secenek {
+  display: flex;
+  align-items: center;
+  gap: var(--aile-bosluk-3);
+  min-height: var(--aile-hedef-asgari);
+  padding: 0 var(--aile-bosluk-1);
+  border-radius: var(--aile-kose-kontrol);
+  transition: background-color var(--aile-sure) var(--aile-egri);
+}
+.aile-filtre-secenek:hover { background: var(--aile-bilgi-yuzey); }
+/* Alt dal: kutu genişliği + aralık kadar içeride (referans 36 px). */
+.aile-filtre-secenek--alt { padding-left: calc(var(--aile-bosluk-6) + var(--aile-bosluk-3)); }
+
+.aile-filtre-secenek .aile-filtre-kutu {
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  min-height: var(--aile-hedef-asgari);
+  margin: 0;
+  font: inherit;
+  color: var(--aile-metin);
+}
+/* Etiket kesilmez; kelime arasından sarılır. Seçili satır 600 (seçim = yüzey + ağırlık; renk tek işaret değil). */
+.aile-filtre-etiket {
+  overflow-wrap: normal;
+  word-break: keep-all;
+}
+.aile-filtre-secenek:has(input:checked) { background: var(--aile-secili); }
+.aile-filtre-secenek:has(input:checked) .aile-filtre-etiket { font-weight: 600; }
+
+/* Kutu 20 px (referans), köşe kontrol köşesinin yarısı; renkler antd temasından (eylem = colorPrimary). */
+.aile-filtre-secenek .ant-checkbox-inner {
+  width: calc(var(--aile-bosluk-4) + var(--aile-bosluk-1));
+  height: calc(var(--aile-bosluk-4) + var(--aile-bosluk-1));
+  border-radius: calc(var(--aile-kose-kontrol) / 2);
+  border-color: var(--aile-kenar-kontrol);
+}
+
+/* Sayım: 14/20 (.aile-kucuk), ikincil, tabular. */
+.aile-filtre-sayim {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+.aile-filtre-secenek:has(input:checked) .aile-filtre-sayim { color: var(--aile-metin); }
+
+/* Tarih ve tutar: tür seçimi üstte, iki alan yan yana; 320'de de iki sütun (gg.aa.yyyy sığar). */
+.aile-filtre-aralik-govde {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-2);
+}
+.aile-filtre-aralik {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--aile-bosluk-2);
+  min-width: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aile-filtre-secenek { transition-duration: 0s; }
+}

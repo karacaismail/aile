@@ -1,0 +1,37 @@
+/* DataStatus — tazelik satırı. Kaynak: bundle.css .ai-ds / .ai-ds--eski / .ai-ds--hata / .ai-ds-msg / .ai-ds-sep.
+   Tek satır, sarabilir; kart, kenarlık, şerit yok. Yazı ölçüsü admin.css .aile-kucuk (14/20); renkler yalnız --aile-*.
+   Ton değişimi semantik güncellemedir: geçiş yok, anında (reduced-motion'da da aynı). Odak çizgisini admin.css çizer
+   (.ant-btn:focus-visible::after); burada odak, outline ya da gölge yok. */
+.aile-ds {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 var(--aile-bosluk-2);
+  margin: 0;
+  color: var(--aile-metin-ikincil);
+  overflow-wrap: break-word;
+}
+.aile-ds__sep { color: var(--aile-metin-ikincil); }
+/* Eski ve çakışma uyari, hata hata; sözcük ("yenilenemedi", "Hata:", "Çakışma:") anlamı taşır, renk destekler. */
+.aile-ds--stale,
+.aile-ds--conflict { color: var(--aile-uyari); }
+.aile-ds--error { color: var(--aile-hata); }
+.aile-ds__msg {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--aile-bosluk-1);
+}
+.aile-ds__icon { flex: none; }
+/* Düğme satır ölçüsünde (14/20), dar iç boşluk; dokunma hedefi 44 yüksekliğini korur. antd'nin :where() kuralları
+   sıfır özgüllüklüdür, bu sınıf onların üstünde kalır. Rengi antd text/primary verir (eylem); hover bilgi-yuzey. */
+.aile-ds .aile-ds__btn {
+  font-size: inherit;
+  line-height: inherit;
+  min-height: var(--aile-hedef-asgari);
+  padding-inline: var(--aile-bosluk-2);
+  /* Ayırıcı sonrası boşluk + iç boşluk 16 olur; -8 ile düğme metni diğer parçalar gibi noktadan 8 uzakta durur. */
+  margin-inline-start: calc(-1 * var(--aile-bosluk-2));
+}
+.aile-ds .aile-ds__btn:hover:not(:disabled) { background: var(--aile-bilgi-yuzey); }
+.aile-ds .aile-ds__btn:active:not(:disabled) { background: var(--aile-secili); color: var(--aile-nav); }
+.aile-ds .aile-ds__btn:disabled { background: transparent; color: var(--aile-metin-ikincil); }

@@ -1,0 +1,14 @@
+{
+ "$schema":"https://json-schema.org/draft/2020-12/schema","$id":"urn:aile:data-platform:source-manifest:v1",
+ "type":"object","required":["schemaVersion","sources"],
+ "properties":{
+  "schemaVersion":{"const":1},
+  "sources":{"type":"array","minItems":1,"items":{"type":"object","required":["key","metadata","chunks"],"properties":{
+   "key":{"enum":["household","budget"]},"metadata":{"type":"string"},"chunks":{"type":"array","minItems":1,"items":{"type":"string"}},
+   "startedAt":{"type":"string","format":"date-time"},"completedAt":{"type":"string","format":"date-time"},
+   "bounds":{"type":"array","items":{"type":"object","required":["chunk","sheetId","startRow","endRow","startColumn","endColumn"],"properties":{"chunk":{"type":"string"},"sheetId":{"type":"integer"},"startRow":{"type":"integer","minimum":0},"endRow":{"type":"integer","minimum":1},"startColumn":{"type":"integer","minimum":0},"endColumn":{"type":"integer","minimum":1}}}},
+   "driveBefore":{"type":["object","null"]},"driveAfter":{"type":["object","null"]}
+  }}},
+  "supplements":{"type":"array","items":{"type":"object","required":["key","path"],"properties":{"key":{"type":"string"},"path":{"type":"string"},"sourceUrl":{"type":"string"}}}}
+ }
+}

@@ -1,0 +1,60 @@
+/* IconButton — yalnız simgeli kare düğme, 44 × 44.
+   Kaynak: aile-tasarim/tasarim-sistemi/components/IconButton/README.md ve bundle.css .ai-btn / .ai-iconbtn / .ai-btn--onnav.
+   Bütün değerler --aile-* tokenlarıdır (src/design/tokens.ts → admin.css :root yedekleri; antd portalları da görür).
+   antd'nin hash'li sınıf stilleri :where() ile sıfır özgüllüklüdür; buradaki sınıf kuralları onların üstünde kalır.
+   Odak: çevreleyen halka yok; 3 px alt çizgiyi admin.css çizer (.ant-btn:focus-visible::after), burada yalnız nav rengi. */
+
+.aile-iconbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--aile-hedef-asgari);
+  min-width: var(--aile-hedef-asgari);
+  height: var(--aile-hedef-asgari);
+  padding: 0;
+  border-radius: var(--aile-kose-kontrol);
+  border-color: transparent;
+  background: transparent;
+  color: var(--aile-eylem);
+  box-shadow: none;
+  transition:
+    background-color var(--aile-sure) var(--aile-egri),
+    border-color var(--aile-sure) var(--aile-egri),
+    color var(--aile-sure) var(--aile-egri);
+}
+.aile-iconbtn:hover { background: var(--aile-bilgi-yuzey); color: var(--aile-eylem); }
+.aile-iconbtn:active { background: var(--aile-secili); color: var(--aile-nav); }
+
+/* secondary: yuzey dolgu + eylem kenar (kenar hover/active'de kalır). */
+.aile-iconbtn--secondary { background: var(--aile-yuzey); border-color: var(--aile-eylem); }
+.aile-iconbtn--secondary:hover { background: var(--aile-bilgi-yuzey); border-color: var(--aile-eylem); }
+.aile-iconbtn--secondary:active { background: var(--aile-secili); border-color: var(--aile-eylem); }
+
+/* Seçili: secili yüzey + nav kenar + metin rengi. Durum aria-pressed'ten okunur; ayrı görsel sınıf yok, böylece
+   erişilebilir durum ile görünüm ayrışamaz. Hover/active'den sonra gelir: seçili görünüm hover'da da kalır. */
+.aile-iconbtn[aria-pressed='true'] { background: var(--aile-secili); border-color: var(--aile-nav); color: var(--aile-metin); }
+
+/* nav zemini üzerinde: nav-metin rengi; secondary kenarı acik-mavi, quiet kenarsız; hover/basılı nav tonları. */
+.aile-iconbtn--onnav { background: transparent; border-color: var(--aile-acik-mavi); color: var(--aile-nav-metin); }
+.aile-iconbtn--onnav.aile-iconbtn--quiet { border-color: transparent; }
+.aile-iconbtn--onnav:hover { background: var(--aile-nav-hover); border-color: var(--aile-acik-mavi); color: var(--aile-nav-metin); }
+.aile-iconbtn--onnav.aile-iconbtn--quiet:hover { border-color: transparent; }
+.aile-iconbtn--onnav:active { background: var(--aile-nav-basili); color: var(--aile-nav-metin); }
+.aile-iconbtn--onnav[aria-pressed='true'] { background: var(--aile-secili); border-color: var(--aile-nav); color: var(--aile-metin); }
+
+/* Devre dışı: liste-zemin dolgu, ikincil metin; quiet dolgusuz kalır. Hover/active değişmez. */
+.aile-iconbtn:disabled,
+.aile-iconbtn:disabled:hover,
+.aile-iconbtn:disabled:active {
+  background: var(--aile-liste-zemin);
+  border-color: transparent;
+  color: var(--aile-metin-ikincil);
+  cursor: not-allowed;
+}
+.aile-iconbtn--quiet:disabled,
+.aile-iconbtn--quiet:disabled:hover,
+.aile-iconbtn--quiet:disabled:active { background: transparent; }
+
+/* Odak çizgisi nav üzerinde acik-mavi (odak-nav). admin.css'in taban kuralı (0,4,1) özgüllüğündedir ve sonra yüklenir;
+   .ant-btn ile (0,5,1) olup onu geçer. Çizginin kendisini (content/konum) admin.css verir; burada yalnız renk. */
+html[data-keyboard='true'] .ant-btn.aile-iconbtn.aile-iconbtn--onnav:focus-visible::after { background: var(--aile-odak-nav); }

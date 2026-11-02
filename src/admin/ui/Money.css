@@ -1,0 +1,14 @@
+/* Money — tutar metni. Biçim (tabular-nums, 500, sağa hizalı, nowrap) admin.css'teki .aile-tutar kuralından gelir;
+   burada yalnız eksik değer: ikincil renk, 400 ağırlık (tasarım .ai-missing). Tokenlar yalnız --aile-*.
+   Yazı boyutu kalıtılır (gövde 16, .aile-kucuk 14); 14 px altına inen bağlam yok. Geçiş yok: değerin gelmesi
+   semantik güncellemedir, anında görünür (reduced-motion'da da aynı). */
+.aile-admin .aile-tutar.aile-tutar--eksik,
+.ant-drawer .aile-tutar.aile-tutar--eksik,
+.ant-modal .aile-tutar.aile-tutar--eksik {
+  color: var(--aile-metin-ikincil);
+  font-weight: 400;
+}
+/* secili yüzeyinde metin-ikincil 4,0:1 kalır (README › Renk): seçili satırda eksik adı metin rengine döner. */
+.aile-admin :is([aria-selected='true'], .ant-table-row-selected) .aile-tutar.aile-tutar--eksik {
+  color: var(--aile-metin);
+}

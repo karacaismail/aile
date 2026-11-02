@@ -1,0 +1,40 @@
+/* Hesaplar ve borçlar: başlık (PageHeader) + üç blok, kutusuz; ayrım boşlukla (README: kart/kenarlık yağmuru yok).
+   Yalnız --aile tokenları; metin ≥ 14 px (aile-kucuk 14/20). Bloklar dar yerleşimde daha sıkı dizilir. */
+.aile-hesaplar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-8);
+  min-width: 0;
+}
+.aile-hesaplar--dar { gap: var(--aile-bosluk-6); }
+
+.aile-hesaplar__blok {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-3);
+  min-width: 0;
+}
+.aile-hesaplar__bas {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--aile-bosluk-3);
+  flex-wrap: wrap;
+}
+/* Bölüm başlığı h2, h3 ölçüsünde (Overview ile aynı karar; sayfanın h1'i PageHeader'da). */
+.aile-admin .aile-hesaplar__baslik {
+  font-size: 18px;
+  line-height: 26px;
+}
+
+.aile-hesaplar__not,
+.aile-hesaplar__yok,
+.aile-hesaplar__meta,
+.aile-hesaplar__neden { margin: 0; }
+.aile-hesaplar__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--aile-bosluk-1);
+  font-variant-numeric: tabular-nums;
+}
+.aile-hesaplar__neden + .aile-hesaplar__neden { margin-top: var(--aile-bosluk-2); }

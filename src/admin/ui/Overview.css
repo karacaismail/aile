@@ -1,0 +1,213 @@
+/* Overview — Genel durum iskeleti. Kaynak: bundle.css .ai-ov, .ai-ov-col, .ai-ov-block, .ai-ov-head, .ai-ov-list,
+   .ai-ov-row, .ai-ov-date, .ai-ov-end, .ai-ov-count, .ai-ov-meter, .ai-ov-task ve .ai-summary (özet). Yalnız --aile
+   tokenları; renk, outline ya da gölge yok. Kart ve kenarlık yağmuru yok: liste tek yuzey alanı, satırlar cizgi ile
+   ayrılır (dış kenarlık yok). Hareket tek süre/eğri; reduced-motion'da admin.css geçişleri kapatır. Odak çizgisini
+   admin.css çizer; burada yalnız listedeki satır ve görev için çizgi satırın alt kenarına çekilir (liste kuralı). */
+.aile-ov {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-6);
+  min-width: 0;
+}
+
+/* Özet: en çok üç ölçü, tek satır, kutusuz; başlıktan ince cizgi ile ayrılır (bundle.css .ai-summary). */
+.aile-ov-ozet {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--aile-bosluk-3) var(--aile-bosluk-8);
+  margin: 0;
+  padding-top: var(--aile-bosluk-4);
+  border-top: 1px solid var(--aile-cizgi);
+}
+.aile-ov--dar .aile-ov-ozet { gap: var(--aile-bosluk-3) var(--aile-bosluk-6); }
+.aile-ov-olcu { min-width: 0; }
+.aile-ov-olcu dd {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--aile-bosluk-2);
+  flex-wrap: wrap;
+}
+/* Özet değeri h2 ölçüsünde (tokens.json › h2: "özet değeri"), tabular. */
+.aile-ov-olcu-deger {
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.aile-ov-olcu-deger--yok {
+  font-weight: 400;
+  color: var(--aile-metin-ikincil);
+}
+
+/* İki sütun: sol 1.4 / sağ 1; dar yerleşimde tek sütun. */
+.aile-ov-izgara {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: var(--aile-bosluk-8);
+  align-items: start;
+}
+.aile-ov--dar .aile-ov-izgara {
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--aile-bosluk-6);
+}
+.aile-ov-sutun {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-8);
+  min-width: 0;
+}
+.aile-ov--dar .aile-ov-sutun { gap: var(--aile-bosluk-6); }
+
+/* Blok: başlık satırı (h2 h3 ölçüsünde; sayfanın h1'i kabukta) + sağda sayfaya bağlantı. */
+.aile-ov-blok {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-2);
+  min-width: 0;
+}
+.aile-ov-bas {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--aile-bosluk-3);
+  flex-wrap: wrap;
+}
+.aile-ov .aile-ov-baslik {
+  font-size: 18px;
+  line-height: 26px;
+}
+.aile-ov .aile-ov-bag {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--aile-hedef-asgari);
+  padding: 0 var(--aile-bosluk-2);
+  border-radius: var(--aile-kose-kontrol);
+  color: var(--aile-eylem);
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: background-color var(--aile-sure) var(--aile-egri), color var(--aile-sure) var(--aile-egri);
+}
+.aile-ov .aile-ov-bag:hover { background: var(--aile-bilgi-yuzey); }
+.aile-ov .aile-ov-bag:active {
+  background: var(--aile-secili);
+  color: var(--aile-nav);
+}
+
+/* Liste: tek yuzey, kose-kart, satırlar cizgi ile ayrılır; dış kenarlık yok. */
+.aile-ov-liste {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: var(--aile-yuzey);
+  border-radius: var(--aile-kose-kart);
+  overflow: hidden;
+}
+.aile-ov-liste > li + li { border-top: 1px solid var(--aile-cizgi); }
+/* Satır: 64 px (bundle.css .ai-ov-row), 44 px hedefin üstünde; bağlantı satırı metin renginde kalır, hover bilgi-yuzey. */
+.aile-ov .aile-ov-satir {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--aile-bosluk-4);
+  align-items: center;
+  min-height: 64px;
+  padding: var(--aile-bosluk-3) var(--aile-bosluk-4);
+  color: var(--aile-metin);
+  text-decoration: none;
+  transition: background-color var(--aile-sure) var(--aile-egri);
+}
+.aile-ov a.aile-ov-satir:hover { background: var(--aile-bilgi-yuzey); }
+.aile-ov a.aile-ov-satir:active { background: var(--aile-secili); }
+.aile-ov-satir-ana {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.aile-ov-ad { font-weight: 600; }
+.aile-ov-meta { overflow-wrap: break-word; }
+
+/* Ödeme satırı: tarih (tabular) · ad + taraf · tutar + durum etiketi. */
+.aile-ov-tarih {
+  display: flex;
+  flex-direction: column;
+  min-width: 96px;
+  font-variant-numeric: tabular-nums;
+}
+.aile-ov-tarih strong { font-weight: 600; }
+.aile-ov-son {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--aile-bosluk-1);
+}
+/* 320 px: tutar ve etiket adın altına iner; üç sütun sığmaz, metin küçültülmez. */
+.aile-ov--dar .aile-ov-satir--odeme { grid-template-columns: auto minmax(0, 1fr); }
+.aile-ov--dar .aile-ov-satir--odeme .aile-ov-son {
+  grid-column: 2;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--aile-bosluk-2);
+}
+.aile-ov--dar .aile-ov-satir--odeme .aile-tutar { text-align: left; }
+
+/* Dikkat satırı: sayı (h2 ölçüsü, tabular) · ad + sayfa · ok. */
+.aile-ov .aile-ov-satir--sayi { grid-template-columns: 48px minmax(0, 1fr) 20px; }
+.aile-ov-sayi {
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.aile-ov-ok { color: var(--aile-metin-ikincil); }
+
+/* Bütçe kalemi hücresi: ad, ince çubuk (antd Progress small = 6 px; renkler tokens.ts'ten prop ile) ve yüzde metni. */
+.aile-ov-kalem {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-1);
+  min-width: 0;
+}
+.aile-ov-olcek {
+  display: block;
+  max-width: 200px;
+}
+.aile-ov-olcek .aile-ov-olcek-kok {
+  display: block;
+  margin: 0;
+  line-height: 0;
+}
+
+/* Görev satırı: antd Checkbox satırın tamamını kaplar (64 px hedef), hover bilgi-yuzey; biten görev ikincil + çizili. */
+.aile-ov .aile-ov-gorev {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 64px;
+  margin: 0;
+  padding: var(--aile-bosluk-3) var(--aile-bosluk-4);
+  transition: background-color var(--aile-sure) var(--aile-egri);
+}
+.aile-ov .aile-ov-gorev:hover { background: var(--aile-bilgi-yuzey); }
+.aile-ov-gorev-ad { font-weight: 500; }
+.aile-ov-gorev--bitti .aile-ov-gorev-ad {
+  color: var(--aile-metin-ikincil);
+  text-decoration: line-through;
+}
+
+/* Boş blok: gizlenmez, adıyla yazılır; aynı yuzey alanında. */
+.aile-ov-bos {
+  margin: 0;
+  padding: var(--aile-bosluk-3) var(--aile-bosluk-4);
+  background: var(--aile-yuzey);
+  border-radius: var(--aile-kose-kart);
+}
+
+/* Odak çizgisi liste satırının alt kenarında (README › Odak: liste satırı); admin.css'in -7 px çizgisi overflow'da
+   kaybolurdu. Aynı kalınlık ve renk, yalnız konum değişir. */
+html[data-keyboard='true'] .aile-admin .aile-ov .aile-ov-satir:focus-visible::after,
+html[data-keyboard='true'] .aile-admin .aile-ov .aile-ov-gorev:is(:focus-visible, :has(:focus-visible))::after { bottom: 0; }

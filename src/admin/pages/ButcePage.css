@@ -1,0 +1,58 @@
+/* ButcePage — tasarım README "Sayfa iskeleti" + ekranlar.md SayfaButce/SayfaButceDar. Tokenlar yalnız --aile-*
+   (src/design/tokens.ts; .aile-admin kökü). Kart/kenarlık yağmuru yok: araç satırı, tablo ve grafik zeminde durur,
+   kenar yalnız cizgi ayırıcı (1 px). Odak çizgisini admin.css çizer; burada outline/box-shadow yok. Kavisli kutuya
+   renkli şerit yok. Hareket tek süre/eğri; reduced-motion admin.css'te anlık. Sabit renk/px yok (1 px ayırıcı hariç). */
+.aile-butce { display: flex; flex-direction: column; min-width: 0; }
+.aile-butce-govde { display: flex; flex-direction: column; gap: var(--aile-bosluk-4); min-width: 0; }
+
+/* Birincil eylem devre dışı: nedeni hemen altında yazılı (Button README: aria-describedby). */
+.aile-butce-birincil { display: inline-flex; flex-direction: column; align-items: flex-end; gap: var(--aile-bosluk-1); }
+.aile-ph--dar .aile-butce-birincil { align-items: flex-start; }
+
+/* Araç satırı: dönem seçici solda, sayım sağda; dar alanda alt alta. */
+.aile-butce-arac {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--aile-bosluk-3) var(--aile-bosluk-4);
+}
+.aile-butce-donem { min-width: calc(var(--aile-filtre-genislik) - var(--aile-bosluk-8)); }
+.aile-butce-sayim { margin: 0; min-height: var(--aile-hedef-asgari); display: flex; align-items: center; }
+
+/* Kalem hücresi: ad + (varsa) ara toplam adı; çocuk satır bir içeride. Metin kesilmez, kelimeden sarar. */
+.aile-butce-kalem { display: flex; flex-direction: column; min-width: 0; }
+.aile-butce-kalem-ad { font-weight: 600; overflow-wrap: normal; }
+.aile-butce-kalem--alt { padding-left: var(--aile-bosluk-4); }
+
+.aile-butce-not { margin: 0; }
+
+/* Grafik bölümü: h2 (admin.css ölçeği) + Chart (açıklama tablosu Chart'ın içinde, yanında). Üstte yalnız cizgi ayırıcı. */
+.aile-butce-grafik {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-3);
+  padding-top: var(--aile-bosluk-4);
+  border-top: 1px solid var(--aile-cizgi);
+}
+.aile-butce-egilim { border-collapse: collapse; width: 100%; max-width: var(--aile-ayrinti-genislik); }
+.aile-butce-egilim caption { text-align: left; font-weight: 600; padding-bottom: var(--aile-bosluk-2); }
+.aile-butce-egilim th, .aile-butce-egilim td {
+  padding: var(--aile-bosluk-2) var(--aile-bosluk-3);
+  text-align: left;
+  border-bottom: 1px solid var(--aile-cizgi);
+  vertical-align: baseline;
+}
+.aile-butce-egilim th[scope="row"] { font-weight: 400; }
+.aile-butce-sag { text-align: right; }
+
+/* Canlı Sheet: PageHeader children; etiket + DataStatus + fark tek satırda, dar alanda sarar. */
+.aile-butce-canli {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--aile-bosluk-1) var(--aile-bosluk-3);
+  padding-top: var(--aile-bosluk-2);
+}
+.aile-butce-canli-etiket { font-weight: 600; }
+.aile-butce-canli-fark { color: var(--aile-metin); }

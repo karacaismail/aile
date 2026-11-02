@@ -1,0 +1,170 @@
+/* Tabs — tasarım components/Tabs/README.md + bundle.css .ai-tabs*. Renk ve ölçüler yalnız --aile-* değişkenlerinden
+   (src/design/tokens.ts › aileCssVars); tipografi 14/20 küçük metin tasarım tip ölçeği (.aile-kucuk ile aynı).
+   Seçili: secili yüzey + 600. Alt çizgi yalnız odak içindir; seçimi mürekkep çubuğu değil yüzey gösterir.
+   Odak: sekmede admin.css [role=tab]:focus-visible::after çizer; segmentte aynı çizgi burada (etiket ::after).
+   Çevreleyen halka, outline, gölge yok; hareket tek süre ve tek eğri, reduced-motion'da admin.css anlık yapar. */
+.aile-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-3);
+  min-width: 0;
+}
+.aile-tabs__not {
+  margin: 0;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--aile-metin-ikincil);
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
+/* --- Sekme şeridi (antd Tabs) --------------------------------------------------------------------------
+   Alt kenar çizgisi, mürekkep çubuğu ve boş içerik tutucu yok (sayfa içeriği kendi çizer; tutucu gizlenmezse
+   boş tabpanel odak durağı olur). Nav kaydırma kabı (overflow hidden) odak çizgisine 4 + 3 px yer bırakır. */
+.aile-tabs .ant-tabs > .ant-tabs-nav { margin: 0; }
+.aile-tabs .ant-tabs > .ant-tabs-nav::before { display: none; }
+.aile-tabs .ant-tabs .ant-tabs-ink-bar { display: none; }
+.aile-tabs .ant-tabs > .ant-tabs-content-holder { display: none; }
+.aile-tabs .ant-tabs > .ant-tabs-nav .ant-tabs-nav-wrap {
+  padding-bottom: calc(var(--aile-odak-aralik) + var(--aile-odak-kalinlik));
+  margin-bottom: calc(-1 * (var(--aile-odak-aralik) + var(--aile-odak-kalinlik)));
+}
+/* Kontrol = [role=tab] düğmesi: 44 px hedef, 0 16 iç boşluk, köşe kontrol; sarmalayıcı boşluksuz. Etiket kesilmez. */
+.aile-tabs .ant-tabs .ant-tabs-tab {
+  padding: 0;
+  background: transparent;
+  border: 0;
+}
+.aile-tabs .ant-tabs .ant-tabs-tab [role='tab'] {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--aile-hedef-asgari);
+  padding: 0 var(--aile-bosluk-4);
+  border-radius: var(--aile-kose-kontrol);
+  font-weight: 500;
+  color: var(--aile-metin);
+  white-space: nowrap;
+  transition: background-color var(--aile-sure) var(--aile-egri), color var(--aile-sure) var(--aile-egri);
+}
+.aile-tabs .ant-tabs .ant-tabs-tab:not(.ant-tabs-tab-disabled):hover [role='tab'] {
+  background: var(--aile-bilgi-yuzey);
+  color: var(--aile-metin);
+}
+.aile-tabs .ant-tabs .ant-tabs-tab:not(.ant-tabs-tab-disabled):active [role='tab'],
+.aile-tabs .ant-tabs .ant-tabs-tab-active [role='tab'],
+.aile-tabs .ant-tabs .ant-tabs-tab-active:hover [role='tab'] {
+  background: var(--aile-secili);
+  color: var(--aile-metin);
+}
+.aile-tabs .ant-tabs .ant-tabs-tab-active [role='tab'] { font-weight: 600; }
+.aile-tabs .ant-tabs .ant-tabs-tab-disabled [role='tab'] {
+  background: transparent;
+  color: var(--aile-metin-ikincil);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  cursor: not-allowed;
+}
+/* Taşan sekmeler için antd "Diğer" düğmesi: 44 px hedef, simge Phosphor (Tabs.tsx more.icon). */
+.aile-tabs .ant-tabs .ant-tabs-nav-more {
+  min-width: var(--aile-hedef-asgari);
+  min-height: var(--aile-hedef-asgari);
+  padding: 0 var(--aile-bosluk-3);
+  color: var(--aile-metin);
+  border-radius: var(--aile-kose-kontrol);
+}
+.aile-tabs .ant-tabs .ant-tabs-nav-more svg { display: block; }
+
+/* --- Segment (antd Segmented) ---------------------------------------------------------------------------
+   Ray: yuzey, cizgi kenar, köşe kart (kontrol 8 + ray 4); genişlik içerik kadar, dar ekranda şerit yatay kayar.
+   Şeridin alt iç boşluğu, rayın dışına taşan odak çizgisine yer bırakır. */
+.aile-tabs__serit {
+  display: flex;
+  min-width: 0;
+  overflow-x: auto;
+  padding-bottom: var(--aile-bosluk-2);
+  margin-bottom: calc(-1 * var(--aile-bosluk-2));
+}
+.aile-tabs--segment .ant-segmented {
+  flex: none;
+  max-width: 100%;
+  padding: var(--aile-bosluk-1);
+  background: var(--aile-yuzey);
+  border: 1px solid var(--aile-cizgi);
+  border-radius: var(--aile-kose-kart);
+  color: var(--aile-metin);
+}
+.aile-tabs--segment .ant-segmented .ant-segmented-item {
+  min-height: var(--aile-hedef-asgari);
+  border-radius: var(--aile-kose-kontrol);
+  font-weight: 500;
+  color: var(--aile-metin);
+  transition: background-color var(--aile-sure) var(--aile-egri), color var(--aile-sure) var(--aile-egri);
+}
+.aile-tabs--segment .ant-segmented .ant-segmented-item-label {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--aile-hedef-asgari);
+  padding: 0 var(--aile-bosluk-4);
+  line-height: inherit;
+  white-space: nowrap;
+  overflow: visible;
+  text-overflow: clip;
+}
+/* antd hover örtüsü item::after'dadır; renkleri tasarıma çekilir. */
+.aile-tabs--segment .ant-segmented .ant-segmented-item:not(.ant-segmented-item-selected):not(.ant-segmented-item-selected-text):not(.ant-segmented-item-disabled):hover,
+.aile-tabs--segment .ant-segmented .ant-segmented-item:not(.ant-segmented-item-selected):not(.ant-segmented-item-selected-text):not(.ant-segmented-item-disabled):active {
+  color: var(--aile-metin);
+}
+.aile-tabs--segment .ant-segmented .ant-segmented-item:not(.ant-segmented-item-selected):not(.ant-segmented-item-selected-text):not(.ant-segmented-item-disabled):hover::after {
+  background-color: var(--aile-bilgi-yuzey);
+}
+.aile-tabs--segment .ant-segmented .ant-segmented-item:not(.ant-segmented-item-selected):not(.ant-segmented-item-selected-text):not(.ant-segmented-item-disabled):active::after {
+  background-color: var(--aile-secili);
+}
+.aile-tabs--segment .ant-segmented .ant-segmented-item-selected,
+.aile-tabs--segment .ant-segmented .ant-segmented-item-selected-text {
+  color: var(--aile-metin);
+  font-weight: 600;
+}
+.aile-tabs--segment .ant-segmented .ant-segmented-item-selected,
+.aile-tabs--segment .ant-segmented .ant-segmented-thumb {
+  background: var(--aile-secili);
+  border-radius: var(--aile-kose-kontrol);
+  box-shadow: none;
+}
+.aile-tabs--segment .ant-segmented .ant-segmented-item-disabled,
+.aile-tabs--segment .ant-segmented .ant-segmented-item-disabled:hover {
+  background: transparent;
+  color: var(--aile-metin-ikincil);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  cursor: not-allowed;
+}
+/* Odak çizgisi (segment): klavye modunda, işaretli öğenin etiketi altında, rayın dışında (ray 4 + kenar 1 + 1 aralık);
+   admin.css'teki [role=tab] çizgisiyle aynı kalınlık, aralık ve renk. */
+html[data-keyboard='true'] .aile-tabs--segment .ant-segmented .ant-segmented-item-focused .ant-segmented-item-label::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(-1 * (var(--aile-bosluk-1) + 1px + 1px + var(--aile-odak-kalinlik)));
+  height: var(--aile-odak-kalinlik);
+  border-radius: var(--aile-odak-kalinlik);
+  background: var(--aile-odak);
+  pointer-events: none;
+}
+
+/* --- Telefon: Select (combobox) -------------------------------------------------------------------------
+   Tam genişlik, 44 px hedef antd controlHeight'tan. Devre dışı seçenek listede kalır ve "Kullanılamaz" notu taşır. */
+.aile-tabs--secim .aile-tabs__select { width: 100%; }
+.aile-tabs-acilir .aile-tabs__secenek {
+  display: flex;
+  flex-direction: column;
+  white-space: normal;
+}
+.aile-tabs-acilir .aile-tabs__secenek-not {
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--aile-metin-ikincil);
+}

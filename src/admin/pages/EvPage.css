@@ -1,0 +1,55 @@
+/* Ev ve odalar — tasarım README › Sayfa iskeleti 5 (ayrıntı masaüstünde sağda ayrinti-genislik, dar ekranda listenin
+   yerinde) + bundle.css .ai-list / .pg-oda. Tokenlar yalnız --aile-*; sabit renk/px yok. Liste ve ayrıntı iki yüzey
+   alanıdır, kart ya da kenarlık yağmuru yok; kenar yalnız cizgi ayırıcı. Odak çizgisini admin.css çizer. */
+.aile-ev {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--aile-bosluk-6);
+  align-items: start;
+  min-width: 0;
+}
+
+.aile-ev--genis.aile-ev--secili {
+  grid-template-columns: minmax(0, 1fr) var(--aile-ayrinti-genislik);
+}
+
+.aile-ev-liste {
+  min-width: 0;
+}
+
+.aile-ev-sayim {
+  margin: 0 0 var(--aile-bosluk-2);
+}
+
+.aile-ev-ayrinti {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-3);
+  min-width: 0;
+  padding: var(--aile-bosluk-4);
+  background: var(--aile-yuzey);
+  border-radius: var(--aile-kose-panel);
+}
+
+.aile-ev-ayrinti__baslik {
+  margin: 0;
+}
+
+.aile-ev-ayrinti__meta {
+  margin: 0;
+  overflow-wrap: break-word;
+}
+
+/* Plan | Gerçek iki ayrı sütun (README › Ayrıntı); asla tek sayıda birleşmez. */
+.aile-ev-ayrinti__tutarlar {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--aile-bosluk-3);
+  margin: 0;
+  padding-bottom: var(--aile-bosluk-3);
+  border-bottom: 1px solid var(--aile-cizgi);
+}
+
+.aile-ev-ayrinti__tutarlar dd {
+  margin: 0;
+}

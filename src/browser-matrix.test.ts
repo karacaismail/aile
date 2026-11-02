@@ -11,7 +11,7 @@ const workflowDir = join(root, '.github/workflows');
 const workflows = readdirSync(workflowDir).filter(name => /\.ya?ml$/.test(name)).map(name => join(workflowDir, name));
 
 describe('tarayıcı test matrisi', () => {
-  it('Playwright konfigürasyonları bulundu', () => { expect(configs.length).toBeGreaterThanOrEqual(4); expect(workflows.length).toBeGreaterThanOrEqual(2); });
+  it('Playwright konfigürasyonları bulundu', () => { expect(configs.length).toBeGreaterThanOrEqual(5); expect(workflows.length).toBeGreaterThanOrEqual(2); });
   for (const file of configs) {
     it(`${file.slice(root.length)} Firefox projesi, kanalı veya motoru tanımlamaz`, () => {
       const source = readFileSync(file, 'utf8');
@@ -24,6 +24,31 @@ describe('tarayıcı test matrisi', () => {
       expect(readFileSync(file, 'utf8')).not.toMatch(/firefox/i);
     });
   }
+});
+
+// Yönetim kapısı (playwright.admin.config.ts): Chrome/Safari ailesi, yalnız admin- önekli spec'ler, Firefox yok.
+// Kaynağa bakıp ihlal listesi döndürür; boş liste = kapı geçer.
+function adminGate(source: string): string[] {
+  const violations: string[] = [];
+  if (/firefox/i.test(source)) violations.push('firefox var');
+  if (!/Desktop Chrome/.test(source)) violations.push('Desktop Chrome yok');
+  if (!/Desktop Safari/.test(source)) violations.push('Desktop Safari yok');
+  if (!/testMatch\s*:\s*\/admin-/.test(source)) violations.push('testMatch admin- değil');
+  return violations;
+}
+
+describe('yönetim tarayıcı kapısı', () => {
+  it('playwright.admin.config.ts Desktop Chrome + Desktop Safari ile yalnız admin- spec koşar, Firefox yok', () => {
+    expect(adminGate(readFileSync(join(root, 'playwright.admin.config.ts'), 'utf8'))).toEqual([]);
+  });
+  it('kapı Firefox içeren, Safari eksik veya admin- dışı testMatch kullanan konfigürasyonu reddeder', () => {
+    const base = "testMatch:/admin-.*\\.spec\\.ts$/,projects:[{use:{...devices['Desktop Chrome']}},{use:{...devices['Desktop Safari']}}]";
+    expect(adminGate(base)).toEqual([]);
+    expect(adminGate(base.replace('Desktop Safari', 'Desktop Firefox'))).toEqual(['firefox var', 'Desktop Safari yok']);
+    expect(adminGate(base.replace("{use:{...devices['Desktop Chrome']}},", ''))).toEqual(['Desktop Chrome yok']);
+    expect(adminGate(base.replace('/admin-.*', '/.*'))).toEqual(['testMatch admin- değil']);
+    expect(adminGate(base.replace('testMatch:/admin-.*\\.spec\\.ts$/,', ''))).toEqual(['testMatch admin- değil']);
+  });
 });
 
 // Pages yayını (deploy.yml, main): planner kayıt yolculuğu (flows, budget) ve senkron/önbellek regresyonları aynı hedefli

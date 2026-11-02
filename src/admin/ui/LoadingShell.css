@@ -1,0 +1,119 @@
+/* LoadingShell — tasarım Loading: aynı yerleşimde iskelet + üstte tek ince şerit.
+   Renk, köşe, boşluk, süre ve eğri yalnız --aile-* token'larından gelir (.aile-admin kökü; admin.css :root yedekleri).
+   Satır ızgarası tasarım ListRow'u ile aynıdır (fotograf-liste · esnek · tutar · tutar · ok). Token'da karşılığı
+   olmayan referans ölçüleri (bundle.css .ai-row / .ai-skel / .ai-progress) burada, tek yerde, adlı özellik olarak durur. */
+.aile-loading {
+  --aile-loading-tutar-sutun: 128px;
+  --aile-loading-ok-sutun: 20px;
+  --aile-loading-blok: 16px;
+  --aile-loading-blok-aralik: 2px;
+  --aile-loading-etiket-genislik: 96px;
+  --aile-loading-etiket-yukseklik: 28px;
+  --aile-loading-serit-kalinlik: 3px;
+  --aile-loading-serit-kose: 2px;
+  --aile-loading-serit-parca: 32%;
+  --aile-loading-serit-parca-duragan: 40%;
+  /* Döngü süresi: tek eğri, tasarım referansı 1200 ms = 5 × sure-hareket. */
+  --aile-loading-sure: calc(var(--aile-sure) * 5);
+  display: block;
+  min-width: 0;
+}
+
+/* Ekran okuyucu etiketi: görünmez ama duyurulur. */
+.aile-loading-etiket {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Üstte tek ince şerit; belirsiz ilerleme, rakam yok. */
+.aile-loading-serit {
+  position: relative;
+  height: var(--aile-loading-serit-kalinlik);
+  overflow: hidden;
+  border-radius: var(--aile-loading-serit-kose);
+  background: var(--aile-liste-zemin);
+  margin-bottom: var(--aile-bosluk-3);
+}
+.aile-loading-serit > span {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: var(--aile-loading-serit-parca);
+  background: var(--aile-eylem);
+  animation: aile-loading-ilerle var(--aile-loading-sure) var(--aile-egri) infinite;
+}
+@keyframes aile-loading-ilerle {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(320%); }
+}
+
+/* İskelet listesi: liste ile aynı tek yuzey alanı; kenar yalnız cizgi ayırıcı. */
+.aile-loading-liste {
+  background: var(--aile-yuzey);
+  border: 1px solid var(--aile-cizgi);
+  border-radius: var(--aile-kose-kart);
+  overflow: hidden;
+}
+.aile-loading-satir {
+  display: grid;
+  grid-template-columns: var(--aile-fotograf-liste) minmax(0, 1fr) var(--aile-loading-tutar-sutun) var(--aile-loading-tutar-sutun) var(--aile-loading-ok-sutun);
+  gap: var(--aile-bosluk-4);
+  align-items: center;
+  padding: var(--aile-bosluk-3) var(--aile-bosluk-4);
+  border-bottom: 1px solid var(--aile-cizgi);
+}
+.aile-loading-satir:last-child { border-bottom: 0; }
+.aile-loading-satir--dar {
+  grid-template-columns: var(--aile-fotograf-liste) minmax(0, 1fr);
+  gap: var(--aile-bosluk-3);
+  align-items: start;
+}
+.aile-loading-ana {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-loading-blok-aralik);
+  min-width: 0;
+}
+
+/* İskelet blokları: nötr liste-zemin, kontrol köşesi; fotoğraf yuvası gerçek ölçüde (56 px). */
+.aile-loading-blok,
+.aile-loading-foto {
+  display: block;
+  height: var(--aile-loading-blok);
+  border-radius: var(--aile-kose-kontrol);
+  background: var(--aile-liste-zemin);
+}
+.aile-loading-foto {
+  width: var(--aile-fotograf-liste);
+  height: var(--aile-fotograf-liste);
+}
+.aile-loading-blok--baslik { width: 55%; }
+.aile-loading-blok--kimlik { width: 35%; margin-top: var(--aile-bosluk-2); }
+.aile-loading-blok--baslik-dar { width: 80%; }
+.aile-loading-blok--kimlik-dar { width: 50%; margin-top: var(--aile-bosluk-2); }
+.aile-loading-blok--etiket {
+  width: var(--aile-loading-etiket-genislik);
+  height: var(--aile-loading-etiket-yukseklik);
+  margin-top: var(--aile-bosluk-2);
+}
+.aile-loading-ok { display: block; width: var(--aile-loading-ok-sutun); }
+
+/* Hareket azaltma: şerit döngüsü durur, parça durağan ve biraz daha geniş kalır. */
+@media (prefers-reduced-motion: reduce) {
+  .aile-loading-serit > span {
+    animation: none;
+    width: var(--aile-loading-serit-parca-duragan);
+  }
+}
+
+/* Zorunlu renkler: arka planlar kaldırıldığı için şerit ve bloklar sistem rengiyle ayrışır. */
+@media (forced-colors: active) {
+  .aile-loading-serit > span { background: CanvasText; }
+  .aile-loading-blok,
+  .aile-loading-foto { border: 1px solid GrayText; }
+}

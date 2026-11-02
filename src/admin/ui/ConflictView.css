@@ -1,0 +1,128 @@
+/* ConflictView — tasarım › components/ConflictView, bundle.css › .ai-conflict / .ai-cf-*. Değerler yalnız --aile-*
+   tokenlarından (src/design/tokens.ts; admin.css :root yedekleri). Referansın sütun ve alan kartları yerine tek yuzey
+   alanı: dış kenar cizgi, içeride yalnız cizgi ayırıcı (kart/kenarlık yağmuru yok, renkli şerit yok). Odak çizgisini
+   düğmeler kendisi taşır (admin.css ::after); burada outline/box-shadow yok. Hareket yok: bileşen durağandır. */
+.aile-cf {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-3);
+  min-width: 0;
+}
+
+/* Özet "N alan farklı · M alan aynı": küçük metin (14/20, alt sınır), ikincil renk. */
+.aile-cf-ozet {
+  margin: 0;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--aile-metin-ikincil);
+}
+
+/* Geniş: iki eşit sütun, tek yuzey alanı; sütunlar arasında cizgi ayırıcı. */
+.aile-cf-yanyana {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  background: var(--aile-yuzey);
+  border: 1px solid var(--aile-cizgi);
+  border-radius: var(--aile-kose-kart);
+}
+.aile-cf-sutun {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-3);
+  min-width: 0;
+  padding: var(--aile-bosluk-4);
+}
+.aile-cf-sutun + .aile-cf-sutun { border-inline-start: 1px solid var(--aile-cizgi); }
+
+/* Sürüm adı: satır başlığı ağırlığı (govde-kalin), kesilmez, kelimeler arasından sarılır. */
+.aile-cf-surum {
+  margin: 0;
+  font-weight: 600;
+  color: var(--aile-metin);
+}
+
+/* Alanlar: etiket | değer ızgarası; etiket kelime ortasından bölünmez. */
+.aile-cf-alanlar,
+.aile-cf-cift {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+  gap: var(--aile-bosluk-1) var(--aile-bosluk-4);
+  margin: 0;
+}
+.aile-cf-etiket {
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--aile-metin-ikincil);
+  word-break: keep-all;
+  overflow-wrap: normal;
+}
+.aile-cf-deger {
+  margin: 0;
+  min-width: 0;
+  color: var(--aile-metin);
+  overflow-wrap: anywhere;
+}
+/* Farklı alan: uyari-yuzey dolgu + uyari metin, 600 ağırlık; köşe kontrol köşesinin yarısı (onay kutusu gibi).
+   Renk tek işaret değildir: değerin önünde gizli "Farklı: " metni, üstte özet sayısı. */
+.aile-cf-deger[data-fark='true'] {
+  justify-self: start;
+  padding: 0 var(--aile-bosluk-1);
+  border-radius: calc(var(--aile-kose-kontrol) / 2);
+  background: var(--aile-uyari-yuzey);
+  color: var(--aile-uyari);
+  font-weight: 600;
+}
+/* Eksik değer adıyla yazılır ("Henüz yok"); farklı değilse ikincil renk. */
+.aile-cf-deger[data-yok='true']:not([data-fark='true']) { color: var(--aile-metin-ikincil); }
+
+/* Yalnız ekran okuyucuya: görsel olarak gizli metin. */
+.aile-cf-gizli {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Karar düğmesi sütunun altında; sütunlar eşit yükseklikte olduğundan iki düğme aynı hizada durur. */
+.aile-cf-eylem {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--aile-bosluk-3);
+  margin-top: auto;
+}
+
+/* Telefon: yalnız farklı alanlar, tek yuzey listesi; alanlar arasında cizgi ayırıcı. */
+.aile-cf-liste {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  background: var(--aile-yuzey);
+  border: 1px solid var(--aile-cizgi);
+  border-radius: var(--aile-kose-kart);
+}
+.aile-cf-liste:empty { display: none; }
+.aile-cf-alan {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-2);
+  padding: var(--aile-bosluk-3) var(--aile-bosluk-4);
+}
+.aile-cf-alan + .aile-cf-alan { border-top: 1px solid var(--aile-cizgi); }
+.aile-cf-alan-adi {
+  margin: 0;
+  font-weight: 600;
+  color: var(--aile-metin);
+}
+
+/* Telefon kararları: tam genişlik, alt alta, birincil üstte (DOM sırası görsel sırayla aynı). */
+.aile-cf-eylem--dar {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--aile-bosluk-4);
+  margin-top: var(--aile-bosluk-1);
+}
+.aile-cf-eylem--dar > * { width: 100%; }

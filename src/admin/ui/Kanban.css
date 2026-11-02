@@ -1,0 +1,183 @@
+/* aile Kanban — tasarım components/Kanban/README.md + bundle.css .ai-kanban / .ai-kcol / .ai-kcard.
+   Renk, boşluk, köşe ve hareket --aile-* değişkenlerinden (tek kaynak src/design/tokens.ts). Sütun genişlikleri
+   tasarım envanterinden: geniş 248 px, telefon 264 px (scroll-snap). Tipografi admin.css ölçeği; alt sınır 14 px.
+   Sütun zemini liste-zemin, kart yuzey: yüzey tonu ayırır, kartın çevresinde kenarlık yok (kenar yağmuru yok);
+   tek cizgi yalnız tutar bloğunu üstteki kimlikten ayırır. Odak çizgisini admin.css çizer
+   ([data-focus-line]:focus-visible::after); burada outline/halka/box-shadow yok. */
+
+.aile-kanban {
+  --aile-kanban-sutun: 248px;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: var(--aile-kanban-sutun);
+  align-items: start;
+  gap: var(--aile-bosluk-4);
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: var(--aile-bosluk-3);
+  min-width: 0;
+}
+
+/* Telefon: 264 px sütun, her sütun kaydırma durağı; dış boşluğa taşıp kenardan kenara kayar (sayfa kaymaz). */
+.aile-kanban--dar {
+  --aile-kanban-sutun: 264px;
+  scroll-snap-type: x mandatory;
+  margin: 0 calc(-1 * var(--aile-bosluk-4));
+  padding-left: var(--aile-bosluk-4);
+  padding-right: var(--aile-bosluk-4);
+  scroll-padding-left: var(--aile-bosluk-4);
+}
+.aile-kanban--dar > .aile-kanban-sutun {
+  scroll-snap-align: start;
+}
+
+/* Sütun: liste-zemin yüzeyi, kart köşesi. */
+.aile-kanban-sutun {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-3);
+  min-width: 0;
+  padding: var(--aile-bosluk-3);
+  border-radius: var(--aile-kose-kart);
+  background: var(--aile-liste-zemin);
+}
+.aile-kanban-sutun-baslik {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-1);
+  padding: 0 var(--aile-bosluk-1) var(--aile-bosluk-1);
+}
+.aile-kanban .aile-kanban-sutun-ad {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--aile-bosluk-2);
+  margin: 0;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+}
+.aile-kanban-sutun-sayi {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--aile-metin);
+  white-space: nowrap;
+}
+.aile-kanban-sutun-toplam {
+  font-size: 14px;
+  line-height: 20px;
+  font-variant-numeric: tabular-nums;
+  color: var(--aile-metin);
+}
+.aile-kanban-bos {
+  margin: 0;
+  padding: var(--aile-bosluk-4) var(--aile-bosluk-1);
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--aile-metin);
+}
+
+.aile-kanban-kartlar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Kart: yerel düğme, yuzey; hover bilgi-yuzey; basılı ve seçili secili (+600). 44 px hedef. */
+.aile-kanban-kart {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-3);
+  width: 100%;
+  min-height: var(--aile-hedef-asgari);
+  padding: var(--aile-bosluk-3);
+  border: 0;
+  border-radius: var(--aile-kose-kontrol);
+  background: var(--aile-yuzey);
+  color: var(--aile-metin);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--aile-sure) var(--aile-egri);
+}
+.aile-kanban-kart:hover { background: var(--aile-bilgi-yuzey); }
+.aile-kanban-kart:active,
+.aile-kanban-kart[aria-current='true'] { background: var(--aile-secili); }
+.aile-kanban-kart[aria-current='true'] .aile-kanban-kart-ad { font-weight: 600; }
+.aile-kanban-kart[aria-current='true'] .aile-kanban-kart-meta,
+.aile-kanban-kart[aria-current='true'] .aile-kanban-kart-fotoyok,
+.aile-kanban-kart[aria-current='true'] .aile-kanban-tutar-etiket,
+.aile-kanban-kart[aria-current='true'] .aile-kanban-eksik,
+.aile-kanban-kart[aria-current='true'] .aile-kanban-foto--yok { color: var(--aile-metin); }
+
+.aile-kanban-kart-ust {
+  display: grid;
+  grid-template-columns: var(--aile-fotograf-liste) minmax(0, 1fr);
+  gap: var(--aile-bosluk-3);
+  align-items: start;
+}
+.aile-kanban-foto {
+  display: block;
+  width: var(--aile-fotograf-liste);
+  height: var(--aile-fotograf-liste);
+  border-radius: var(--aile-kose-kontrol);
+  object-fit: cover;
+  flex: none;
+}
+.aile-kanban-foto--yok {
+  display: grid;
+  place-items: center;
+  background: var(--aile-liste-zemin);
+  color: var(--aile-metin-ikincil);
+}
+.aile-kanban-kart-ana {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-1);
+  min-width: 0;
+}
+.aile-kanban-kart-ad { font-weight: 600; overflow-wrap: anywhere; }
+.aile-kanban-kart-meta,
+.aile-kanban-kart-fotoyok {
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--aile-metin-ikincil);
+}
+
+/* Planlanan ve Gerçekleşen yan yana, ayrı; tek cizgi kimlikten ayırır. Tutar tabular-nums, 500; eksik bilgi ikincil. */
+.aile-kanban-kart-tutarlar {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--aile-bosluk-3);
+  padding-top: var(--aile-bosluk-2);
+  border-top: 1px solid var(--aile-cizgi);
+}
+.aile-kanban-tutar { display: flex; flex-direction: column; min-width: 0; }
+.aile-kanban-tutar-etiket {
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--aile-metin-ikincil);
+}
+.aile-kanban-tutar-deger {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.aile-kanban-eksik { color: var(--aile-metin-ikincil); }
+
+.aile-kanban-kart-etiketler {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--aile-bosluk-2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aile-kanban-kart { transition-duration: 0s; }
+}

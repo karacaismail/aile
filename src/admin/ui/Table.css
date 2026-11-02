@@ -1,0 +1,47 @@
+/* aile Table — antd Table üstünde. Kaynak: tasarim-sistemi/components/Table/README.md.
+   Renk ve boşluk --aile-* değişkenlerinden (tek kaynak src/design/tokens.ts); zemin, hover, seçili yüzey ve çizgi
+   renkleri antd tema token'larından gelir (antdTheme.ts › Table). Tipografi admin.css ölçeğindedir: başlık 14/20, 600;
+   alt sınır 14 px. Odak çizgisini admin.css çizer (tr:focus-visible::after); burada outline/halka yok.
+   Seçiciler antd'nin kendi kurallarından (iki sınıf + iki eleman) daha özgül tutulur; antd iç sınıfı kullanılmaz. */
+
+/* Caption tabloyu adlandırır, görsel gizli. */
+.aile-table caption {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Başlık: 14/600, kelime ortasından bölünmez; sütun en küçük genişliği hücrenin inline min-width'i ile korunur. */
+.aile-table thead > tr > th.aile-table-baslik {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  vertical-align: bottom;
+  word-break: keep-all;
+  overflow-wrap: normal;
+  hyphens: manual;
+}
+
+.aile-table tbody > tr > td.aile-table-hucre {
+  vertical-align: middle;
+  overflow-wrap: normal;
+}
+
+/* Satır yalnız açılabiliyorsa işaretçi değişir (tabindex yalnız onRowClick varken). */
+.aile-table tbody > tr.aile-table-satir[tabindex] {
+  cursor: pointer;
+}
+
+/* Seçim = secili yüzey (antd rowSelectedBg) + 600 ağırlık; ikincil metin seçili satırda ana renge döner. */
+.aile-table tbody > tr[aria-selected='true'] > td.aile-table-hucre {
+  font-weight: 600;
+}
+.aile-table tbody > tr[aria-selected='true'] > td.aile-table-hucre .aile-ikincil {
+  color: var(--aile-metin);
+}

@@ -1,0 +1,87 @@
+/* Alttan açılan sayfa (ui/BottomSheet.tsx) — antd Drawer placement="bottom" üstüne tasarım kuralları
+   (bundle.css › .ai-sheet). Yalnız --aile tokenları (admin.css :root yedekleri portal katmanına da ulaşır).
+   Kök .aile-sheet; parçalar antd semantik classNames ile adlandırılır. Odak çizgisini admin.css çizer
+   (.ant-drawer kapsamı); burada outline/box-shadow odak için kullanılmaz. */
+
+/* Sarmal: yükseklik içeriğe göre (style height auto), en çok ekranın %85'i; flex sütun ki yüzey sığmayınca
+   küçülsün ve gövde kendi içinde kaysın. Gölge yalnız burada. dvh: mobil tarayıcı araç çubukları hesaba katılır. */
+.aile-sheet .aile-sheet-sarmal {
+  display: flex;
+  flex-direction: column;
+  max-height: 85vh;
+  max-height: 85dvh;
+  box-shadow: var(--aile-golge-yukseltilmis);
+}
+.aile-sheet--full .aile-sheet-sarmal { max-height: none; }
+
+/* Yüzey: yuzey zemin, üst köşeler kose-panel, alt güvenli alan korunur. */
+.aile-sheet .aile-sheet-yuzey {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--aile-yuzey);
+  color: var(--aile-metin);
+  font-family: var(--aile-font-sans);
+  border-radius: var(--aile-kose-panel) var(--aile-kose-panel) 0 0;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  overflow: hidden;
+}
+.aile-sheet--full .aile-sheet-yuzey {
+  border-radius: 0;
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* Başlık: tutamaç üstte ortada (süsleyici), altında h2 + Kapat; tek cizgi ayırıcı. Üst boşluk tutamaca yer açar. */
+.aile-sheet .aile-sheet-ust {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--aile-bosluk-3);
+  padding: var(--aile-bosluk-4) var(--aile-bosluk-2) var(--aile-bosluk-1) var(--aile-bosluk-4);
+  border-bottom: 1px solid var(--aile-cizgi);
+}
+/* Tutamaç: 40 × 4 px (referans .ai-sheet-grip; genişliğin tokenı yok), acik-mavi. */
+.aile-sheet .aile-sheet-tutamac {
+  position: absolute;
+  top: var(--aile-bosluk-2);
+  left: 50%;
+  width: 40px;
+  height: var(--aile-bosluk-1);
+  transform: translateX(-50%);
+  border-radius: 2px;
+  background: var(--aile-acik-mavi);
+  pointer-events: none;
+}
+/* h2 başlık h3 ölçüsünde (18/26, 600); kesilmez, kelimeler arasından sarılır. */
+.aile-sheet .aile-sheet-baslik {
+  margin: 0;
+  font-size: 18px;
+  line-height: 26px;
+  font-weight: 600;
+  color: inherit;
+  white-space: normal;
+  overflow-wrap: normal;
+  word-break: keep-all;
+}
+.aile-sheet .aile-sheet-kapat { flex: none; }
+
+/* Gövde kendi içinde kayar; iç yerleşim sütun, satırlar arası bosluk-3 (referans). */
+.aile-sheet .aile-sheet-govde {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-3);
+  padding: var(--aile-bosluk-3) var(--aile-bosluk-4);
+}
+
+/* Altlık: üstte tek cizgi; içindeki FormFooter kendi üst çizgisini ve boşluğunu bırakır (referans .ai-sheet-foot .ai-ff). */
+.aile-sheet .aile-sheet-altlik {
+  flex-shrink: 0;
+  padding: var(--aile-bosluk-3) var(--aile-bosluk-4) var(--aile-bosluk-4);
+  border-top: 1px solid var(--aile-cizgi);
+  background: var(--aile-yuzey);
+}
+.aile-sheet .aile-sheet-altlik .aile-ff { border-top: 0; padding-top: 0; }

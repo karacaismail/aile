@@ -1,0 +1,7 @@
+/* Ödemeler sayfası: yalnız yerleşim ve aralık; renk/ölçü --aile tokenları. Kart ya da kenarlık yok (README: liste ve
+   tablo tek yuzey alanı, başlık ve not zeminde çerçevesiz). */
+.aile-odemeler { display: flex; flex-direction: column; gap: var(--aile-bosluk-16); min-width: 0; }
+.aile-odemeler-not { margin: 0; max-width: 72ch; }
+.aile-odemeler-sayim { margin: 0 0 var(--aile-bosluk-8); font-weight: 600; }
+.aile-odemeler-ad { display: block; font-weight: 600; }
+.aile-odemeler .aile-rtable[data-layout="table"] .aile-table-hucre .aile-kucuk { display: block; }

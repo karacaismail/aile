@@ -1,0 +1,225 @@
+/* AccordionList — tasarım › components/AccordionList (bundle.css › Akordeon liste), tokenlar --aile-* (src/design/tokens.ts).
+   Liste tek yuzey alanıdır: kose-kart köşe, 1 px cizgi çerçeve; satırlar yalnız cizgi ayırıcıyla ayrılır. Renkli kenar
+   şeridi yok: açık satır bilgi-yuzey tonu + eylem dolgulu ok kutusuyla, seçili satır secili yüzey + 600 ile anlatılır.
+   Hareket tek süre ve tek eğri; reduced-motion'da anlık. Odak: çevreleyen halka ve gölge yok; satır başlığı
+   düğmesinde çizgi etiket metninin altındadır (README › Odak, bundle .ai-ul), aşağıda. */
+.aile-acc {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-3);
+  min-width: 0;
+}
+
+/* Üst satır: sayım + ipucu solda, "Tümünü aç / kapat" sağda; dar ekranda alt satıra sarar. */
+.aile-acc-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--aile-bosluk-2);
+  min-height: var(--aile-hedef-asgari);
+}
+.aile-acc-bar-metin { margin: 0; }
+
+.aile-acc-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-2);
+  min-width: 0;
+}
+/* Grup başlığı gövde ölçüsünde (16/24, 600); admin.css'in h3 kuralını özgüllükle geçer. */
+.aile-acc-group .aile-acc-gtitle {
+  display: flex;
+  align-items: baseline;
+  gap: var(--aile-bosluk-2);
+  margin: 0;
+  font-size: inherit;
+  line-height: inherit;
+  font-weight: 600;
+  overflow-wrap: normal;
+  word-break: keep-all;
+}
+.aile-acc-gcount {
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  color: var(--aile-metin-ikincil);
+}
+
+.aile-acc-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: var(--aile-yuzey);
+  border: 1px solid var(--aile-cizgi);
+  border-radius: var(--aile-kose-kart);
+  overflow: hidden;
+}
+.aile-acc-item + .aile-acc-item { border-top: 1px solid var(--aile-cizgi); }
+
+/* Satır başlığı: tamamı düğme; 64 px asgari yükseklik (2 × bosluk-8), 3 sütun: içerik · lead · 32 px ok kutusu. */
+.aile-acc-head {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto var(--aile-bosluk-8);
+  gap: var(--aile-bosluk-3);
+  align-items: center;
+  width: 100%;
+  min-height: max(var(--aile-hedef-asgari), calc(2 * var(--aile-bosluk-8)));
+  padding: var(--aile-bosluk-3) var(--aile-bosluk-4);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--aile-sure) var(--aile-egri);
+}
+div.aile-acc-head--flat { cursor: default; }
+button.aile-acc-head:hover { background: var(--aile-bilgi-yuzey); }
+button.aile-acc-head:active { background: var(--aile-secili); }
+
+.aile-acc-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-1);
+  min-width: 0;
+}
+/* Başlık kesilmez; kelime arasından sarılır. */
+.aile-acc-title {
+  font-weight: 600;
+  overflow-wrap: normal;
+  word-break: keep-all;
+}
+.aile-acc-ul { position: relative; }
+.aile-acc-meta { color: var(--aile-metin-ikincil); }
+.aile-acc-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--aile-bosluk-2);
+}
+.aile-acc-end {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--aile-bosluk-1);
+  text-align: right;
+}
+.aile-acc-lead {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Ok kutusu: 32 px (bosluk-8), kenar-kontrol çerçeve, eylem renkli ok; hover'da bilgi-yuzey. Süsleyicidir; durum
+   düğmenin aria-expanded'ındadır. */
+.aile-acc-tog {
+  display: grid;
+  place-items: center;
+  width: var(--aile-bosluk-8);
+  height: var(--aile-bosluk-8);
+  border: 1px solid var(--aile-kenar-kontrol);
+  border-radius: var(--aile-kose-kontrol);
+  background: var(--aile-yuzey);
+  color: var(--aile-eylem);
+  transition:
+    background-color var(--aile-sure) var(--aile-egri),
+    border-color var(--aile-sure) var(--aile-egri),
+    color var(--aile-sure) var(--aile-egri);
+}
+.aile-acc-chev { transition: transform var(--aile-sure) var(--aile-egri); }
+.aile-acc-chev-flat {
+  justify-self: center;
+  color: var(--aile-metin-ikincil);
+}
+button.aile-acc-head:hover .aile-acc-tog { background: var(--aile-bilgi-yuzey); }
+
+/* Açık satır: başlık ve gövde bilgi-yuzey, ok kutusu eylem dolgu + yuzey ok, ok 180° döner. */
+.aile-acc-item[data-open='true'] > .aile-acc-head { background: var(--aile-bilgi-yuzey); }
+.aile-acc-item[data-open='true'] > .aile-acc-head .aile-acc-tog {
+  background: var(--aile-eylem);
+  border-color: var(--aile-eylem);
+  color: var(--aile-yuzey);
+}
+.aile-acc-item[data-open='true'] > .aile-acc-head .aile-acc-chev { transform: rotate(180deg); }
+.aile-acc-item[data-open='true'] > .aile-acc-panel { background: var(--aile-bilgi-yuzey); }
+.aile-acc-item[data-open='true'] .aile-acc-dl { border-top-color: var(--aile-acik-mavi); }
+
+/* Seçili satır: secili yüzey + 600 (başlık zaten 600); secili üzerinde metin-ikincil 4,0:1'de kalır, metin olur.
+   Açık ve seçili birlikteyse seçim yüzeyi kalır (bundle .is-selected.is-open). */
+.aile-acc-item[data-selected='true'] > .aile-acc-head,
+.aile-acc-item[data-selected='true'][data-open='true'] > .aile-acc-head { background: var(--aile-secili); }
+.aile-acc-item[data-selected='true'] > .aile-acc-head .aile-acc-meta,
+.aile-acc-item[data-selected='true'] > .aile-acc-head .aile-acc-chev-flat { color: var(--aile-metin); }
+
+/* Gövde: grid satırı 0fr → 1fr ile yükseklik geçişi (Disclosure ile aynı). React kapalıyken hidden+inert verir;
+   display geçişi allow-discrete ile kapanış süresince kutuyu tutar, @starting-style açılışı 0fr'dan başlatır. */
+.aile-acc-panel {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition-property: grid-template-rows, display, background-color;
+  transition-duration: var(--aile-sure);
+  transition-timing-function: var(--aile-egri);
+  transition-behavior: allow-discrete;
+}
+.aile-acc-panel[hidden] {
+  display: none;
+  grid-template-rows: 0fr;
+}
+@starting-style {
+  .aile-acc-panel:not([hidden]) { grid-template-rows: 0fr; }
+}
+.aile-acc-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+.aile-acc-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--aile-bosluk-3);
+  padding: 0 var(--aile-bosluk-4) var(--aile-bosluk-4);
+}
+/* Etiket–değer listesi: etiket sütunu en az 96 px (3 × bosluk-8), değer kalan alan; üstte 1 px ayırıcı. */
+.aile-acc-dl {
+  display: grid;
+  grid-template-columns: minmax(calc(3 * var(--aile-bosluk-8)), auto) minmax(0, 1fr);
+  gap: var(--aile-bosluk-2) var(--aile-bosluk-4);
+  align-items: baseline;
+  width: 100%;
+  margin: 0;
+  padding-top: var(--aile-bosluk-3);
+  border-top: 1px solid var(--aile-cizgi);
+  transition: border-color var(--aile-sure) var(--aile-egri);
+}
+.aile-acc-dl > div { display: contents; }
+.aile-acc-dl dt {
+  color: var(--aile-metin-ikincil);
+  overflow-wrap: normal;
+  word-break: keep-all;
+}
+.aile-acc-dl dd {
+  margin: 0;
+  min-width: 0;
+}
+
+/* ODAK — satır başlığı düğmesinde tek 3 px çizgi başlık metninin altında (odak-aralik kadar aşağıda, metin
+   genişliğinde). admin.css'in [data-focus-line] çizgisi kontrolün dışına düşer; tam genişlik satırda komşu satıra
+   taşacağı ve son satırda radiuslu liste kenarına yaslanacağı için burada kullanılmaz. Yalnız klavye modunda
+   (html[data-keyboard='true']) ve :focus-visible ile görünür; çevreleyen halka yok (admin.css tarayıcı odağını kapatır). */
+.aile-acc-ul::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(-1 * var(--aile-odak-aralik));
+  height: var(--aile-odak-kalinlik);
+  background: var(--aile-odak);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--aile-sure) var(--aile-egri);
+}
+html[data-keyboard='true'] button.aile-acc-head:focus-visible .aile-acc-ul::after { opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .aile-acc-head, .aile-acc-tog, .aile-acc-chev, .aile-acc-panel, .aile-acc-dl, .aile-acc-ul::after { transition-duration: 0s; }
+}
