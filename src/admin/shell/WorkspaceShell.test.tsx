@@ -530,6 +530,21 @@ describe('WorkspaceShell · stil sözleşmesi (kaynak)', () => {
     expect(block(source, '.aile-admin .aile-admin-main') ?? '').not.toMatch(/scroll-margin/);
   });
 
+  // Skip link'in odak çizgisi (admin.css, bağlantının odak-aralik altında) açık zeminde kalır (--aile-odak ≥ 3:1). Lacivert
+  // üzerinde --aile-odak 1,96:1'dir (admin-focus.spec: çizgi rgb(50,107,148), zemin rgb(27,62,85)). Üst çubuk düzeninde
+  // bağlantının alt kenarı ölçülen çubuğun alt kenarına oturur (ad sarılıp çubuk uzasa, güvenli alan eklense, işaretçi ince
+  // olsa da çizgi çubuğun altında); yan gezinme düzeninde içerik sütununun ızgara alanındadır, 272 px lacivert yan
+  // gezinmenin üstünde değil.
+  it('the skip link focus line falls on the light surface: link bottom on the measured top bar bottom, in the content column beside the side navigation', () => {
+    const source = css('shell.css');
+    const skip = block(source, '.aile-admin .aile-admin-shell > .aile-admin-skip') ?? '';
+    expect(skip).toMatch(/inset-block-start:\s*calc\(var\(--aile-shell-ust-olcu,\s*calc\(var\(--aile-shell-ust-bar\) \+ var\(--aile-safe-top\)\)\) - var\(--aile-dokunma-hedefi\)\);/);
+    expect(skip).toMatch(/min-height:\s*var\(--aile-dokunma-hedefi\);/);
+    const side = block(source, ".aile-admin .aile-admin-shell[data-gezinme='yan'] > .aile-admin-skip") ?? '';
+    expect(side).toMatch(/grid-column:\s*2;/);
+    expect(side).toMatch(/inset-block-start:\s*calc\(var\(--aile-bosluk-2\) \+ var\(--aile-safe-top\)\);/);
+  });
+
   it('touch targets come from the central --aile-dokunma-hedefi token (44, coarse 48)', () => {
     const source = css('shell.css');
     expect(block(source, '.aile-admin .aile-shell-btn')).toMatch(/min-height:\s*var\(--aile-dokunma-hedefi\)/);

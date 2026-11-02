@@ -106,6 +106,25 @@ async function sigdi(page: Page, sayfa: Locator) {
   }, { message: 'Oda seç sayfası görünüm alanına sığmalı' }).toBe(true);
 }
 
+/**
+ * Öğenin atalarında, kendisinde ya da içinde süren sonlu geçiş/animasyonlar bitene dek bekler (süre tahmini yok: tarayıcının
+ * Animation.finished sözleri). Akordeonun açık gövdesi açılırken (ilk açık satır yüklemeden hemen sonra, @starting-style
+ * 0fr → 1fr, 240 ms) iç kap overflow:hidden ile kırpar: tıklama öncesi kaydırma (scrollIntoView) sayfayı değil bu iç kabı
+ * kaydırır (WebKit), geçiş ilerledikçe kaydırma sıfıra kırpılır ve düğme ölçülen yerden aşağı kayar; dokunuş düğmeyi
+ * ıskalar (entegrasyon koşusu, webkit: tıklama y 820, düğme hareket bitince ≈ 843). Gövdedeki düğmeye hareket bitince
+ * dokunulur; kullanıcı da açılan içeriğe ancak göründükten sonra dokunur.
+ */
+async function hareketBitsin(locator: Locator) {
+  await locator.evaluate(async el => {
+    const running = document.getAnimations().filter(animation => {
+      const target = (animation.effect as KeyframeEffect | null)?.target;
+      const finite = animation.effect?.getComputedTiming().iterations !== Infinity;
+      return finite && target instanceof Element && (target.contains(el) || el.contains(target));
+    });
+    await Promise.all(running.map(animation => animation.finished.catch(() => undefined)));
+  });
+}
+
 async function temizDuzen(page: Page, adim: string) {
   expect(await horizontalOverflow(page), `${adim}: sayfa düzeyinde yatay taşma`).toEqual([]);
   expect(await smallText(page, { root: ADMIN_MAIN }), `${adim}: 14 px altı metin`).toEqual([]);
@@ -274,7 +293,9 @@ test.describe('Ev ve odalar › matris', () => {
     } else {
       const satir = odaListesi(page).getByRole('button', { name: new RegExp(`^${ORNEK.label}`) });
       if ((await satir.getAttribute('aria-expanded')) === 'false') await satir.click();
-      await odaListesi(page).locator(`#${await satir.getAttribute('aria-controls')}`).getByRole('button', { name: 'Odayı aç' }).click();
+      const odayiAc = odaListesi(page).locator(`#${await satir.getAttribute('aria-controls')}`).getByRole('button', { name: 'Odayı aç' });
+      await hareketBitsin(odayiAc);
+      await odayiAc.click();
     }
     const oda = ayrinti(page, ORNEK.label);
     await expect(oda.getByRole('heading', { level: 2, name: ORNEK.label })).toBeVisible();
@@ -370,7 +391,9 @@ test('telefon profili antd, @ant-design ve echarts paketlerini istemez', async (
   const yollar = istekKaydi(page);
   await openAdmin(page, '/ev');
   test.skip(await profil(page) !== 'phone', 'yalnız telefon profili');
-  await main(page).getByRole('button', { name: 'Odayı aç' }).first().click();
+  const odayiAc = main(page).getByRole('button', { name: 'Odayı aç' }).first();
+  await hareketBitsin(odayiAc);
+  await odayiAc.click();
   await expect(main(page).getByRole('button', { name: 'Listeye dön' })).toBeVisible();
   const yasak = yollar.filter(yol => /\/deps\/(antd|@ant-design|@rc-component|rc-[a-z-]+|echarts|zrender)[^/]*\.js$/.test(yol));
   expect(yasak, 'telefon yolunda yasak paket istekleri').toEqual([]);
