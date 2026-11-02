@@ -1,8 +1,8 @@
-import { useEffect, useId, useRef, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, type CSSProperties, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
 import { useDevice } from '../device';
 import type { DetailPanelProps as DetailPanelContract, Money as MoneyValue, StatusLabel, Tone } from '../shell/contracts';
 import { Button } from './Button';
-import { Drawer } from './Drawer';
+import { useVisualViewportInsets } from './FormFooter.viewport';
 import { Icon } from './icons';
 import { Money, formatMoney } from './Money';
 import { Select } from './Select';
@@ -10,28 +10,41 @@ import { StatusText } from './StatusText';
 import './DetailPanel.css';
 
 // Tasarım: components/DetailPanel/README.md + envanter.md (DetailPanel satırları) + bundle.js DetailPanel (ai-detail).
-// Bir kaydın ayrıntısı. Masaüstünde sağdan 384 px çekmece (Drawer; h2 = kayıt adı, görünür "Kapat", Escape ve örtü
-// kapatır, odak çekmeceye girer ve açan öğeye döner). Tablet ve telefonda tam sayfa: <section role="dialog" aria-modal>
-// kayıt adını taşıyan h2 ile adlandırılır, üstte "Listeye dön", Escape onClose. Sıra sabit (README):
-//   1 kimlik + fotoğraf  2 Plan | Gerçek (iki ayrı sütun; fark sözcükle)  3 Durum ve eylemler  4 Bağlı kayıtlar
-//   5 Kaynak ve değişiklik izi (dl).
+// Bir kaydın ayrıntısı; antd çekmecesi yok, tek yerel uygulama (telefon profili antd istemez).
+//  - Telefon ve tablet (envanter: tam sayfa): ekranı kaplayan modal katman <section role="dialog" aria-modal>. Üstte
+//    "Listeye dön" çubuğu, ortada kendi içinde kayan içerik, altta isteğe bağlı eylem altlığı (footer, genelde
+//    FormFooter). Güvenli alanlar (safe-area-inset-*) katmanın iç boşluğudur; sanal klavye açıkken katman görsel görünüm
+//    alanına sığar (FormFooter.viewport.ts), böylece altlık klavyenin üstünde kalır.
+//  - Masaüstü: sağda ayrinti-genislik (384 px) panel; başlık h2 = kayıt adı + görünür "Kapat". inline verilirse liste
+//    yanında akışta, modal değil (liste kullanılabilir kalır); verilmezse örtülü (ortu) modal katman, örtü tıklaması kapatır.
+//  - Odak: açılınca diyaloğun köküne (tabIndex -1) girer; modalda Tab/Shift+Tab katmanda döner; Escape kapatır (portallı
+//    alt katmandan ya da açık combobox'tan gelen Escape o katmanındır). Kapanınca (sökülünce) odak returnFocusTo'ya, yoksa
+//    açıldığı anda odaklı olan öğeye döner; odak bu arada panel dışında başka bir öğeye taşındıysa dokunulmaz.
+// Sıra sabit (README): 1 kimlik + fotoğraf  2 Plan | Gerçek (iki ayrı sütun; fark sözcükle)  3 Durum ve eylemler
+//   4 Bağlı kayıtlar  5 Kaynak ve değişiklik izi (dl).
 // İçerik ilkeleri: para ₺8.500,00 (ui/Money: tr-TR, iki ondalık, tabular-nums), tarih 28.10.2026, eksik bilgi adıyla
 // ("Fiyat yok", "Henüz yok", "Bilinmiyor", "Fotoğraf yok"), plan ve gerçek tek sayıda birleşmez, durum sözcükle
 // (StatusText), doğrulanmamış fotoğraf asla gösterilmez. Değişiklik izi bu dilimde props'ta yok (contracts: source);
-// uydurulmaz, yalnız kaynak satırları yazılır. Görsel kurallar DetailPanel.css (yalnız --aile tokenları).
+// uydurulmaz, yalnız kaynak satırları yazılır. Görsel kurallar DetailPanel.css (yalnız --aile tokenları). Hareket yok:
+// açılış/kapanış anlıktır (yalnız girişte oynayan geçiş yasak; sökülen katmanın çıkış yaşam döngüsü yok).
 // Sözleşme: shell/contracts.ts DetailPanelProps (row, related, source, onClose, onChangeStatus, onUndo); burada
-// yalnız isteğe bağlı eklentiler: statusOptions (Select seçenekleri), onPhotoAdd ("Fotoğraf ekle"), inline (test/önizleme).
+// yalnız isteğe bağlı eklentiler: statusOptions, onPhotoAdd, inline, footer, returnFocusTo.
 
 export interface DetailPanelProps extends DetailPanelContract {
   /** "Durumu değiştir" seçenekleri (iş akışından). onChangeStatus verilmişse ve bu boşsa düğme devre dışıdır, nedeni yazılır. */
   statusOptions?: readonly StatusLabel[];
   /** "Fotoğraf ekle" eylemi; verilmezse düğme çizilmez ("Fotoğraf yok" alanı kalır). */
   onPhotoAdd?(): void;
-  /** Geniş ekranda çekmeceyi portal yerine yerinde çizer (önizleme ve yalıtık test). */
+  /** Masaüstünde örtülü modal katman yerine liste yanında akışta (modal değil) yan panel. */
   inline?: boolean;
+  /** Eylem altlığı (genelde FormFooter); içerikten sonra panelin altında durur, içerik kayarken yerinde kalır. */
+  footer?: ReactNode;
+  /** Kapanınca odağın döneceği öğe; verilmezse açıldığı anda odaklı olan öğe (Safari'de tıklama odak taşımaz). */
+  returnFocusTo?: RefObject<HTMLElement | null>;
 }
 
 const BACK_LABEL = 'Listeye dön';
+const CLOSE_LABEL = 'Kapat';
 const PLAN_ACTUAL_LABEL = 'Plan ve gerçek';
 const NO_PRICE = 'Fiyat yok';
 const NOT_YET = 'Henüz yok';
@@ -91,25 +104,103 @@ function Fact({ term, children }: { term: string; children: ReactNode }) {
   );
 }
 
+// --- Odak ---------------------------------------------------------------------------------------------
+const TAB_STOP = [
+  'a[href]', 'area[href]', 'button:not([disabled])', 'input:not([disabled]):not([type="hidden"])', 'select:not([disabled])',
+  'textarea:not([disabled])', 'summary', 'iframe', '[contenteditable="true"]', '[tabindex]:not([tabindex="-1"])',
+].join(', ');
+
+/** Katmandaki sekme durakları (belge sırası); kapalı (hidden/inert) bölgelerin içi sayılmaz. */
+function tabStops(root: HTMLElement): HTMLElement[] {
+  return Array.from(root.querySelectorAll<HTMLElement>(TAB_STOP)).filter(element => element.tabIndex >= 0 && !element.closest('[hidden], [inert]'));
+}
+
+/** Açık açılır liste ya da menü Escape'i kendisi işler (APG combobox / menu button); ayrıntı o anda kapanmaz. */
+const ownsEscape = (target: Element) => target.closest('[role="combobox"][aria-expanded="true"], [aria-haspopup][aria-expanded="true"]') !== null;
+
+const isPageRoot = (element: Element | null) => !element || element === document.body || element === document.documentElement;
+
 // --- Bileşen ------------------------------------------------------------------------------------------
-export function DetailPanel({ row, related = [], source = [], onClose, onChangeStatus, onUndo, statusOptions = [], onPhotoAdd, inline }: DetailPanelProps) {
+export function DetailPanel({
+  row, related = [], source = [], onClose, onChangeStatus, onUndo, statusOptions = [], onPhotoAdd, inline, footer, returnFocusTo,
+}: DetailPanelProps) {
   const device = useDevice();
   const narrow = device !== 'desktop';
+  const modal = narrow || !inline;
   const id = useId();
   const headingId = `aile-detail-baslik${id}`;
   const relatedId = `aile-detail-baglar${id}`;
   const noOptionsId = `aile-detail-durum-not${id}`;
-
-  // Dar ekranda tam sayfa diyalog: açılınca odak diyaloğun başına girer (tabIndex -1), Escape kapatır.
   const root = useRef<HTMLElement>(null);
+
+  // Açan öğe: açılırken, odak içeri taşınmadan önce (layout aşaması) saklanır. Safari'de tıklama odak taşımadığından
+  // body olabilir; o zaman yalnız returnFocusTo kullanılır. StrictMode'un deneme yeniden bağlanmasında odak artık
+  // paneldedir; ilk kayıt korunur.
+  const opener = useRef<HTMLElement | null>(null);
+  useLayoutEffect(() => {
+    if (opener.current) return;
+    const active = document.activeElement;
+    opener.current = active instanceof HTMLElement && !isPageRoot(active) && !root.current?.contains(active) ? active : null;
+  }, []);
+
+  // Giriş: açılınca ve kayıt değişince odak diyaloğun köküne (içeride zaten odak varsa dokunulmaz).
   useEffect(() => {
-    if (narrow) root.current?.focus({ preventScroll: true });
-  }, [narrow, row.id]);
+    const element = root.current;
+    if (element && !element.contains(document.activeElement)) element.focus({ preventScroll: true });
+  }, [row.id]);
+
+  // Dönüş: sökülünce. Passive temizlik React'in commit sonundaki seçim geri yüklemesinden sonradır; mikro görevde
+  // yeniden bağlanma (StrictMode'un deneme sökümü) ayıklanır ve aynı commit'te sayfanın kendi odak kararı önce uygulanır.
+  // Odak panel dışında başka bir öğeye taşındıysa dokunulmaz.
+  const returnTarget = useRef(returnFocusTo);
+  returnTarget.current = returnFocusTo;
+  const mounted = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    const element = root.current;
+    return () => {
+      mounted.current = false;
+      queueMicrotask(() => {
+        if (mounted.current) return;
+        const active = document.activeElement;
+        if (!isPageRoot(active) && !(element && element.contains(active))) return;
+        const target = returnTarget.current?.current ?? opener.current;
+        if (target?.isConnected) target.focus({ preventScroll: true });
+      });
+    };
+  }, []);
+
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
-    if (event.key !== 'Escape' || event.defaultPrevented) return;
+    const element = root.current;
+    const target = event.target;
+    // Portallı alt katmanlardan (React ağacında kabarcıklanan) gelen tuşlar o katmanındır.
+    if (!element || !(target instanceof Element) || !element.contains(target)) return;
+    if (event.key === 'Escape') {
+      if (event.defaultPrevented || ownsEscape(target)) return;
+      event.preventDefault();
+      onClose();
+      return;
+    }
+    if (event.key !== 'Tab' || !modal) return;
+    const stops = tabStops(element);
+    if (stops.length === 0) {
+      event.preventDefault();
+      element.focus({ preventScroll: true });
+      return;
+    }
+    const active = document.activeElement;
+    const wrapToLast = event.shiftKey && (active === stops[0] || active === element);
+    const wrapToFirst = !event.shiftKey && active === stops[stops.length - 1];
+    if (!wrapToLast && !wrapToFirst) return;
     event.preventDefault();
-    onClose();
+    (wrapToLast ? stops[stops.length - 1] : stops[0]).focus();
   };
+
+  // Telefon katmanı görsel görünüm alanına sığar (sanal klavye açıkken altlık klavyenin üstünde kalır).
+  const insets = useVisualViewportInsets(narrow);
+  const layerStyle = narrow && (insets.top > 0 || insets.bottom > 0)
+    ? ({ '--aile-detail-ust': `${insets.top}px`, '--aile-detail-alt': `${insets.bottom}px` } as CSSProperties)
+    : undefined;
 
   // Doğrulanmamış görsel asla gösterilmez (README: başka ürünün resmi asla gösterilmez).
   const photo = row.photo && row.photo.verified ? row.photo : null;
@@ -227,14 +318,15 @@ export function DetailPanel({ row, related = [], source = [], onClose, onChangeS
   );
 
   const body = (
-    <>
+    <div className="aile-detail-govde">
       {identity}
       {planActual}
       {statusActions}
       {relatedRecords}
       {sourceTrail}
-    </>
+    </div>
   );
+  const footerNode = footer ? <div className="aile-detail-altlik">{footer}</div> : null;
 
   if (narrow) {
     return (
@@ -245,20 +337,46 @@ export function DetailPanel({ row, related = [], source = [], onClose, onChangeS
         aria-labelledby={headingId}
         tabIndex={-1}
         className="aile-detail aile-detail--dar"
+        data-device={device}
         data-record={row.id}
+        style={layerStyle}
         onKeyDown={onKeyDown}
       >
         <div className="aile-detail-bar">
           <Button variant="quiet" icon="back" onClick={onClose}>{BACK_LABEL}</Button>
         </div>
         {body}
+        {footerNode}
       </section>
     );
   }
 
-  return (
-    <Drawer title={row.label} onClose={onClose} inline={inline} className="aile-detail aile-detail--genis">
+  const panel = (
+    <section
+      ref={root}
+      role="dialog"
+      aria-modal={modal ? 'true' : undefined}
+      aria-labelledby={headingId}
+      tabIndex={-1}
+      className={['aile-detail', 'aile-detail--genis', inline && 'aile-detail--yerinde'].filter(Boolean).join(' ')}
+      data-record={row.id}
+      onKeyDown={onKeyDown}
+    >
+      <div className="aile-detail-ust">
+        <h2 id={headingId} className="aile-detail-ust-baslik">{row.label}</h2>
+        <Button variant="quiet" icon="close" onClick={onClose}>{CLOSE_LABEL}</Button>
+      </div>
       {body}
-    </Drawer>
+      {footerNode}
+    </section>
+  );
+  if (inline) return panel;
+  // Örtülü katman: örtü süsleyicidir (aria-hidden); kapatmanın erişilebilir yolları "Kapat" ve Escape. Kapanış tamamlanan
+  // tıklamadadır (pointercancel ile kaydırmaya dönen dokunma kapatmaz).
+  return (
+    <div className="aile-detail-katman">
+      <div className="aile-detail-ortu" aria-hidden="true" onClick={onClose} />
+      {panel}
+    </div>
   );
 }

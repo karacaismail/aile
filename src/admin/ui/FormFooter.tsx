@@ -1,10 +1,13 @@
-import { useId } from 'react';
+import { useId, useRef, type CSSProperties } from 'react';
 import { Button } from './Button';
+import { useKeyboardOverlap } from './FormFooter.viewport';
 import './FormFooter.css';
 
 // Tasarım › components/FormFooter: formun altındaki durum metni ve eylemleri.
 // Geniş: durum solda, eylemler sağda (ikincil, birincil). Dar: tam genişlik, birincil üstte — DOM sırası da
 // görsel sırayla aynıdır (column-reverse yok; odak sırası okuma sırasına eşit). Telefonda yapışkan (safe area dahil).
+// Sanal klavye: yapışkan altlık görsel görünüm alanının altına yapışır (FormFooter.viewport.ts ölçer, --aile-ff-klavye
+// ve data-klavye ile uygulanır); klavye açıkken güvenli alan payı klavyenin altında kaldığından düşer.
 
 export type FormFooterTone = 'uyari' | 'hata';
 
@@ -38,6 +41,9 @@ export function FormFooter({ primaryLabel, secondaryLabel, onPrimary, onSecondar
   const isSticky = sticky ?? narrow;
   const text = statusText(status, statusTone);
   const statusId = useId();
+  const root = useRef<HTMLDivElement>(null);
+  const keyboard = useKeyboardOverlap(root, isSticky);
+  const keyboardStyle = keyboard > 0 ? ({ '--aile-ff-klavye': `${keyboard}px` } as CSSProperties) : undefined;
   const primary = primaryLabel ? (
     // Devre dışı birincilin nedeni durum metnidir; aria-describedby ile düğmeye bağlanır (Button README).
     <Button key="primary" variant="primary" block={narrow} disabled={primaryDisabled} onClick={onPrimary} aria-describedby={primaryDisabled && text ? statusId : undefined}>
@@ -48,7 +54,14 @@ export function FormFooter({ primaryLabel, secondaryLabel, onPrimary, onSecondar
     <Button key="secondary" variant="secondary" block={narrow} onClick={onSecondary}>{secondaryLabel}</Button>
   ) : null;
   return (
-    <div className={['aile-ff', narrow && 'aile-ff--dar', isSticky && 'aile-ff--yapiskan'].filter(Boolean).join(' ')} data-narrow={narrow || undefined} data-sticky={isSticky || undefined}>
+    <div
+      ref={root}
+      className={['aile-ff', narrow && 'aile-ff--dar', isSticky && 'aile-ff--yapiskan'].filter(Boolean).join(' ')}
+      data-narrow={narrow || undefined}
+      data-sticky={isSticky || undefined}
+      data-klavye={keyboard > 0 || undefined}
+      style={keyboardStyle}
+    >
       {/* Canlı bölge her zaman DOM'dadır: sonradan gelen "Hata: …" odak almadan duyurulur. */}
       <p id={statusId} className="aile-ff-status" role="status" data-tone={text ? statusTone : undefined}>{text}</p>
       <div className="aile-ff-actions">

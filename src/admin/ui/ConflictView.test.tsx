@@ -143,4 +143,26 @@ describe('ConflictView', () => {
     expect(source).toContain("from './Button'");
     expect(source).toContain("from '../device'");
   });
+
+  it('özet "N alan farklı · M alan aynı" her iki biçimde de en üstte (ilk öğe)', () => {
+    const wide = renderView(<ConflictView fields={fields} leftLabel={leftLabel} rightLabel={rightLabel} />);
+    expect(wide.container.firstElementChild?.firstElementChild).toHaveTextContent('2 alan farklı · 1 alan aynı');
+    wide.unmount();
+    const phone = renderView(<ConflictView fields={fields} leftLabel={leftLabel} rightLabel={rightLabel} />, 'phone');
+    expect(phone.container.firstElementChild?.firstElementChild).toHaveTextContent('2 alan farklı · 1 alan aynı');
+  });
+
+  it('CSS: değer sözcük ortasından bölünmez (overflow-wrap: anywhere yok), yalnız sığmayan tek sözcük sarılır; renk/ölçü --aile', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { resolve } = await import('node:path');
+    const css = readFileSync(resolve(__dirname, 'ConflictView.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(css).not.toMatch(/overflow-wrap:\s*anywhere/);
+    expect(css).not.toMatch(/word-break:\s*break-all/);
+    expect(css).toMatch(/\.aile-cf-deger \{[^}]*overflow-wrap: break-word;/);
+    expect(css).not.toMatch(/#[0-9a-f]{3,8}\b/i);
+    expect(css).not.toMatch(/\boutline\s*:/);
+    for (const match of css.matchAll(/var\((--[a-z0-9-]+)/g)) expect(match[1]).toMatch(/^--aile-/);
+    const sizes = [...css.matchAll(/font-size:\s*(\d+(?:\.\d+)?)px/g)].map(m => Number(m[1]));
+    expect(Math.min(...sizes)).toBeGreaterThanOrEqual(14);
+  });
 });

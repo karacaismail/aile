@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 import type { ReactNode } from 'react';
@@ -138,10 +138,91 @@ describe('FormFooter', () => {
     expect(css).not.toMatch(/box-shadow\s*:/);
     expect(css).toContain('position: sticky');
     expect(css).toContain('safe-area-inset-bottom');
+    // Sanal klavye payı: yapışkan altlık görünür alanın altına (klavyenin üstüne) yapışır; klavye açıkken güvenli alan payı
+    // klavyenin altında kaldığından düşer.
+    expect(css).toMatch(/\.aile-ff--yapiskan \{[^}]*bottom: var\(--aile-ff-klavye, 0px\);/);
+    expect(css).toMatch(/\.aile-ff--yapiskan\[data-klavye\] \{[^}]*padding-bottom: var\(--aile-bosluk-4\);/);
     // Her var() --aile- ile başlar; başka token kaynağı yok.
     for (const match of css.matchAll(/var\((--[a-z0-9-]+)/g)) expect(match[1]).toMatch(/^--aile-/);
     // Sabit piksel yalnız: 1 px ayırıcı çizgi, 14/20 küçük metin (alt sınır) ve safe-area için 0px yedeği. Başka px yok.
     const px = [...css.matchAll(/(\d+)px/g)].map(match => match[1]);
     expect(new Set(px)).toEqual(new Set(['0', '1', '14', '20']));
   });
+
+  it('sticky: sanal klavye görünür alanı daraltınca altlık klavyenin üstünde kalır; klavye kapanınca pay kalkar', () => {
+    const viewport = installVisualViewport(568);
+    try {
+      const { container } = render(<FormFooter narrow status="Kaydedilmemiş değişiklik var" primaryLabel="Kaydet" secondaryLabel="Vazgeç" />);
+      const root = container.firstElementChild as HTMLElement;
+      expect(root).not.toHaveAttribute('data-klavye');
+      expect(root.style.getPropertyValue('--aile-ff-klavye')).toBe('');
+      act(() => viewport.set({ height: 308 }));
+      expect(root).toHaveAttribute('data-klavye', 'true');
+      expect(root.style.getPropertyValue('--aile-ff-klavye')).toBe('260px');
+      // Klavye açıkken sayfa kaydırılınca (offsetTop) görünür alt kenar aşağı iner, pay küçülür.
+      act(() => viewport.set({ offsetTop: 60 }));
+      expect(root.style.getPropertyValue('--aile-ff-klavye')).toBe('200px');
+      act(() => viewport.set({ height: 568, offsetTop: 0 }));
+      expect(root).not.toHaveAttribute('data-klavye');
+      expect(root.style.getPropertyValue('--aile-ff-klavye')).toBe('');
+    } finally {
+      viewport.restore();
+    }
+  });
+
+  it('yapışkan değilse ya da kullanıcı yakınlaştırdıysa klavye payı uygulanmaz', () => {
+    const viewport = installVisualViewport(568);
+    try {
+      const { container, unmount } = render(<FormFooter narrow sticky={false} primaryLabel="Sonuçları göster" />);
+      act(() => viewport.set({ height: 308 }));
+      expect(container.firstElementChild).not.toHaveAttribute('data-klavye');
+      unmount();
+      act(() => viewport.set({ height: 568 }));
+      const zoomed = render(<FormFooter narrow primaryLabel="Kaydet" />);
+      act(() => viewport.set({ height: 284, scale: 2 }));
+      expect(zoomed.container.firstElementChild).not.toHaveAttribute('data-klavye');
+    } finally {
+      viewport.restore();
+    }
+  });
+
+  it('kaydırma kabı içindeyse pay kabın alt kenarına göre hesaplanır', () => {
+    const viewport = installVisualViewport(568);
+    try {
+      const { container } = render(
+        <div style={{ overflowY: 'auto' }} data-testid="kab">
+          <FormFooter narrow primaryLabel="Kaydet" />
+        </div>,
+      );
+      const kab = screen.getByTestId('kab');
+      // Kap görünüm alanının 100 px üstünde biter (ör. alttan sayfa üstündeki form): klavye 260 px → kabın 160 px'i örtülür.
+      kab.getBoundingClientRect = () => ({ top: 0, bottom: 468, left: 0, right: 320, width: 320, height: 468, x: 0, y: 0, toJSON: () => ({}) });
+      act(() => viewport.set({ height: 308 }));
+      const root = container.querySelector('.aile-ff') as HTMLElement;
+      expect(root.style.getPropertyValue('--aile-ff-klavye')).toBe('160px');
+    } finally {
+      viewport.restore();
+    }
+  });
 });
+
+/** Sanal klavye taklidi (window.visualViewport + documentElement.clientHeight). Emülasyondur, gerçek cihaz değildir. */
+function installVisualViewport(layoutHeight: number) {
+  const target = new EventTarget();
+  const state = { height: layoutHeight, offsetTop: 0, scale: 1 };
+  for (const key of ['height', 'offsetTop', 'scale'] as const) {
+    Object.defineProperty(target, key, { configurable: true, get: () => state[key] });
+  }
+  Object.defineProperty(window, 'visualViewport', { configurable: true, value: target });
+  Object.defineProperty(document.documentElement, 'clientHeight', { configurable: true, value: layoutHeight });
+  return {
+    set(next: Partial<typeof state>) {
+      Object.assign(state, next);
+      target.dispatchEvent(new Event('resize'));
+    },
+    restore() {
+      Reflect.deleteProperty(window, 'visualViewport');
+      Reflect.deleteProperty(document.documentElement, 'clientHeight');
+    },
+  };
+}

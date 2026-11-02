@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { ReactNode } from 'react';
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { DeviceContext } from '../device';
 import type { Device, RecordRow } from '../shell/contracts';
@@ -211,6 +211,32 @@ describe('ListRow — seçim, tıklama, klavye', () => {
   });
 });
 
+describe('ListRow — tek etkin öğe, dokunma', () => {
+  const INTERACTIVE = 'a[href], button, input, select, textarea, summary, [tabindex], [contenteditable="true"], [role=button], [role=link], [role=checkbox], [role=switch], [role=menuitem], [role=option], [role=tab]';
+
+  it.each([false, true])('narrow=%s: satırın tamamı tek etkin öğedir; içinde iç içe etkileşimli öğe yok', narrow => {
+    renderList(<ListRow row={{ ...karyola, photo: null }} narrow={narrow} onClick={() => {}} />);
+    const item = screen.getByRole('listitem');
+    const interactive = Array.from(item.querySelectorAll(INTERACTIVE));
+    expect(interactive).toHaveLength(1);
+    expect(interactive[0]).toBe(within(item).getByRole('button'));
+    // Satır düğmesi liste öğesini doldurur: li'nin kendisi odaklanmaz ve rol taşımaz.
+    expect(item).not.toHaveAttribute('tabindex');
+    expect(item).not.toHaveAttribute('role');
+  });
+
+  it('dokunma kaydırmaya dönüşüp iptal olursa (pointercancel) ayrıntı açılmaz; tamamlanan dokunma açar', async () => {
+    const onClick = vi.fn();
+    renderList(<ListRow row={karyola} onClick={onClick} />, 'phone');
+    const button = screen.getByRole('button');
+    fireEvent.pointerDown(button, { pointerType: 'touch', isPrimary: true });
+    fireEvent.pointerCancel(button, { pointerType: 'touch', isPrimary: true });
+    expect(onClick).not.toHaveBeenCalled();
+    await userEvent.pointer([{ keys: '[TouchA>]', target: button }, { keys: '[/TouchA]', target: button }]);
+    expect(onClick).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('ListRow — kaynak kuralları', () => {
   const read = (name: string) => readFileSync(resolve(__dirname, name), 'utf8');
 
@@ -229,7 +255,7 @@ describe('ListRow — kaynak kuralları', () => {
     expect(tsx).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
     expect(tsx).not.toContain('style={{');
     expect(css).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
-    for (const token of ['fotograf-liste', 'kose-kontrol', 'hedef-asgari', 'secili', 'bilgi-yuzey', 'cizgi', 'sure', 'egri', 'odak', 'odak-kalinlik']) {
+    for (const token of ['fotograf-liste', 'kose-kontrol', 'dokunma-hedefi', 'secili', 'bilgi-yuzey', 'cizgi', 'sure', 'egri', 'odak', 'odak-kalinlik']) {
       expect(css, token).toContain(`var(--aile-${token})`);
     }
   });
@@ -244,5 +270,25 @@ describe('ListRow — kaynak kuralları', () => {
     expect(css).not.toContain('break-all');
     expect(css).not.toContain('anywhere');
     expect(css).toMatch(/prefers-reduced-motion/);
+  });
+
+  it('hover yalnız hover katmanında ([data-input-hover]); dokunmada yapışkan hover yüzeyi kalmaz', () => {
+    const css = read('ListRow.css').replace(/\/\*[\s\S]*?\*\//g, '');
+    const hovers = [...css.matchAll(/([^{}]*:hover[^{}]*)\{/g)].map(m => m[1].trim());
+    expect(hovers.length).toBeGreaterThan(0);
+    for (const selector of hovers) expect(selector).toContain('[data-input-hover]');
+  });
+
+  it('dokunma hedefi tek merkezi tokenla (b04 --aile-dokunma-hedefi: 44, kaba girişte 48); yerel 48 hesabı yok', () => {
+    const css = read('ListRow.css').replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(css).toMatch(/\.aile-listrow-dugme \{[^}]*min-height: var\(--aile-dokunma-hedefi\);/);
+    expect(css).not.toContain('--aile-hedef-asgari');
+    expect(css).not.toMatch(/\[data-input-coarse\][^{]*\{[^}]*min-height/);
+  });
+
+  it('seçili durum yüzey tonuyla (secili); zorunlu renklerde (forced-colors) seçim sistem rengiyle görünür kalır', () => {
+    const css = read('ListRow.css');
+    expect(css).toMatch(/\.aile-listrow-dugme\[aria-current='true'\] \{ background: var\(--aile-secili\); \}/);
+    expect(css).toMatch(/@media \(forced-colors: active\) \{[\s\S]*\.aile-listrow-dugme\[aria-current='true'\][^{]*\{[^}]*Highlight/);
   });
 });

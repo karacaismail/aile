@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -76,6 +76,19 @@ describe('Disclosure', () => {
     expect(regionOf(button)).toHaveAttribute('hidden');
   });
 
+  it('APG disclosure: oklar, Home/End ve Escape durumu değiştirmez; odak başlıkta kalır', async () => {
+    const user = userEvent.setup();
+    const onToggle = vi.fn();
+    render(<Disclosure title="Oda" onToggle={onToggle}><p>Salon</p></Disclosure>);
+    const button = header();
+    button.focus();
+    await user.keyboard('{ArrowDown}{ArrowUp}{ArrowRight}{ArrowLeft}{Home}{End}{Escape}');
+    expect(button).toHaveAttribute('aria-expanded', 'false');
+    expect(regionOf(button)).toHaveAttribute('hidden');
+    expect(button).toHaveFocus();
+    expect(onToggle).not.toHaveBeenCalled();
+  });
+
   it('open verildiğinde kontrollüdür: tıklama yalnız onToggle çağırır, durum dışarıdan değişir', async () => {
     const user = userEvent.setup();
     const onToggle = vi.fn();
@@ -133,10 +146,49 @@ describe('Disclosure', () => {
     expect(css).not.toMatch(/^\s*(outline|box-shadow)\s*:/m);
     expect(css).toMatch(/var\(--aile-sure\)/);
     expect(css).toMatch(/var\(--aile-egri\)/);
-    expect(css).toMatch(/var\(--aile-hedef-asgari\)/);
+    expect(css).toMatch(/var\(--aile-dokunma-hedefi\)/);
     expect(css).toMatch(/prefers-reduced-motion: reduce/);
     // Sabit px yok; tek istisna 1 px ayırıcı çizgi (cizgi).
     const fixedPx = (css.match(/\b\d+px\b/g) ?? []).filter(value => value !== '1px');
     expect(fixedPx).toEqual([]);
+  });
+
+  it('hover yalnız hover katmanında; başlık hedefi tek merkezi tokenla (--aile-dokunma-hedefi: 44, kaba girişte 48)', () => {
+    const css = read('Disclosure.css').replace(/\/\*[\s\S]*?\*\//g, '');
+    const hovers = [...css.matchAll(/([^{}]*:hover[^{}]*)\{/g)].map(m => m[1].trim());
+    expect(hovers.length).toBeGreaterThan(0);
+    for (const selector of hovers) expect(selector).toContain('[data-input-hover]');
+    expect(css).toMatch(/\.aile-disc-btn \{[^}]*min-height: var\(--aile-dokunma-hedefi\);/);
+    expect(css).not.toContain('--aile-hedef-asgari');
+    expect(css).not.toMatch(/\[data-input-coarse\][^{]*\{[^}]*min-height/);
+  });
+
+  it('dokunma iptal olursa (pointercancel) durum değişmez; tamamlanan dokunma açar', async () => {
+    render(<Disclosure title="Oda"><p>Salon</p></Disclosure>);
+    const button = header();
+    fireEvent.pointerDown(button, { pointerType: 'touch', isPrimary: true });
+    fireEvent.pointerCancel(button, { pointerType: 'touch', isPrimary: true });
+    expect(button).toHaveAttribute('aria-expanded', 'false');
+    await userEvent.pointer([{ keys: '[TouchA>]', target: button }, { keys: '[/TouchA]', target: button }]);
+    expect(button).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('Tab/Shift+Tab başlıklar arasında gezer; kapalı bölgenin içeriği sekme sırasına girmez', async () => {
+    const user = userEvent.setup();
+    render(
+      <>
+        <Disclosure title="Oda"><button type="button">Salon</button></Disclosure>
+        <Disclosure title="Durum" defaultOpen><button type="button">Teslim alındı</button></Disclosure>
+      </>,
+    );
+    await user.tab();
+    expect(header('Oda')).toHaveFocus();
+    await user.tab();
+    expect(header('Durum')).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole('button', { name: 'Teslim alındı' })).toHaveFocus();
+    await user.tab({ shift: true });
+    await user.tab({ shift: true });
+    expect(header('Oda')).toHaveFocus();
   });
 });

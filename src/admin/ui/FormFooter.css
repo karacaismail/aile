@@ -12,11 +12,16 @@
   background: var(--aile-yuzey);
 }
 
-/* Yapışkan: formun altına yapışır; telefonda alt güvenli alan kadar iç boşluk alır. */
+/* Yapışkan: formun altına yapışır; telefonda alt güvenli alan kadar iç boşluk alır. Sanal klavye açıkken
+   (data-klavye) görsel görünüm alanının altına, yani klavyenin üstüne yapışır; --aile-ff-klavye ölçülen paydır
+   (FormFooter.viewport.ts) ve güvenli alan klavyenin altında kaldığından iç boşluk tek bosluk-4'e döner. */
 .aile-ff--yapiskan {
   position: sticky;
-  bottom: 0;
+  bottom: var(--aile-ff-klavye, 0px);
   padding-bottom: calc(var(--aile-bosluk-4) + env(safe-area-inset-bottom, 0px));
+}
+.aile-ff--yapiskan[data-klavye] {
+  padding-bottom: var(--aile-bosluk-4);
 }
 
 /* Durum metni: küçük metin (14/20, alt sınır), ikincil renk; ton yalnız rengi değiştirir, metin "Hata: " ile başlar.
