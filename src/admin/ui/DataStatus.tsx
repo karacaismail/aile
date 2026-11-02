@@ -1,6 +1,5 @@
-import type { ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, type FocusEvent } from 'react';
 import type { DataStatusProps, DataStatusState, Tone } from '../shell/contracts';
-import { AntButton } from './antd';
 import { Icon } from './icons';
 import './DataStatus.css';
 
@@ -8,9 +7,12 @@ import './DataStatus.css';
 // tazelik satırı: verinin ne zaman, hangi nesilden okunduğu. Tek role="status" satırı (aria-live polite); şerit, kart ya da
 // kenarlık yok, rengi yalnız metin taşır (eski/çakışma uyari, hata hata) ve her durumda sözcük söyler: "yenilenemedi",
 // "Hata:", "Çakışma:". Simge süsleyicidir. Düğme yalnız işleyici verilince çizilir (işlevsiz düğme yok); okunurken "Yenile"
-// devre dışıdır ve nedeni ("Okunuyor…") yanında yazar. Ham antd yalnız ui/ içinde; Button sarmalayıcısına bağlanmadan
-// AntButton: bileşen tek başına çalışır. Metinler README'den; eksik bilgi adıyla yazılır ("bilinmiyor", "henüz yok").
+// devre dışıdır ve nedeni ("Okunuyor…") yanında yazar. Metinler README'den; eksik bilgi adıyla yazılır ("bilinmiyor", "henüz yok").
 // Saat tr-TR / Europe/Istanbul "14:32"; başka güne ait okuma tarihiyle "27.10.2026 14:32" (contracts: "28.10.2026 14:05").
+// Yerel HTML, antd yok: tek uygulama tüm profillere hizmet eder. Satır doğal sarılır; ayırıcı "·" önündeki parçaya bağlıdır,
+// böylece sarılan satır hiçbir zaman "·" ile başlamaz. Eylem yerel <button>: 44 px, coarse girişte 48 px.
+// Odak dönüşü: okuma başlarken devre dışı kalan odaklı düğme odağı belgeye bırakır (tarayıcı odak düzeltmesi); okuma
+// bitince odak, kullanıcı bu arada başka yere geçmediyse aynı düğmeye ("Yenile" ya da "Yeniden dene") geri verilir.
 export type { DataStatusProps, DataStatusState };
 
 const ZAMAN_DILIMI = 'Europe/Istanbul';
@@ -22,6 +24,7 @@ const HENUZ_YOK = 'henüz yok';
 /** README: "Nesil a1b2c3" — 64 hex'lik generation_id'nin ilk 6 karakteri; tamamı data-generation-id'de. */
 const NESIL_KISA = 6;
 const HATA_ONEKI = /^hata:\s*/i;
+const AYIRICI = ' · ';
 
 /** ISO zamanı İstanbul saatiyle yazar: bugünse "14:32", başka günse "27.10.2026 14:32"; geçersizse undefined. */
 export function zamanMetni(iso: string | undefined, simdi: Date = new Date()): string | undefined {
@@ -65,41 +68,78 @@ function parcalar({ state, lastReadAt, generationId, lastGoodAt, message }: Data
   }
 }
 
+/** Devre dışı kalırken odağı kaybeden eylem düğmesine, okuma bitince odağı geri verir (kullanıcı başka yere geçmediyse). */
+function useFocusReturn(disabled: boolean) {
+  const ref = useRef<HTMLButtonElement>(null);
+  const hadFocus = useRef(false);
+
+  useEffect(() => {
+    if (!disabled || !hadFocus.current) return undefined;
+    // Okuma sürerken kullanıcı başka bir yere dokunursa odak ona aittir; geri alınmaz.
+    const forget = () => { hadFocus.current = false; };
+    document.addEventListener('pointerdown', forget, true);
+    return () => document.removeEventListener('pointerdown', forget, true);
+  }, [disabled]);
+
+  useLayoutEffect(() => {
+    const button = ref.current;
+    if (disabled || !button || !hadFocus.current) return;
+    const active = document.activeElement;
+    if (active === button) return;
+    hadFocus.current = false;
+    if (active === null || active === document.body) button.focus({ preventScroll: true });
+  }, [disabled]);
+
+  const onFocus = () => { hadFocus.current = true; };
+  // Devre dışı kalma nedeniyle düşen odak "kullanıcı ayrıldı" sayılmaz.
+  const onBlur = (event: FocusEvent<HTMLButtonElement>) => { if (!event.currentTarget.disabled) hadFocus.current = false; };
+  return { ref, onFocus, onBlur };
+}
+
 export function DataStatus(props: DataStatusProps) {
   const { state, generationId, onRefresh, onCompare } = props;
   const tone = TON[state];
   const parts = parcalar(props);
+  const disabled = state === 'checking';
+  const focus = useFocusReturn(disabled);
 
-  let action: ReactNode = null;
-  if (state === 'conflict') {
-    if (onCompare) action = <AntButton className="aile-ds__btn" color="primary" variant="text" onClick={onCompare}>Karşılaştır</AntButton>;
-  } else if (onRefresh) {
-    action = (
-      <AntButton className="aile-ds__btn" color="primary" variant="text" icon={<Icon name="refresh" />} disabled={state === 'checking'} onClick={onRefresh}>
-        {state === 'stale' || state === 'error' ? 'Yeniden dene' : 'Yenile'}
-      </AntButton>
-    );
-  }
-
-  const items: ReactNode[] = [];
-  parts.forEach((part, index) => {
-    if (index > 0) items.push(<span key={`${part.key}-sep`} className="aile-ds__sep" aria-hidden="true"> · </span>);
-    items.push(
-      <span
-        key={part.key}
-        className={part.icon ? 'aile-ds__msg' : undefined}
-        data-generation-id={part.key === 'nesil' && generationId ? generationId : undefined}
-      >
-        {part.icon ? <Icon name="alert" className="aile-ds__icon" /> : null}
-        {part.text}
-      </span>,
-    );
-  });
-  if (action) items.push(<span key="action-sep" className="aile-ds__sep" aria-hidden="true"> · </span>, <span key="action">{action}</span>);
+  const handler = state === 'conflict' ? onCompare : onRefresh;
+  const label = state === 'conflict' ? 'Karşılaştır' : state === 'stale' || state === 'error' ? 'Yeniden dene' : 'Yenile';
+  const action = handler ? (
+    <button
+      ref={focus.ref}
+      type="button"
+      className="aile-ds__btn"
+      data-focus-line=""
+      disabled={disabled}
+      onClick={() => handler()}
+      onFocus={focus.onFocus}
+      onBlur={focus.onBlur}
+    >
+      {state === 'conflict' ? null : <Icon name="refresh" />}
+      {label}
+    </button>
+  ) : null;
 
   return (
     <div role="status" aria-live="polite" className={`aile-ds aile-ds--${state} aile-kucuk`} data-state={state} data-tone={tone}>
-      {items}
+      {parts.map((part, index) => {
+        const last = index === parts.length - 1;
+        return (
+          <span
+            key={part.key}
+            className={part.icon ? 'aile-ds__parca aile-ds__msg' : 'aile-ds__parca'}
+            data-generation-id={part.key === 'nesil' && generationId ? generationId : undefined}
+          >
+            {part.icon ? <Icon name="alert" className="aile-ds__icon" /> : null}
+            {part.text}
+            {!last || action ? (
+              <span className={last ? 'aile-ds__sep aile-ds__sep--eylem' : 'aile-ds__sep'} aria-hidden="true">{AYIRICI}</span>
+            ) : null}
+          </span>
+        );
+      })}
+      {action}
     </div>
   );
 }

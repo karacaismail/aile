@@ -1,5 +1,5 @@
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, readFileSync, statSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 import { render, screen } from '@testing-library/react';
 import { StatusText } from './StatusText';
 import type { Tone } from '../shell/contracts';
@@ -64,3 +64,51 @@ describe('StatusText', () => {
     expect(css).not.toMatch(/outline|box-shadow/);
   });
 });
+
+// --- Telefon teslimi: bileşenin statik import kapanışı (tür importu ve dinamik import() hariç) ---------------------
+const ANTD = /^(?:antd(?:\/|$)|@ant-design\/)/;
+function staticClosure(entry: string): { files: string[]; packages: string[] } {
+  const files = new Set<string>();
+  const packages = new Set<string>();
+  const visit = (file: string) => {
+    if (files.has(file)) return;
+    files.add(file);
+    if (!/\.[jt]sx?$/.test(file)) return;
+    const source = readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    for (const [, spec] of source.matchAll(/^\s*(?:import|export)\s+(?!type\b)(?:[^'";]*?\bfrom\s*)?['"]([^'"]+)['"]/gm)) {
+      if (!spec.startsWith('.')) { packages.add(spec); continue; }
+      const base = resolve(dirname(file), spec);
+      const hit = ['', '.tsx', '.ts', '/index.tsx', '/index.ts'].map(ext => base + ext).find(p => existsSync(p) && statSync(p).isFile());
+      if (!hit) throw new Error(`çözülemedi: ${spec} (${file})`);
+      visit(hit);
+    }
+  };
+  visit(entry);
+  return { files: [...files], packages: [...packages] };
+}
+
+describe('StatusText — phone delivery and tones', () => {
+  it('phone presentation has no antd: no antd, @ant-design/* or ui/antd.ts in its static import closure', () => {
+    const { files, packages } = staticClosure(resolve(__dirname, 'StatusText.tsx'));
+    expect(packages.filter(spec => ANTD.test(spec))).toEqual([]);
+    expect(files).not.toContain(resolve(__dirname, 'antd.ts'));
+    expect(files.filter(file => /\.wide\.|[\\/]wide[\\/]/.test(file))).toEqual([]);
+  });
+
+  it('every non-neutral tone colours both the dot and the word from its --aile token; the word is always present', () => {
+    const css = readFileSync(resolve(__dirname, 'StatusText.css'), 'utf8');
+    const token: Record<Exclude<Tone, 'notr'>, string> = { bilgi: 'eylem', olumlu: 'olumlu', uyari: 'uyari', hata: 'hata' };
+    for (const [tone, name] of Object.entries(token)) {
+      expect(css, tone).toMatch(new RegExp(`\\.aile-status--${tone}\\s*\\{[^}]*--aile-status-ton:\\s*var\\(--aile-${name}\\)[^}]*color:\\s*var\\(--aile-${name}\\)`));
+      const { unmount } = render(<StatusText label="Durum" tone={tone as Tone} />);
+      expect(screen.getByText('Durum')).toBeInTheDocument();
+      unmount();
+    }
+  });
+
+  it('a tone change is an instant semantic update: no transition or animation in its stylesheet', () => {
+    const css = readFileSync(resolve(__dirname, 'StatusText.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(css).not.toMatch(/transition|animation/);
+  });
+});
+

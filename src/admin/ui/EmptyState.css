@@ -1,8 +1,8 @@
 /* EmptyState — tasarım bundle.css .ai-state / .ai-filterlist / .ai-tag--removable karşılığı. Tek yuzey bloğu: kenar
    yalnız cizgi, tüm köşeler kose-kart (tek kenar renkli şerit yok); büyük çizim yok. Renk, boşluk, köşe, hedef ve
-   hareket yalnız --aile-* tokenlarından; tipografi tokens.json › type (h3 18/26, kucuk 14/20). Odak çizgisini
-   admin.css çizer (.ant-btn ve [data-focus-line]); burada odak/outline/box-shadow yok. Reduced-motion'ı admin.css
-   .aile-admin * kuralı anlık yapar. */
+   hareket yalnız --aile-* tokenlarından; tipografi tokens.json › type (h3 18/26, kucuk 14/20). Dokunma hedefi tek
+   kaynaktan: --aile-dokunma-hedefi (44; data-input-coarse katmanında admin.css onu 48 yapar). Hover yalnız hover
+   destekleyen işaretçide. Odak çizgisini admin.css çizer ([data-focus-line]); burada odak/outline/box-shadow yok. */
 .aile-empty-state {
   display: flex;
   flex-direction: column;
@@ -15,19 +15,22 @@
   color: var(--aile-metin);
 }
 .aile-empty-state p { margin: 0; }
-/* h2 düzeyi (sayfa h1'inin altı), h3 ölçüsü; admin.css .aile-admin h2 (24/32) kuralını özgüllükle geçer. */
+/* h2 düzeyi (sayfa h1'inin altı), h3 ölçüsü; admin.css .aile-admin h2 (24/32) kuralını özgüllükle geçer. Başlık odak
+   dönüşünün son durağıdır (tabindex -1): sekme sırasına girmez. */
 .aile-empty-state .aile-empty-state__title {
+  max-width: 100%;
   margin: 0;
   font-size: 18px;
   line-height: 26px;
   font-weight: 600;
   overflow-wrap: break-word;
 }
-.aile-empty-state__message { max-width: 60ch; }
+.aile-empty-state__message { max-width: 60ch; overflow-wrap: break-word; }
 .aile-empty-state__filters {
   display: flex;
   flex-wrap: wrap;
   gap: var(--aile-bosluk-2);
+  max-width: 100%;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -37,7 +40,8 @@
   display: inline-flex;
   align-items: center;
   gap: var(--aile-bosluk-1);
-  min-height: var(--aile-hedef-asgari);
+  max-width: 100%;
+  min-height: var(--aile-dokunma-hedefi);
   padding: 0 var(--aile-bosluk-3);
   border-radius: var(--aile-kose-kontrol);
   background: var(--aile-liste-zemin);
@@ -47,27 +51,60 @@
   font-weight: 500;
 }
 .aile-empty-state__filter:has(.aile-empty-state__remove) { padding-right: 0; }
-.aile-empty-state__filter-label { padding: var(--aile-bosluk-1) 0; }
+.aile-empty-state__filter-label {
+  min-width: 0;
+  padding: var(--aile-bosluk-1) 0;
+  overflow-wrap: break-word;
+}
 /* Kaldır düğmesi 44 × 44; yalnız simgeli, adı aria-label ("Filtreyi kaldır: …"). */
 .aile-empty-state__remove {
   display: inline-flex;
+  flex: none;
   align-items: center;
   justify-content: center;
-  min-width: var(--aile-hedef-asgari);
-  min-height: var(--aile-hedef-asgari);
+  min-width: var(--aile-dokunma-hedefi);
+  min-height: var(--aile-dokunma-hedefi);
   margin: 0;
   padding: 0;
   border: 0;
   border-radius: var(--aile-kose-kontrol);
   background: transparent;
   color: inherit;
+  font: inherit;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
   transition: background-color var(--aile-sure) var(--aile-egri), color var(--aile-sure) var(--aile-egri);
 }
-.aile-empty-state__remove:hover { background: var(--aile-bilgi-yuzey); }
-.aile-empty-state__remove:active { background: var(--aile-secili); color: var(--aile-nav); }
+/* "Filtreleri temizle": Button ikincil biçimi (yuzey dolgu, eylem kenar ve metin). */
+.aile-empty-state__clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--aile-dokunma-hedefi);
+  max-width: 100%;
+  margin: 0;
+  padding: 0 var(--aile-bosluk-4);
+  border: 1px solid var(--aile-eylem);
+  border-radius: var(--aile-kose-kontrol);
+  background: var(--aile-yuzey);
+  color: var(--aile-eylem);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--aile-sure) var(--aile-egri), color var(--aile-sure) var(--aile-egri);
+}
+@media (hover: hover) {
+  .aile-empty-state__remove:hover,
+  .aile-empty-state__clear:hover { background: var(--aile-bilgi-yuzey); }
+}
+.aile-empty-state__remove:active,
+.aile-empty-state__clear:active { background: var(--aile-secili); color: var(--aile-nav); }
 .aile-empty-state__action {
   display: flex;
   flex-wrap: wrap;
   gap: var(--aile-bosluk-2);
+}
+@media (prefers-reduced-motion: reduce) {
+  .aile-empty-state__remove, .aile-empty-state__clear { transition-duration: 0s; }
 }

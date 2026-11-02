@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, readFileSync, statSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 import { LoadingShell } from './LoadingShell';
 
 // Tasarım › Loading: aynı yerleşimde iskelet + üstte tek ince şerit; döner simge ve tam sayfa örtü yok.
@@ -104,3 +104,70 @@ describe('LoadingShell', () => {
     });
   });
 });
+
+// --- Telefon teslimi: bileşenin statik import kapanışı (tür importu ve dinamik import() hariç) ---------------------
+const ANTD = /^(?:antd(?:\/|$)|@ant-design\/)/;
+function staticClosure(entry: string): { files: string[]; packages: string[] } {
+  const files = new Set<string>();
+  const packages = new Set<string>();
+  const visit = (file: string) => {
+    if (files.has(file)) return;
+    files.add(file);
+    if (!/\.[jt]sx?$/.test(file)) return;
+    const source = readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    for (const [, spec] of source.matchAll(/^\s*(?:import|export)\s+(?!type\b)(?:[^'";]*?\bfrom\s*)?['"]([^'"]+)['"]/gm)) {
+      if (!spec.startsWith('.')) { packages.add(spec); continue; }
+      const base = resolve(dirname(file), spec);
+      const hit = ['', '.tsx', '.ts', '/index.tsx', '/index.ts'].map(ext => base + ext).find(p => existsSync(p) && statSync(p).isFile());
+      if (!hit) throw new Error(`çözülemedi: ${spec} (${file})`);
+      visit(hit);
+    }
+  };
+  visit(entry);
+  return { files: [...files], packages: [...packages] };
+}
+
+describe('LoadingShell — phone delivery and narrow containers', () => {
+  const css = () => readCss().replace(/\/\*[\s\S]*?\*\//g, '');
+
+  it('phone presentation has no antd: no antd, @ant-design/* or ui/antd.ts in its static import closure', () => {
+    const { files, packages } = staticClosure(resolve(__dirname, 'LoadingShell.tsx'));
+    expect(packages.filter(spec => ANTD.test(spec))).toEqual([]);
+    expect(files).not.toContain(resolve(__dirname, 'antd.ts'));
+    expect(files.filter(file => /\.wide\.|[\\/]wide[\\/]/.test(file))).toEqual([]);
+  });
+
+  it('a wide skeleton in a phone-width container collapses to photo + text (container query), so it never clips or overflows', () => {
+    const sheet = css();
+    expect(sheet).toMatch(/\.aile-loading\s*\{[^}]*container-type:\s*inline-size/);
+    const query = sheet.match(/@container\s*\(max-width:\s*(\d+)px\)\s*\{([\s\S]*?)\n\}/);
+    expect(query).not.toBeNull();
+    expect(Number(query![1])).toBeGreaterThanOrEqual(428);
+    expect(query![2]).toMatch(/\.aile-loading-satir\s*\{[^}]*grid-template-columns:\s*var\(--aile-fotograf-liste\) minmax\(0, 1fr\)/);
+    expect(query![2]).toMatch(/\.aile-loading-blok--tutar,\s*\.aile-loading-ok\s*\{[^}]*display:\s*none/);
+  });
+
+  it('the strip is the one declared motion exception (indeterminate loop, not a state change); nothing else opts out', () => {
+    render(<LoadingShell rows={2} />);
+    const status = screen.getByRole('status');
+    const exempt = status.querySelectorAll('[data-allow-motion]');
+    expect(exempt).toHaveLength(1);
+    expect(exempt[0]).toHaveAttribute('data-part', 'strip');
+    // Döngü süresi merkezi süre tokenından, eğri tek eğri tokenından türetilir.
+    expect(css()).toMatch(/--aile-loading-sure:\s*calc\(var\(--aile-sure\) \* \d+\)/);
+    expect(css()).toMatch(/animation:\s*aile-loading-ilerle var\(--aile-loading-sure\) var\(--aile-egri\) infinite/);
+  });
+
+  it('only the single strip moves; skeleton blocks never shimmer', () => {
+    const sheet = css();
+    const animated = [...sheet.matchAll(/([^{}]+)\{[^}]*\banimation(?:-name)?:(?!\s*none\b)[^;}]+/g)].map(([, selector]) => selector.trim());
+    expect(animated).toEqual(['.aile-loading-serit > span']);
+  });
+
+  it('stays busy while the strip is still under reduced motion: aria-busy remains, only the movement stops', () => {
+    render(<LoadingShell narrow />);
+    expect(screen.getByRole('status')).toHaveAttribute('aria-busy', 'true');
+    expect(css()).toMatch(/@media \(prefers-reduced-motion: reduce\)\s*\{\s*\.aile-loading-serit > span\s*\{[^}]*animation:\s*none/);
+  });
+});
+
