@@ -5,11 +5,18 @@ import { focusRing, selfCheckDetectors } from './admin-detectors';
 // Odak sözleşmesi (AGENT.md kesin odak kuralı, tasarım README › Odak, src/admin/admin.css):
 //  - Görünür odak modu kapalı başlar (html[data-keyboard='false']); yalnız Tab/Shift+Tab açar. Ok, Escape, yazma ve Enter
 //    açmaz. pointerdown/touchstart yalnız görsel modu kapatır: odak yerinde kalır, blur yok.
-//  - Klavye modunda odaklı kontrolde TEK 3 px alt çizgi (renk --aile-odak, nav üzerinde --aile-odak-nav):
+//  - Klavye modunda odaklı kontrolde TEK 3 px alt çizgi. Renk yüzeye göre tektir: --aile-odak; nav zemininde
+//    ([data-odak-zemin='nav'] ve eşdeğerleri) --aile-odak-nav, seçili nav öğesinde (aria-current / aria-selected) yine
+//    --aile-odak (tasarım README › Odak; admin.css).
 //      kontrol  : kontrolün ya da onu saran sarmalayıcının ::after'ı, kontrol genişliğinde, odak-aralik (4 px) altında;
-//      satır    : liste/tablo satırında satırın alt kenarında (bottom 0);
-//      etiket   : menü öğesi, açılır alan başlığı, seçenek, onay kutusunda kontrol çizgisi ya da etiket metninin hemen
-//                 altında (tasarım bundle.css .ai-ul::after, bottom -odak-aralik) tek çizgi.
+//      satır    : liste/tablo satırında satırın alt kenarında: ya satır taşıyıcısında bottom 0 (tr, role=row,
+//                 [data-focus-line='row'], li'yi dolduran tek bağlantı/düğme) ya da kontrol çizgisi olup çizilen alt
+//                 kenarı satır kabının (li/tr) alt kenarına oturur (satırın alt boşluğu li'de: GenelPage);
+//      etiket   : menü öğesi (gezinme <nav> içindeki bağlantı dahil: tasarım "Menü öğesi · lacivert"), açılır alan
+//                 başlığı, seçenek, onay kutusunda kontrol çizgisi ya da etiket metninin hemen altında (tasarım
+//                 bundle.css .ai-ul::after, bottom -odak-aralik) tek çizgi;
+//      etkin    : açık açılır listede (aria-expanded + aria-activedescendant, APG select-only combobox) görsel odak
+//                 etkin seçenektedir: tek çizgi ya kontroldedir ya etkin seçenekte; ikisinde birden değil.
 //  - Çevreleyen gösterge yok: outline, halka box-shadow, dört kenarlı sözde öğe çerçevesi. Tek dar istisna: forced-colors
 //    açıkken klavye modu + :focus-visible öğede outline 2px solid CanvasText.
 //  - Modal katmanda (alt sayfa, çekmece, diyalog) odak içeri girer, Escape ve Kapat kapatır, odak açan kontrole döner ve
@@ -38,11 +45,19 @@ const ROUTES = [
   '/projeler', '/taraflar', '/raporlar', '/sozlukler', '/veri', '/ayarlar',
 ] as const;
 const MATRIX = { tag: '@matrix' };
-/** Sayfa yolculuğunda ileri Tab durak sınırı (belge sonuna ya da başa dönüşe kadar). */
-const PAGE_STOPS = 14;
+/**
+ * Sayfa yolculuğu, main içinde bu kadar durak ölçülene kadar sürer (belge sonu ya da başa dönüş önce gelirse orada
+ * durur). Kabuk durakları (atlama bağlantısı, telefonda Sayfalar, genişte 13 yan gezinme bağlantısı) sayılmaz: genişte
+ * sabit 14 durak yalnız gezinmeyi ölçüp sayfaya hiç girmiyordu.
+ */
+const MAIN_STOPS = 12;
+/** Sayfa yolculuğunda toplam Tab üst sınırı (kabuk + main). */
+const PAGE_STOP_LIMIT = 40;
 /** Katman içinde başa dönüşü görmek için Tab sınırı (filtre çekmecesinde ~45 seçenek var). */
 const LAYER_STOPS = 90;
 const LINE_HOST = 'data-f01-line-host';
+/** Açık açılır listede aria-activedescendant'ın gösterdiği etkin seçenek (focusPlan işaretler). */
+const ACTIVE = 'data-f01-active';
 const TARGET = 'data-f01-target';
 const FIRST = 'data-f01-first';
 const LOCAL_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]']);
@@ -59,6 +74,10 @@ interface FocusLine {
   color: string;
   opacity: number;
   width: number;
+  /** Çizginin çizilen alt kenarı (görünüm alanı y, px): taşıyıcının dolgu kutusu altı − bottom. */
+  bottom: number;
+  /** Çizgi açık listenin etkin seçeneğinde (aria-activedescendant) ya da onun içinde. */
+  onActive: boolean;
 }
 
 interface FocusPlan {
@@ -70,12 +89,21 @@ interface FocusPlan {
   gap: number;
   /** --aile-odak ve --aile-odak-nav, rgb olarak. */
   allowed: string[];
+  /** Bu yüzeydeki tek doğru çizgi rengi (rgb) ve tanımı: nav zemininde odak-nav, seçili nav öğesinde ve dışında odak. */
+  expectedColor: string;
+  surface: string;
   /** Görünür (opak, kalınlıkta, genişliği > 0) sözde öğe çizgileri: taşıyıcılarda ve onların içinde. */
   lines: FocusLine[];
   /** Kalınlıkta ve renkli olup görünmeyen çizgiler (genişlik 0, düşük opaklık): yalnız tanı mesajı içindir. */
   hidden: string[];
   /** Etiket çizgisi taşıyan iç öğe LINE_HOST ile işaretlendi. */
   labelHost: boolean;
+  /** Hedef main#admin-content içinde (kabuk durağı değil). */
+  inMain: boolean;
+  /** Satır kabının (li, role=listitem, tr, role=row) alt kenarı (görünüm alanı y, px); satır değilse null. */
+  rowBottom: number | null;
+  /** Açık açılır listenin etkin seçeneği ACTIVE ile işaretlendi. */
+  active: boolean;
 }
 
 /**
@@ -83,9 +111,12 @@ interface FocusPlan {
  * sınıflar ve görünür odak çizgilerini toplar. Taşıyıcı kuralı paylaşılan dedektörle aynıdır: hedef + başka odaklanabilir
  * içermeyen en çok 3 ata (landmark/diyalog rolünde durulur).
  */
-function focusPlan(args: { hostAttr: string; targetAttr: string | null }): FocusPlan {
+function focusPlan(args: { hostAttr: string; activeAttr: string; targetAttr: string | null }): FocusPlan {
   const root = document.documentElement;
-  document.querySelectorAll(`[${args.hostAttr}]`).forEach(el => el.removeAttribute(args.hostAttr));
+  document.querySelectorAll(`[${args.hostAttr}], [${args.activeAttr}]`).forEach(el => {
+    el.removeAttribute(args.hostAttr);
+    el.removeAttribute(args.activeAttr);
+  });
   const target = args.targetAttr ? document.querySelector(`[${args.targetAttr}]`) : document.activeElement;
   const keyboard = root.dataset.keyboard === 'true';
   const px = (value: string) => {
@@ -105,17 +136,23 @@ function focusPlan(args: { hostAttr: string; targetAttr: string | null }): Focus
     probe.remove();
     return rgb;
   };
-  const allowed = ['--aile-odak', '--aile-odak-nav']
-    .map(name => vars.getPropertyValue(name).trim())
-    .filter(Boolean)
-    .map(toRgb);
+  const tokenRgb = (name: string) => {
+    const value = vars.getPropertyValue(name).trim();
+    return value ? toRgb(value) : `${name} tanımsız`;
+  };
+  const odak = tokenRgb('--aile-odak');
+  const odakNav = tokenRgb('--aile-odak-nav');
+  const allowed = [odak, odakNav];
   const label = (el: Element) => {
     const role = el.getAttribute('role') || el.tagName.toLowerCase();
     const type = el instanceof HTMLInputElement ? `:${el.type}` : '';
     const name = (el.getAttribute('aria-label') || el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 36);
     return `${role}${type} "${name}"`;
   };
-  const empty: FocusPlan = { focused: false, describe: 'belge (body)', keyboard, kind: 'none', thickness, gap, allowed, lines: [], hidden: [], labelHost: false };
+  const empty: FocusPlan = {
+    focused: false, describe: 'belge (body)', keyboard, kind: 'none', thickness, gap, allowed, expectedColor: odak, surface: 'yok',
+    lines: [], hidden: [], labelHost: false, inMain: false, rowBottom: null, active: false,
+  };
   if (!target || target === document.body || target === root) return empty;
 
   const FOCUSABLE = 'a[href], button, input:not([type=hidden]), select, textarea, [tabindex]:not([tabindex="-1"]), [contenteditable="true"]';
@@ -125,6 +162,18 @@ function focusPlan(args: { hostAttr: string; targetAttr: string | null }): Focus
     if (/^(dialog|alertdialog|main|navigation|region|form|banner|complementary)$/.test(parent.getAttribute('role') || '')) break;
     carriers.push(parent);
   }
+
+  // Açık açılır liste (APG select-only combobox): DOM odağı kontrolde, görsel odak aria-activedescendant seçeneğinde.
+  const activeId = target.getAttribute('aria-expanded') === 'true' ? target.getAttribute('aria-activedescendant') : null;
+  const active = activeId ? document.getElementById(activeId) : null;
+  if (active) active.setAttribute(args.activeAttr, '');
+
+  // Çizgi rengi yüzeye bağlıdır (admin.css): nav zemininde odak-nav, seçili nav öğesinde ve başka her yerde odak.
+  const NAV_SURFACE = "[data-odak-zemin='nav'], .aile-admin-nav, .admin-sidebar, .ant-layout-sider, .ant-menu-dark";
+  const onNav = Boolean(target.closest(NAV_SURFACE));
+  const navSelected = target.matches("[aria-current='page'], [aria-selected='true']") || Boolean(target.closest('.ant-menu-item-selected'));
+  const expectedColor = onNav && !navSelected ? odakNav : odak;
+  const surface = onNav ? (navSelected ? 'seçili nav öğesi (--aile-odak)' : 'nav zemini (--aile-odak-nav)') : 'açık yüzey (--aile-odak)';
 
   const opaque = (color: string) => {
     if (!color || color === 'transparent') return false;
@@ -151,7 +200,10 @@ function focusPlan(args: { hostAttr: string; targetAttr: string | null }): Focus
       hidden.push(`${where} opaklık ${Math.round(opacity * 100) / 100}`);
       return null;
     }
-    return { where, color: ps.backgroundColor, opacity: Math.round(opacity * 100) / 100, width: Math.round(width) };
+    const box = el.getBoundingClientRect();
+    const bottom = box.bottom - px(getComputedStyle(el).borderBottomWidth) - px(ps.bottom);
+    const onActive = Boolean(active) && (el === active || active!.contains(el));
+    return { where, color: ps.backgroundColor, opacity: Math.round(opacity * 100) / 100, width: Math.round(width), bottom: Math.round(bottom * 10) / 10, onActive };
   };
 
   const lines: FocusLine[] = [];
@@ -166,6 +218,15 @@ function focusPlan(args: { hostAttr: string; targetAttr: string | null }): Focus
       inner.push(el);
     }
   }
+  // Etkin seçenek taşıyıcıların dışındaysa (başka yere taşınmış liste) onun çizgileri de sayılır.
+  if (active && !carriers.includes(active) && !inner.includes(active)) {
+    for (const el of [active, ...Array.from(active.querySelectorAll('*'))]) {
+      for (const pseudo of ['::before', '::after'] as const) {
+        const line = lineOf(el, pseudo);
+        if (line) lines.push(line);
+      }
+    }
+  }
   let labelHostEl: Element | null = null;
   for (const el of inner) {
     for (const pseudo of ['::before', '::after'] as const) {
@@ -178,9 +239,13 @@ function focusPlan(args: { hostAttr: string; targetAttr: string | null }): Focus
 
   const role = target.getAttribute('role') || '';
   const COMPOSITE = '[role=menu], [role=menubar], [role=listbox], [role=tablist], [role=tree], [role=radiogroup], [role=grid]';
+  // Gezinme bağlantısı (<nav> içinde ya da lacivert nav zemininde: genişte Ayarlar · E-tabloyu aç <nav> dışında, aynı
+  // panelde) tasarımda "Menü öğesi · lacivert"tir: liste satırı değil, etiket kalıbı.
+  const navLink = target.matches('a[href]') && (onNav || Boolean(target.closest('nav, [role=navigation]')));
+  // Açık satır işareti: tr / role=row ya da taşıyıcılardan biri [data-focus-line='row'] (ör. satırı saran onay etiketi).
+  const markedRow = target.matches('tr, [role=row]') || carriers.some(el => el.matches("[data-focus-line='row']"));
   const rowLike = () => {
-    if (target.matches('tr, [role=row]')) return true;
-    if (!/^(BUTTON|A)$/.test(target.tagName)) return false;
+    if (navLink || !/^(BUTTON|A)$/.test(target.tagName)) return false;
     const item = target.closest('li, [role=listitem]');
     if (!item || item.querySelectorAll(FOCUSABLE).length !== 1) return false;
     const own = target.getBoundingClientRect();
@@ -189,17 +254,24 @@ function focusPlan(args: { hostAttr: string; targetAttr: string | null }): Focus
   };
   let kind: Kind;
   if (/^(dialog|alertdialog)$/.test(role) || ((target as HTMLElement).tabIndex < 0 && target.querySelector(FOCUSABLE))) kind = 'container';
+  else if (markedRow) kind = 'row';
   else if (
     /^(menuitem|menuitemcheckbox|menuitemradio|option|tab|checkbox|radio|switch|treeitem)$/.test(role)
     || (target instanceof HTMLInputElement && /^(checkbox|radio)$/.test(target.type))
     || target.hasAttribute('aria-expanded')
     || Boolean(target.closest(COMPOSITE))
+    || navLink
   ) kind = 'label';
   else if (rowLike()) kind = 'row';
   else kind = 'control';
 
+  const rowBox = kind === 'row' ? target.closest('li, [role=listitem], tr, [role=row]') : null;
+  const rowBottom = rowBox ? Math.round(rowBox.getBoundingClientRect().bottom * 10) / 10 : null;
   if (kind === 'label' && labelHostEl) labelHostEl.setAttribute(args.hostAttr, '');
-  return { focused: true, describe: label(target), keyboard, kind, thickness, gap, allowed, lines, hidden, labelHost: kind === 'label' && Boolean(labelHostEl) };
+  return {
+    focused: true, describe: label(target), keyboard, kind, thickness, gap, allowed, expectedColor, surface, lines, hidden,
+    labelHost: kind === 'label' && Boolean(labelHostEl), inMain: Boolean(target.closest('main')), rowBottom, active: Boolean(active),
+  };
 }
 
 let settleProbe = 0;
@@ -216,7 +288,7 @@ async function settle(page: Page) {
 }
 
 async function plan(page: Page, targetAttr: string | null = null): Promise<FocusPlan> {
-  return page.evaluate(focusPlan, { hostAttr: LINE_HOST, targetAttr });
+  return page.evaluate(focusPlan, { hostAttr: LINE_HOST, activeAttr: ACTIVE, targetAttr });
 }
 
 /** Klavye modundaki odaklı öğe için sözleşme ihlalleri; boş = tek görünür alt çizgi, halka yok. */
@@ -233,7 +305,12 @@ async function keyboardProblems(page: Page, targetAttr: string | null = null): P
     problems.push(...await focusRing(page, { ...base, keyboard: false }));
     return { plan: current, problems };
   }
-  if (current.kind === 'row') problems.push(...await focusRing(page, { ...base, gap: -current.thickness }));
+  const onlyLine = current.lines.length === 1 ? current.lines[0] : null;
+  if (onlyLine?.onActive) {
+    // Açık listede görsel odak etkin seçenekte (APG): çizgi seçeneğin kontrol çizgisidir; kontrolde çizgi ve halka yok.
+    problems.push(...await focusRing(page, { thickness: current.thickness, gap: current.gap, target: `[${ACTIVE}]` }));
+    problems.push(...await focusRing(page, { ...base, keyboard: false }));
+  } else if (current.kind === 'row') problems.push(...await rowProblems(page, current, base));
   else if (current.kind === 'control') problems.push(...await focusRing(page, base));
   else {
     const asControl = await focusRing(page, base);
@@ -250,8 +327,24 @@ async function keyboardProblems(page: Page, targetAttr: string | null = null): P
   }
   for (const line of current.lines) {
     if (!current.allowed.includes(line.color)) problems.push(`${line.where}: çizgi rengi ${line.color} token dışı (izinli ${current.allowed.join(' / ')})`);
+    else if (line.color !== current.expectedColor) problems.push(`${line.where}: çizgi rengi ${line.color}, ${current.surface} beklenir (${current.expectedColor})`);
   }
   return { plan: current, problems };
+}
+
+/**
+ * Satır kalıbı: ya satır taşıyıcısında bottom 0 çizgi (dedektörün satır seçeneği: gap = -kalınlık) ya da kontrol çizgisi
+ * (kontrolün odak-aralik altında) olup çizilen alt kenarı satır kabının alt kenarına oturur (±1 px). İkisi de "satırın alt
+ * kenarında"dır; kontrol çizgisi satırın içinde ya da altındaki komşu satırda kalırsa hata.
+ */
+async function rowProblems(page: Page, current: FocusPlan, base: { thickness: number; gap: number; target?: string }): Promise<string[]> {
+  const atEdge = await focusRing(page, { ...base, gap: -current.thickness });
+  if (atEdge.length === 0) return [];
+  const below = await focusRing(page, base);
+  const line = current.lines.length === 1 ? current.lines[0] : null;
+  if (below.length > 0 || !line || current.rowBottom === null) return atEdge;
+  if (Math.abs(line.bottom - current.rowBottom) <= 1) return [];
+  return [`${line.where}: satır çizgisi satırın alt kenarında değil (çizgi alt ${line.bottom}px, satır alt ${current.rowBottom}px)`];
 }
 
 /** İşaretçi modundaki odaklı öğe için ihlaller; boş = mod kapalı, çizgi ve halka yok. */
@@ -410,6 +503,73 @@ test.describe('odak dedektörü öz denetimi', () => {
     }
     expect((await keyboardProblems(page, TARGET)).problems, 'enjeksiyonlar kaldırıldıktan sonra temiz').toEqual([]);
   });
+
+  test('satır, gezinme ve etkin seçenek kalıpları (sentetik): temizi geçer, her ihlal yakalanır', async ({ page, browserName }) => {
+    // Ürün durumundan bağımsız üç parça main içine eklenir; çizgiyi admin.css'in kendi kuralları çizer (a, [data-focus-line],
+    // nav zemini), etkin seçenek çizgisi yalnız tokenlarla yazılır.
+    await openAdmin(page, '/alimlar');
+    await page.addStyleTag({ content: [
+      '.f01-satirlar { list-style: none; margin: 0; padding: 0; }',
+      '.f01-satirlar > li { padding-bottom: calc(var(--aile-odak-aralik) + var(--aile-odak-kalinlik)); }',
+      '.f01-satirlar a { display: block; min-height: 44px; }',
+      '.f01-nav { background: var(--aile-nav); color: var(--aile-nav-metin); padding: 8px; }',
+      '.f01-nav ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--aile-bosluk-2); }',
+      '.f01-nav a { display: flex; min-height: 44px; color: inherit; }',
+      '.f01-secim [role=option] { position: relative; min-height: 44px; }',
+      ".f01-secim [role=option].is-etkin::after { content: ''; position: absolute; left: 0; right: 0; height: var(--aile-odak-kalinlik);",
+      '  bottom: calc(-1 * (var(--aile-odak-aralik) + var(--aile-odak-kalinlik))); background: var(--aile-odak); }',
+      "html[data-keyboard='true'] .f01-secim [role=combobox][aria-activedescendant]:focus-visible::after { content: none; }",
+    ].join('\n') });
+    await page.locator('main#admin-content').evaluate(main => {
+      const part = document.createElement('div');
+      part.innerHTML = [
+        '<ul class="f01-satirlar"><li><a href="#/alimlar" id="f01-satir">Örnek satır</a></li><li><a href="#/alimlar">İkinci satır</a></li></ul>',
+        '<nav class="f01-nav" aria-label="Deneme gezinmesi" data-odak-zemin="nav"><ul>',
+        '<li><a href="#/alimlar" id="f01-nav-bag">Deneme sayfası</a></li><li><a href="#/alimlar" id="f01-nav-secili" aria-current="page">Seçili sayfa</a></li>',
+        '</ul></nav>',
+        '<div class="f01-secim"><div role="combobox" tabindex="0" id="f01-combo" data-focus-line aria-expanded="true" aria-controls="f01-liste"',
+        ' aria-activedescendant="f01-o2" aria-label="Deneme seçimi">İki</div>',
+        '<ul role="listbox" id="f01-liste"><li role="option" id="f01-o1" aria-selected="false">Bir</li>',
+        '<li role="option" id="f01-o2" class="is-etkin" aria-selected="true">İki</li></ul></div>',
+      ].join('');
+      main.prepend(part);
+    });
+    const check = async (selector: string, expectKind: Kind, injections: [string, string][]) => {
+      await keyboardFocus(page, browserName, page.locator(selector));
+      const clean = await keyboardProblems(page);
+      expect(clean.plan.kind, `${selector}: sınıf`).toBe(expectKind);
+      expect(clean.problems, `${selector}: temiz`).toEqual([]);
+      for (const [name, css] of injections) {
+        const style = await page.addStyleTag({ content: css });
+        const caught = await keyboardProblems(page);
+        expect(caught.problems.length, `${selector}: enjekte ${name} yakalanmadı · ${caught.plan.describe}`).toBeGreaterThan(0);
+        await style.evaluate(el => (el as Element).remove());
+      }
+      expect((await keyboardProblems(page)).problems, `${selector}: enjeksiyonlar kaldırıldıktan sonra temiz`).toEqual([]);
+    };
+    // Satır: kontrol çizgisi li'nin alt boşluğuna düşer, satırın alt kenarına oturur.
+    await check('#f01-satir', 'row', [
+      ['satır altına taşan çizgi', '.f01-satirlar > li { padding-bottom: 0 !important; }'],
+      ['satırın içinde kalan çizgi', '.f01-satirlar > li { padding-bottom: 24px !important; }'],
+    ]);
+    // Gezinme bağlantısı: satır değil menü öğesi; çizgi nav zemininde odak-nav, seçili öğede odak.
+    await check('#f01-nav-bag', 'label', [
+      ['nav zemininde açık yüzey rengi', "#f01-nav-bag::after { background: var(--aile-odak) !important; }"],
+    ]);
+    await check('#f01-nav-secili', 'label', [
+      ['seçili nav öğesinde odak-nav rengi', "#f01-nav-secili::after { background: var(--aile-odak-nav) !important; }"],
+    ]);
+    // Açık liste: tek çizgi etkin seçenekte; kontrolde de çizgi (iki çizgi) ya da hiç çizgi yakalanır.
+    await keyboardFocus(page, browserName, page.locator('#f01-combo'));
+    const combo = await keyboardProblems(page);
+    expect(combo.plan.active, 'etkin seçenek bulunamadı').toBe(true);
+    expect(combo.plan.lines.map(line => line.onActive), 'çizgi etkin seçenekte değil').toEqual([true]);
+    await check('#f01-combo', 'label', [
+      ['kontrolde ikinci çizgi', "html[data-keyboard='true'] .f01-secim [role=combobox][aria-activedescendant]:focus-visible::after { content: '' !important; }"],
+      ['etkin seçenekte çizgi yok', '.f01-secim [role=option].is-etkin::after { content: none !important; }'],
+      ['etkin seçenekte dar çizgi', '.f01-secim [role=option].is-etkin::after { right: auto !important; width: 8px !important; }'],
+    ]);
+  });
 });
 
 // --- Klavye modu anahtarı ---------------------------------------------------------------------------------------------
@@ -492,7 +652,8 @@ test.describe('sayfa yolculuğu: Tab ve Shift+Tab', () => {
       await settle(page);
       await markActive(page, FIRST);
       let wrapped = false;
-      for (let index = 0; index < PAGE_STOPS; index += 1) {
+      let inMain = 0;
+      for (let index = 0; index < PAGE_STOP_LIMIT && inMain < MAIN_STOPS; index += 1) {
         if (index > 0) {
           await page.keyboard.press(tabKey(browserName));
           await settle(page);
@@ -503,9 +664,11 @@ test.describe('sayfa yolculuğu: Tab ve Shift+Tab', () => {
           if (!(await plan(page)).focused) break; // belge sonu: odak tarayıcıya geçer
         }
         const result = await keyboardProblems(page);
+        if (result.plan.inMain) inMain += 1;
         seen.push(result.plan.describe);
         problems.push(...result.problems.map(problem => `Tab ${index + 1} · ${result.plan.describe}: ${problem}`));
       }
+      expect(inMain, `${route}: Tab main içine girmedi (${seen.join(' → ')})`).toBeGreaterThan(0);
       // Geri yön: birkaç Shift+Tab (belge sonundaysa önce son durağa döner). Başa dönülmüşse ilk duraktan geri belge dışıdır.
       for (let index = 0; !wrapped && index < Math.min(3, seen.length - 1); index += 1) {
         await page.keyboard.press(shiftTabKey(browserName));
@@ -592,12 +755,19 @@ test.describe('açık katmanlar', () => {
       const { layer } = await openLayer(page, browserName, layerCase);
       const problems: string[] = [];
       const seen: string[] = [];
+      let marked = false;
       for (let index = 0; index < LAYER_STOPS; index += 1) {
         await page.keyboard.press(tabKey(browserName));
         await settle(page);
-        if (index > 0 && (await activeIs(page, FIRST))) break;
-        if (!(await focusInside(layer))) break; // katmandan çıkış ayrı testte (odak tuzağı)
-        if (index === 0) await markActive(page, FIRST);
+        const where = await focusWhere(page, layer);
+        // Yerel modal <dialog> (showModal) son duraktan tarayıcı arayüzüne çıkar, sonraki Tab katmana döner: durak değil.
+        if (where === 'chrome') continue;
+        if (where !== 'layer') break; // arka plana kaçış / kayıp odak ayrı testte (odak tuzağı)
+        if (marked && (await activeIs(page, FIRST))) break;
+        if (!marked) {
+          await markActive(page, FIRST);
+          marked = true;
+        }
         const result = await keyboardProblems(page);
         seen.push(result.plan.describe);
         problems.push(...result.problems.map(problem => `Tab ${index + 1} · ${result.plan.describe}: ${problem}`));
@@ -680,12 +850,18 @@ test.describe('açık katmanlar', () => {
       expect(await activeDescribe(page), 'ArrowDown sonraki seçeneğe geçmedi').not.toBe(before);
       await expectKeyboardIndicator(page, 'ArrowDown sonrası seçenek');
     } else {
-      // Geniş profil: açılır liste; DOM odağı kontrolde kalır (aria-activedescendant), çizgi kontrolde.
+      // Geniş profil: açılır liste; DOM odağı kontrolde kalır (aria-activedescendant). Tek çizgi ya kontrolde ya etkin
+      // seçenekte (APG görsel odak); ikisinde birden değil. ArrowDown sonrası seçenekteyse yeni etkin seçeneğe geçer.
       await expect(combo).toBeFocused();
       await expectKeyboardIndicator(page, 'Sıralama açık (açılır liste)');
+      const activeBefore = await combo.getAttribute('aria-activedescendant');
+      const options = await listbox.getByRole('option').count();
       await page.keyboard.press('ArrowDown');
       await expect(combo).toBeFocused();
-      await expectKeyboardIndicator(page, 'ArrowDown sonrası kontrol');
+      if (activeBefore && options > 1) {
+        await expect(combo, 'ArrowDown etkin seçeneği değiştirmedi (aria-activedescendant)').not.toHaveAttribute('aria-activedescendant', activeBefore);
+      }
+      await expectKeyboardIndicator(page, 'ArrowDown sonrası (kontrol ya da etkin seçenek)');
     }
     await page.keyboard.press('Escape');
     await expect(listbox).toBeHidden();
