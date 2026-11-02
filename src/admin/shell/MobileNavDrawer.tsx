@@ -55,7 +55,11 @@ export interface ShellNavListProps {
   className?: string;
 }
 
-/** Yerel bağlantı listesi (çekmece ve masaüstü yan gezinmesi ortak): APG gezinme = bağlantı listesi, menü rolü yok. */
+/**
+ * Yerel bağlantı listesi (çekmece ve masaüstü yan gezinmesi ortak): APG gezinme = bağlantı listesi, menü rolü yok.
+ * Bağlantı satırı doldurur ve satır odak taşıyıcısıdır (data-focus-line="row", admin.css): çizgi bağlantının kendi alt
+ * kenarında; seçili sayfada secili yüzeyin üzerinde odak, diğerlerinde lacivertin üzerinde odak-nav (WCAG 1.4.11 ≥ 3:1).
+ */
 export function ShellNavList({ items, location, label, onSelect, className }: ShellNavListProps) {
   const current = currentAdminLink(location).path;
   return (
@@ -75,6 +79,7 @@ export function ShellNavList({ items, location, label, onSelect, className }: Sh
               <a
                 className="aile-shell-link"
                 href={item.href}
+                data-focus-line="row"
                 aria-current={!item.external && item.path === current ? 'page' : undefined}
                 target={item.external ? '_blank' : undefined}
                 rel={item.external ? 'noopener noreferrer' : undefined}

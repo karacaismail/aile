@@ -11,9 +11,12 @@ import { focusRing, selfCheckDetectors } from './admin-detectors';
 //      kontrol  : kontrolün ya da onu saran sarmalayıcının ::after'ı, kontrol genişliğinde, odak-aralik (4 px) altında;
 //      satır    : liste/tablo satırında satırın alt kenarında: ya satır taşıyıcısında bottom 0 (tr, role=row,
 //                 [data-focus-line='row'], li'yi dolduran tek bağlantı/düğme) ya da kontrol çizgisi olup çizilen alt
-//                 kenarı satır kabının (li/tr) alt kenarına oturur (satırın alt boşluğu li'de: GenelPage);
-//      etiket   : menü öğesi (gezinme <nav> içindeki bağlantı dahil: tasarım "Menü öğesi · lacivert"), açılır alan
-//                 başlığı, seçenek, onay kutusunda kontrol çizgisi ya da etiket metninin hemen altında (tasarım
+//                 kenarı satır kabının (li/tr) alt kenarına oturur (satırın alt boşluğu li'de: GenelPage). Kabuğun
+//                 gezinme bağlantıları (Sayfalar çekmecesi, yan gezinme) satırı doldurur ve data-focus-line="row"
+//                 taşır: çizgi bağlantının kendi yüzeyinde, seçili sayfada secili üzerinde odak (≈4:1), diğerlerinde
+//                 lacivert üzerinde odak-nav (≈5,8:1; WCAG 1.4.11); değdiği alt köşeler çizgi görünürken radiussuz;
+//      etiket   : menü öğesi (satır işareti olmayan gezinme bağlantısı dahil: tasarım "Menü öğesi · lacivert"), açılır
+//                 alan başlığı, seçenek, onay kutusunda kontrol çizgisi ya da etiket metninin hemen altında (tasarım
 //                 bundle.css .ai-ul::after, bottom -odak-aralik) tek çizgi;
 //      etkin    : açık açılır listede (aria-expanded + aria-activedescendant, APG select-only combobox) görsel odak
 //                 etkin seçenektedir: tek çizgi ya kontroldedir ya etkin seçenekte; ikisinde birden değil.
@@ -514,7 +517,8 @@ test.describe('odak dedektörü öz denetimi', () => {
       '.f01-satirlar a { display: block; min-height: 44px; }',
       '.f01-nav { background: var(--aile-nav); color: var(--aile-nav-metin); padding: 8px; }',
       '.f01-nav ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--aile-bosluk-2); }',
-      '.f01-nav a { display: flex; min-height: 44px; color: inherit; }',
+      '.f01-nav a { display: flex; min-height: 44px; color: inherit; border-radius: var(--aile-kose-kontrol); }',
+      ".f01-nav a[aria-current='page'] { background: var(--aile-secili); color: var(--aile-metin); }",
       '.f01-secim [role=option] { position: relative; min-height: 44px; }',
       ".f01-secim [role=option].is-etkin::after { content: ''; position: absolute; left: 0; right: 0; height: var(--aile-odak-kalinlik);",
       '  bottom: calc(-1 * (var(--aile-odak-aralik) + var(--aile-odak-kalinlik))); background: var(--aile-odak); }',
@@ -526,6 +530,9 @@ test.describe('odak dedektörü öz denetimi', () => {
         '<ul class="f01-satirlar"><li><a href="#/alimlar" id="f01-satir">Örnek satır</a></li><li><a href="#/alimlar">İkinci satır</a></li></ul>',
         '<nav class="f01-nav" aria-label="Deneme gezinmesi" data-odak-zemin="nav"><ul>',
         '<li><a href="#/alimlar" id="f01-nav-bag">Deneme sayfası</a></li><li><a href="#/alimlar" id="f01-nav-secili" aria-current="page">Seçili sayfa</a></li>',
+        '</ul><ul>',
+        '<li><a href="#/alimlar" id="f01-nav-satir" data-focus-line="row">Satır sayfası</a></li>',
+        '<li><a href="#/alimlar" id="f01-nav-satir-secili" data-focus-line="row" aria-current="page">Seçili satır sayfası</a></li>',
         '</ul></nav>',
         '<div class="f01-secim"><div role="combobox" tabindex="0" id="f01-combo" data-focus-line aria-expanded="true" aria-controls="f01-liste"',
         ' aria-activedescendant="f01-o2" aria-label="Deneme seçimi">İki</div>',
@@ -559,6 +566,24 @@ test.describe('odak dedektörü öz denetimi', () => {
     await check('#f01-nav-secili', 'label', [
       ['seçili nav öğesinde odak-nav rengi', "#f01-nav-secili::after { background: var(--aile-odak-nav) !important; }"],
     ]);
+    // Satır işaretli gezinme bağlantısı (kabuk: data-focus-line="row"): satır kalıbı, çizgi bağlantının alt kenarında;
+    // nav zemininde odak-nav, seçili öğede (secili yüzey üzerinde) odak. Kontrol geometrisi (-7 px) yakalanır.
+    const asControl = (id: string) => `html[data-keyboard='true'] #${id}::after { bottom: calc(-1 * (var(--aile-odak-aralik) + var(--aile-odak-kalinlik))) !important; }`;
+    await check('#f01-nav-satir', 'row', [
+      ['nav satırında açık yüzey rengi', "#f01-nav-satir::after { background: var(--aile-odak) !important; }"],
+      ['satır altına taşan kontrol çizgisi', asControl('f01-nav-satir')],
+    ]);
+    await check('#f01-nav-satir-secili', 'row', [
+      ['seçili nav satırında odak-nav rengi', "#f01-nav-satir-secili::after { background: var(--aile-odak-nav) !important; }"],
+      ['satır altına taşan kontrol çizgisi', asControl('f01-nav-satir-secili')],
+    ]);
+    // Çizginin değdiği alt köşeler yalnız çizgi görünürken radiussuz; üst köşeler korunur.
+    const radii = await page.locator('#f01-nav-satir-secili').evaluate(element => {
+      const style = getComputedStyle(element);
+      return [style.borderTopLeftRadius, style.borderTopRightRadius, style.borderBottomLeftRadius, style.borderBottomRightRadius];
+    });
+    expect(radii.slice(2), 'satır çizgisinin değdiği alt köşeler').toEqual(['0px', '0px']);
+    expect(radii.slice(0, 2).every(value => value !== '0px'), 'üst köşeler korunur').toBe(true);
     // Açık liste: tek çizgi etkin seçenekte; kontrolde de çizgi (iki çizgi) ya da hiç çizgi yakalanır.
     await keyboardFocus(page, browserName, page.locator('#f01-combo'));
     const combo = await keyboardProblems(page);
@@ -626,6 +651,24 @@ test.describe('klavye odak modu', () => {
     await expect(search, 'touchstart odağı aldı (blur)').toBeFocused();
     await expect.poll(() => keyboardMode(page)).toBe('false');
     await expectNoIndicator(page, 'dokunma sonrası');
+  });
+
+  test('İçeriğe geç: ilk sekme durağı, tek alt çizgi; renk geçişi tek süre ve tek eğri, reduced-motion\'da anında', MATRIX, async ({ page, browserName }) => {
+    await openAdmin(page, '/genel');
+    await page.keyboard.press(tabKey(browserName));
+    const skip = page.getByRole('link', { name: 'İçeriğe geç' });
+    await expect(skip).toBeFocused();
+    await expectKeyboardIndicator(page, 'İçeriğe geç');
+    const motionOf = () => skip.evaluate(element => {
+      const style = getComputedStyle(element);
+      return { property: style.transitionProperty, duration: style.transitionDuration, ease: style.transitionTimingFunction, delay: style.transitionDelay };
+    });
+    // Bağlantı geçişi (antd bağlantı sıfırlaması dahil, nereden gelirse) proje tokenlarıyla: renk, 240 ms, tek eğri.
+    expect(await motionOf()).toEqual({ property: 'color', duration: '0.24s', ease: 'cubic-bezier(0.65, 0, 0.35, 1)', delay: '0s' });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await expect.poll(async () => (await motionOf()).duration).toBe('0s');
+    await expect(skip, 'tercih değişince odak yerinde').toBeFocused();
+    expect(await keyboardMode(page)).toBe('true');
   });
 
   test('mod açıkken programatik odak göstergeyi korur', async ({ page, browserName }) => {

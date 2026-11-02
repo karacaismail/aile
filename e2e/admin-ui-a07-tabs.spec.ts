@@ -271,9 +271,9 @@ test.describe('Tabs › görünüm modu (/alimlar)', () => {
       expect(await accentEdges(page, { root: '.aile-tabs--segment' })).toEqual([]);
       expect(await smallText(page, { root: '.aile-tabs--segment' })).toEqual([]);
       await expectTargets(page, [group.getByRole('radio', { name: 'Liste' })]);
-      // Hareket: yüzey geçişi tek süre ve tek eğri; azaltılmış harekette süre 0 ve seçim anında. (Tercih çalışırken
-      // değişince geniş profilde antd sağlayıcısının alt ağacı yeniden kurması ayrı kayıttır; burada yalnız stil ve durum
-      // okunur, konumlayıcılar yeniden çözülür.)
+      // Hareket: yüzey geçişi tek süre ve tek eğri; azaltılmış harekette süre 0 ve seçim anında. Tercih çalışırken
+      // değişince ağaç yeniden kurulmaz (WideProviders hareketi tema tokenıyla ifade eder): odak seçili radyoda ve
+      // klavye modu açık kalır.
       // Liste öğeleri virgülle ayrılır; cubic-bezier(…) içindeki virgüller bölünmez.
       const gecis = () => group.getByRole('radio', { name: 'Liste' }).evaluate((el) => ({
         durations: getComputedStyle(el).transitionDuration.split(/,\s*(?![^(]*\))/), eases: getComputedStyle(el).transitionTimingFunction.split(/,\s*(?![^(]*\))/),
@@ -281,8 +281,15 @@ test.describe('Tabs › görünüm modu (/alimlar)', () => {
       const normal = await gecis();
       expect(new Set(normal.durations)).toEqual(new Set(['0.24s']));
       expect(new Set(normal.eases)).toEqual(new Set(['cubic-bezier(0.65, 0, 0.35, 1)']));
+      const odakta = group.getByRole('radio', { name: 'Zaman çizelgesi' });
+      await expect(odakta).toBeFocused();
+      const kok = await page.locator('main#admin-content').elementHandle();
       await page.emulateMedia({ reducedMotion: 'reduce' });
       await expect.poll(async () => [...new Set((await gecis()).durations)]).toEqual(['0s']);
+      await expect(odakta, 'tercih değişince odak seçili radyoda kalır').toBeFocused();
+      expect(await keyboardMode(page), 'tercih değişince klavye modu korunur').toBe('true');
+      expect(await kok!.evaluate((element) => element.isConnected), 'main yeniden kurulmadı').toBe(true);
+      expect(await focusRing(page)).toEqual([]);
       // Seçim ve yüzey aynı anda: tıklamanın hemen ardından (bekleme yok) radyo işaretli ve yüzey son değerinde (secili;
       // imleç üstünde kalsa da).
       const liste = group.getByRole('radio', { name: 'Liste' });
@@ -356,12 +363,13 @@ test.describe('Tabs › görünüm modu (/alimlar)', () => {
     await expect(combobox).toContainText('Tablo');
     expect(await focusRing(page)).toEqual([]);
 
-    // Azaltılmış hareket: geçiş süresi 0; kapanınca katman hemen kalkar, durum ve odak aynı anda. Telefon profilinde antd
-    // sağlayıcısı (WideProviders) bağlı değildir (PHONE_WITHOUT_ANTD): tercih çalışırken değişince alt ağaç yeniden
-    // kurulmaz, odak tetikte ve klavye modu açık kalır. (Geniş profildeki yeniden kurulma ayrı kayıttır.)
+    // Azaltılmış hareket: geçiş süresi 0; kapanınca katman hemen kalkar, durum ve odak aynı anda. Tercih çalışırken
+    // değişince ağaç yeniden kurulmaz: odak combobox'ta ve klavye modu açık kalır.
+    const kok = await page.locator('main#admin-content').elementHandle();
     await page.emulateMedia({ reducedMotion: 'reduce' });
-    await expect(combobox).toBeFocused();
-    expect(await keyboardMode(page)).toBe('true');
+    await expect(combobox, 'tercih değişince odak combobox\'ta kalır').toBeFocused();
+    expect(await keyboardMode(page), 'tercih değişince klavye modu korunur').toBe('true');
+    expect(await kok!.evaluate((element) => element.isConnected), 'main yeniden kurulmadı').toBe(true);
     await page.keyboard.press('Enter');
     await expect(sheet).toBeVisible();
     await expect(combobox).toHaveAttribute('aria-expanded', 'true');
