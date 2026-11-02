@@ -1,6 +1,6 @@
 import { useId, useRef, type CSSProperties } from 'react';
 import { Button } from './Button';
-import { useKeyboardOverlap } from './FormFooter.viewport';
+import { useKeyboardOverlap, useStickyReserve } from './FormFooter.viewport';
 import './FormFooter.css';
 
 // Tasarım › components/FormFooter: formun altındaki durum metni ve eylemleri.
@@ -8,6 +8,8 @@ import './FormFooter.css';
 // görsel sırayla aynıdır (column-reverse yok; odak sırası okuma sırasına eşit). Telefonda yapışkan (safe area dahil).
 // Sanal klavye: yapışkan altlık görsel görünüm alanının altına yapışır (FormFooter.viewport.ts ölçer, --aile-ff-klavye
 // ve data-klavye ile uygulanır); klavye açıkken güvenli alan payı klavyenin altında kaldığından düşer.
+// Odak: belgeye yapışan altlığın yüksekliği belge kaydırma payıdır (useStickyReserve → --aile-ff-yukseklik); odağa
+// kaydırılan alan altlığın altında kalmaz.
 
 export type FormFooterTone = 'uyari' | 'hata';
 
@@ -43,6 +45,7 @@ export function FormFooter({ primaryLabel, secondaryLabel, onPrimary, onSecondar
   const statusId = useId();
   const root = useRef<HTMLDivElement>(null);
   const keyboard = useKeyboardOverlap(root, isSticky);
+  useStickyReserve(root, isSticky);
   const keyboardStyle = keyboard > 0 ? ({ '--aile-ff-klavye': `${keyboard}px` } as CSSProperties) : undefined;
   const primary = primaryLabel ? (
     // Devre dışı birincilin nedeni durum metnidir; aria-describedby ile düğmeye bağlanır (Button README).

@@ -200,6 +200,11 @@ html[data-keyboard='true'] :is(.aile-admin, [data-aile-katman], dialog, [role=di
     [data-aile-katman], dialog, [role=dialog], [role=alertdialog], [role=menu], [role=listbox]) :focus-visible { outline: 2px solid CanvasText; }
 }
 
+/* Bağlantı geçişinin eğrisi: geniş profilde (WideProviders) antd'nin genel bağlantı sıfırlaması her a'ya
+   `transition: color <süre>` yazar ve eğri vermez (ease). Bağlantı geçişi nereden gelirse gelsin tek proje eğrisini
+   kullanır; süre ve özellik kaynağında kalır (yalnız eğri yazılır, süresiz bağlantıda geçiş başlamaz). */
+:is(.aile-admin, [data-aile-katman], .ant-drawer, .ant-modal, .ant-dropdown, .ant-popover) a { transition-timing-function: var(--aile-egri); }
+
 /* Hareket: tek süre ve tek eğri antd tema token'ından gelir; reduced-motion'da kabuk, antd popup katmanları ve yerel
    katmanlar anlık (durum değişimi yine hemen uygulanır). */
 @media (prefers-reduced-motion: reduce) {

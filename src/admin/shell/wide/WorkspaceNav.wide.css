@@ -12,12 +12,18 @@
   color: var(--aile-nav-metin);
 }
 
+/* Güvenli alan: yan gezinme sol kenara ve görünüm üstüne/altına dayanır (yatay tablet, çentikli geniş görünüm); içerik
+   üst, alt ve sol paydan sonra başlar. Masaüstü tarayıcıda paylar 0'dır. */
 .aile-admin .aile-shell-yan__icerik {
   display: flex;
   flex-direction: column;
   gap: var(--aile-bosluk-2);
   min-height: 100%;
-  padding: var(--aile-bosluk-4) var(--aile-bosluk-3);
+  padding:
+    calc(var(--aile-bosluk-4) + var(--aile-safe-top))
+    var(--aile-bosluk-3)
+    calc(var(--aile-bosluk-4) + var(--aile-safe-bottom))
+    calc(var(--aile-bosluk-3) + var(--aile-safe-left));
 }
 
 /* Marka: küçük harf "aile", 24/32, 600 (tokenlar.md › marka). */

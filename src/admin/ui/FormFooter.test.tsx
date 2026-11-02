@@ -206,6 +206,83 @@ describe('FormFooter', () => {
   });
 });
 
+// Yapışkan altlık belgenin altına yapıştığında odağa kaydırılan alan onun altında kalmamalı (WCAG 2.4.11): altlığın
+// ölçülen yüksekliği kökte --aile-ff-yukseklik olur, FormFooter.css bunu belge kaydırma payına (scroll-padding-bottom)
+// odak çizgisi payıyla birlikte verir. Kaydırma kabı içindeki altlık belge payı istemez.
+describe('FormFooter · yapışkan altlık kaydırma payı', () => {
+  const VAR = '--aile-ff-yukseklik';
+  const original = window.ResizeObserver;
+  const heights = new Map<string, number>();
+  let resizers: Array<() => void> = [];
+  const rootVar = () => document.documentElement.style.getPropertyValue(VAR);
+  beforeEach(() => {
+    heights.clear();
+    resizers = [];
+    class FakeResizeObserver {
+      private readonly run: () => void;
+      constructor(callback: ResizeObserverCallback) { this.run = () => act(() => callback([], this as unknown as ResizeObserver)); resizers.push(this.run); }
+      observe() {}
+      unobserve() {}
+      disconnect() { resizers = resizers.filter(run => run !== this.run); }
+    }
+    window.ResizeObserver = FakeResizeObserver as unknown as typeof ResizeObserver;
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function rect(this: HTMLElement) {
+      const height = this.classList.contains('aile-ff') ? heights.get(this.querySelector('button')?.textContent ?? '') ?? 0 : 0;
+      return { width: 320, height, top: 0, left: 0, right: 320, bottom: height, x: 0, y: 0, toJSON: () => ({}) } as DOMRect;
+    });
+  });
+  afterEach(() => {
+    window.ResizeObserver = original;
+    vi.restoreAllMocks();
+    document.documentElement.style.removeProperty(VAR);
+  });
+
+  it('a sticky footer reserves its measured height on the root, follows resizes, drops it when not sticky or unmounted', () => {
+    heights.set('Kaydet', 176);
+    const view = render(<FormFooter narrow status="Kaydedilmemiş değişiklik var" primaryLabel="Kaydet" secondaryLabel="Vazgeç" />);
+    expect(rootVar()).toBe('176px');
+    // Durum metni iki satıra sarılınca altlık büyür: pay ölçüyle güncellenir (yukarı yuvarlanır).
+    heights.set('Kaydet', 199.5);
+    for (const run of resizers) run();
+    expect(rootVar()).toBe('200px');
+    view.rerender(<FormFooter narrow sticky={false} status="Kaydedilmemiş değişiklik var" primaryLabel="Kaydet" secondaryLabel="Vazgeç" />);
+    expect(rootVar()).toBe('');
+    view.rerender(<FormFooter narrow status="Kaydedilmemiş değişiklik var" primaryLabel="Kaydet" secondaryLabel="Vazgeç" />);
+    expect(rootVar()).toBe('200px');
+    view.unmount();
+    expect(rootVar()).toBe('');
+  });
+
+  it('a non-sticky (wide) footer reserves nothing', () => {
+    heights.set('Kaydet', 72);
+    render(<FormFooter status="Kaydedilmemiş değişiklik yok" primaryLabel="Kaydet" />);
+    expect(rootVar()).toBe('');
+  });
+
+  it('two sticky footers: the taller one is reserved; when it goes, the other remains', () => {
+    heights.set('Kaydet', 176);
+    heights.set('Gönder', 120);
+    const tall = render(<FormFooter narrow primaryLabel="Kaydet" />);
+    render(<FormFooter narrow primaryLabel="Gönder" />);
+    expect(rootVar()).toBe('176px');
+    tall.unmount();
+    expect(rootVar()).toBe('120px');
+  });
+
+  it('a sticky footer inside a scroll container sticks to the container and reserves nothing on the document', () => {
+    heights.set('Kaydet', 176);
+    render(<div style={{ overflowY: 'auto' }}><FormFooter narrow primaryLabel="Kaydet" /></div>);
+    expect(rootVar()).toBe('');
+  });
+
+  it('source: the root scroll padding is the reserved height plus the focus line gap, only while a sticky footer exists', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { resolve } = await import('node:path');
+    const css = readFileSync(resolve(__dirname, 'FormFooter.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(css).toMatch(/:root:has\(\.aile-ff--yapiskan\) \{\s*scroll-padding-bottom: calc\(var\(--aile-ff-yukseklik, 0px\) \+ var\(--aile-odak-aralik\) \+ var\(--aile-odak-kalinlik\)\);\s*\}/);
+  });
+});
+
 /** Sanal klavye taklidi (window.visualViewport + documentElement.clientHeight). Emülasyondur, gerçek cihaz değildir. */
 function installVisualViewport(layoutHeight: number) {
   const target = new EventTarget();

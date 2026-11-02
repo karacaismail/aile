@@ -38,11 +38,12 @@ interface TopBarProps {
   inert: boolean;
   onOpen(): void;
   buttonRef: RefObject<HTMLButtonElement | null>;
+  barRef: RefObject<HTMLElement | null>;
 }
 
-function TopBar({ label, open, inert, onOpen, buttonRef }: TopBarProps) {
+function TopBar({ label, open, inert, onOpen, buttonRef, barRef }: TopBarProps) {
   return (
-    <header className="aile-admin-topbar" data-shell-region="nav" data-odak-zemin="nav" inert={inert}>
+    <header ref={barRef} className="aile-admin-topbar" data-shell-region="nav" data-odak-zemin="nav" inert={inert}>
       <p className="aile-admin-topbar-title">
         <span className="aile-admin-brand">aile</span>
         <span className="aile-admin-topbar-sep" aria-hidden="true">·</span>
@@ -63,6 +64,31 @@ function TopBar({ label, open, inert, onOpen, buttonRef }: TopBarProps) {
       </button>
     </header>
   );
+}
+
+/** Kökte üst çubuğun ölçülen yüksekliği; shell.css bunu belge kaydırma payı (scroll-padding-top) yapar. */
+const TOPBAR_HEIGHT_VAR = '--aile-shell-ust-olcu';
+
+/**
+ * Odak üst çubuğun altında kalmaz (WCAG 2.4.11): çubuğun gerçek yüksekliği (sarılan sayfa adı, güvenli alan, kaba
+ * işaretçi payı dahil; sabit 56 değil) kökte --aile-shell-ust-olcu olarak tutulur; tarayıcı odağa ya da çapaya
+ * kaydırırken bu payı bırakır. Yükseklik değişince (ad, güvenli alan, yön) ResizeObserver günceller; çubuk yokken
+ * (masaüstü yan gezinme) değişken kalkar. ResizeObserver yoksa ilk ölçüm kalır.
+ */
+function useTopBarScrollPadding(bar: RefObject<HTMLElement | null>, shown: boolean) {
+  useLayoutEffect(() => {
+    const element = bar.current;
+    if (!shown || !element) return undefined;
+    const root = document.documentElement;
+    const write = () => root.style.setProperty(TOPBAR_HEIGHT_VAR, `${Math.ceil(element.getBoundingClientRect().height)}px`);
+    write();
+    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(write) : null;
+    observer?.observe(element, { box: 'border-box' });
+    return () => {
+      observer?.disconnect();
+      root.style.removeProperty(TOPBAR_HEIGHT_VAR);
+    };
+  }, [bar, shown]);
 }
 
 type Anchor = readonly (readonly [Element, number])[];
@@ -128,6 +154,7 @@ export function WorkspaceShell({ location, children }: WorkspaceShellProps) {
   const shell = useRef<HTMLDivElement | null>(null);
   const main = useRef<HTMLElement | null>(null);
   const pagesButton = useRef<HTMLButtonElement | null>(null);
+  const topBar = useRef<HTMLElement | null>(null);
   const [navOpen, setNavOpen] = useState(false);
   const drawerOpen = navOpen && !side;
   const layout = `${profile}:${side ? 'yan' : 'ust'}`;
@@ -165,6 +192,7 @@ export function WorkspaceShell({ location, children }: WorkspaceShellProps) {
   }, [layout, side]);
 
   useScrollAnchor(main, shell, layout);
+  useTopBarScrollPadding(topBar, !side);
 
   // Rota değişimi: alt sayfa kapanır; sayfa değiştiyse ya da odak kaybolduysa odak main'e (alt sayfa kapandıktan,
   // arka plan inert'ten çıktıktan sonra). Gezinmeden seçilen yeni sayfa başından açılır.
@@ -199,7 +227,7 @@ export function WorkspaceShell({ location, children }: WorkspaceShellProps) {
   return (
     <div ref={shell} className="aile-admin-shell" data-device={profile} data-gezinme={side ? 'yan' : 'ust'}>
       <a className="aile-admin-skip" href={`#${MAIN_ID}`} onClick={skipToContent} inert={drawerOpen}>İçeriğe geç</a>
-      {!side && <TopBar label={current.label} open={drawerOpen} inert={drawerOpen} onOpen={openNav} buttonRef={pagesButton} />}
+      {!side && <TopBar label={current.label} open={drawerOpen} inert={drawerOpen} onOpen={openNav} buttonRef={pagesButton} barRef={topBar} />}
       {desktop && <WideNav location={location} onNavigate={markNavigation} />}
       <main ref={main} id={MAIN_ID} tabIndex={-1} className="aile-admin-main" inert={drawerOpen}>
         <div className="aile-admin-main-inner">{children}</div>

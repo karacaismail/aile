@@ -1,7 +1,7 @@
 import { test, expect, type Locator, type Page, type TestInfo } from '@playwright/test';
 import { enterKeyboardMode, openAdmin, tabKey } from './admin-helpers';
 import { accentEdges, motion, overflow, runDetector, selfCheckDetectors } from './admin-detectors';
-import { densityFor, densityVarNames, targetTokens, type DensityProfile } from '../src/design/tokens';
+import { densityFor, densityVarNames, designTokens, targetTokens, type DensityProfile } from '../src/design/tokens';
 
 // Yönetim paneli yerleşim kapısı (f03-layout). Kaynaklar: aile-tasarim/tasarim-sistemi/README.md › Ölçü, köşe, hareket ·
 // Kabuk · Uyarlanır teslim; W0 sözleşmesi (src/admin/adaptive/profile.ts: telefon = genişlik < 600 ya da kısa kenar < 480).
@@ -36,7 +36,8 @@ const DESKTOP = { width: 1440, height: 900 };
 
 const TARGET_MIN = 44;
 const TARGET_COARSE = 48;
-const TOPBAR = 60;
+/** Üst bar: b01 kabuk sözleşmesi 56 = hedef-asgari 44 + bosluk-3 12 (shell.css --aile-shell-ust-bar); kısa ad tek satırda tam bu. */
+const TOPBAR = designTokens.hedefAsgari + designTokens.bosluk3;
 const NAV_WIDTH = 272;
 const CONTENT_MAX = 1480;
 const MOTION_MS = 240;
@@ -446,8 +447,12 @@ function safeAreaViolations(opts: { insets: { top: number; right: number; bottom
 
 /**
  * Bildirim denetimi (her iki motor): içerik taşıyan, üst ya da alt kenara iğnelenmiş (top/bottom ≈ 0) her
- * fixed/belge düzeyi sticky katmanın kendisi ya da alt ağacı o kenar için env(safe-area-inset-*) kullanan bir stil
- * kuralı ya da satır içi stil taşımalı. Geometri öykünemeyen motorda (WebKit) güvenli alanın tek kanıtıdır.
+ * fixed/belge düzeyi sticky katmanın kendisi ya da alt ağacı o kenar için güvenli alan payı okuyan bir stil kuralı ya da
+ * satır içi stil taşımalı. Geometri öykünemeyen motorda (WebKit) güvenli alanın tek kanıtıdır.
+ * Pay doğrudan env(safe-area-inset-<kenar>) ya da merkezi token üzerinden okunabilir (b04: admin.css
+ * `:root { --aile-safe-top: env(safe-area-inset-top, 0px) }`, bileşen `var(--aile-safe-top)`): değeri env() ya da böyle
+ * bir özelliğe var() olan özel özellikler (zincir dahil) o kenarın taşıyıcısıdır. Taşıyıcı, okuyan öğede tanımlı olmalı
+ * (hesaplanmış değeri boş değil); tanımsız bir var() bildirim sayılmaz.
  */
 function safeAreaDeclarationViolations(): string[] {
   const rules: CSSStyleRule[] = [];
@@ -461,11 +466,32 @@ function safeAreaDeclarationViolations(): string[] {
   for (const sheet of Array.from(document.styleSheets)) {
     try { collect(sheet.cssRules); } catch { /* başka kökenden stil sayfası okunamaz */ }
   }
+  const escape = (name: string) => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const reads = (text: string, name: string) => new RegExp(`var\\(\\s*${escape(name)}\\s*[,)]`).test(text);
+  const carriers: Record<string, string[]> = {};
+  for (const edge of ['top', 'bottom']) {
+    const needle = `safe-area-inset-${edge}`;
+    const names = new Set<string>();
+    for (let grew = true; grew;) {
+      grew = false;
+      for (const rule of rules) {
+        for (let i = 0; i < rule.style.length; i++) {
+          const prop = rule.style[i];
+          if (!prop.startsWith('--') || names.has(prop)) continue;
+          const value = rule.style.getPropertyValue(prop);
+          if (value.includes(needle) || Array.from(names).some((name) => reads(value, name))) { names.add(prop); grew = true; }
+        }
+      }
+    }
+    carriers[edge] = Array.from(names);
+  }
   const declares = (el: Element, edge: string) => {
     const needle = `safe-area-inset-${edge}`;
-    if ((el.getAttribute('style') || '').includes(needle)) return true;
+    const defined = carriers[edge].filter((name) => getComputedStyle(el).getPropertyValue(name).trim() !== '');
+    const hit = (text: string) => text.includes(needle) || defined.some((name) => reads(text, name));
+    if (hit(el.getAttribute('style') || '')) return true;
     return rules.some((rule) => {
-      if (!rule.style.cssText.includes(needle)) return false;
+      if (!hit(rule.style.cssText)) return false;
       try { return el.matches(rule.selectorText); } catch { return false; }
     });
   };
@@ -543,8 +569,13 @@ function pinnedOverlapViolations(): string[] {
  * Odak örtülmesi: main içindeki her odaklanabilir öğe sırayla odaklanır (tarayıcı görünür alana kaydırır); odaktaki
  * öğenin kutusu herhangi bir iğnelenmiş katmanla (üst bar, yapışkan form altlığı) kesişmemeli. Ters sıra (sondan başa)
  * üst katmanı, düz sıra alt katmanı sınar. Kapsam kökü verilebilir (öz denetim).
+ * emulateReveal: Playwright WebKit programatik focus()'ta görünür alana hiç kaydırmaz (ölçüldü: görünüm dışındaki ve
+ * üst barın altında kısmen kalan düğme, bağlantı ve girişte scrollY değişmez); klavyeyle (Alt+Tab) gezinmede ise kaydırır
+ * ve scroll-padding'e uyar. Bu motorda kullanıcı yolunun karşılığı odaktan sonra scrollIntoView({ block: 'nearest' })
+ * çağrısıdır (scroll-padding/scroll-margin'e uyar, öğe dolgulu görünür alandaysa kaydırmaz). Chromium focus()'ta kendisi
+ * kaydırır; orada öykünme yok, tarayıcının gerçek davranışı ölçülür.
  */
-function obscuredFocusViolations(opts: { reverse: boolean; max: number; selector: string; root?: string }): string[] {
+function obscuredFocusViolations(opts: { reverse: boolean; max: number; selector: string; root?: string; emulateReveal?: boolean }): string[] {
   const root = document.querySelector(opts.root || 'main#admin-content');
   if (!root) return ['odak kökü yok'];
   const visible = (el: Element) => {
@@ -575,6 +606,7 @@ function obscuredFocusViolations(opts: { reverse: boolean; max: number; selector
   for (const el of items.slice(0, opts.max)) {
     el.focus();
     if (document.activeElement !== el) continue;
+    if (opts.emulateReveal) el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     const r = el.getBoundingClientRect();
     if (r.width === 0 || r.height === 0) continue;
     for (const layer of layers) {
@@ -772,13 +804,16 @@ test.describe('tüm sayfalar · yapışkan katmanlar ve güvenli alan', () => {
       await emulateSafeArea(page, browserName, insetsFor(size), info);
       await open(page, route);
       const where = `${route} @ ${size.width}×${size.height}`;
-      expect.soft(await page.evaluate(obscuredFocusViolations, { reverse: false, max: 60, selector: FOCUSABLE_SELECTOR }), `${where} · odak alt katmanla örtülü (ileri)`).toEqual([]);
-      expect.soft(await page.evaluate(obscuredFocusViolations, { reverse: true, max: 60, selector: FOCUSABLE_SELECTOR }), `${where} · odak üst katmanla örtülü (geri)`).toEqual([]);
+      expect.soft(await page.evaluate(obscuredFocusViolations, { reverse: false, max: 60, selector: FOCUSABLE_SELECTOR, emulateReveal: browserName === 'webkit' }), `${where} · odak alt katmanla örtülü (ileri)`).toEqual([]);
+      expect.soft(await page.evaluate(obscuredFocusViolations, { reverse: true, max: 60, selector: FOCUSABLE_SELECTOR, emulateReveal: browserName === 'webkit' }), `${where} · odak üst katmanla örtülü (geri)`).toEqual([]);
     });
   }
 });
 
-// Görev koşusunda kısa telefon ve yatay telefon için açık kanıt: yapışkan form altlığı olan sayfa (Ayarlar).
+// Görev koşusunda kısa telefon ve yatay telefon için açık kanıt: yapışkan form altlığı olan sayfa (Ayarlar). Kaynak:
+// tasarim-sistemi/README.md › Uyarlanır teslim ("Form altlığı (FormFooter) telefonda yapışkandır") ve tasarımın Ayarlar
+// ekranı (bundle.js › Ayarlar: FormFooter sticky). Altlık yüksekliğini belge kaydırma payı olarak ayırır (FormFooter.css
+// :root:has(.aile-ff--yapiskan)); odaklanan alan altlığın altında kalmaz.
 test.describe('yapışkan form altlığı · kısa ve yatay telefon', () => {
   for (const size of [PHONE_SHORT, { width: 568, height: 320 }]) {
     test(`/ayarlar @ ${size.width}×${size.height}: altlık güvenli alanda, katmanlar örtüşmez, odak örtülmez`, async ({ page, browserName }, info) => {
@@ -799,8 +834,8 @@ test.describe('yapışkan form altlığı · kısa ve yatay telefon', () => {
       expect.soft(await page.evaluate(safeAreaDeclarationViolations), `${where} · güvenli alan bildirimi`).toEqual([]);
       expect.soft(await page.evaluate(safeAreaViolations, { insets, selector: TARGET_SELECTOR, atTop: false }), `${where} · altlık güvenli alanda`).toEqual([]);
       expect.soft(await page.evaluate(pinnedOverlapViolations), `${where} · üst bar ile altlık örtüşmez`).toEqual([]);
-      expect.soft(await page.evaluate(obscuredFocusViolations, { reverse: false, max: 60, selector: FOCUSABLE_SELECTOR }), `${where} · odak altlık altında (ileri)`).toEqual([]);
-      expect.soft(await page.evaluate(obscuredFocusViolations, { reverse: true, max: 60, selector: FOCUSABLE_SELECTOR }), `${where} · odak üst bar altında (geri)`).toEqual([]);
+      expect.soft(await page.evaluate(obscuredFocusViolations, { reverse: false, max: 60, selector: FOCUSABLE_SELECTOR, emulateReveal: browserName === 'webkit' }), `${where} · odak altlık altında (ileri)`).toEqual([]);
+      expect.soft(await page.evaluate(obscuredFocusViolations, { reverse: true, max: 60, selector: FOCUSABLE_SELECTOR, emulateReveal: browserName === 'webkit' }), `${where} · odak üst bar altında (geri)`).toEqual([]);
     });
   }
 });
@@ -809,8 +844,8 @@ test.describe('yapışkan form altlığı · kısa ve yatay telefon', () => {
 
 test.describe('kabuk geometrisi', () => {
   for (const size of [PHONE, PHONE_SHORT]) {
-    test(`${size.width}×${size.height}: üst bar en üstte, 60 px, yapışkan; nav yan sütunu yok`, async ({ page }) => {
-      // Kısa sayfa adı tek satıra sığar: ölçü sözleşmesi tam 60 px.
+    test(`${size.width}×${size.height}: üst bar en üstte, ${TOPBAR} px, yapışkan; nav yan sütunu yok`, async ({ page }) => {
+      // Kısa sayfa adı tek satıra sığar: ölçü sözleşmesi tam TOPBAR.
       await open(page, '/genel', size);
       const bar = topBar(page);
       await expect(bar).toBeVisible();
@@ -836,10 +871,16 @@ test.describe('kabuk geometrisi', () => {
     });
   }
 
-  test('320×568 uzun sayfa adında (/veri) üst bar ≥ 60 px, etiket kesilmez, taşma yok', async ({ page }) => {
+  test(`320×568 uzun sayfa adında (/veri) üst bar ≥ ${TOPBAR} px ve sarılan adı kapsar, etiket kesilmez, taşma yok`, async ({ page }) => {
     await open(page, '/veri', PHONE);
     const bar = topBar(page);
-    expect((await bar.boundingBox())!.height).toBeGreaterThanOrEqual(TOPBAR - 0.5);
+    const barBox = (await bar.boundingBox())!;
+    expect(barBox.height).toBeGreaterThanOrEqual(TOPBAR - 0.5);
+    // Ad kelimeler arasından sarılır; bar büyür ve sarılan adın tamamı barın içinde kalır (bar taşmayı gizlemez, bu yüzden
+    // kırpma denetimi taşan satırı görmez; kutu karşılaştırması görür).
+    const title = (await bar.locator('p').first().boundingBox())!;
+    expect(title.y).toBeGreaterThanOrEqual(barBox.y - 0.5);
+    expect(title.y + title.height).toBeLessThanOrEqual(barBox.y + barBox.height + 0.5);
     expect(await page.evaluate(clippedTextViolations, { root: 'header' }), 'üst barda kırpılan metin').toEqual([]);
     expect(await runDetector(page, 'overflowViolations', { root: 'header' }), 'üst barda taşma ya da kesme').toEqual([]);
     await expect(pagesButton(page)).toBeVisible();
@@ -1434,12 +1475,58 @@ test.describe('dedektör öz denetimi', () => {
     expect(await page.evaluate(() => document.querySelector('#oz-sayfa .oz-govde')!.scrollTop), 'ölçüm kaydırmayı geri alır').toBe(0);
     await page.evaluate(() => document.getElementById('oz-sayfa')?.remove());
 
+    // Merkezi token üzerinden bildirim (admin.css --aile-safe-* gibi): env()'e çözülen özel özellik zinciri sayılır; sıfıra
+    // çözülen, okuyan öğede tanımsız (başka kökte) ya da env() taşımayan özellik sayılmaz.
+    await inject(page, 'oz-token', '', `#oz-guvenli { --oz-pay-alt: env(safe-area-inset-bottom, 0px); --oz-pay-zincir: var(--oz-pay-alt); --oz-sifir: 0px; }
+      #oz-baska-kok { --oz-kapsam-disi: env(safe-area-inset-bottom, 0px); }
+      .oz-alt--token { padding-bottom: var(--oz-pay-zincir); } .oz-alt--sifir { padding-bottom: var(--oz-sifir); }
+      .oz-alt--kapsam { padding-bottom: var(--oz-kapsam-disi, 0px); }`);
+    const toggle = (cls: string, on: boolean) => page.evaluate(([c, add]) => document.querySelector('#oz-guvenli .oz-alt')!.classList.toggle(c, add), [cls, on] as const);
+    const declarationWith = async (cls: string) => {
+      await toggle(cls, true);
+      const out = await page.evaluate(safeAreaDeclarationViolations);
+      await toggle(cls, false);
+      return out;
+    };
+    expect(await declarationWith('oz-alt--token'), 'env() zinciri taşıyan token').not.toContainEqual(expect.stringContaining('oz-alt'));
+    expect(await declarationWith('oz-alt--sifir'), 'sıfır token').toContainEqual(expect.stringContaining('oz-alt'));
+    expect(await declarationWith('oz-alt--kapsam'), 'okuyan öğede tanımsız token').toContainEqual(expect.stringContaining('oz-alt'));
+    await page.evaluate(() => document.getElementById('oz-token')?.remove());
+
     await page.evaluate(() => document.querySelector('#oz-guvenli .oz-alt')?.classList.add('oz-alt--payli'));
     expect(await page.evaluate(safeAreaDeclarationViolations)).not.toContainEqual(expect.stringContaining('oz-alt'));
     if (browserName === 'chromium') {
       // Yalnız env() gerçekten 34 px'e çözüldüğünde geometri temizlenir (WebKit'te env() 0'dır).
       expect(await page.evaluate(safeAreaViolations, { insets, selector: TARGET_SELECTOR, atTop: false })).not.toContainEqual(expect.stringContaining('Kaydet'));
     }
+  });
+
+  test('odak örtülmesi (geri): yarısı üst barın altında kalan öğeye geri odak yakalanır; scroll-padding-top bar kadarken temiz', async ({ page, browserName }) => {
+    await open(page, '/alimlar', PHONE);
+    const emulateReveal = browserName === 'webkit';
+    // Son odaklanabilir öğe: ardından gelen boşluk, belge sonuna kaydırılınca öğeyi görünüm üst kenarında yarıya böler.
+    await page.evaluate(() => {
+      const host = document.createElement('section');
+      host.id = 'oz-odak-ust';
+      host.setAttribute('aria-label', 'öz denetim üst odak');
+      host.innerHTML = '<button type="button" style="display:block;width:200px;height:48px">Üstteki hedef</button><div aria-hidden="true"></div>';
+      document.querySelector('main#admin-content')!.appendChild(host);
+      const spacer = host.lastElementChild as HTMLElement;
+      const after = document.documentElement.scrollHeight - (spacer.getBoundingClientRect().bottom + window.scrollY);
+      spacer.style.height = `${window.innerHeight - after - 20}px`;
+    });
+    const bar = (await topBar(page).boundingBox())!;
+    const padding = (value: string) => page.evaluate((v) => {
+      let style = document.getElementById('oz-pad');
+      if (!style) { style = document.createElement('style'); style.id = 'oz-pad'; document.head.appendChild(style); }
+      style.textContent = `html:root { scroll-padding-top: ${v} !important; }`;
+    }, value);
+    const scan = () => page.evaluate(obscuredFocusViolations, { reverse: true, max: 1, selector: FOCUSABLE_SELECTOR, root: '#oz-odak-ust', emulateReveal });
+    await padding('0px');
+    expect(await scan(), 'pay yokken odak üst barın altında').toContainEqual(expect.stringContaining('Üstteki hedef'));
+    await padding(`${Math.ceil(bar.height)}px`);
+    expect(await scan(), 'pay üst bar kadarken odak görünür').toEqual([]);
+    await page.evaluate(() => { document.getElementById('oz-pad')?.remove(); document.getElementById('oz-odak-ust')?.remove(); });
   });
 
   test('katman örtüşmesi ve odak örtülmesi: üst üste iki sabit katman ve sabit altlık altında kalan odak yakalanır', async ({ page }) => {
@@ -1461,6 +1548,9 @@ test.describe('dedektör öz denetimi', () => {
       document.querySelector('main#admin-content')!.appendChild(host);
     });
     expect(await page.evaluate(obscuredFocusViolations, { reverse: false, max: 5, selector: FOCUSABLE_SELECTOR, root: '#oz-odak' }))
+      .toContainEqual(expect.stringContaining('Örtülü alan'));
+    // Görünür alana getirme öykünmesi (WebKit yolu) görünüm içindeki örtülü odağı gizlemez: öğe zaten görünür alanda.
+    expect(await page.evaluate(obscuredFocusViolations, { reverse: false, max: 5, selector: FOCUSABLE_SELECTOR, root: '#oz-odak', emulateReveal: true }))
       .toContainEqual(expect.stringContaining('Örtülü alan'));
   });
 
