@@ -6,8 +6,9 @@ import './WorkspaceNav.wide.css';
 // Geniş-özel: masaüstü (≥1024) kalıcı yan gezinme. Tasarım: tasarim-sistemi/README.md › Kabuk (solda 272 px lacivert
 // nav: küçük harf "aile" → 11 sayfa → ayırıcı → Ayarlar · E-tabloyu aç, yeni sekme). WorkspaceShell bunu yalnız
 // lazyWide('shell-nav', …) ile yükler; telefon profili hiç indirmez. Bağlantı listesi çekmeceyle ortaktır
-// (MobileNavDrawer › ShellNavList, yerel <ul>/<a>; menü rolü yok). Odak çizgisini admin.css çizer (data-odak-zemin="nav"
-// yüzeyinde odak-nav, seçili öğede odak).
+// (MobileNavDrawer › ShellNavList, yerel <ul>/<a>; menü rolü yok). Odak çizgisini admin.css çizer: bağlantılar satır
+// taşıyıcısıdır (data-focus-line="row", çizgi bağlantının alt kenarında); data-odak-zemin="nav" yüzeyinde odak-nav, seçili
+// öğede secili yüzeyin üzerinde odak.
 
 export interface WorkspaceNavProps {
   location: string;

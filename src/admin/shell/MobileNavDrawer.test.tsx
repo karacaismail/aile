@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useRef, useState } from 'react';
@@ -69,6 +71,29 @@ describe('MobileNavDrawer', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Sayfalar' });
     expect(dialog).toHaveAttribute('data-odak-zemin', 'nav');
     expect(dialog).not.toHaveClass('aile-admin-nav');
+  });
+
+  // Satırı dolduran gezinme bağlantısı satır taşıyıcısıdır (admin.css [data-focus-line='row']): odak çizgisi bağlantının
+  // kendi alt kenarındadır (bottom 0). Seçili sayfada çizgi secili yüzeyin üzerinde odak (≈4:1), diğerlerinde lacivertin
+  // üzerinde odak-nav (≈5,8:1); kontrolün 4 px altına çizilse seçili sayfanın odak çizgisi laciverte düşerdi (1,96:1,
+  // WCAG 1.4.11 3:1 altı). Çizginin değdiği alt köşeler yalnız klavye odağında radiussuzdur (kavisli vurgu kenarı yok).
+  it('marks every link as a row focus-line carrier; admin.css draws that line on the row\'s own bottom edge', async () => {
+    render(<MobileNavDrawer open onClose={() => {}} location="/alimlar" />);
+    const nav = await screen.findByRole('navigation', { name: 'Sayfalar' });
+    const links = within(nav).getAllByRole('link');
+    expect(links.filter(link => link.getAttribute('data-focus-line') !== 'row').map(link => link.textContent)).toEqual([]);
+
+    const admin = readFileSync(resolve(__dirname, '../admin.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    const rules = [...admin.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(match => ({ selector: match[1].trim(), body: match[2] }));
+    const rowRules = rules.filter(rule => rule.selector.includes("[data-focus-line='row']"));
+    const lineRule = rowRules.find(rule => /::after\s*$/.test(rule.selector) && /(^|;)\s*bottom:\s*0\s*;/.test(rule.body));
+    expect(lineRule, 'satır çizgisi bottom 0').toBeDefined();
+    expect(lineRule!.selector).toMatch(/^html\[data-keyboard='true'\]\s/);
+    expect(lineRule!.selector).toMatch(/:focus-visible/);
+    const cornerRule = rowRules.find(rule => !/::after/.test(rule.selector) && /border-bottom-left-radius:\s*0/.test(rule.body) && /border-bottom-right-radius:\s*0/.test(rule.body));
+    expect(cornerRule, 'çizginin değdiği alt köşeler radiussuz').toBeDefined();
+    expect(cornerRule!.selector).toMatch(/^html\[data-keyboard='true'\]\s/);
+    expect(cornerRule!.body).not.toMatch(/border-top-(left|right)-radius|border-radius:/);
   });
 
   it('marks only the current page (including nested paths) with aria-current="page"', async () => {

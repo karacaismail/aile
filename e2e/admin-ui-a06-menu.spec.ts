@@ -9,8 +9,11 @@ import { enterKeyboardMode, openAdmin, shiftTabKey, tabKey } from './admin-helpe
 //
 // Gerçek rotalar (telefon profili, projeler chromium 320×568 ve webkit 390×844 dokunmatik):
 //  - #/butce ve #/hesaplar: PageHeader telefonda ikincil eylemleri "Diğer" (OverflowActions → alt sayfa) altına alır.
-//  - Sayfalar çekmecesi: kabuğun gezinmesi bir bağlantı listesidir (APG: site gezinmesi menü değildir); Menu README
-//    görsel kuralları (44/48 px, seçili secili + 600, şerit yok, nav üzerinde odak çizgisi) orada doğrulanır.
+//  - Sayfalar çekmecesi (telefon, tablet) ve yan gezinme (masaüstü): kabuğun gezinmesi bir bağlantı listesidir (APG: site
+//    gezinmesi menü değildir); Menu README görsel kuralları (44/48 px, seçili secili + 600, şerit yok, nav üzerinde odak
+//    çizgisi) orada doğrulanır. Satırı dolduran bağlantı satır taşıyıcısıdır (data-focus-line="row"): odak çizgisi
+//    bağlantının kendi alt kenarındadır (bottom 0), böylece seçili sayfada secili yüzeyin, diğerlerinde lacivertin
+//    üzerindedir (WCAG 1.4.11 en az 3:1).
 // Menu variant="nav" ve açılır panel (geniş profil) hiçbir rotada görünmez (PageHeader genişte ikincil düğme çizer);
 // bu yüzden aynı dev sunucusunun kaynak modülleri (Menu.tsx, OverflowActions.tsx) admin.html üzerinde, gerçek admin.css
 // ve <html> data-profile/data-input-* öznitelikleriyle bir yalıtık köke bağlanır (bkz. mountNavHarness: bu projenin
@@ -154,6 +157,37 @@ async function openPagesDrawer(page: Page, route = '/alimlar') {
 
 /** Odaklı öğenin odak çizgisinin rengi (admin.css: taşıyıcının ::after'ı). */
 const lineColor = (target: Locator) => target.evaluate(element => getComputedStyle(element, '::after').backgroundColor);
+/**
+ * Satır çizgisi (admin.css [data-focus-line='row']): paylaşılan dedektörün satır seçeneği, gap = -kalınlık → beklenen
+ * bottom 0 (çizgi bağlantının kendi alt kenarında, bağlantı genişliğinde). Kabuk gezinme bağlantıları satırı doldurur.
+ */
+const ROW_LINE = { thickness: 3, gap: -3 } as const;
+
+/**
+ * Sayfalar gezinmesi: telefon ve tablette Sayfalar çekmecesi (modal), masaüstünde kalıcı yan gezinme (aside; geniş-özel
+ * modül yüklenene kadar beklenir). İkisi de kabuğun aynı bağlantı listesidir (ShellNavList).
+ */
+async function openPagesNav(page: Page, route = '/alimlar') {
+  await openAdmin(page, route);
+  if (await profileOf(page) === 'desktop') {
+    const side = page.locator('aside').getByRole('navigation', { name: 'Sayfalar' });
+    await expect(side).toBeVisible();
+    return side;
+  }
+  await page.getByRole('button', { name: 'Sayfalar', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Sayfalar' });
+  await expect(dialog).toBeVisible();
+  return dialog.getByRole('navigation', { name: 'Sayfalar' });
+}
+
+/** Odaklı bağlantının köşeleri: çizginin değdiği alt köşeler radiussuz, üst köşeler korunur (kavisli vurgu kenarı yok). */
+const corners = (target: Locator) => target.evaluate(element => {
+  const style = getComputedStyle(element);
+  return {
+    top: [style.borderTopLeftRadius, style.borderTopRightRadius],
+    bottom: [style.borderBottomLeftRadius, style.borderBottomRightRadius],
+  };
+});
 
 /**
  * Odak çizgisinin (::after) rengi ile çizginin üzerine çizildiği zeminin kontrast oranı (WCAG göreli parlaklık). Zemin,
@@ -177,7 +211,9 @@ function focusLineContrast(target: Locator) {
     const bottom = box.bottom - Number.parseFloat(after.bottom);
     const y = bottom - Number.parseFloat(after.height) / 2;
     const x = box.left + box.width / 2;
-    if (y < 0 || y >= window.innerHeight || x < 0 || x >= window.innerWidth) return { line: after.backgroundColor, under: 'görünüm dışı', ratio: 0 };
+    if (y < 0 || y >= window.innerHeight || x < 0 || x >= window.innerWidth) {
+      return { line: after.backgroundColor, under: `görünüm dışı (x ${Math.round(x)}, y ${Math.round(y)}; görünüm ${window.innerWidth}×${window.innerHeight})`, ratio: 0 };
+    }
     // Noktadaki en üst öğe: çizgi kontrolün içindeyse (satır/etiket çizgisi) kontrolün kendi yüzeyi, dışındaysa altındaki
     // yüzey (sözde öğe pointer-events: none, isabet almaz).
     const under = document.elementsFromPoint(x, y)[0] ?? document.body;
@@ -197,6 +233,21 @@ function focusLineContrast(target: Locator) {
     const [l1, l2] = [luminance(line), luminance(base)].sort((a, b) => b - a);
     return { line: after.backgroundColor, under: `rgb(${base.map(Math.round).join(', ')})`, ratio: Math.round(((l1! + 0.05) / (l2! + 0.05)) * 100) / 100 };
   });
+}
+
+/**
+ * Sayfadaki geçişler ve animasyonlar (çekmecenin 240 ms kayması, odakla kaydırma) bitene kadar bekler: iki ardışık karede
+ * süren sonlu animasyon yok. Geometri ölçümü hareket ortasında alınmaz (yük altında açılış kayması Tab'lardan uzun sürebilir).
+ */
+async function settleMotion(page: Page) {
+  await page.evaluate(() => { (window as unknown as { __a06Calm?: number }).__a06Calm = 0; });
+  await page.waitForFunction(() => {
+    const w = window as unknown as { __a06Calm?: number };
+    const busy = document.getAnimations().some(animation => animation.playState === 'running'
+      && Number.isFinite(Number(animation.effect?.getComputedTiming().endTime)));
+    w.__a06Calm = busy ? 0 : (w.__a06Calm ?? 0) + 1;
+    return w.__a06Calm >= 2;
+  }, undefined, { polling: 'raf', timeout: 5_000 });
 }
 
 /** Klavye modunda Tab ile (en çok `limit` adım) hedefe gelir; programatik odak :focus-visible vermeyebilir. */
@@ -235,17 +286,19 @@ test('Sayfalar gezinmesi: bağlantı listesi (menü rolü yok), her bağlantı T
   await expectTargets(page, links);
 });
 
-test('Sayfalar gezinmesi: Tab/Shift+Tab bağlantılar arasında doğal sırada; tek alt çizgi, nav zemininde odak-nav; Enter gezinir, çekmece kapanır, odak main\'e', MATRIX, async ({ page, browserName }) => {
+test('Sayfalar gezinmesi: Tab/Shift+Tab bağlantılar arasında doğal sırada; tek alt çizgi bağlantının alt kenarında, nav zemininde odak-nav, seçili sayfada odak; Enter gezinir, çekmece kapanır, odak main\'e', MATRIX, async ({ page, browserName }) => {
   const nav = await openPagesDrawer(page);
   await enterKeyboardMode(page, browserName);
   const link = (name: string) => nav.getByRole('link', { name, exact: true });
   const selected = link('Alımlar ve eşyalar');
   await tabTo(page, browserName, selected);
-  expect(await focusRing(page)).toEqual([]);
+  await expect(selected).toHaveAttribute('data-focus-line', 'row');
+  expect(await focusRing(page, ROW_LINE)).toEqual([]);
+  expect(await lineColor(selected), 'seçili sayfada çizgi secili yüzeyde: odak').toBe(await tokenColor(page, '--aile-odak'));
 
   await page.keyboard.press(tabKey(browserName));
   await expect(link('Ev ve odalar')).toBeFocused();
-  expect(await focusRing(page)).toEqual([]);
+  expect(await focusRing(page, ROW_LINE)).toEqual([]);
   expect(await lineColor(link('Ev ve odalar'))).toBe(await tokenColor(page, '--aile-odak-nav'));
   await page.keyboard.press(shiftTabKey(browserName));
   await expect(selected).toBeFocused();
@@ -259,16 +312,33 @@ test('Sayfalar gezinmesi: Tab/Shift+Tab bağlantılar arasında doğal sırada; 
 });
 
 test('Sayfalar gezinmesi: odak çizgisi lacivert zeminde en az 3:1 kontrastlı (WCAG 1.4.11), seçili sayfada da', MATRIX, async ({ page, browserName }) => {
-  const nav = await openPagesDrawer(page);
+  // Telefon/tablet: Sayfalar çekmecesi; masaüstü: yan gezinme. Çizgi bağlantının alt kenarında (satır), seçili sayfada
+  // secili yüzeyin üzerinde odak, diğerlerinde lacivertin üzerinde odak-nav; değdiği alt köşeler radiussuz.
+  const nav = await openPagesNav(page);
   await enterKeyboardMode(page, browserName);
   const problems: string[] = [];
   for (const name of ['Alımlar ve eşyalar', 'Ev ve odalar']) {
     const target = nav.getByRole('link', { name, exact: true });
-    await tabTo(page, browserName, target);
+    await tabTo(page, browserName, target, 24);
+    await settleMotion(page);
     const contrast = await focusLineContrast(target);
     if (contrast.ratio < 3) problems.push(`${name}: çizgi ${contrast.line}, zemin ${contrast.under}, oran ${contrast.ratio}`);
+    expect(await focusRing(page, ROW_LINE), `${name}: çizgi bağlantının alt kenarında`).toEqual([]);
+    expect((await corners(target)).bottom, `${name}: çizginin değdiği alt köşeler`).toEqual(['0px', '0px']);
+    expect(await accentEdges(page, { root: '[data-odak-zemin="nav"]' }), `${name}: kavisli vurgu kenarı`).toEqual([]);
   }
   expect(problems).toEqual([]);
+  // İşaretçi modunda (pointerdown görsel modu kapatır, odak yerinde kalır) çizgi yok ve köşeler yerine döner (koşullu
+  // radius). Olay gezinme yüzeyine gönderilir: bağlantı etkinleşmez, çekmece açık kalır.
+  const selected = nav.getByRole('link', { name: 'Alımlar ve eşyalar', exact: true });
+  await selected.focus();
+  await nav.dispatchEvent('pointerdown', { pointerType: 'mouse', pointerId: 1, isPrimary: true, button: 0 });
+  await expect(page.locator('html')).toHaveAttribute('data-keyboard', 'false');
+  await expect(selected).toBeFocused();
+  expect(await focusRing(page, ROW_LINE), 'işaretçi modunda çizgi yok').toEqual([]);
+  const look = await corners(selected);
+  expect(look.bottom, 'işaretçi modunda alt köşeler kontrol köşesi').toEqual(look.top);
+  expect(look.top.every(value => value !== '0px'), 'üst köşeler korunur').toBe(true);
 });
 
 test('Sayfalar gezinmesi: pointercancel (kaydırmaya dönen dokunuş) gezinmez; dokunuş/tıklama gezinir ve çekmeceyi kapatır', MATRIX, async ({ page }, testInfo) => {

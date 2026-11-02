@@ -129,10 +129,15 @@ body { margin: 0; }
    - Taşıyıcı: [data-focus-line] (yerel bileşenin tek işareti) ve a, summary, [role=tab], [role=menuitem],
      [role=menuitemradio], [role=menuitemcheckbox], [role=option]. ::after alamayan input/textarea için çizgiyi saran
      [data-focus-line] öğesi çizer (:has(:focus-visible)).
+   - Satır: [data-focus-line='row'] satırı dolduran taşıyıcıdır (gezinme bağlantısı, özet/liste satırı). Çizgi kendi alt
+     kenarında (bottom 0), yani satırın kendi yüzeyindedir; değdiği iki alt köşe yalnız çizgi görünürken radiussuzdur
+     (kavisli vurgu kenarı yok), üst köşeler korunur.
    - ::after odak çizgisine ayrılmıştır; süs için ::before kullan. Taşıyıcı konumlanır ve taşmayı gösterir; kaydırma
      kabının kendisine çizgi koyma (kabın içinde kırpılır), saran öğeye koy.
    - nav zemininde çizgi odak-nav: .aile-admin-nav, .admin-sidebar, .ant-layout-sider, .ant-menu-dark ya da yerel
-     [data-odak-zemin='nav'] yüzeyi; seçili öğede (aria-current='page' / aria-selected='true') odak.
+     [data-odak-zemin='nav'] yüzeyi; seçili öğede (aria-current='page' / aria-selected='true') odak. Lacivert üzerindeki
+     seçili öğe satır taşıyıcısı olmalıdır: odak çizgisi secili yüzeyin üzerinde ≈4:1, kontrolün altında laciverte
+     düşseydi 1,96:1 (WCAG 1.4.11 3:1 altı). Kabuğun gezinme bağlantıları (ShellNavList) data-focus-line='row' taşır.
    - forced-colors: active iken tek istisna: klavye modu + :focus-visible öğede outline 2px solid CanvasText. */
 :is(.aile-admin, .ant-drawer, .ant-modal, .ant-modal-root, .ant-dropdown, .ant-select-dropdown, .ant-popover, .ant-tooltip, .ant-picker-dropdown,
     [data-aile-katman], dialog, [role=dialog], [role=alertdialog], [role=menu], [role=listbox]) :focus,
@@ -183,6 +188,18 @@ html[data-keyboard='true'] :is(.aile-admin, [data-aile-katman], dialog, [role=di
   :is(.ant-menu-item-selected, [aria-current='page'], [aria-selected='true']):focus-visible::after,
 html[data-keyboard='true'] :is(.aile-admin, [data-aile-katman], dialog, [role=dialog], [role=alertdialog], [role=menu], [role=listbox]) :is(.admin-sidebar, .ant-layout-sider, .aile-admin-nav, .ant-menu-dark, [data-odak-zemin='nav'])
   .ant-menu-item-selected :is(a, [role=menuitem]):focus-visible::after { background: var(--aile-odak); }
+/* Satır taşıyıcısı ([data-focus-line='row']): çizgi taşıyıcının kendi alt kenarında (bottom 0), köşesiz; değdiği alt
+   köşeler yalnız çizgi görünürken (klavye modu + odak) radiussuz, üst köşeler ve işaretçi modundaki görünüm korunur. */
+html[data-keyboard='true'] :is(.aile-admin, [data-aile-katman], dialog, [role=dialog], [role=alertdialog], [role=menu], [role=listbox])
+  [data-focus-line='row']:is(:focus-visible, :has(:focus-visible)) {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+html[data-keyboard='true'] :is(.aile-admin, [data-aile-katman], dialog, [role=dialog], [role=alertdialog], [role=menu], [role=listbox])
+  [data-focus-line='row']:is(:focus-visible, :has(:focus-visible))::after {
+  bottom: 0;
+  border-radius: 0;
+}
 /* Liste ve tablo satırında çizgi satırın alt kenarındadır. */
 html[data-keyboard='true'] :is(.aile-admin, [data-aile-katman], dialog, [role=dialog], [role=alertdialog], [role=menu], [role=listbox]) :is(tr, [role=row], .ant-list-item):focus-visible { position: relative; }
 html[data-keyboard='true'] :is(.aile-admin, [data-aile-katman], dialog, [role=dialog], [role=alertdialog], [role=menu], [role=listbox]) :is(tr, [role=row], .ant-list-item):focus-visible::after {
@@ -204,6 +221,9 @@ html[data-keyboard='true'] :is(.aile-admin, [data-aile-katman], dialog, [role=di
    `transition: color <süre>` yazar ve eğri vermez (ease). Bağlantı geçişi nereden gelirse gelsin tek proje eğrisini
    kullanır; süre ve özellik kaynağında kalır (yalnız eğri yazılır, süresiz bağlantıda geçiş başlamaz). */
 :is(.aile-admin, [data-aile-katman], .ant-drawer, .ant-modal, .ant-dropdown, .ant-popover) a { transition-timing-function: var(--aile-egri); }
+/* Atlama bağlantısı (kabuk, "İçeriğe geç"): renk geçişi tek süre ve tek eğriyle, her profilde aynı (geniş profilde antd
+   bağlantı sıfırlamasına bırakılmaz). Görünür olması (clip-path) anlıktır; reduced-motion'da süre 0 (aşağıdaki blok). */
+.aile-admin .aile-admin-skip { transition: color var(--aile-sure) var(--aile-egri); }
 
 /* Hareket: tek süre ve tek eğri antd tema token'ından gelir; reduced-motion'da kabuk, antd popup katmanları ve yerel
    katmanlar anlık (durum değişimi yine hemen uygulanır). */
