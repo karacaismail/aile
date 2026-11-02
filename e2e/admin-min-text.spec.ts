@@ -1,298 +1,618 @@
 import { test, expect, type Locator, type Page, type TestInfo } from '@playwright/test';
-import { gotoAdmin } from './admin-helpers';
+import { syntheticBridgeResponse } from '../src/dashboard/bridgeFixtures';
+import { gviz, syntheticSheets } from '../src/dashboard/fixtures';
+import { selfCheckDetectors, smallText } from './admin-detectors';
+import { adminNotReadyReasons, openAdmin } from './admin-helpers';
 
-// Kalıcı kural: web arayüzündeki tüm okunabilir metin en az 14 CSS px (gövde, tablo, etiket, rozet, yardımcı metin,
-// form kontrolü, hata, çekmece ve açılan liste dahil). Bu kapı 12 yönetim rotasını admin projelerinin hepsinde
-// (chromium 320, chromium-desktop 1440, webkit 390 dokunmatik) ilk görünümde, dar ekranda "Sayfalar" çekmecesi
-// açıkken, varsa "Filtreler" çekmecesi açıkken ve varsa ilk etkin Select açıkken ölçer.
+// Kalıcı kural (CLAUDE.md › Minimum metin boyutu): web arayüzündeki tüm okunabilir metin en az 14 CSS px; gövde, tablo,
+// etiket, rozet, yardımcı metin, form kontrolü/değeri/yer tutucusu, hata iletisi, çekmece, alt sayfa, menü, açılır liste
+// ve diyalog dahil. Kök yazı boyutu kullanıcı tercihidir: 20 px'e büyütülünce de işlev bozulmaz.
 //
-// Ölçüm: belgedeki her görünür metin düğümünün üst öğesinin hesaplanmış font-size değeri (SVG <text> için ekran
-// dönüşüm ölçeğiyle çarpılmış), değer/yer tutucu taşıyan görünür form kontrolleri. Görünmez sayılanlar: display none,
-// visibility hidden/collapse, opacity 0, sıfır kırpılmış ya da 1 px'lik taşması gizli (ekran okuyucuya özel) öğeler ve
-// kutusu olmayan metin. Kapsam dışı (ölçülemez): ECharts canvas metni (Chart.tsx canvas renderer; grafik tek bilgi
-// kaynağı değildir, yanındaki tablo/metin ölçülür), ::before/::after içeriği, HTML transform ölçeği.
+// Kapsam (her test kendi kapsamını "kapsam" notuyla rapora yazar):
+//  - 12 rota (11 sayfa + Ayarlar): ilk görünüm; dar profilde Sayfalar çekmecesi; varsa Filtreler çekmecesi ve içindeki
+//    seçimler; varsa telefonda "Diğer" eylemler alt sayfası; ana içerikteki her etkin seçim (combobox) açıkken.
+//  - Diyaloglar ve form hataları: Hesaplar (Hesap ekle, Borç ekle; telefonda Diğer → alt sayfa → diyalog), Sözlükler
+//    (Terim ekle, boş gönderim alan hatası, diyalog içindeki Sözlük seçimi), Ayarlar (geçersiz Apps Script adresi).
+//  - Alt görünümler: Raporlar'ın beş raporu, Sözlükler'in her sekmesi.
+//  - Kök 20 px: her rota hazır, kök gerçekten 20 px, metin ≥14, sayfa yatay taşmaz, kontrol görünüm alanı dışına itilmez;
+//    yolculuk: kabuktan gezinme, seçimle rapor değiştirme, form hatası.
+//  Profil html[data-profile]'dan okunur (W0 AdaptiveRoot): phone | tablet | desktop. Görev koşusu chromium 320×568 ve
+//  webkit 390×844; @matrix etiketli testler entegrasyonda 360/375/320×480/568×320/820/1440 projelerinde de koşar.
 //
-// Dedektör yerel kopyadır: e2e/admin-detectors.ts bu dosya yazılırken yoktu. Self-check testleri dedektörün ihlali
-// yakaladığını ve görünmez metni saymadığını kanıtlar (bilinen sentetik belge + gerçek sayfaya enjekte edilen ihlal).
+// Ölçüm: ortak e2e/admin-detectors.ts smallTextViolations (metin düğümü, form değeri/yer tutucusu, ::before/::after
+// metni; display none, opacity 0, visibility hidden, kutusuz, ≤1 px ve sıfır kırpılmış "sr-only" metin hariç) + bu
+// dosyadaki iki tamamlayıcı ölçüm: ::placeholder sözde öğesinin kendi boyutu ve SVG <text>'in ekran ölçeği
+// (viewBox küçültmesi). Ölçülemeyen: ECharts canvas metni (Chart.tsx canvas renderer; değerler yanındaki tablo/metinde
+// ölçülür) ve HTML transform ölçeği. Her ölçümden önce yazı tipleri yüklenir, sonlu animasyonlar biter ve DOM iki
+// karede değişmez (sabit bekleme yok). Hazır sinyali openAdmin (e2e/admin-helpers.ts).
+//
+// Veri: dev sunucusu yalnız sentetik nesli verir (fixtures/generation-synthetic, VITE_BUDGET_SHEET_ID sentetik).
+// Google'a çıkış yok: GViz bütçe okuması sentetik tabloyla (src/dashboard/fixtures) yanıtlanır, diğer her dış istek
+// kesilir. Ayarlar alanına yalnız geçersiz örnek adres yazılır; Kaydet'e basılmaz, Sheets/Apps Script'e yazma yok.
 
 const MIN_PX = 14;
+const ROOT_PX = 20;
+const MATRIX = { tag: '@matrix' } as const;
 
-/** navigation.ts adminPages sırası + settingsLink. Masaüstü testi nav'daki bağlantılarla eşitliği denetler. */
+/** navigation.ts adminPages sırası + Ayarlar. "rota listesi" testi kabuktaki menüyle eşitliği denetler. */
 const PAGE_ROUTES = [
   '/genel', '/butce', '/odemeler', '/hesaplar', '/alimlar', '/ev',
   '/projeler', '/taraflar', '/raporlar', '/sozlukler', '/veri',
 ] as const;
 const ROUTES = [...PAGE_ROUTES, '/ayarlar'] as const;
+/** RaporlarPage REPORTS sırası. */
+const REPORTS = ['Aylık plan ve gerçek', 'Kaleme göre harcama', 'Borç ödeme planı', 'Oda bazında alımlar', 'Veri güveni özeti'] as const;
 
-interface SmallText {
-  text: string;
-  px: number;
-  where: string;
+type Profile = 'phone' | 'tablet' | 'desktop';
+
+// --- Ağ yalıtımı -----------------------------------------------------------------------------------------------------
+
+const GVIZ = /^https:\/\/docs\.google\.com\/spreadsheets\/d\/[^/]+\/gviz\/tq/;
+const LEGACY_FEEDS = { Pano: 'summary', Plan: 'plan', 'Gerçekleşen': 'actual', 'Düzensiz giderler': 'irregular' } as const;
+
+/** Yerel olmayan her istek: GViz → sentetik tablo (budget-dashboard.spec.ts ile aynı eşleme), diğerleri kesilir. */
+async function isolateNetwork(page: Page) {
+  const raw = syntheticSheets();
+  await page.route((url) => /^https?:$/.test(url.protocol) && url.hostname !== '127.0.0.1', async (route) => {
+    const url = route.request().url();
+    if (!GVIZ.test(url)) return route.abort('blockedbyclient');
+    const bridge = syntheticBridgeResponse(url);
+    if (bridge) return route.fulfill({ contentType: 'application/json', body: bridge });
+    const key = LEGACY_FEEDS[new URL(url).searchParams.get('sheet') as keyof typeof LEGACY_FEEDS];
+    if (!key) return route.fulfill({ status: 404, body: 'Sentetik kaynakta yok' });
+    const labels = key === 'plan' || key === 'actual' ? ['Kalem', ...raw.summary.map((row) => String(row[0]))] : undefined;
+    const rows: unknown[][] = key === 'plan' || key === 'actual' ? raw[key].map((row) => row.slice(0, 4)) : raw[key];
+    return route.fulfill({ contentType: 'application/json', body: gviz(rows, labels) });
+  });
 }
 
+test.beforeEach(async ({ page }) => {
+  await isolateNetwork(page);
+});
+
+// --- Ölçüm -----------------------------------------------------------------------------------------------------------
+
 /**
- * Sayfa bağlamında çalışır (page.evaluate); dış kapsamdan hiçbir şeye başvurmaz.
- * minPx altındaki görünür metni öğe başına bir kez döndürür.
+ * Ortak dedektörün görmediği iki durum (sayfa bağlamında çalışır; dış kapsama başvurmaz):
+ *  - boş alanın yer tutucusu kendi ::placeholder boyutuyla çizilir (ortak dedektör alanın boyutuna bakar);
+ *  - SVG <text> ekranda font-size × ekran dönüşüm ölçeğiyle çizilir (viewBox küçültmesi metni 14 px altına indirir).
  */
-function collectSmallText(minPx: number): SmallText[] {
-  const hiddenCache = new Map<Element, boolean>();
-  const zeroClip = /rect\(\s*0(px)?[\s,]+0(px)?[\s,]+0(px)?[\s,]+0(px)?\s*\)/;
-
-  const selfHidden = (el: Element): boolean => {
-    const cs = getComputedStyle(el);
-    if (cs.display === 'none' || cs.visibility === 'hidden' || cs.visibility === 'collapse') return true;
-    if (Number(cs.opacity) === 0) return true;
-    if (zeroClip.test(cs.clip) || /inset\(\s*50%/.test(cs.clipPath)) return true;
-    const overflowHidden = [cs.overflow, cs.overflowX, cs.overflowY].some((v) => v === 'hidden' || v === 'clip');
-    if (overflowHidden && el instanceof HTMLElement) {
-      const r = el.getBoundingClientRect();
-      if (r.width <= 1 || r.height <= 1) return true;
-    }
-    return false;
-  };
-  const isHidden = (el: Element | null): boolean => {
-    if (!el || el === document.documentElement) return false;
-    const cached = hiddenCache.get(el);
-    if (cached !== undefined) return cached;
-    const hidden = selfHidden(el) || isHidden(el.parentElement);
-    hiddenCache.set(el, hidden);
-    return hidden;
-  };
-  const effectivePx = (el: Element, own?: string): number => {
-    const px = parseFloat(own ?? getComputedStyle(el).fontSize);
-    if (el instanceof SVGGraphicsElement) {
-      const m = el.getScreenCTM();
-      if (m) return px * Math.hypot(m.a, m.b);
-    }
-    return px;
-  };
-  const describe = (el: Element): string => {
-    const id = el.id ? `#${el.id}` : '';
-    const cls = typeof el.className === 'string' && el.className.trim() ? `.${el.className.trim().split(/\s+/)[0]}` : '';
-    return `${el.tagName.toLowerCase()}${id}${cls}`;
-  };
-  const snippet = (text: string) => {
-    const t = text.replace(/\s+/g, ' ').trim();
-    return t.length > 60 ? `${t.slice(0, 57)}...` : t;
-  };
-
-  const out: SmallText[] = [];
-  const reported = new Set<Element>();
-  const skipTags = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE', 'TITLE', 'OPTION']);
-
-  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-    const text = node.textContent ?? '';
-    if (!text.trim()) continue;
-    const parent = node.parentElement;
-    if (!parent || skipTags.has(parent.tagName) || reported.has(parent)) continue;
-    if (isHidden(parent)) continue;
-    const range = document.createRange();
-    range.selectNodeContents(node);
-    const boxed = Array.from(range.getClientRects()).some((r) => r.width > 0 && r.height > 0);
-    if (!boxed) continue;
-    const px = effectivePx(parent);
-    if (px < minPx - 0.01) {
-      reported.add(parent);
-      out.push({ text: snippet(text), px: Math.round(px * 100) / 100, where: describe(parent) });
-    }
-  }
-
-  const skipTypes = new Set(['hidden', 'checkbox', 'radio', 'range', 'color', 'image']);
-  for (const el of Array.from(document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>('input, textarea, select'))) {
-    if (el instanceof HTMLInputElement && skipTypes.has(el.type)) continue;
-    if (reported.has(el) || isHidden(el)) continue;
+function placeholderAndSvgText(min: number): string[] {
+  const shown = (el: Element): boolean => {
+    const probe = el as Element & { checkVisibility?: (options?: Record<string, boolean>) => boolean };
+    if (typeof probe.checkVisibility === 'function' && !probe.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })) return false;
     const r = el.getBoundingClientRect();
-    if (r.width <= 1 || r.height <= 1) continue;
-    const value = el instanceof HTMLSelectElement ? (el.selectedOptions[0]?.textContent ?? '') : el.value;
-    const placeholder = el instanceof HTMLSelectElement ? '' : el.placeholder;
-    let px: number;
-    let text: string;
-    if (value.trim()) {
-      px = effectivePx(el);
-      text = value;
-    } else if (placeholder.trim()) {
-      const ph = getComputedStyle(el, '::placeholder').fontSize;
-      px = effectivePx(el, ph || undefined);
-      text = placeholder;
-    } else {
-      continue;
+    if (r.width <= 1 || r.height <= 1) return false;
+    for (let node: Element | null = el; node; node = node.parentElement) {
+      const cs = getComputedStyle(node);
+      if (/rect\(0(px)?,? 0(px)?,? 0(px)?,? 0(px)?\)/.test(cs.clip) || cs.clipPath === 'inset(50%)') return false;
     }
-    if (px < minPx - 0.01) {
-      reported.add(el);
-      out.push({ text: snippet(text), px: Math.round(px * 100) / 100, where: describe(el) });
-    }
+    return true;
+  };
+  const label = (el: Element) => el.tagName.toLowerCase() + (el.id ? `#${el.id}` : '') + (el.getAttribute('aria-label') ? `[${el.getAttribute('aria-label')}]` : '');
+  const round = (n: number) => Math.round(n * 100) / 100;
+  const out: string[] = [];
+  const fields = document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('input:not([type=hidden]):not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]), textarea');
+  for (const field of Array.from(fields)) {
+    const placeholder = (field.getAttribute('placeholder') || '').trim();
+    if (field.value || !placeholder || !shown(field)) continue;
+    const size = parseFloat(getComputedStyle(field, '::placeholder').fontSize);
+    if (Number.isFinite(size) && size < min - 0.01) out.push(`${label(field)}::placeholder ${round(size)}px < ${min}px: "${placeholder.slice(0, 40)}"`);
+  }
+  for (const text of Array.from(document.querySelectorAll<SVGTextElement>('svg text'))) {
+    const content = (text.textContent || '').replace(/\s+/g, ' ').trim();
+    if (!content || !shown(text)) continue;
+    const m = text.getScreenCTM();
+    const size = parseFloat(getComputedStyle(text).fontSize) * (m ? Math.hypot(m.a, m.b) : 1);
+    if (size < min - 0.01) out.push(`svg text (ekran ölçeği) ${round(size)}px < ${min}px: "${content.slice(0, 40)}"`);
   }
   return out;
 }
 
-async function smallText(page: Page): Promise<SmallText[]> {
-  return page.evaluate(collectSmallText, MIN_PX);
+async function textBelowMin(page: Page): Promise<string[]> {
+  const shared = await smallText(page, { min: MIN_PX, max: 60 });
+  const extra = await page.evaluate(placeholderAndSvgText, MIN_PX);
+  return [...shared, ...extra];
 }
 
-/** Yazı tipleri yüklenir ve sonlu tüm animasyon/geçişler biter (sonsuz yükleme şeridi beklenmez). */
+/** İhlal satırındaki metin: ortak ve yerel dedektör satırı `…: "metin"` ile biter. */
+const quoted = (lines: readonly string[]) => lines.map((line) => /: "(.*)"$/.exec(line)?.[1] ?? line);
+
+let settleProbe = 0;
+/**
+ * Ölçüm öncesi kararlılık sinyali (sabit bekleme değil): yazı tipleri hazır, sonlu animasyon/geçiş kalmadı ve öğe sayısı
+ * ile görünür metin uzunluğu art arda üç karede aynı. Sonsuz animasyonlar (yükleme şeridi) beklenmez.
+ */
 async function settle(page: Page) {
-  await page.evaluate(async () => {
-    await document.fonts.ready;
+  await page.evaluate(() => document.fonts.ready.then(() => undefined));
+  const key = `__aileMinTextSettle${++settleProbe}`;
+  await page.waitForFunction((k) => {
+    const store = window as unknown as Record<string, { sig: string; frames: number } | undefined>;
+    const moving = document.getAnimations().some((a) => {
+      if (a.playState !== 'running') return false;
+      return Number.isFinite(Number(a.effect?.getComputedTiming().endTime ?? 0));
+    });
+    const sig = `${document.getElementsByTagName('*').length}:${document.body.innerText.length}`;
+    const previous = store[k];
+    const frames = !moving && previous?.sig === sig ? previous.frames + 1 : 0;
+    store[k] = { sig, frames };
+    return frames >= 2;
+  }, key, { polling: 'raf', timeout: 10_000 });
+}
+
+/** Ölçülen durumları toplar; her durum ayrı yumuşak beklenti, test sonunda kapsam notu. */
+class MinTextReport {
+  private readonly states: string[] = [];
+
+  constructor(private readonly page: Page, private readonly info: TestInfo, private readonly scope: string) {}
+
+  async check(state: string) {
+    await settle(this.page);
+    const found = await textBelowMin(this.page);
+    expect.soft(found, `${this.scope} › ${state}: ${MIN_PX} CSS px altında görünür metin`).toEqual([]);
+    this.states.push(state);
+  }
+
+  get measured(): readonly string[] {
+    return this.states;
+  }
+
+  done() {
+    this.info.annotations.push({ type: 'kapsam', description: `${this.scope}: ${this.states.join(' · ')}` });
+  }
+}
+
+// --- Katmanlar -------------------------------------------------------------------------------------------------------
+
+async function profileOf(page: Page): Promise<Profile> {
+  const profile = await page.evaluate(() => document.documentElement.dataset.profile);
+  expect(['phone', 'tablet', 'desktop'], 'html[data-profile] (AdaptiveRoot)').toContain(profile);
+  return profile as Profile;
+}
+
+const visibleDialogs = (page: Page) => page.getByRole('dialog').filter({ visible: true });
+/** Beklemeden okur (ayrılmış/yok öğe = false); Locator.getAttribute öğe yoksa beklerdi. */
+const expanded = (trigger: Locator) => trigger.evaluateAll((els) => els.some((el) => el.getAttribute('aria-expanded') === 'true'));
+
+async function accessibleName(control: Locator): Promise<string> {
+  return control.evaluate((el) => {
+    const byIds = (ids: string | null) => (ids ?? '').split(/\s+/).map((id) => document.getElementById(id)?.textContent?.trim() ?? '').filter(Boolean).join(' ');
+    return (el.getAttribute('aria-label') || byIds(el.getAttribute('aria-labelledby')) || (el as HTMLInputElement).labels?.[0]?.textContent?.trim() || '').trim();
   });
-  await page.waitForFunction(
-    () =>
-      document.getAnimations().every((a) => {
-        if (a.playState !== 'running') return true;
-        return !Number.isFinite(Number(a.effect?.getComputedTiming().endTime ?? 0));
-      }),
-    undefined,
-    { timeout: 5_000 },
-  );
 }
 
-async function openRoute(page: Page, route: string, testInfo: TestInfo) {
-  await gotoAdmin(page, route);
-  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-  // Veri okunurken iskelet (aria-busy) görünür; ölçüm yerleşik görünümde yapılsın. Yükleme sürerse yine ölçülür, not düşülür.
-  const busy = page.locator('[aria-busy="true"]');
-  try {
-    await expect(busy).toHaveCount(0, { timeout: 10_000 });
-  } catch {
-    testInfo.annotations.push({ type: 'not', description: `${route}: 10 sn sonra yükleme sürüyordu; yükleme görünümü ölçüldü` });
+async function enabledComboboxes(scope: Locator): Promise<Locator[]> {
+  const out: Locator[] = [];
+  for (const combo of await scope.getByRole('combobox').filter({ visible: true }).all()) {
+    if (await combo.isEnabled()) out.push(combo);
   }
-  await settle(page);
+  return out;
 }
 
-function expectNoSmallText(found: SmallText[], state: string) {
-  expect.soft(found, `${state}: ${MIN_PX} CSS px altında görünür metin`).toEqual([]);
-}
+type LayerKind = 'diyalog' | 'liste';
 
-const isNarrow = (page: Page) => (page.viewportSize()?.width ?? 0) < 1024;
-const isPhone = (page: Page) => (page.viewportSize()?.width ?? 0) < 600;
-
-/** Tetiği açar, katman görünür olunca ölçer, Escape ile kapatır ve kapandığını doğrular. */
-async function measureOverlay(page: Page, trigger: Locator, overlay: Locator, state: string) {
+/**
+ * Tetiği açar ve açılan katmanı bekler: yeni görünür dialog (çekmece, alt sayfa, diyalog) ya da tetikte
+ * aria-expanded="true" (yerinde/portal liste). Ölçer, `inside` ile iç adımları çalıştırır, Escape ile kapatır ve
+ * kapandığını doğrular. Sunum (alt sayfa mı liste mi) bu dosyanın değil, katman testlerinin konusudur; burada yalnız
+ * açık katmanın metni ölçülür.
+ */
+async function withLayer(
+  page: Page,
+  report: MinTextReport,
+  trigger: Locator,
+  what: string,
+  inside?: (layer: Locator | null) => Promise<void>,
+): Promise<LayerKind> {
+  const before = await visibleDialogs(page).count();
   await trigger.click();
-  await expect(overlay).toBeVisible();
-  await settle(page);
-  expectNoSmallText(await smallText(page), state);
-  await page.keyboard.press('Escape');
-  await expect(overlay).toBeHidden();
-  await settle(page);
+  const state = async (): Promise<LayerKind | 'kapalı'> => {
+    if ((await visibleDialogs(page).count()) > before) return 'diyalog';
+    return (await expanded(trigger)) ? 'liste' : 'kapalı';
+  };
+  await expect.poll(state, { message: `${what}: tıklamadan sonra katman açılmadı (yeni dialog ya da aria-expanded="true" yok)` }).not.toBe('kapalı');
+  const kind = (await state()) as LayerKind;
+  await report.check(`${what} açık (${kind})`);
+  if (inside) await inside(kind === 'diyalog' ? visibleDialogs(page).last() : null);
+  if ((await visibleDialogs(page).count()) > before || (await expanded(trigger))) await page.keyboard.press('Escape');
+  await expect
+    .poll(async () => (await visibleDialogs(page).count()) <= before && !(await expanded(trigger)), { message: `${what}: Escape katmanı kapatmadı` })
+    .toBe(true);
+  return kind;
 }
 
-/** İlk görünür ve etkin combobox; yoksa null. */
-async function firstEnabledCombobox(page: Page): Promise<Locator | null> {
-  const combos = page.getByRole('combobox').filter({ visible: true });
-  const count = await combos.count();
-  for (let i = 0; i < count; i += 1) {
-    const combo = combos.nth(i);
-    if (await combo.isEnabled()) return combo;
-  }
-  return null;
-}
-
-/** Select'i açar: telefonda BottomSheet (dialog), daha genişte antd listesi (aria-expanded). Ölçer ve kapatır. */
-async function measureSelect(page: Page, combo: Locator, state: string) {
+/** Seçimde `name` seçeneğini seçer: alt sayfada role=option, listede aria-selected taşıyan görünür öğe. */
+async function choose(page: Page, combo: Locator, name: string) {
+  const before = await visibleDialogs(page).count();
   await combo.click();
-  if (isPhone(page)) {
-    const sheet = page.getByRole('dialog').filter({ visible: true }).first();
-    await expect(sheet).toBeVisible();
-    await settle(page);
-    expectNoSmallText(await smallText(page), state);
-    await page.keyboard.press('Escape');
-    await expect(page.getByRole('dialog').filter({ visible: true })).toHaveCount(0);
+  await expect.poll(async () => (await visibleDialogs(page).count()) > before || (await expanded(combo)), { message: `${name}: seçim açılmadı` }).toBe(true);
+  if ((await visibleDialogs(page).count()) > before) {
+    await visibleDialogs(page).last().getByRole('option', { name, exact: true }).click();
   } else {
-    await expect(combo).toHaveAttribute('aria-expanded', 'true');
-    await settle(page);
-    expectNoSmallText(await smallText(page), state);
-    await page.keyboard.press('Escape');
-    await expect(combo).not.toHaveAttribute('aria-expanded', 'true');
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    await page.locator('[aria-selected]').filter({ visible: true }).filter({ hasText: new RegExp(`^\\s*${escaped}`) }).first().click();
   }
-  await settle(page);
+  await expect.poll(async () => (await visibleDialogs(page).count()) <= before && !(await expanded(combo)), { message: `${name}: seçimden sonra katman kapanmadı` }).toBe(true);
 }
+
+/** Seçimin seçenek adları (açar, okur, kapatır): alt sayfada role=option adı, listede aria-selected öğenin title/metni. */
+async function optionNames(page: Page, combo: Locator): Promise<string[]> {
+  const before = await visibleDialogs(page).count();
+  await combo.click();
+  await expect.poll(async () => (await visibleDialogs(page).count()) > before || (await expanded(combo)), { message: 'seçim açılmadı' }).toBe(true);
+  const sheet = (await visibleDialogs(page).count()) > before;
+  const items = sheet ? visibleDialogs(page).last().getByRole('option') : page.locator('[aria-selected]').filter({ visible: true });
+  await expect(items.first()).toBeVisible();
+  const names = await items.evaluateAll((els) => els
+    .filter((el) => el.getAttribute('aria-disabled') !== 'true')
+    .map((el) => {
+      const labelled = (el.getAttribute('aria-labelledby') ?? '').split(/\s+/).map((id) => document.getElementById(id)?.textContent ?? '').join(' ');
+      return (el.getAttribute('title') || labelled || el.textContent || '').replace(/\s+/g, ' ').trim();
+    })
+    .filter(Boolean));
+  await page.keyboard.press('Escape');
+  await expect.poll(async () => (await visibleDialogs(page).count()) <= before && !(await expanded(combo)), { message: 'seçim kapanmadı' }).toBe(true);
+  return names;
+}
+
+/** Uygulama içi gezinmeden sonra openAdmin ile aynı hazır sinyali (h1 görünür ve dolu, aria-busy yok). */
+async function waitReady(page: Page) {
+  await page.waitForFunction(`(${adminNotReadyReasons.toString()})().length === 0`, undefined, { polling: 'raf', timeout: 20_000 });
+}
+
+/** Kabuktan gezinme: masaüstünde kalıcı nav, dar profilde Sayfalar çekmecesi. */
+async function navigate(page: Page, profile: Profile, label: string) {
+  if (profile === 'desktop') {
+    // Kalıcı nav: sayfalar "Sayfalar" menüsünde, Ayarlar ayırıcıdan sonraki yardımcı menüde; ana içerikteki bağlantı sayılmaz.
+    const links = page.getByRole('link', { name: label, exact: true }).filter({ visible: true });
+    const index = await links.evaluateAll((els) => els.findIndex((el) => !el.closest('main#admin-content')));
+    expect(index, `kabukta "${label}" bağlantısı`).toBeGreaterThanOrEqual(0);
+    await links.nth(index).click();
+  } else {
+    await page.getByRole('button', { name: 'Sayfalar', exact: true }).click();
+    const drawer = page.getByRole('dialog', { name: 'Sayfalar' });
+    await expect(drawer).toBeVisible();
+    await drawer.getByRole('link', { name: label, exact: true }).click();
+    await expect(drawer).toBeHidden();
+  }
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(label);
+  await waitReady(page);
+}
+
+// --- Kök yazı boyutu -------------------------------------------------------------------------------------------------
+
+/**
+ * Kullanıcının kök yazı boyutunu 20 px yapar. Chromium: tarayıcı tercihi (CDP Page.setFontSizes standard=20, ayarlar ›
+ * yazı tipi boyutu ile aynı yol); uygulama html boyutunu ezerse kök 20 px okunmaz ve test düşer. WebKit'te protokol yok:
+ * html satır içi font-size 20 px (rem/em zinciri için aynı etki), belge oluşur oluşmaz.
+ */
+async function growRootFont(page: Page, browserName: string): Promise<string> {
+  if (browserName === 'chromium') {
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Page.setFontSizes', { fontSizes: { standard: ROOT_PX } });
+    return `tarayıcı tercihi ${ROOT_PX} px (CDP)`;
+  }
+  await page.addInitScript((px) => {
+    const apply = () => document.documentElement.style.setProperty('font-size', `${px}px`);
+    if (document.documentElement) apply();
+    else new MutationObserver((_, observer) => {
+      if (!document.documentElement) return;
+      apply();
+      observer.disconnect();
+    }).observe(document, { childList: true });
+  }, ROOT_PX);
+  return `html satır içi ${ROOT_PX} px`;
+}
+
+/** Sayfa yatay kaymaz ve görünür kontroller (kendi kaydırma kabı dışında) görünüm alanından dışarı itilmez. */
+async function layoutBreaks(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const out: string[] = [];
+    const root = document.scrollingElement ?? document.documentElement;
+    const width = document.documentElement.clientWidth;
+    const scrollsX = (el: Element) => /(auto|scroll)/.test(getComputedStyle(el).overflowX) && el.scrollWidth > el.clientWidth + 1;
+    const one = (el: Element) => {
+      const cls = typeof el.className === 'string' && el.className.trim() ? `.${el.className.trim().split(/\s+/)[0]}` : '';
+      return `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ''}${cls}`;
+    };
+    const describe = (el: Element) => {
+      const named = el.parentElement?.closest('[class]');
+      const text = (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 32);
+      return `${named ? `${one(named)} › ` : ''}${one(el)}${text ? ` "${text}"` : ''}`;
+    };
+    if (root.scrollWidth - root.clientWidth > 1) {
+      // Taşan en içteki öğeler (kendi kaydırma kabı dışında): sahibinin yeniden üretebilmesi için.
+      const wide = Array.from(document.body.querySelectorAll('*')).filter((el) => {
+        const r = el.getBoundingClientRect();
+        if (r.width <= 0 || r.right <= width + 1) return false;
+        for (let node = el.parentElement; node && node !== document.body; node = node.parentElement) if (scrollsX(node)) return false;
+        return true;
+      });
+      const innermost = wide.filter((el) => !wide.some((other) => other !== el && el.contains(other)));
+      const culprits = innermost.slice(0, 5).map((el) => `${describe(el)} sağ ${Math.round(el.getBoundingClientRect().right)}`);
+      out.push(`sayfa yatay taşıyor: scrollWidth ${root.scrollWidth} > ${root.clientWidth} (${culprits.join('; ') || 'öğe bulunamadı'})`);
+    }
+    const controls = document.querySelectorAll('main#admin-content :is(a[href], button, input, select, textarea, [role="button"], [role="combobox"], [role="tab"], [role="link"])');
+    for (const el of Array.from(controls)) {
+      const probe = el as Element & { checkVisibility?: (options?: Record<string, boolean>) => boolean };
+      if (typeof probe.checkVisibility === 'function' && !probe.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })) continue;
+      const r = el.getBoundingClientRect();
+      if (r.width <= 1 || r.height <= 1) continue;
+      let inScroller = false;
+      for (let node = el.parentElement; node && node !== document.body; node = node.parentElement) {
+        if (scrollsX(node)) { inScroller = true; break; }
+      }
+      if (inScroller) continue;
+      if (r.left < -1 || r.right > width + 1) {
+        const name = (el.getAttribute('aria-label') || el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+        out.push(`${el.tagName.toLowerCase()} "${name}" görünüm alanı dışında: ${Math.round(r.left)}–${Math.round(r.right)} / ${width}`);
+      }
+    }
+    return out.slice(0, 20);
+  });
+}
+
+// --- Testler ---------------------------------------------------------------------------------------------------------
 
 test.describe('admin görünür metin en az 14 CSS px', () => {
   for (const route of ROUTES) {
-    test(`${route}: ilk görünüm, çekmeceler ve Select açıkken`, async ({ page }, testInfo) => {
-      await openRoute(page, route, testInfo);
-      const covered: string[] = ['ilk görünüm'];
-      expectNoSmallText(await smallText(page), `${route} ilk görünüm`);
+    test(`${route}: ilk görünüm ve açılan katmanlar`, MATRIX, async ({ page }, testInfo) => {
+      const main = await openAdmin(page, route);
+      const profile = await profileOf(page);
+      const report = new MinTextReport(page, testInfo, `${route} (${profile})`);
+      await report.check('ilk görünüm');
 
-      if (isNarrow(page)) {
-        await measureOverlay(
-          page,
-          page.getByRole('button', { name: 'Sayfalar', exact: true }),
-          page.getByRole('dialog', { name: 'Sayfalar' }),
-          `${route} Sayfalar çekmecesi açık`,
-        );
-        covered.push('Sayfalar çekmecesi');
+      // Telefonda tablolar akordeondur (ilk açık); kapalı satırların içeriği de ölçülsün diye "Tümünü aç".
+      const expandAll = main.getByRole('button', { name: 'Tümünü aç', exact: true }).filter({ visible: true });
+      let expandedGroups = 0;
+      for (; expandedGroups < 10 && (await expandAll.count()) > 0; expandedGroups += 1) {
+        const before = await expandAll.count();
+        await expandAll.first().click();
+        await expect(expandAll).toHaveCount(before - 1);
+      }
+      if (expandedGroups > 0) await report.check(`${expandedGroups} akordeon grubu tümü açık`);
 
-        const filters = page.getByRole('button', { name: /^Filtreler \(/ }).filter({ visible: true });
-        if ((await filters.count()) > 0) {
-          await measureOverlay(page, filters.first(), page.getByRole('dialog', { name: /^Filtreler/ }), `${route} Filtreler çekmecesi açık`);
-          covered.push('Filtreler çekmecesi');
-        }
+      if (profile !== 'desktop') {
+        await withLayer(page, report, page.getByRole('button', { name: 'Sayfalar', exact: true }), 'Sayfalar çekmecesi');
       }
 
-      const combo = await firstEnabledCombobox(page);
-      if (combo) {
-        const name = await combo.evaluate((el) => el.getAttribute('aria-label') || (el as HTMLInputElement).labels?.[0]?.textContent?.trim() || '');
-        await measureSelect(page, combo, `${route} Select açık (${name || 'adsız'})`);
-        covered.push(`Select: ${name || 'adsız'}`);
+      const filters = main.getByRole('button', { name: /^Filtreler \(/ }).filter({ visible: true });
+      if ((await filters.count()) > 0) {
+        await withLayer(page, report, filters.first(), 'Filtreler çekmecesi', async (drawer) => {
+          if (!drawer) return;
+          for (const combo of await enabledComboboxes(drawer)) {
+            await withLayer(page, report, combo, `Filtreler › seçim "${await accessibleName(combo)}"`);
+          }
+        });
       }
-      testInfo.annotations.push({ type: 'kapsam', description: `${route}: ${covered.join(', ')}` });
+
+      const more = main.getByRole('button', { name: 'Diğer', exact: true }).filter({ visible: true });
+      if ((await more.count()) > 0) await withLayer(page, report, more.first(), 'Diğer eylemler');
+
+      for (const combo of await enabledComboboxes(main)) {
+        await withLayer(page, report, combo, `seçim "${await accessibleName(combo)}"`);
+      }
+      report.done();
     });
   }
 
-  test('en az bir Select açıkken ölçülür (telefonda Raporlar › Rapor zorunlu)', async ({ page }, testInfo) => {
-    if (isNarrow(page)) {
-      // Dar düzende Raporlar sayfası "Rapor" seçimini veri durumundan bağımsız çizer (RaporlarPage selectors).
-      await openRoute(page, '/raporlar', testInfo);
-      const combo = page.getByRole('combobox', { name: 'Rapor' });
-      await expect(combo).toBeVisible();
-      await measureSelect(page, combo, '/raporlar Rapor seçimi açık');
-      return;
+  test('Hesaplar: Hesap ekle ve Borç ekle diyalogları; telefonda Diğer eylemler alt sayfası', MATRIX, async ({ page }, testInfo) => {
+    const main = await openAdmin(page, '/hesaplar');
+    const profile = await profileOf(page);
+    const report = new MinTextReport(page, testInfo, `/hesaplar (${profile})`);
+
+    const hesap = await withLayer(page, report, main.getByRole('button', { name: 'Hesap ekle', exact: true }), 'Hesap ekle diyaloğu');
+    expect(hesap, 'Hesap ekle bir diyalog açar').toBe('diyalog');
+
+    if (profile === 'phone') {
+      // Telefonda ikincil eylem "Diğer" alt sayfasında; oradan seçilen eylem diyaloğu (telefonda alt sayfa) açar.
+      const more = main.getByRole('button', { name: 'Diğer', exact: true });
+      await more.click();
+      const sheet = page.getByRole('dialog', { name: 'Diğer eylemler' });
+      await expect(sheet).toBeVisible();
+      await report.check('Diğer eylemler alt sayfası açık');
+      await sheet.getByRole('menuitem', { name: 'Borç ekle' }).click();
+      const dialog = page.getByRole('dialog', { name: 'Borç ekle' });
+      await expect(dialog).toBeVisible();
+      await report.check('Borç ekle diyaloğu açık (Diğer alt sayfasından)');
+      await page.keyboard.press('Escape');
+      await expect(visibleDialogs(page)).toHaveCount(0);
+    } else {
+      const borc = await withLayer(page, report, main.getByRole('button', { name: 'Borç ekle', exact: true }), 'Borç ekle diyaloğu');
+      expect(borc, 'Borç ekle bir diyalog açar').toBe('diyalog');
     }
-    let opened = '';
-    for (const route of ROUTES) {
-      await openRoute(page, route, testInfo);
-      const combo = await firstEnabledCombobox(page);
-      if (!combo) continue;
-      await measureSelect(page, combo, `${route} Select açık`);
-      opened = route;
-      break;
+    report.done();
+  });
+
+  test('Sözlükler: Terim ekle diyaloğu, boş gönderimde alan hatası ve diyalogdaki Sözlük seçimi', MATRIX, async ({ page }, testInfo) => {
+    const main = await openAdmin(page, '/sozlukler');
+    const profile = await profileOf(page);
+    const report = new MinTextReport(page, testInfo, `/sozlukler (${profile})`);
+
+    await main.getByRole('button', { name: 'Terim ekle', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: 'Terim ekle' });
+    await expect(dialog).toBeVisible();
+    await report.check('Terim ekle diyaloğu açık');
+
+    // Boş terim adıyla gönderim kayıt yazmaz; alan hatası "Hata: …" ile görünür (TextField sözleşmesi).
+    await dialog.getByRole('button', { name: 'Öneri olarak kaydet', exact: true }).click();
+    await expect(dialog.getByText('Terim adı boş olamaz')).toBeVisible();
+    await expect(dialog.getByRole('textbox', { name: /Terim adı/ })).toHaveAttribute('aria-invalid', 'true');
+    await report.check('Terim adı alan hatası görünür');
+
+    const combo = dialog.getByRole('combobox', { name: 'Sözlük' });
+    await withLayer(page, report, combo, 'diyalogdaki Sözlük seçimi');
+    await expect(dialog, 'iç seçim kapanınca diyalog açık kalır').toBeVisible();
+
+    // Kapatma yolu (Escape/odak dönüşü) odak ve diyalog testlerinin konusudur; burada kayıt yazmayan Vazgeç kullanılır.
+    await dialog.getByRole('button', { name: 'Vazgeç', exact: true }).click();
+    await expect(visibleDialogs(page)).toHaveCount(0);
+    report.done();
+  });
+
+  test('Ayarlar: geçersiz Apps Script adresinde alan hatası ve altlık durumu', MATRIX, async ({ page }, testInfo) => {
+    const main = await openAdmin(page, '/ayarlar');
+    const profile = await profileOf(page);
+    const report = new MinTextReport(page, testInfo, `/ayarlar (${profile})`);
+
+    const field = main.getByRole('textbox', { name: /Apps Script adresi/ });
+    await field.fill('gecersiz-adres');
+    await expect(main.getByText(/^Hata: Adres .+ biçiminde olmalı$/).first()).toBeVisible();
+    await expect(field).toHaveAttribute('aria-invalid', 'true');
+    await expect(main.getByRole('button', { name: 'Kaydet', exact: true })).toBeDisabled();
+    await report.check('Apps Script adresi alan hatası ve altlık durumu');
+
+    await field.fill('');
+    await expect(main.getByText(/^Hata: Adres .+ biçiminde olmalı$/)).toHaveCount(0);
+    report.done();
+  });
+
+  test('Raporlar: beş raporun her biri (dar profilde Rapor seçimiyle)', MATRIX, async ({ page }, testInfo) => {
+    const main = await openAdmin(page, '/raporlar');
+    const profile = await profileOf(page);
+    const report = new MinTextReport(page, testInfo, `/raporlar (${profile})`);
+    const reportMenu = page.getByRole('navigation', { name: 'Raporlar' });
+    const reportSelect = main.getByRole('combobox', { name: 'Rapor' });
+    const wide = await reportMenu.isVisible();
+
+    // Varsayılan rapor ilk görünümdedir; diğer dördü seçilir ve içerik değişmeden ölçülmez.
+    await report.check(`rapor "${REPORTS[0]}" (varsayılan)`);
+    if (!wide) {
+      const kind = await withLayer(page, report, reportSelect, 'Rapor seçimi');
+      if (profile === 'phone') expect(kind, 'telefonda Rapor seçimi alt sayfada açılır').toBe('diyalog');
     }
-    // Geniş düzende Select'ler veriye bağlıdır (Bütçe/Raporlar Dönem, Alımlar Sıralama). Veri yoksa ölçülemez: not_run.
-    test.skip(!opened, 'Geniş düzende hiçbir rotada etkin Select yok (nesil verisi yok); Select açık durumu ölçülemedi');
-    testInfo.annotations.push({ type: 'kapsam', description: `Select açık: ${opened}` });
+    for (const name of REPORTS.slice(1)) {
+      const before = await main.innerText();
+      if (wide) await reportMenu.getByText(name, { exact: true }).click();
+      else await choose(page, reportSelect, name);
+      await expect.poll(() => main.innerText(), { message: `rapor "${name}" seçilince içerik değişir` }).not.toBe(before);
+      await waitReady(page);
+      await report.check(`rapor "${name}"`);
+    }
+    report.done();
+  });
+
+  test('Sözlükler: her sözlük sekmesi', MATRIX, async ({ page }, testInfo) => {
+    const main = await openAdmin(page, '/sozlukler');
+    const profile = await profileOf(page);
+    const report = new MinTextReport(page, testInfo, `/sozlukler (${profile})`);
+    const tabs = main.getByRole('group', { name: 'Sözlük' }).getByRole('tab');
+    const select = main.getByRole('combobox', { name: 'Sözlük' });
+
+    if ((await tabs.filter({ visible: true }).count()) > 0) {
+      const visibleTabs = tabs.filter({ visible: true });
+      const count = await visibleTabs.count();
+      expect(count, 'sözlük sekmeleri').toBeGreaterThan(1);
+      for (let i = 0; i < count; i += 1) {
+        const tab = visibleTabs.nth(i);
+        const name = (await tab.innerText()).trim();
+        if ((await tab.getAttribute('aria-disabled')) === 'true') continue;
+        await tab.click();
+        await expect(tab).toHaveAttribute('aria-selected', 'true');
+        await report.check(`sekme "${name}"`);
+      }
+    } else {
+      await expect(select, 'dar profilde sekmeler seçime düşer').toBeVisible();
+      const names = await optionNames(page, select);
+      expect(names.length, 'sözlük seçenekleri').toBeGreaterThan(1);
+      for (const name of names) {
+        await choose(page, select, name);
+        await report.check(`sekme "${name}"`);
+      }
+    }
+    expect(report.measured.length, 'en az iki sekme ölçüldü').toBeGreaterThan(1);
+    report.done();
   });
 
   test('rota listesi kabuktaki menüyle aynı (12 rota)', async ({ page }) => {
-    test.skip(isNarrow(page), 'Kalıcı nav yalnız masaüstünde; dar düzen aynı listeyi çekmecede gösterir');
-    await gotoAdmin(page, '/genel');
-    const hrefs = await page
+    await openAdmin(page, '/genel');
+    const profile = await profileOf(page);
+    let scope: Locator;
+    if (profile === 'desktop') {
+      scope = page.locator('body');
+    } else {
+      await page.getByRole('button', { name: 'Sayfalar', exact: true }).click();
+      scope = page.getByRole('dialog', { name: 'Sayfalar' });
+      await expect(scope).toBeVisible();
+    }
+    const hrefs = await scope
       .getByRole('navigation', { name: 'Sayfalar' })
       .locator('a[href^="#/"]')
       .evaluateAll((links) => links.map((a) => (a.getAttribute('href') ?? '').slice(1)));
-    expect(hrefs).toEqual([...PAGE_ROUTES]);
-    await expect(page.getByRole('link', { name: 'Ayarlar' })).toHaveAttribute('href', '#/ayarlar');
+    expect(hrefs.filter((href) => href !== '/ayarlar')).toEqual([...PAGE_ROUTES]);
+    await expect(scope.getByRole('link', { name: 'Ayarlar' }).first()).toHaveAttribute('href', '#/ayarlar');
     expect(ROUTES).toHaveLength(12);
   });
 });
 
-test.describe('self-check: 14 px dedektörü', () => {
-  test('bilinen belgede ihlalleri yakalar, görünmez metni saymaz', async ({ page }) => {
+test.describe(`kök yazı boyutu ${ROOT_PX} px: işlev bozulmaz`, () => {
+  for (const route of ROUTES) {
+    test(`${route}: hazır, metin ≥14, sayfa taşmaz`, MATRIX, async ({ page, browserName }, testInfo) => {
+      const how = await growRootFont(page, browserName);
+      await openAdmin(page, route);
+      const profile = await profileOf(page);
+      testInfo.annotations.push({ type: 'kök', description: how });
+      expect(await page.evaluate(() => getComputedStyle(document.documentElement).fontSize), 'kök yazı boyutu kullanıcı tercihinde').toBe(`${ROOT_PX}px`);
+      const report = new MinTextReport(page, testInfo, `${route} kök ${ROOT_PX} px (${profile})`);
+      await report.check('ilk görünüm');
+      expect.soft(await layoutBreaks(page), `${route} kök ${ROOT_PX} px: yerleşim`).toEqual([]);
+      report.done();
+    });
+  }
+
+  test('yolculuk: kabuktan gezinme, rapor seçimi ve form hatası', MATRIX, async ({ page, browserName }, testInfo) => {
+    const how = await growRootFont(page, browserName);
+    testInfo.annotations.push({ type: 'kök', description: how });
+    await openAdmin(page, '/genel');
+    const profile = await profileOf(page);
+    const report = new MinTextReport(page, testInfo, `kök ${ROOT_PX} px yolculuk (${profile})`);
+
+    await navigate(page, profile, 'Raporlar');
+    await report.check('Raporlar');
+    const main = page.locator('main#admin-content');
+    const reportMenu = page.getByRole('navigation', { name: 'Raporlar' });
+    const before = await main.innerText();
+    if (await reportMenu.isVisible()) {
+      await reportMenu.getByText('Kaleme göre harcama', { exact: true }).click();
+    } else {
+      await choose(page, main.getByRole('combobox', { name: 'Rapor' }), 'Kaleme göre harcama');
+    }
+    await expect.poll(() => main.innerText(), { message: 'rapor seçilince içerik değişir' }).not.toBe(before);
+    await waitReady(page);
+    await report.check('rapor "Kaleme göre harcama"');
+    expect.soft(await layoutBreaks(page), 'Raporlar yerleşimi').toEqual([]);
+
+    await navigate(page, profile, 'Ayarlar');
+    const field = main.getByRole('textbox', { name: /Apps Script adresi/ });
+    await field.fill('gecersiz-adres');
+    await expect(main.getByText(/^Hata: Adres .+ biçiminde olmalı$/).first()).toBeVisible();
+    await expect(main.getByRole('button', { name: 'Kaydet', exact: true })).toBeDisabled();
+    await report.check('Ayarlar alan hatası');
+    expect.soft(await layoutBreaks(page), 'Ayarlar yerleşimi').toEqual([]);
+    await field.fill('');
+    await expect(main.getByText(/^Hata: Adres .+ biçiminde olmalı$/)).toHaveCount(0);
+    report.done();
+  });
+});
+
+test.describe('öz denetim: 14 px dedektörleri kör değil', () => {
+  test('bilinen belgede ihlalleri yakalar, görünmez ve sr-only metni saymaz', async ({ page }) => {
     await page.setContent(`<!doctype html>
       <html lang="tr"><head><style>
-        html { font-size: 16px; }
         body { font-size: 16px; margin: 0; }
         .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
         .ip { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+        .rozet::after { content: "Sözde rozet"; font-size: 11px; }
+        .ph::placeholder { font-size: 10px; }
       </style></head><body><main>
         <p style="font-size:14px">Yeterli metin</p>
         <p style="font-size:16px">Büyük <span style="font-size:13px">Küçük ihlal</span></p>
         <p style="font-size:0.8rem">Rem küçük</p>
+        <span class="rozet"></span>
         <p style="display:none;font-size:10px">Gizli display</p>
         <p style="visibility:hidden;font-size:10px">Gizli visibility</p>
         <p style="opacity:0;font-size:10px">Gizli opaklık</p>
-        <div style="display:none"><span style="font-size:16px">Üstü gizli</span><span style="font-size:10px">Üstü gizli küçük</span></div>
+        <div style="display:none"><span style="font-size:10px">Üstü gizli küçük</span></div>
         <span class="sr" style="font-size:10px">Ekran okuyucu</span>
         <span class="ip" style="font-size:10px">Kırpılmış</span>
         <p style="font-size:12px">   </p>
@@ -300,41 +620,70 @@ test.describe('self-check: 14 px dedektörü', () => {
         <label>Değer <input aria-label="Değer" value="Küçük değer" style="font-size:12px"></label>
         <input aria-label="Boş" style="font-size:12px">
         <input aria-label="Yer tutucu" placeholder="Küçük yer tutucu" style="font-size:12px">
+        <input aria-label="Sözde yer tutucu" class="ph" placeholder="Sözde küçük yer tutucu" style="font-size:16px">
         <input aria-label="Yeterli" placeholder="Yeterli yer tutucu" style="font-size:14px">
-        <svg width="200" height="40" viewBox="0 0 100 20"><text x="0" y="15" font-size="10">SVG ölçekli</text></svg>
-        <svg width="100" height="20" viewBox="0 0 100 20"><text x="0" y="15" font-size="10">SVG küçük</text></svg>
+        <svg width="100" height="20" viewBox="0 0 200 40"><text x="0" y="30" font-size="20">SVG küçültülmüş</text></svg>
+        <svg width="200" height="40" viewBox="0 0 200 40"><text x="0" y="30" font-size="16">SVG yeterli</text></svg>
       </main></body></html>`);
-    const found = await smallText(page);
-    expect(found.map((f) => f.text).sort()).toEqual(
-      ['Küçük değer', 'Küçük ihlal', 'Küçük yer tutucu', 'Rem küçük', 'SVG küçük'].sort(),
-    );
-    const byText = Object.fromEntries(found.map((f) => [f.text, f.px]));
-    expect(byText['Küçük ihlal']).toBe(13);
-    expect(byText['Rem küçük']).toBeCloseTo(12.8, 1);
-    expect(byText['SVG küçük']).toBeCloseTo(10, 1);
+
+    const shared = await smallText(page, { min: MIN_PX, max: 60 });
+    expect(quoted(shared).sort(), 'ortak dedektör').toEqual(['Küçük değer', 'Küçük ihlal', 'Küçük yer tutucu', 'Rem küçük', 'Sözde rozet'].sort());
+    expect(shared.find((line) => line.includes('"Küçük ihlal"'))).toContain('13px');
+    expect(shared.find((line) => line.includes('"Rem küçük"'))).toContain('12.8px');
+
+    const extra = await page.evaluate(placeholderAndSvgText, MIN_PX);
+    expect(quoted(extra).sort(), 'tamamlayıcı ölçüm (::placeholder, SVG ölçeği)').toEqual(['Küçük yer tutucu', 'SVG küçültülmüş', 'Sözde küçük yer tutucu'].sort());
+    expect(extra.find((line) => line.includes('"SVG küçültülmüş"'))).toContain(' 10px');
+    expect(extra.find((line) => line.includes('"Sözde küçük yer tutucu"'))).toContain(' 10px');
   });
 
-  test('gerçek sayfaya enjekte edilen ihlali (içerik ve portal) yakalar', async ({ page }, testInfo) => {
-    await openRoute(page, '/genel', testInfo);
-    const before = (await smallText(page)).map((f) => f.text);
+  test('gerçek sayfada içerik, portal, sözde öğe, yer tutucu ve açık diyalog içindeki ihlali yakalar', async ({ page }) => {
+    const main = await openAdmin(page, '/hesaplar');
+    const before = quoted(await textBelowMin(page));
     await page.evaluate(() => {
-      const main = document.querySelector('main');
-      const inside = document.createElement('p');
-      inside.textContent = 'Enjekte içerik ihlali';
-      inside.style.fontSize = '12px';
-      main?.append(inside);
-      const portal = document.createElement('div');
-      portal.textContent = 'Enjekte portal ihlali';
-      portal.style.cssText = 'position:fixed;left:0;top:0;font-size:13px;z-index:9999';
-      document.body.append(portal);
-      const sr = document.createElement('span');
-      sr.textContent = 'Enjekte gizli metin';
-      sr.style.cssText = 'position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);font-size:10px';
-      main?.append(sr);
+      const style = document.createElement('style');
+      style.dataset.minTextSelfcheck = '';
+      style.textContent = '[data-min-text-rozet]::after{content:"Enjekte sözde";font-size:11px}[data-min-text-ph]::placeholder{font-size:10px}';
+      document.head.append(style);
+      const main = document.querySelector('main#admin-content');
+      const add = (parent: Element | null | undefined, tag: string, css: string, text = '') => {
+        const el = document.createElement(tag);
+        el.style.cssText = css;
+        el.textContent = text;
+        el.dataset.minTextSelfcheck = '';
+        parent?.append(el);
+        return el;
+      };
+      add(main, 'p', 'font-size:12px', 'Enjekte içerik');
+      add(document.body, 'div', 'position:fixed;left:0;top:0;font-size:13px;z-index:9999', 'Enjekte portal');
+      add(main, 'span', 'position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);font-size:10px', 'Enjekte gizli');
+      add(main, 'span', 'font-size:16px').setAttribute('data-min-text-rozet', '');
+      const input = add(main, 'input', 'font-size:16px;width:200px') as HTMLInputElement;
+      input.placeholder = 'Enjekte yer tutucu';
+      input.setAttribute('aria-label', 'Enjekte alan');
+      input.setAttribute('data-min-text-ph', '');
     });
-    const after = (await smallText(page)).map((f) => f.text);
-    expect(after).toEqual(expect.arrayContaining(['Enjekte içerik ihlali', 'Enjekte portal ihlali']));
-    expect(after).not.toContain('Enjekte gizli metin');
-    expect(after.filter((t) => !before.includes(t)).sort()).toEqual(['Enjekte içerik ihlali', 'Enjekte portal ihlali']);
+    const after = quoted(await textBelowMin(page));
+    expect(after.filter((text) => !before.includes(text)).sort()).toEqual(['Enjekte içerik', 'Enjekte portal', 'Enjekte sözde', 'Enjekte yer tutucu'].sort());
+    expect(after).not.toContain('Enjekte gizli');
+
+    // Açık katman (diyalog / telefonda alt sayfa) portalda; içine konan ihlal de ölçülür.
+    await page.evaluate(() => document.querySelectorAll('[data-min-text-selfcheck]').forEach((el) => el.remove()));
+    await main.getByRole('button', { name: 'Hesap ekle', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: 'Hesap ekle' });
+    await expect(dialog).toBeVisible();
+    await dialog.evaluate((el) => {
+      const small = document.createElement('span');
+      small.textContent = 'Diyalog içi ihlal';
+      small.style.fontSize = '12px';
+      el.append(small);
+    });
+    await settle(page);
+    expect(quoted(await textBelowMin(page))).toContain('Diyalog içi ihlal');
+  });
+
+  test('ortak dedektör öz denetimi bu motorda geçer', async ({ page }) => {
+    await openAdmin(page, '/genel');
+    expect(await selfCheckDetectors(page), 'ihlali yakalamayan dedektörler').toEqual([]);
   });
 });
