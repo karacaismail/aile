@@ -12,12 +12,26 @@
 //   - Yalnız aynı köken: Origin başlığı sunucunun kendi kökeni (Host) değilse ya da Sec-Fetch-Site same-origin/none
 //     değilse 403. Vite'nin varsayılan CORS'u başka localhost portlarına izin verse de nesil onlara okunmaz. Başlıksız
 //     istek (curl, Node) tarayıcı kökeni taşımadığından okunur.
+//
+// Emeklilik profili (/__aile/emeklilik/profil.json): yalnız AILE_EMEKLILIK_PROFILE (süreç ortamı) değişkeninin gösterdiği
+// Git dışı .json dosyası salt okunur servis edilir; aynı köken ve GET/HEAD kuralları nesil yoluyla aynıdır. Başka yol
+// servis edilmez; dosya JSON değilse içerik yazılmadan 422 döner. Yanıtlar dosya yolunu ya da hata ayrıntısını taşımaz.
+// Profil doğrulaması istemcidedir (src/admin/emeklilik/data). Üretim derlemesinde bu yol yoktur.
 import type { IncomingHttpHeaders, IncomingMessage, ServerResponse } from 'node:http';
 import { readdir, readFile, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 import type { Plugin, ViteDevServer } from 'vite';
 
 export const PRIVATE_DATA_PREFIX = '/__aile/generation';
+export const EMEKLILIK_PREFIX = '/__aile/emeklilik';
+/** İstemcinin okuduğu tek emeklilik yolu (src/admin/emeklilik/data/yukleyiciler.ts EMEKLILIK_PROFIL_ADRESI). */
+export const EMEKLILIK_PROFILE_PATH = `${EMEKLILIK_PREFIX}/profil.json`;
+
+/** Ara katmanın okuduğu süreç ortamı anahtarları. */
+export interface PrivateDataEnv {
+  AILE_GENERATION_DIR?: string;
+  AILE_EMEKLILIK_PROFILE?: string;
+}
 const generationName = /^[a-f0-9]{64}$/;
 
 export interface SelectedGeneration {
@@ -156,23 +170,86 @@ export function isSameOriginRequest(headers: IncomingHttpHeaders | undefined): b
   return (parsed.protocol === 'http:' || parsed.protocol === 'https:') && host !== undefined && parsed.host === host;
 }
 
-/** Connect tarzı middleware; `env` okuyucusu testte enjekte edilir, üretimde process.env'dir. */
-export function createPrivateDataHandler(readEnv: () => { AILE_GENERATION_DIR?: string } = () => process.env): Handler {
+const underPrefix = (pathname: string, prefix: string) => pathname === prefix || pathname.startsWith(`${prefix}/`);
+
+/** Dosya sistemi hata iletileri mutlak yol taşır (ör. "EACCES: …, open '/…'"); yanıta yalnız hata kodu yazılır. */
+function safeErrorCode(error: unknown): string {
+  const code = typeof (error as { code?: unknown } | null)?.code === 'string' ? (error as { code: string }).code : null;
+  return code && /^[A-Z][A-Z0-9_]{1,31}$/.test(code) ? ` (${code})` : '';
+}
+
+/** Connect tarzı middleware; `env` okuyucusu testte enjekte edilir, üretimde process.env'dir. Nesil ve emeklilik yolları. */
+export function createPrivateDataHandler(readEnv: () => PrivateDataEnv = () => process.env): Handler {
   return (req, res, next) => {
     // Ham yol: WHATWG URL '..' ve '//' parçalarını çözerdi; buradaki kaçış denemeleri 400 ile görünür kalmalı.
     const pathname = (req.url ?? '/').split(/[?#]/, 1)[0];
-    if (pathname !== PRIVATE_DATA_PREFIX && !pathname.startsWith(`${PRIVATE_DATA_PREFIX}/`)) {
+    const generation = underPrefix(pathname, PRIVATE_DATA_PREFIX);
+    if (!generation && !underPrefix(pathname, EMEKLILIK_PREFIX)) {
       next();
       return;
     }
-    void handle(pathname, req, res, readEnv).catch(error => {
-      // Dosya sistemi hata iletileri mutlak yol taşır (ör. "EACCES: …, open '/…'"); yanıta yalnız hata kodu yazılır.
-      const code = typeof (error as { code?: unknown } | null)?.code === 'string' ? (error as { code: string }).code : null;
-      const safeCode = code && /^[A-Z][A-Z0-9_]{1,31}$/.test(code) ? ` (${code})` : '';
-      if (!res.headersSent) sendJson(res, 500, { error: `Hata: nesil dosyası okunamadı${safeCode}` });
+    const work = generation ? handle(pathname, req, res, readEnv) : handleRetirementProfile(pathname, req, res, readEnv);
+    void work.catch(error => {
+      const message = generation ? 'nesil dosyası okunamadı' : 'emeklilik profili okunamadı';
+      if (!res.headersSent) sendJson(res, 500, { error: `Hata: ${message}${safeErrorCode(error)}` });
       else res.end();
     });
   };
+}
+
+/** Ortak ön denetim: aynı köken ve GET/HEAD. Yanıt yazıldıysa false. */
+function acceptRead(req: IncomingMessage, res: ServerResponse): boolean {
+  // Başka bir kökenden (ör. aynı makinedeki başka localhost uygulaması) gelen tarayıcı isteği hiçbir şey öğrenmez.
+  if (!isSameOriginRequest(req.headers)) {
+    sendJson(res, 403, { error: 'Yalnız aynı kökenden okunur' });
+    return false;
+  }
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    sendJson(res, 405, { error: 'Yalnız GET ve HEAD' }, { Allow: 'GET, HEAD' });
+    return false;
+  }
+  return true;
+}
+
+/** AILE_EMEKLILIK_PROFILE dosyasını salt okunur verir; yalnız EMEKLILIK_PROFILE_PATH, yalnız .json ve geçerli JSON. */
+async function handleRetirementProfile(pathname: string, req: IncomingMessage, res: ServerResponse, readEnv: () => PrivateDataEnv) {
+  if (!acceptRead(req, res)) return;
+  if (pathname !== EMEKLILIK_PROFILE_PATH) {
+    sendJson(res, 404, { error: 'Yalnız profil.json servis edilir' });
+    return;
+  }
+  const configured = readEnv().AILE_EMEKLILIK_PROFILE?.trim();
+  if (!configured) {
+    sendJson(res, 404, { error: 'AILE_EMEKLILIK_PROFILE tanımlı değil' });
+    return;
+  }
+  if (path.extname(configured).toLowerCase() !== '.json') {
+    sendJson(res, 404, { error: 'AILE_EMEKLILIK_PROFILE bir .json dosyası olmalı' });
+    return;
+  }
+  let resolved: string;
+  try {
+    resolved = await realpath(path.resolve(configured));
+  } catch {
+    sendJson(res, 404, { error: 'AILE_EMEKLILIK_PROFILE dosyası bulunamadı' });
+    return;
+  }
+  if (!(await stat(resolved)).isFile()) {
+    sendJson(res, 404, { error: 'AILE_EMEKLILIK_PROFILE dosyası bulunamadı' });
+    return;
+  }
+  const bytes = await readFile(resolved);
+  try {
+    JSON.parse(bytes.toString('utf8'));
+  } catch {
+    sendJson(res, 422, { error: 'Emeklilik profili geçerli JSON değil' });
+    return;
+  }
+  res.statusCode = 200;
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('Content-Length', String(bytes.byteLength));
+  res.end(req.method === 'HEAD' ? undefined : bytes);
 }
 
 /** ?generation= değeri: yoksa undefined, biçimi bozuksa null. */
@@ -184,16 +261,8 @@ function requestedGeneration(url: string | undefined): string | null | undefined
   return generationName.test(value) ? value : null;
 }
 
-async function handle(pathname: string, req: IncomingMessage, res: ServerResponse, readEnv: () => { AILE_GENERATION_DIR?: string }) {
-  // Başka bir kökenden (ör. aynı makinedeki başka localhost uygulaması) gelen tarayıcı isteği hiçbir şey öğrenmez.
-  if (!isSameOriginRequest(req.headers)) {
-    sendJson(res, 403, { error: 'Yalnız aynı kökenden okunur' });
-    return;
-  }
-  if (req.method !== 'GET' && req.method !== 'HEAD') {
-    sendJson(res, 405, { error: 'Yalnız GET ve HEAD' }, { Allow: 'GET, HEAD' });
-    return;
-  }
+async function handle(pathname: string, req: IncomingMessage, res: ServerResponse, readEnv: () => PrivateDataEnv) {
+  if (!acceptRead(req, res)) return;
   const pinned = requestedGeneration(req.url);
   if (pinned === null) {
     sendJson(res, 400, { error: 'Geçersiz nesil kimliği' });
@@ -249,9 +318,10 @@ async function handle(pathname: string, req: IncomingMessage, res: ServerRespons
 }
 
 /**
- * Dev eklentisi. AILE_GENERATION_DIR yalnız süreç ortamından (process.env) okunur; ortam dosyaları bilinçli olarak
- * okunmaz: yanlışlıkla açılan düz bir dev sunucusu (paralel ajanlar, önizleme) gerçek nesli servis etmez. Değer yalnız
- * sunucu tarafında kalır; istemciye ve yanıtlara yazılmaz.
+ * Dev eklentisi. AILE_GENERATION_DIR ve AILE_EMEKLILIK_PROFILE yalnız süreç ortamından (process.env) okunur; ortam
+ * dosyaları bilinçli olarak okunmaz: yanlışlıkla açılan düz bir dev sunucusu (paralel ajanlar, önizleme) gerçek nesli
+ * ya da kişisel profili servis etmez. Değerler yalnız sunucu tarafında kalır; istemciye ve yanıtlara yazılmaz. Tek ara
+ * katman iki yolu da karşılar.
  */
 export function privateDataPlugin(): Plugin {
   return {

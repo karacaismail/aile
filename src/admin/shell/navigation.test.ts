@@ -5,12 +5,15 @@ import {
   externalLinkHint, isRoute, sectionCaption, settingsLink, sheetLink,
 } from './navigation';
 
-// Tasarım kaynağı: tasarim-sistemi/components/bundle.js › NAV, NAV_ALT ve Aile.Pages purpose metinleri.
+// Tasarım kaynağı: tasarim-sistemi/components/bundle.js › NAV, NAV_ALT ve Aile.Pages purpose metinleri. Emeklilik planı
+// tasarım paketinde yoktur; aynı kalıpla (bölüm Para, rakamsız amaç cümlesi) Hesaplar ve borçlar'dan sonra eklenir
+// (docs/EMEKLILIK-PLANI.md).
 const DESIGN_NAV = [
   ['genel', 'Genel durum', 'Genel', 'Bu ayın nakdini, yaklaşan ödemeleri ve dikkat isteyen kayıtları tek yerde görün.'],
   ['butce', 'Bütçe ve nakit', 'Para', 'Ayın gelirini, planlanan giderlerini ve kalan nakdi kalem kalem izleyin.'],
   ['odemeler', 'Ödemeler', 'Para', 'Planlanan, yapılan ve geciken ödemeleri tarihleriyle izleyin.'],
   ['hesaplar', 'Hesaplar ve borçlar', 'Para', 'Hesap bakiyelerini ve kalan borçları, taksit planıyla birlikte görün.'],
+  ['emeklilik', 'Emeklilik planı', 'Para', 'Askerlik, Bağ-Kur ve ihya seçeneklerinin emeklilik tarihine ve maliyetine etkisini karşılaştırın.'],
   ['alimlar', 'Alımlar ve eşyalar', 'Alım ve envanter', 'Ev için alınacak ve alınmış her şeyi plan ve gerçek tutarıyla izleyin.'],
   ['ev', 'Ev ve odalar', 'Ev', 'Her odanın alımlarını, görevlerini ve plan ile gerçek tutarını oda oda izleyin.'],
   ['projeler', 'Projeler ve görevler', 'İşler', 'Ev projelerini ve görevlerini kim, ne zaman ve hangi sırayla yapacak, görün.'],
@@ -21,7 +24,7 @@ const DESIGN_NAV = [
 ] as const;
 
 describe('admin navigation (tasarım NAV)', () => {
-  it('has the 11 page keys in design order, each routed at /<key>', () => {
+  it('has the 12 page keys in design order (Emeklilik planı after Hesaplar ve borçlar), each routed at /<key>', () => {
     expect(adminPages.map(item => item.key)).toEqual(DESIGN_NAV.map(([key]) => key));
     expect(adminPages.map(item => item.label)).toEqual(DESIGN_NAV.map(([, label]) => label));
     for (const item of adminPages) {
@@ -36,8 +39,8 @@ describe('admin navigation (tasarım NAV)', () => {
     expect(adminHelpers[0]).toMatchObject({ path: '/ayarlar', label: 'Ayarlar', icon: 'settings', section: 'Uygulama' });
     expect(settingsLink).toEqual({ path: '/ayarlar', label: 'Ayarlar' });
     expect(adminHelpers[1]).toBe(sheetLink);
-    expect(adminNav).toHaveLength(13);
-    expect(new Set(adminNav.map(item => item.key)).size).toBe(13);
+    expect(adminNav).toHaveLength(14);
+    expect(new Set(adminNav.map(item => item.key)).size).toBe(14);
   });
 
   it('opens the sheet in a new tab via the dashboard sheetUrl', () => {
@@ -75,6 +78,14 @@ describe('admin navigation (tasarım NAV)', () => {
     expect(adminGroupTitle('/butce')).toBe(sectionCaption('/butce'));
   });
 
+  it('Emeklilik planı: /emeklilik, bölüm Para, nested paths stay on the page', () => {
+    const item = adminPages.find(page => page.key === 'emeklilik');
+    expect(item).toMatchObject({ path: '/emeklilik', label: 'Emeklilik planı', section: 'Para' });
+    expect(adminPages.indexOf(item!)).toBe(adminPages.findIndex(page => page.key === 'hesaplar') + 1);
+    expect(currentAdminLink('/emeklilik/ihya').key).toBe('emeklilik');
+    expect(currentAdminLink('/emeklilikx')).toBe(adminPages[0]);
+  });
+
   it('currentAdminLink is longest-match and falls back to the first page', () => {
     expect(currentAdminLink('/alimlar').key).toBe('alimlar');
     expect(currentAdminLink('/alimlar/123').key).toBe('alimlar');
@@ -90,7 +101,7 @@ describe('admin navigation (tasarım NAV)', () => {
   });
 
   it('keeps the legacy one-link-per-group shape for the shell', () => {
-    expect(adminGroups).toHaveLength(11);
+    expect(adminGroups).toHaveLength(12);
     expect(adminGroups.map(group => group.links[0])).toEqual([...adminPages]);
     expect(adminGroups.every(group => group.links.length === 1 && group.title === group.links[0].label)).toBe(true);
   });

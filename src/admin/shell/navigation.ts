@@ -4,8 +4,10 @@ import type { NavGroup, NavLink } from './contracts';
 
 // Tasarım kaynağı: tasarim-sistemi/components/bundle.js › NAV (11 sayfa), NAV_ALT (Ayarlar, E-tabloyu aç) ve
 // Aile.Pages'teki section/purpose metinleri. Sayfa anahtarı = hash yolu (/<key>); sıra tasarımdaki sıradır.
+// Emeklilik planı tasarım paketinde yoktur (yeni özellik, docs/EMEKLILIK-PLANI.md); aynı kalıpla Para bölümünde,
+// Hesaplar ve borçlar'dan sonra durur.
 export type AdminPageKey =
-  | 'genel' | 'butce' | 'odemeler' | 'hesaplar' | 'alimlar' | 'ev'
+  | 'genel' | 'butce' | 'odemeler' | 'hesaplar' | 'emeklilik' | 'alimlar' | 'ev'
   | 'projeler' | 'taraflar' | 'raporlar' | 'sozlukler' | 'veri';
 export type AdminHelperKey = 'ayarlar' | 'sheet';
 export type AdminNavKey = AdminPageKey | AdminHelperKey;
@@ -41,6 +43,7 @@ export const adminPages: readonly AdminNavItem[] = [
   page('butce', 'Bütçe ve nakit', 'Para', 'Ayın gelirini, planlanan giderlerini ve kalan nakdi kalem kalem izleyin.'),
   page('odemeler', 'Ödemeler', 'Para', 'Planlanan, yapılan ve geciken ödemeleri tarihleriyle izleyin.'),
   page('hesaplar', 'Hesaplar ve borçlar', 'Para', 'Hesap bakiyelerini ve kalan borçları, taksit planıyla birlikte görün.'),
+  page('emeklilik', 'Emeklilik planı', 'Para', 'Askerlik, Bağ-Kur ve ihya seçeneklerinin emeklilik tarihine ve maliyetine etkisini karşılaştırın.'),
   page('alimlar', 'Alımlar ve eşyalar', 'Alım ve envanter', 'Ev için alınacak ve alınmış her şeyi plan ve gerçek tutarıyla izleyin.'),
   page('ev', 'Ev ve odalar', 'Ev', 'Her odanın alımlarını, görevlerini ve plan ile gerçek tutarını oda oda izleyin.'),
   page('projeler', 'Projeler ve görevler', 'İşler', 'Ev projelerini ve görevlerini kim, ne zaman ve hangi sırayla yapacak, görün.'),

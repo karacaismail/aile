@@ -37,6 +37,7 @@ vi.mock('./pages/RaporlarPage', async importOriginal => track(await importOrigin
 vi.mock('./pages/SozluklerPage', async importOriginal => track(await importOriginal(), 'SozluklerPage'));
 vi.mock('./pages/VeriPage', async importOriginal => track(await importOriginal(), 'VeriPage'));
 vi.mock('./pages/AyarlarPage', async importOriginal => track(await importOriginal(), 'AyarlarPage'));
+vi.mock('./pages/EmeklilikPage', async importOriginal => track(await importOriginal(), 'EmeklilikPage'));
 
 // ECharts çekirdeği jsdom'da çizilmez (sayfa testleriyle aynı mock).
 vi.mock('echarts/core', () => ({ init: vi.fn(() => ({ setOption: vi.fn(), resize: vi.fn(), dispose: vi.fn() })), use: vi.fn(), registerTheme: vi.fn() }));
@@ -129,6 +130,32 @@ describe('AdminRoutes › 12 rota', () => {
     expect(rendered.size).toBe(1);
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     expect(h1(title)).toBeInTheDocument();
+  }, 20_000);
+});
+
+// Emeklilik planı (#/emeklilik): rota ve tembel sayfa modülü bu dalda (em-data); sayfanın kendi başlığı ve içeriği em-vm
+// görevindedir. Bu yüzden ortak tabloya değil ayrı teste girer: yüklenirken rota başlığı (bölüm Para + h1 + amaç) çizilir,
+// modül tembel yüklenir, sayfa çizildikten sonra en çok bir h1 vardır ve varsa "Emeklilik planı"dır.
+describe('AdminRoutes › /emeklilik', () => {
+  it('yüklenirken "Emeklilik planı" başlığı; EmeklilikPage tembel yüklenir ve tek başına çizilir', async () => {
+    renderAt('/emeklilik');
+    expect(rendered.has('EmeklilikPage')).toBe(false);
+    expect(h1('Emeklilik planı')).toBeInTheDocument();
+    expect(screen.getByText('Askerlik, Bağ-Kur ve ihya seçeneklerinin emeklilik tarihine ve maliyetine etkisini karşılaştırın.')).toBeInTheDocument();
+    await waitFor(() => expect(rendered.has('EmeklilikPage')).toBe(true), { timeout: 10_000 });
+    expect(rendered.size).toBe(1);
+    const headings = screen.queryAllByRole('heading', { level: 1 });
+    expect(headings.length).toBeLessThanOrEqual(1);
+    for (const heading of headings) expect(heading).toHaveTextContent('Emeklilik planı');
+  }, 20_000);
+
+  it('iç içe yol sayfada kalır (/emeklilik/ihya → EmeklilikPage); /emeklilikx bilinmeyen konumdur', async () => {
+    renderAt('/emeklilik/ihya');
+    await waitFor(() => expect(rendered.has('EmeklilikPage')).toBe(true), { timeout: 10_000 });
+    rendered.clear();
+    const { memory } = renderAt('/emeklilikx');
+    await waitFor(() => expect(memory.history).toEqual(['/genel']));
+    expect(rendered.has('EmeklilikPage')).toBe(false);
   }, 20_000);
 });
 

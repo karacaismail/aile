@@ -256,7 +256,7 @@ describe('routes.tsx kaynağı (telefon teslimi)', () => {
   it('her sayfa yalnız dinamik import() ile, kendi parçasında; sayfa ya da geniş modül statik içe aktarılmaz', () => {
     const dynamicPages = refs.filter(ref => ref.kind === 'dynamic').map(ref => ref.specifier).sort();
     expect(dynamicPages).toEqual(
-      ['Alimlar', 'Ayarlar', 'Butce', 'Ev', 'Genel', 'Hesaplar', 'Odemeler', 'Projeler', 'Raporlar', 'Sozlukler', 'Taraflar', 'Veri']
+      ['Alimlar', 'Ayarlar', 'Butce', 'Emeklilik', 'Ev', 'Genel', 'Hesaplar', 'Odemeler', 'Projeler', 'Raporlar', 'Sozlukler', 'Taraflar', 'Veri']
         .map(name => `./pages/${name}Page`).sort(),
     );
     expect(refs.filter(ref => ref.kind === 'static' && /\/pages\/|\.wide$/.test(ref.specifier))).toEqual([]);

@@ -12,12 +12,14 @@ import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import {
   scanText, scanDist, loadSyntheticGenerationIds, privateValuesFromEnv, TEXT_EXTENSIONS, SYNTHETIC_SHEET_IDS, MIN_PRIVATE_VALUE_LENGTH,
+  loadSyntheticRetirementValues, retirementProfileValues,
 } from './check-dist-privacy.mjs';
 
 const run = promisify(execFile);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const script = path.join(root, 'scripts', 'check-dist-privacy.mjs');
 const fixtureRoot = path.join(root, 'fixtures', 'generation-synthetic');
+const syntheticRetirementProfile = path.join(root, 'fixtures', 'emeklilik', 'profil-sentetik.json');
 const node = process.execPath;
 
 const fakeHex64 = 'ab'.repeat(32);
@@ -31,10 +33,10 @@ const fakeDeploymentId = `AKfycb${'Sn7eTkOrNk0Tb_x-'.repeat(5)}`;
 const fakeEmail = ['ornek.kisi', 'aile-posta-sentetik.net'].join('@');
 const fakeUserPath = '/Users/ornek-kisi/Developer/aile/src/main.tsx';
 const fakeTenantUuid = '11111111-2222-5333-8444-555555555555';
-// Ortamı test sürecinden sızdırmamak için CLI alt süreci bu üç değişken olmadan çalışır.
+// Ortamı test sürecinden sızdırmamak için CLI alt süreci bu dört değişken olmadan çalışır.
 const cleanEnv = (extra = {}) => {
   const env = { ...process.env };
-  for (const key of ['AILE_GENERATION_DIR', 'VITE_BUDGET_SHEET_ID', 'VITE_API_URL']) delete env[key];
+  for (const key of ['AILE_GENERATION_DIR', 'VITE_BUDGET_SHEET_ID', 'VITE_API_URL', 'AILE_EMEKLILIK_PROFILE']) delete env[key];
   return { ...env, ...extra };
 };
 
@@ -483,13 +485,130 @@ describe('CLI ortam değerleri', () => {
   });
 });
 
+// Emeklilik profili (docs/EMEKLILIK-PLANI.md): kişisel profil dist'e girmez. Profil alanı değeriyle birlikte geçerse ihlaldir
+// (JSON, JS nesnesi, kaçışlı dize); değer fixtures/emeklilik/profil-sentetik.json'daki sentetik değerse muaftır. Şema ve
+// erişim kodu (dogumTarihi:Tarih, p.kayitliGun.gun) değer sabiti taşımadığı için eşleşmez. Bulgu değeri yazmaz.
+describe('emeklilik profili parçaları', () => {
+  // Sentetik olmayan, gerçek kişiye ait olmayan örnek değerler.
+  const fakeBirth = '1979-04-21';
+  const fakeEntry = '1995-07-03';
+  const fakePension = '31234.56';
+
+  it('profil alanları sentetik olmayan değerlerle ihlal: JSON, JS nesnesi, kaçışlı dize, şablon dizesi', () => {
+    for (const text of [
+      `{"surum":1,"sentetik":false,"dogumTarihi":"${fakeBirth}"}`,
+      `const p={dogumTarihi:"${fakeBirth}"};`,
+      `JSON.parse("{\\"dogumTarihi\\":\\"${fakeBirth}\\"}")`,
+      `{"ilkSigortaGirisi":"${fakeEntry}"}`,
+      `{"sgkReferansAylik":{"tl":"${fakePension}","tarih":"2026-10-01"}}`,
+      `x={sgkReferansAylik:{tl:\`${fakePension}\`}}`,
+      '{"kayitliGun":{"gun":4321,"sonAy":"2026-09"}}',
+      '{"kazanc":{"sonPekTl":"98765.43","sonPekAyi":"2026-09"}}',
+    ]) expect(rules(scanText(text)), text).toEqual(['retirement-profile']);
+  });
+
+  it('bulgu alan adını yazar, değeri yazmaz', () => {
+    const [finding] = scanText(`{"dogumTarihi":"${fakeBirth}"}`);
+    expect(finding.match).toBe('dogumTarihi');
+    expect(JSON.stringify(finding)).not.toContain(fakeBirth);
+  });
+
+  it('sentetik fikstürün değerleri muaf; sentetik profil dosyasının kendisi muaf, değiştirilmiş kopyası ihlal', async () => {
+    const exemptRetirementValues = await loadSyntheticRetirementValues(syntheticRetirementProfile);
+    const fixture = await readFile(syntheticRetirementProfile, 'utf8');
+    const synthetic = JSON.parse(fixture);
+    expect(synthetic.sentetik).toBe(true);
+    expect(exemptRetirementValues.dogumTarihi).toBe(synthetic.dogumTarihi);
+    expect(scanText(`var p=JSON.parse(${JSON.stringify(fixture)});`, { exemptRetirementValues })).toEqual([]);
+    expect(scanText(fixture, { exemptRetirementValues })).toEqual([]);
+    const altered = fixture.replace(synthetic.dogumTarihi, fakeBirth);
+    expect(rules(scanText(altered, { exemptRetirementValues }))).toEqual(['retirement-profile']);
+    // Muafiyet verilmezse sentetik değerler de profil parçasıdır.
+    expect(rules(scanText(fixture))).toEqual(['retirement-profile']);
+  });
+
+  it('sentetik olmayan profil dosyasından muafiyet çıkmaz', async () => {
+    const file = path.join(scratch, 'emeklilik-sentetik-degil.json');
+    const synthetic = JSON.parse(await readFile(syntheticRetirementProfile, 'utf8'));
+    await writeFile(file, JSON.stringify({ ...synthetic, sentetik: false }));
+    expect(await loadSyntheticRetirementValues(file)).toEqual({});
+    expect(await loadSyntheticRetirementValues(path.join(scratch, 'yok.json'))).toEqual({});
+  });
+
+  it('yanlış alarm yok: şema kodu, alan erişimi, hata iletisi, sözleşme yorumu', () => {
+    for (const text of [
+      'Ve=O({surum:k(1),sentetik:B(),dogumTarihi:Tt,ilkSigortaGirisi:Tt,kayitliGun:O({gun:Gn,sonAy:Ay}),sgkReferansAylik:O({tl:Tl,tarih:Tt})})',
+      'const y=n.dogumTarihi,g=p.kayitliGun.gun,t=p.sgkReferansAylik.tl;',
+      '`Profil doğrulanamadı: dogumTarihi: tarih YYYY-AA-GG biçiminde ve takvimde geçerli olmalı`',
+      "const m={dogumTarihi:'YYYY-AA-GG'};",
+      '{"kayitliGun":{"gun":null}}',
+    ]) expect(scanText(text), text).toEqual([]);
+  });
+
+  it('AILE_EMEKLILIK_PROFILE değeri (yol) dist metninde ihlal; çıktıda yalnız değişken adı', () => {
+    const privateValues = privateValuesFromEnv({ AILE_EMEKLILIK_PROFILE: '/Volumes/ornek-disk/emeklilik/profil.json' });
+    const found = scanText('const f="/Volumes/ornek-disk/emeklilik/profil.json";', { privateValues });
+    expect(rules(found)).toEqual(['retirement-profile-path']);
+    expect(found[0].match).toBe('AILE_EMEKLILIK_PROFILE');
+    expect(JSON.stringify(found)).not.toContain('ornek-disk');
+    const relative = privateValuesFromEnv({ AILE_EMEKLILIK_PROFILE: 'ozel/emeklilik-profili.json' }, { cwd: '/srv/ornek' });
+    expect(rules(scanText('"/srv/ornek/ozel/emeklilik-profili.json"', { privateValues: relative }))).toEqual(['retirement-profile-path']);
+  });
+
+  it('AILE_EMEKLILIK_PROFILE dosyasındaki doğum tarihi dist\'te hangi biçimde geçerse geçsin ihlal; değer yazılmaz', async () => {
+    const file = path.join(scratch, 'emeklilik-ozel.json');
+    const synthetic = JSON.parse(await readFile(syntheticRetirementProfile, 'utf8'));
+    await writeFile(file, JSON.stringify({ ...synthetic, sentetik: false, dogumTarihi: fakeBirth }));
+    const privateValues = await retirementProfileValues({ AILE_EMEKLILIK_PROFILE: file });
+    expect(privateValues.map(v => v.rule)).toEqual(['retirement-profile']);
+    const found = scanText(`const d=new Date("${fakeBirth}");`, { privateValues });
+    expect(rules(found)).toEqual(['retirement-profile']);
+    expect(found[0].match).toBe('AILE_EMEKLILIK_PROFILE');
+    expect(JSON.stringify(found)).not.toContain(fakeBirth);
+    // Sentetik profil ya da okunamayan dosya özel değer üretmez.
+    expect(await retirementProfileValues({ AILE_EMEKLILIK_PROFILE: syntheticRetirementProfile })).toEqual([]);
+    expect(await retirementProfileValues({ AILE_EMEKLILIK_PROFILE: path.join(scratch, 'yok.json') })).toEqual([]);
+    expect(await retirementProfileValues({})).toEqual([]);
+  });
+
+  it('CLI: profil parçası taşıyan dist exit 1 (kural adı, değer yok); sentetik değerler exit 0', async () => {
+    const bad = path.join(scratch, 'dist-cli-emeklilik');
+    await mkdir(bad, { recursive: true });
+    await writeFile(path.join(bad, 'a.js'), `const p={"dogumTarihi":"${fakeBirth}"};`);
+    const result = await run(node, [script, bad], { cwd: root, env: cleanEnv() }).catch(e => e);
+    expect(result.code).toBe(1);
+    expect(result.stdout + result.stderr).toMatch(/retirement-profile/);
+    expect(result.stdout + result.stderr).not.toContain(fakeBirth);
+    const ok = path.join(scratch, 'dist-cli-emeklilik-sentetik');
+    await mkdir(ok, { recursive: true });
+    await writeFile(path.join(ok, 'a.js'), `const p=${await readFile(syntheticRetirementProfile, 'utf8')};`);
+    const { stdout } = await run(node, [script, ok], { cwd: root, env: cleanEnv() });
+    expect(stdout).toMatch(/0 bulgu/);
+  });
+
+  it('CLI: AILE_EMEKLILIK_PROFILE dosyasının doğum tarihi dist\'te geçerse exit 1; yol ve değer yazılmaz', async () => {
+    const file = path.join(scratch, 'emeklilik-cli-ozel.json');
+    const synthetic = JSON.parse(await readFile(syntheticRetirementProfile, 'utf8'));
+    await writeFile(file, JSON.stringify({ ...synthetic, sentetik: false, dogumTarihi: fakeBirth }));
+    const dist = path.join(scratch, 'dist-cli-emeklilik-env');
+    await mkdir(dist, { recursive: true });
+    await writeFile(path.join(dist, 'a.js'), `const d="${fakeBirth}";`);
+    const result = await run(node, [script, dist], { cwd: root, env: cleanEnv({ AILE_EMEKLILIK_PROFILE: file }) }).catch(e => e);
+    expect(result.code).toBe(1);
+    expect(result.stdout + result.stderr).toMatch(/retirement-profile/);
+    expect(result.stdout + result.stderr).not.toContain(fakeBirth);
+    expect(result.stdout + result.stderr).not.toContain(file);
+  });
+});
+
 describe('gerçek dist (varsa)', () => {
   it('dist/ varsa ihlal yok', async () => {
     const dist = path.join(root, 'dist');
     const exists = await access(dist).then(() => true, () => false);
     if (!exists) return;
     const exemptGenerationIds = await loadSyntheticGenerationIds(fixtureRoot);
-    const findings = await scanDist(dist, { exemptGenerationIds });
+    const exemptRetirementValues = await loadSyntheticRetirementValues(syntheticRetirementProfile);
+    const findings = await scanDist(dist, { exemptGenerationIds, exemptRetirementValues });
     expect(findings.map(f => `${f.rule} ${f.file}`)).toEqual([]);
   }, 60_000);
 });
