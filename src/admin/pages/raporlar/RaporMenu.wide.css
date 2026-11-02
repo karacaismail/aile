@@ -1,0 +1,57 @@
+/* Masaüstü rapor seçimi (raporlar/RaporMenu.wide.tsx; geniş-özel, telefon indirmez). Tasarım: bundle.css
+   .pg-report-nav içindeki Menu görünümü (components/Menu/README.md): öğe 44 px (kaba girişte 48), seçili secili + 600,
+   şerit yok. Sayfa içi seçimdir: yerel düğmeler, seçili aria-current="true". Tek kaynak tokenlar --aile-*; sabit renk
+   yok; 16/24 metin tasarım tipografisidir. Satırı dolduran düğme satır taşıyıcısıdır ([data-focus-line='row']):
+   admin.css 3 px çizgiyi düğmenin kendi alt kenarına (bottom 0) çizer, seçili düğmede secili yüzeyin üzerinde; değdiği
+   alt köşeler yalnız çizgi görünürken radiussuzdur, üst köşeler korunur. Burada outline, halka ya da gölge yok. Hover
+   yalnız hover destekleyen işaretçide; basılı yüzey Pointer Events ile (data-pressed). */
+
+.aile-rapor-secim {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-2);
+  min-width: 0;
+  font-family: var(--aile-font-sans);
+  color: var(--aile-metin);
+}
+
+.aile-rapor-secim__satir { display: flex; min-width: 0; }
+
+.aile-rapor-secim__dugme {
+  appearance: none;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: var(--aile-dokunma-hedefi);
+  margin: 0;
+  padding: var(--aile-bosluk-2) var(--aile-bosluk-3);
+  border: 0;
+  border-radius: var(--aile-kose-kontrol);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 500;
+  text-align: start;
+  overflow-wrap: break-word;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--aile-sure) var(--aile-egri), color var(--aile-sure) var(--aile-egri);
+}
+
+@media (hover: hover) {
+  .aile-rapor-secim__dugme:not([aria-current='true']):hover { background: var(--aile-bilgi-yuzey); }
+}
+.aile-rapor-secim__dugme[data-pressed]:not([aria-current='true']) { background: var(--aile-secili); }
+.aile-rapor-secim__dugme[aria-current='true'] {
+  background: var(--aile-secili);
+  color: var(--aile-metin);
+  font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aile-rapor-secim__dugme { transition-duration: 0s; }
+}

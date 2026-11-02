@@ -1,5 +1,5 @@
 import { test, expect, type Locator, type Page } from '@playwright/test';
-import { accentEdges, focusRing, motion, smallText } from './admin-detectors';
+import { accentEdges, focusRing, motion, smallText, touchTargets } from './admin-detectors';
 import { enterKeyboardMode, openAdmin, shiftTabKey, tabKey } from './admin-helpers';
 
 // a06 Menu + OverflowActions (src/admin/ui/Menu.tsx, OverflowActions.tsx) gerçek tarayıcıda.
@@ -14,6 +14,8 @@ import { enterKeyboardMode, openAdmin, shiftTabKey, tabKey } from './admin-helpe
 //    çizgisi) orada doğrulanır. Satırı dolduran bağlantı satır taşıyıcısıdır (data-focus-line="row"): odak çizgisi
 //    bağlantının kendi alt kenarındadır (bottom 0), böylece seçili sayfada secili yüzeyin, diğerlerinde lacivertin
 //    üzerindedir (WCAG 1.4.11 en az 3:1).
+// Menu'nün bağlantılı öğesi WAI-ARIA APG kalıbıdır: <li role="none"><a role="menuitem" href aria-current="page">; odak,
+// sekme durağı, aria-current ve yüzey menuitem'in kendisindedir (iç <a> ayrı bir link rolü/odak hedefi değildir).
 // Menu variant="nav" ve açılır panel (geniş profil) hiçbir rotada görünmez (PageHeader genişte ikincil düğme çizer);
 // bu yüzden aynı dev sunucusunun kaynak modülleri (Menu.tsx, OverflowActions.tsx) admin.html üzerinde, gerçek admin.css
 // ve <html> data-profile/data-input-* öznitelikleriyle bir yalıtık köke bağlanır (bkz. mountNavHarness: bu projenin
@@ -41,7 +43,6 @@ function tokenColor(page: Page, name: string) {
     return color;
   }, name);
 }
-const menuItemOf = (link: Locator) => link.locator('xpath=ancestor::li[@role="menuitem"][1]');
 
 async function expectTargets(page: Page, items: Locator) {
   const min = await minTarget(page);
@@ -408,16 +409,23 @@ async function mountNavHarness(page: Page) {
 }
 const navSelections = (page: Page) => page.evaluate(() => (window as unknown as NavHarnessWindow).__a06nav.selected.slice());
 
-test('Menu variant="nav" (bu görünüm): tek sekme durağı seçili sayfa; seçili secili yüzey + 600, vurgu kenarı yok; 44/48 px; ≥14 px', MATRIX, async ({ page }) => {
+test('Menu variant="nav" (bu görünüm): APG bağlantılı öğe (li role=none > a role=menuitem); tek sekme durağı seçili sayfa; seçili secili yüzey + 600, vurgu kenarı yok; 44/48 px; ≥14 px', MATRIX, async ({ page }) => {
   const menu = await mountNavHarness(page);
+  // Menü içinde ayrı link rolü yok: bağlantı menuitem'in kendisidir; aria-current tek ve menuitem'de.
+  await expect(menu.getByRole('link')).toHaveCount(0);
   const stops = menu.locator('[tabindex="0"]');
   await expect(stops).toHaveCount(1);
-  const selected = menu.getByRole('link', { name: 'Alımlar ve eşyalar' });
+  const selected = menu.getByRole('menuitem', { name: 'Alımlar ve eşyalar' });
   await expect(selected).toHaveAttribute('aria-current', 'page');
+  await expect(selected).toHaveAttribute('href', '#/alimlar');
+  expect(await selected.evaluate(element => [element.tagName, element.parentElement?.tagName, element.parentElement?.getAttribute('role')]))
+    .toEqual(['A', 'LI', 'none']);
+  await expect(menu.locator('[aria-current]')).toHaveCount(1);
   await expect(stops.first()).toHaveAttribute('aria-current', 'page');
+  await expect(stops.first()).toHaveAttribute('role', 'menuitem');
   await expect(menu).toHaveAttribute('data-variant', 'nav');
 
-  const look = await menuItemOf(selected).evaluate(element => {
+  const look = await selected.evaluate(element => {
     const style = getComputedStyle(element);
     return {
       background: style.backgroundColor, weight: style.fontWeight, shadow: style.boxShadow,
@@ -428,20 +436,27 @@ test('Menu variant="nav" (bu görünüm): tek sekme durağı seçili sayfa; seç
   expect(Number(look.weight)).toBe(600);
   expect(look.shadow).toBe('none');
   expect(look.borders).toEqual(['0px', '0px', '0px', '0px']);
-  const color = await menuItemOf(menu.getByRole('link', { name: 'Ev ve odalar' })).evaluate(element => getComputedStyle(element).color);
-  expect(color, 'nav varyantında öğe metni nav-metin').toBe(await tokenColor(page, '--aile-nav-metin'));
+  const other = menu.getByRole('menuitem', { name: 'Ev ve odalar' });
+  const otherLook = await other.evaluate(element => {
+    const style = getComputedStyle(element);
+    return { color: style.color, decoration: style.textDecorationLine };
+  });
+  expect(otherLook.color, 'nav varyantında öğe metni nav-metin (admin.css bağlantı rengi değil)').toBe(await tokenColor(page, '--aile-nav-metin'));
+  expect(otherLook.decoration).toBe('none');
   expect(await accentEdges(page, { root: '#a06-nav-harness [role="menu"]' })).toEqual([]);
   expect(await smallText(page, { root: '#a06-nav-harness [role="menu"]' })).toEqual([]);
   await expectTargets(page, menu.getByRole('menuitem'));
 });
 
-test('Menu variant="nav" (bu görünüm): oklar sarmalı, Home/End, typeahead (tr-TR); odak çizgisi tek alt çizgi, nav üzerinde odak-nav; Enter bağlantıyı izler', MATRIX, async ({ page, browserName }) => {
+test('Menu variant="nav" (bu görünüm): odak menuitem\'in kendisinde; oklar sarmalı, Home/End, typeahead (tr-TR); odak çizgisi tek alt çizgi, nav üzerinde odak-nav; Enter bağlantıyı izler', MATRIX, async ({ page, browserName }) => {
   const menu = await mountNavHarness(page);
   await enterKeyboardMode(page, browserName);
-  const link = (name: string) => menu.getByRole('link', { name, exact: true });
+  const link = (name: string) => menu.getByRole('menuitem', { name, exact: true });
+  const focusedRole = () => page.evaluate(() => document.activeElement?.getAttribute('role') ?? document.activeElement?.tagName ?? null);
   const selected = link('Alımlar ve eşyalar');
   // Tek sekme durağı: uygulama kökü gizli olduğundan ilk Tab doğrudan menünün durağına (seçili sayfa) gelir.
   await tabTo(page, browserName, selected, 2);
+  expect(await focusedRole(), 'odak menuitem\'de (iç bağlantıda değil)').toBe('menuitem');
   expect(await focusRing(page)).toEqual([]);
   // Seçili öğede de çizgi lacivert zemine düşer: odak-nav, en az 3:1 (Menu.css nav kuralı).
   expect(await lineColor(selected)).toBe(await tokenColor(page, '--aile-odak-nav'));
@@ -449,6 +464,7 @@ test('Menu variant="nav" (bu görünüm): oklar sarmalı, Home/End, typeahead (t
 
   await page.keyboard.press('ArrowDown');
   await expect(link('Ev ve odalar')).toBeFocused();
+  expect(await focusedRole()).toBe('menuitem');
   expect(await focusRing(page)).toEqual([]);
   expect(await lineColor(link('Ev ve odalar'))).toBe(await tokenColor(page, '--aile-odak-nav'));
   await expect(link('Ev ve odalar')).toHaveAttribute('tabindex', '0');
@@ -477,14 +493,14 @@ test('Menu variant="nav" (bu görünüm): oklar sarmalı, Home/End, typeahead (t
 test('Menu variant="nav" (bu görünüm): pointercancel basılı yüzeyi kaldırır ve seçmez; dokunuş/tıklama bağlantıyı izler', MATRIX, async ({ page }, testInfo) => {
   const touch = testInfo.project.use.hasTouch;
   const menu = await mountNavHarness(page);
-  const target = menuItemOf(menu.getByRole('link', { name: 'Ev ve odalar', exact: true }));
+  const target = menu.getByRole('menuitem', { name: 'Ev ve odalar', exact: true });
   await target.dispatchEvent('pointerdown', { pointerType: 'touch', pointerId: 3, isPrimary: true, button: 0 });
   await expect(target).toHaveAttribute('data-pressed', '');
   await target.dispatchEvent('pointercancel', { pointerType: 'touch', pointerId: 3, isPrimary: true });
   await expect(target).not.toHaveAttribute('data-pressed');
   await expect(page).toHaveURL(/#\/genel$/);
   expect(await navSelections(page)).toEqual([]);
-  await press(menu.getByRole('link', { name: 'Ev ve odalar', exact: true }), touch);
+  await press(target, touch);
   await expect(page).toHaveURL(/#\/ev$/);
   expect(await navSelections(page)).toEqual(['ev']);
   await expect(target).not.toHaveAttribute('data-pressed');
@@ -517,9 +533,8 @@ async function mountHarness(page: Page) {
     const client = (await load(dep('react-dom_client'))).default as { createRoot(element: Element): Root };
     const { Menu } = await load('/aile/src/admin/ui/Menu.tsx');
     const { OverflowActions } = await load('/aile/src/admin/ui/OverflowActions.tsx');
-    // Geniş profilde uygulama WideProviders (antd teması: odak halkası kapalı) içindedir; yalıtık kök de öyle olsun ki
-    // henüz antd tabanlı Button (a01) uygulamadaki gibi çizilsin.
-    const { WideProviders } = await load('/aile/src/admin/adaptive/WideProviders.tsx');
+    // Uygulama hiçbir profilde antd sağlayıcısıyla (WideProviders) sarılmaz; Menu, OverflowActions ve Button yereldir.
+    // Yalıtık kök de üretimdeki gibi sağlayıcısızdır (antd indirilmez).
     const h = react.createElement;
     const selected: string[] = [];
     (document.getElementById('admin-root') as HTMLElement).style.display = 'none';
@@ -537,7 +552,7 @@ async function mountHarness(page: Page) {
       { key: 'sil', label: 'Sil', danger: true },
     ];
     const render = (width: number) => {
-      root.render(h(WideProviders, null, h('div', null,
+      root.render(h('div', null,
         h('div', { id: 'a06-top', style: { display: 'flex', gap: 16, alignItems: 'center' } },
           h(Menu, { trigger: 'Sırala', items, onSelect: (key: string) => selected.push(key) }),
           h('button', { type: 'button' }, 'Sonraki')),
@@ -552,7 +567,7 @@ async function mountHarness(page: Page) {
             ],
           })),
         h('div', { id: 'a06-bottom', style: { position: 'fixed', right: 24, bottom: 24 } },
-          h(Menu, { trigger: 'Alttaki', items, align: 'end', onSelect: (key: string) => selected.push(`alt:${key}`) })))));
+          h(Menu, { trigger: 'Alttaki', items, align: 'end', onSelect: (key: string) => selected.push(`alt:${key}`) }))));
     };
     const root = client.createRoot(host);
     render(900);
@@ -708,4 +723,124 @@ test('geniş: OverflowActions collapse="auto" — yer varken satırda düğmeler
   await page.evaluate(() => (window as unknown as HarnessWindow).__a06.setRowWidth(900));
   await expect(row.getByRole('button', { name: 'Düzenle' })).toBeVisible();
   await expect(row.getByRole('button', { name: 'Diğer' })).toHaveCount(0);
+});
+
+// --- 5. Rapor seçimi (#/raporlar): sayfa içi seçim, menü değil -------------------------------------------------------
+// Eskiden Menu kullanan masaüstü rapor listesi (pages/raporlar/RaporMenu.wide.tsx) gezinme değil, aynı sayfada gösterilen
+// raporu seçer: menü rolü (uygulama komutları) ve aria-current="page" yerine yerel düğme listesi, seçili rapor
+// aria-current="true". Yalnız masaüstü profilinde ve lazyWide ile gelir; telefon ve tablette aynı seçim "Rapor" alanıdır
+// ve geniş liste modülü hiç istenmez.
+
+const REPORT_LABELS = ['Aylık plan ve gerçek', 'Kaleme göre harcama', 'Borç ödeme planı', 'Oda bazında alımlar', 'Veri güveni özeti'];
+const RAPOR_MENU_MODULE = /\/src\/admin\/pages\/raporlar\/RaporMenu\.wide\.tsx/;
+
+async function openReports(page: Page) {
+  const requests: string[] = [];
+  page.on('request', request => requests.push(new URL(request.url()).pathname));
+  const main = await openAdmin(page, '/raporlar');
+  return { main, requests, profile: await profileOf(page) };
+}
+
+test('#/raporlar rapor seçimi: masaüstünde yerel düğme listesi (menü yok, aria-current="true"), telefon ve tablette "Rapor" alanı, liste modülü istenmez', MATRIX, async ({ page }) => {
+  const { main, requests, profile } = await openReports(page);
+  const picker = main.getByRole('list', { name: 'Rapor seçimi' });
+  await expect(main.getByRole('menu')).toHaveCount(0);
+  await expect(main.getByRole('menuitem')).toHaveCount(0);
+  await expect(main.locator('[aria-current="page"]')).toHaveCount(0);
+  if (profile !== 'desktop') {
+    await expect(main.getByRole('combobox', { name: 'Rapor' })).toBeVisible();
+    await expect(picker).toHaveCount(0);
+    expect(requests.filter(path => RAPOR_MENU_MODULE.test(path)), 'telefon/tablet rapor listesi modülünü istemez').toEqual([]);
+    return;
+  }
+  await expect(picker).toBeVisible();
+  const buttons = picker.getByRole('button');
+  await expect(buttons).toHaveText(REPORT_LABELS);
+  expect(await buttons.evaluateAll(elements => elements.map(element => [element.tagName, element.getAttribute('type')].join(':'))))
+    .toEqual(REPORT_LABELS.map(() => 'BUTTON:button'));
+  const selected = picker.getByRole('button', { name: 'Aylık plan ve gerçek', exact: true });
+  await expect(selected).toHaveAttribute('aria-current', 'true');
+  await expect(picker.locator('[aria-current]')).toHaveCount(1);
+  await expect(main.getByRole('combobox', { name: 'Rapor' })).toHaveCount(0);
+
+  const look = await selected.evaluate(element => {
+    const style = getComputedStyle(element);
+    return {
+      background: style.backgroundColor, weight: style.fontWeight, shadow: style.boxShadow,
+      borders: ['top', 'right', 'bottom', 'left'].map(side => style.getPropertyValue(`border-${side}-width`)),
+    };
+  });
+  expect(look.background).toBe(await tokenColor(page, '--aile-secili'));
+  expect(Number(look.weight)).toBe(600);
+  expect(look.shadow).toBe('none');
+  expect(look.borders).toEqual(['0px', '0px', '0px', '0px']);
+  await expectTargets(page, buttons);
+  expect(await touchTargets(page, { root: '.aile-rapor-secim' })).toEqual([]);
+  expect(await smallText(page, { root: '.aile-rapor-secim' })).toEqual([]);
+  expect(await accentEdges(page, { root: '.aile-rapor-secim' })).toEqual([]);
+  expect(await motion(page, 'cubic-bezier(.65,0,.35,1)', 240, { root: '.aile-rapor-secim' })).toEqual([]);
+});
+
+test('#/raporlar rapor seçimi (masaüstü): her düğme Tab sırasında; Enter/Boşluk seçer, odak düğmede; oklar/Escape yerinde; satır çizgisi düğmenin alt kenarında, halka yok', MATRIX, async ({ page, browserName }) => {
+  const { main, profile } = await openReports(page);
+  test.skip(profile !== 'desktop', 'Rapor listesi yalnız masaüstü profilinde');
+  const picker = main.getByRole('list', { name: 'Rapor seçimi' });
+  const button = (name: string) => picker.getByRole('button', { name, exact: true });
+  await expect(button('Aylık plan ve gerçek')).toBeVisible();
+  // Satırı dolduran düğme satır taşıyıcısıdır: çizgi kendi alt kenarında (bottom 0), seçili düğmede secili yüzeyin
+  // üzerinde; değdiği alt köşeler yalnız çizgi görünürken radiussuz, üst köşeler korunur (kavisli vurgu kenarı yok).
+  await expect(button('Aylık plan ve gerçek')).toHaveAttribute('data-focus-line', 'row');
+  await enterKeyboardMode(page, browserName);
+  await tabTo(page, browserName, button('Aylık plan ve gerçek'), 40);
+  expect(await focusRing(page, ROW_LINE)).toEqual([]);
+  expect((await corners(button('Aylık plan ve gerçek'))).bottom).toEqual(['0px', '0px']);
+  expect(await accentEdges(page, { root: '.aile-rapor-secim' })).toEqual([]);
+  await page.keyboard.press(tabKey(browserName));
+  await expect(button('Kaleme göre harcama')).toBeFocused();
+  expect(await focusRing(page, ROW_LINE)).toEqual([]);
+  const unfocused = await corners(button('Aylık plan ve gerçek'));
+  expect(unfocused.bottom, 'odak gidince alt köşeler geri döner').toEqual(unfocused.top);
+  expect(unfocused.top.every(value => value !== '0px')).toBe(true);
+  // Düğme listesi bileşik pencere öğesi değildir: oklar, Home/End ve Escape odağı ve seçimi değiştirmez.
+  for (const key of ['ArrowDown', 'ArrowUp', 'Home', 'End', 'Escape']) {
+    await page.keyboard.press(key);
+    await expect(button('Kaleme göre harcama'), key).toBeFocused();
+  }
+  await expect(button('Aylık plan ve gerçek')).toHaveAttribute('aria-current', 'true');
+  await page.keyboard.press('Enter');
+  await expect(button('Kaleme göre harcama')).toHaveAttribute('aria-current', 'true');
+  await expect(button('Aylık plan ve gerçek')).not.toHaveAttribute('aria-current');
+  await expect(main.getByRole('region', { name: 'Kaleme göre harcama' })).toBeVisible();
+  await expect(button('Kaleme göre harcama')).toBeFocused();
+  expect(await focusRing(page, ROW_LINE), 'seçili düğmede de tek satır çizgisi, secili yüzeyde en az 3:1').toEqual([]);
+  await page.keyboard.press(shiftTabKey(browserName));
+  await expect(button('Aylık plan ve gerçek')).toBeFocused();
+  await page.keyboard.press(' ');
+  await expect(button('Aylık plan ve gerçek')).toHaveAttribute('aria-current', 'true');
+  await expect(main.getByRole('region', { name: 'Aylık plan ve gerçek' })).toBeVisible();
+  await expect(button('Aylık plan ve gerçek')).toBeFocused();
+  await expect(page.locator('html')).toHaveAttribute('data-keyboard', 'true');
+  expect(await focusRing(page, ROW_LINE)).toEqual([]);
+});
+
+test('#/raporlar rapor seçimi (masaüstü): pointercancel basılı yüzeyi kaldırır ve seçmez; dokunuş/tıklama seçer; reduced-motion anında', MATRIX, async ({ page }, testInfo) => {
+  const touch = testInfo.project.use.hasTouch;
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const { main, profile } = await openReports(page);
+  test.skip(profile !== 'desktop', 'Rapor listesi yalnız masaüstü profilinde');
+  const picker = main.getByRole('list', { name: 'Rapor seçimi' });
+  const target = picker.getByRole('button', { name: 'Veri güveni özeti', exact: true });
+  await target.dispatchEvent('pointerdown', { pointerType: 'touch', pointerId: 5, isPrimary: true, button: 0 });
+  await expect(target).toHaveAttribute('data-pressed', '');
+  await target.dispatchEvent('pointercancel', { pointerType: 'touch', pointerId: 5, isPrimary: true });
+  await expect(target).not.toHaveAttribute('data-pressed');
+  await expect(target).not.toHaveAttribute('aria-current');
+  await expect(picker.getByRole('button', { name: 'Aylık plan ve gerçek', exact: true })).toHaveAttribute('aria-current', 'true');
+  expect(await motion(page, 'cubic-bezier(.65,0,.35,1)', 240, { root: '.aile-rapor-secim', reduced: true })).toEqual([]);
+  await press(target, touch);
+  await expect(target).toHaveAttribute('aria-current', 'true');
+  await expect(main.getByRole('region', { name: 'Veri güveni özeti' })).toBeVisible();
+  await expect(target).not.toHaveAttribute('data-pressed');
+  const background = await target.evaluate(element => getComputedStyle(element).backgroundColor);
+  expect(background, 'reduced-motion: seçili yüzey geçişsiz, anında').toBe(await tokenColor(page, '--aile-secili'));
 });

@@ -13,7 +13,9 @@ import './Menu.css';
 // Yerel uygulama (antd yok); tek kod bütün profillere hizmet eder, geniş-özel dosya yoktur. İki kullanım:
 //  1. Liste (varsayılan): dikey gezinme ya da eylem listesi. WAI-ARIA APG "Menu": role="menu", tek sekme durağı
 //     (roving tabindex: seçili, yoksa ilk etkin öğe), oklar sarmalı dolaşır, Home/End uçlara, yazılan harf (tr-TR)
-//     o harfle başlayan sonraki öğeye gider; Enter/Space seçer. Devre dışı öğe ve ayırıcı atlanır.
+//     o harfle başlayan sonraki öğeye gider; Enter/Space seçer. Devre dışı öğe ve ayırıcı atlanır. Eylem öğesi
+//     <li role="menuitem">; bağlantı öğesi APG'nin bağlantılı öğe kalıbıdır: <li role="none"><a role="menuitem" href>.
+//     Odak, sekme durağı, aria-current ve yüzey her zaman menuitem'in kendisindedir (içte ikinci bir hedef yok).
 //  2. Menü düğmesi (`trigger` verilince): APG "Menu Button". Düğme aria-haspopup + aria-expanded; tıklama, Enter, Space
 //     ve ArrowDown ilk öğeye, ArrowUp son öğeye odakla açar; Escape kapatır ve odağı düğmeye döndürür; Tab kapatır ve
 //     odağı doğal sıraya bırakır; seçim kapatır, odağı düğmeye döndürür, sonra onSelect çağırır. Telefon profilinde liste
@@ -90,7 +92,7 @@ const countFormat = new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 0 })
 const cx = (...parts: (string | false | null | undefined)[]) => parts.filter(Boolean).join(' ');
 const fold = (text: string) => text.toLocaleLowerCase('tr-TR');
 
-/** Etkin odak hedefleri (bağlantı öğesinde <a>, eylem öğesinde menuitem), DOM sırasıyla. */
+/** Etkin odak hedefleri (her zaman role="menuitem" öğesi: bağlantıda <a>, eylemde <li>), DOM sırasıyla. */
 function focusTargets(list: HTMLElement): HTMLElement[] {
   return Array.from(list.querySelectorAll<HTMLElement>(TARGET_SELECTOR));
 }
@@ -246,45 +248,37 @@ function MenuList({ items, selectedKey, variant, label, id, className, mode, onA
     if (item.divider) return <li key={item.key || `ayirici-${index}`} role="separator" className="aile-menu-divider" />;
     const selected = item.key === selectedKey;
     const isEnabled = enabled(item);
-    const isAction = !item.href;
+    // menuitem öğenin kendisidir: zemin, köşe, basılı/seçili yüzey, aria-current, odak ve sekme durağı onda durur.
     // Hepsi -1 çizilir; liste kipinde tek durağı syncTabStop verir, açılır kipte odağı açan taraf verir.
-    const target = isEnabled ? { 'data-menu-target': '', 'data-key': item.key, tabIndex: -1 } : {};
-    const onClick = (event: MouseEvent<HTMLLIElement>) => {
-      if (!isEnabled) { event.preventDefault(); return; }
-      onActivate(item);
+    const shared = {
+      role: 'menuitem',
+      className: cx('aile-menu-item', item.danger && 'aile-menu-item--tehlike'),
+      'aria-current': selected ? ('page' as const) : undefined,
+      'aria-disabled': item.disabled ? ('true' as const) : undefined,
+      ...(isEnabled ? { 'data-menu-target': '', 'data-key': item.key, tabIndex: -1 } : {}),
+      onClick: (event: MouseEvent<HTMLElement>) => {
+        if (!isEnabled) { event.preventDefault(); return; }
+        onActivate(item);
+      },
+      onPointerDown: press,
+      onPointerUp: release,
+      onPointerCancel: release,
+      onPointerLeave: release,
     };
-    let content: ReactNode;
-    if (isAction) content = <span className="aile-menu-link"><ItemBody item={item} /></span>;
-    else if (item.disabled) content = <a className="aile-menu-link" aria-disabled="true"><ItemBody item={item} /></a>;
-    else {
-      content = (
-        <a
-          className="aile-menu-link"
-          href={item.href}
-          target={item.external ? '_blank' : undefined}
-          rel={item.external ? 'noopener' : undefined}
-          aria-current={selected ? 'page' : undefined}
-          {...target}
-        >
-          <ItemBody item={item} />
-        </a>
-      );
-    }
+    const body = <span className="aile-menu-link"><ItemBody item={item} /></span>;
+    // Eylem öğesi: <li role="menuitem">. Bağlantı öğesi (APG Menu, bağlantılı öğe): <li role="none"><a role="menuitem">;
+    // devre dışı bağlantı href'siz kalır (gezinmez, odaklanmaz).
+    if (!item.href) return <li key={item.key} {...shared}>{body}</li>;
     return (
-      <li
-        key={item.key}
-        role="menuitem"
-        className={cx('aile-menu-item', item.danger && 'aile-menu-item--tehlike')}
-        aria-current={selected ? 'page' : undefined}
-        aria-disabled={item.disabled ? 'true' : undefined}
-        {...(isAction ? target : {})}
-        onClick={onClick}
-        onPointerDown={press}
-        onPointerUp={release}
-        onPointerCancel={release}
-        onPointerLeave={release}
-      >
-        {content}
+      <li key={item.key} role="none" className="aile-menu-satir">
+        <a
+          {...shared}
+          href={isEnabled ? item.href : undefined}
+          target={isEnabled && item.external ? '_blank' : undefined}
+          rel={isEnabled && item.external ? 'noopener' : undefined}
+        >
+          {body}
+        </a>
       </li>
     );
   };

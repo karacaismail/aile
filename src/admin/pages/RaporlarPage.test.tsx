@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
@@ -153,6 +153,15 @@ const bodyRows = (table: HTMLElement) =>
   within(table).getAllByRole('row').filter((row) => within(row).queryAllByRole('columnheader').length === 0);
 const summaryItem = (label: string) =>
   within(screen.getByRole('list', { name: 'Özet' })).getAllByRole('listitem').find((li) => li.textContent?.includes(label))!;
+/**
+ * Masaüstü rapor seçimi (raporlar/RaporMenu.wide): sayfa içi seçimdir, gezinme değildir. Yerel düğme listesi
+ * (ul "Rapor seçimi" > li > button), seçili rapor aria-current="true"; menü rolü ve aria-current="page" yok.
+ */
+const REPORT_PICKER = 'Rapor seçimi';
+const reportPicker = () => screen.findByRole('list', { name: REPORT_PICKER }, WAIT);
+async function pickReport(user: ReturnType<typeof userEvent.setup>, name: string) {
+  await user.click(await within(await reportPicker()).findByRole('button', { name }, WAIT));
+}
 
 // --- Saf yardımcılar -----------------------------------------------------------------------------------
 describe('Raporlar › yardımcılar', () => {
@@ -192,10 +201,22 @@ describe('RaporlarPage › başlık ve durumlar', () => {
     expect(screen.getByText('Rapor', { selector: 'p' })).toBeInTheDocument();
     expect(screen.getByText('Hazır raporları açın; her rakamın hangi kayıtlardan geldiğini görün.')).toBeInTheDocument();
 
-    const nav = screen.getByRole('navigation', { name: 'Raporlar' });
-    const menu = await within(nav).findByRole('menu', {}, WAIT);
-    for (const report of REPORTS) expect(within(menu).getByRole('menuitem', { name: report.label })).toBeInTheDocument();
-    expect(within(menu).getByRole('menuitem', { name: 'Aylık plan ve gerçek' })).toHaveAttribute('aria-current', 'page');
+    // Rapor seçimi sayfa içi seçimdir: menü/menuitem rolü ve aria-current="page" yok; yerel düğmeler, seçili "true".
+    const picker = await reportPicker();
+    const buttons = within(picker).getAllByRole('button');
+    expect(buttons.map((button) => button.textContent)).toEqual(REPORTS.map((report) => report.label));
+    for (const button of buttons) {
+      expect(button.tagName).toBe('BUTTON');
+      expect(button).toHaveAttribute('type', 'button');
+      expect(button.closest('li')?.parentElement).toBe(picker);
+      // Satırı dolduran düğme satır taşıyıcısıdır (admin.css [data-focus-line='row']): odak çizgisi kendi alt kenarında.
+      expect(button).toHaveAttribute('data-focus-line', 'row');
+    }
+    expect(within(picker).getByRole('button', { name: 'Aylık plan ve gerçek' })).toHaveAttribute('aria-current', 'true');
+    expect(buttons.filter((button) => button.hasAttribute('aria-current'))).toHaveLength(1);
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitem')).not.toBeInTheDocument();
+    expect(document.querySelector('[aria-current="page"]')).toBeNull();
 
     await waitForReport('Aylık plan ve gerçek');
     const status = screen.getAllByRole('status').find((el) => el.getAttribute('data-state'))!;
@@ -249,6 +270,104 @@ describe('RaporlarPage › başlık ve durumlar', () => {
     await waitFor(() => expect(status()).toHaveAttribute('data-state', 'stale'));
     expect(status().textContent).toContain('yenilenemedi');
     expect(screen.getByRole('table', { name: 'Aylık plan ve gerçek' })).toBeInTheDocument();
+  }, JOURNEY_MS);
+});
+
+describe('RaporlarPage › rapor seçimi (masaüstü, raporlar/RaporMenu.wide)', () => {
+  const read = (name: string) => readFileSync(join(here, name), 'utf8');
+  const stripCss = (text: string) => text.replace(/\/\*[\s\S]*?\*\//g, '');
+
+  it('kaynak: geniş modül antd, @ant-design ve ui/Menu içe aktarmaz; varsayılan dışa aktarım; stil yalnız --aile-* tokenlarıyla', () => {
+    const source = read('raporlar/RaporMenu.wide.tsx');
+    const specifiers = [...source.matchAll(/^\s*import\s[^'"]*['"]([^'"]+)['"]/gm)].map((m) => m[1]!);
+    expect(specifiers.filter((s) => /^antd|^@ant-design|(^|\/)antd$|ui\/Menu$|(^|\/)ui$/.test(s))).toEqual([]);
+    expect(specifiers).toContain('./RaporMenu.wide.css');
+    expect(source).toMatch(/export default function RaporMenu/);
+    expect(source).not.toMatch(/role=["'](menu|menuitem|navigation|tablist)["']/);
+    expect(source).not.toMatch(/aria-current=\{[^}]*'page'/);
+
+    const css = stripCss(read('raporlar/RaporMenu.wide.css'));
+    expect(css).not.toMatch(/#[0-9a-f]{3,8}\b/i);
+    expect(css).not.toMatch(/rgba?\(/);
+    expect(css).not.toMatch(/\boutline\s*:/);
+    expect(css).not.toMatch(/box-shadow\s*:/);
+    // Vurgu kenarı yok (kenarlık şeridi, pseudo şerit); seçili durum yüzey tonu + 600. Düğme kenarlığı yalnız sıfırlanır.
+    const borders = [...css.matchAll(/(border(?:-[a-z-]+)?)\s*:\s*([^;]+);/g)].filter((m) => m[1] !== 'border-radius');
+    expect(borders.map((m) => `${m[1]}: ${m[2]!.trim()}`)).toEqual(['border: 0']);
+    expect(css).not.toMatch(/::(before|after)/);
+    expect(css).toMatch(/\[aria-current='true'\]\s*\{[^}]*background:\s*var\(--aile-secili\)[^}]*font-weight:\s*600/);
+    // Dokunma hedefi merkezi tokenla (44, kaba girişte 48); metin ≥ 14 px; hareket 240 ms tek eğri, reduced-motion 0 s.
+    expect(css).toMatch(/min-height:\s*var\(--aile-dokunma-hedefi\)/);
+    const sizes = [...css.matchAll(/font-size:\s*([\d.]+)px/g)].map((m) => Number(m[1]));
+    expect(sizes.length).toBeGreaterThan(0);
+    for (const size of sizes) expect(size).toBeGreaterThanOrEqual(14);
+    for (const m of css.matchAll(/transition:\s*([^;]+);/g)) {
+      for (const part of m[1]!.split(',')) expect(part.trim()).toMatch(/^[a-z-]+ var\(--aile-sure\) var\(--aile-egri\)$/);
+    }
+    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)\s*\{[^{}]*\{[^}]*transition-duration:\s*0s/);
+    // Hover yalnız hover destekleyen birincil işaretçide (hibrit dokunmatikte takılı kalmaz).
+    expect(css).toMatch(/@media \(hover: hover\)\s*\{[^{}]*:hover/);
+    expect(css.replace(/@media \(hover: hover\)\s*\{[^{}]*\{[^}]*\}\s*\}/g, '')).not.toMatch(/:hover/);
+  });
+
+  it('klavye: her rapor düğmesi doğal Tab sırasında; Enter ve Boşluk seçer, odak düğmede kalır; oklar ve Escape seçimi değiştirmez', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await waitForReport('Aylık plan ve gerçek');
+    const picker = await reportPicker();
+    const button = (name: string) => within(picker).getByRole('button', { name });
+    for (const item of within(picker).getAllByRole('button')) expect(item).not.toHaveAttribute('tabindex');
+
+    button('Aylık plan ve gerçek').focus();
+    await user.tab();
+    expect(button('Kaleme göre harcama')).toHaveFocus();
+    await user.keyboard('{Enter}');
+    await waitForReport('Kaleme göre harcama');
+    expect(button('Kaleme göre harcama')).toHaveFocus();
+    expect(button('Kaleme göre harcama')).toHaveAttribute('aria-current', 'true');
+    expect(button('Aylık plan ve gerçek')).not.toHaveAttribute('aria-current');
+
+    // Oklar ve Escape: düğme listesi bileşik pencere öğesi değildir; odak ve seçim yerinde kalır.
+    for (const key of ['{ArrowDown}', '{ArrowUp}', '{Home}', '{End}', '{Escape}']) {
+      await user.keyboard(key);
+      expect(button('Kaleme göre harcama'), key).toHaveFocus();
+    }
+    expect(button('Kaleme göre harcama')).toHaveAttribute('aria-current', 'true');
+
+    await user.tab();
+    await user.tab();
+    expect(button('Oda bazında alımlar')).toHaveFocus();
+    await user.keyboard(' ');
+    await waitForReport('Oda bazında alımlar');
+    expect(button('Oda bazında alımlar')).toHaveFocus();
+    expect(button('Oda bazında alımlar')).toHaveAttribute('aria-current', 'true');
+    await user.tab({ shift: true });
+    expect(button('Borç ödeme planı')).toHaveFocus();
+    expect(within(picker).getAllByRole('button').filter((item) => item.hasAttribute('aria-current'))).toHaveLength(1);
+  }, JOURNEY_MS);
+
+  it('Pointer Events: basılı yüzey pointerdown ile; pointercancel (kaydırma) siler ve seçmez; dokunuş seçer', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await waitForReport('Aylık plan ve gerçek');
+    const picker = await reportPicker();
+    const guven = within(picker).getByRole('button', { name: 'Veri güveni özeti' });
+    fireEvent.pointerDown(guven, { pointerType: 'touch', button: 0, isPrimary: true });
+    expect(guven).toHaveAttribute('data-pressed');
+    fireEvent.pointerCancel(guven, { pointerType: 'touch' });
+    expect(guven).not.toHaveAttribute('data-pressed');
+    expect(guven).not.toHaveAttribute('aria-current');
+    expect(within(picker).getByRole('button', { name: 'Aylık plan ve gerçek' })).toHaveAttribute('aria-current', 'true');
+    // İkincil fare düğmesi basılı görünmez.
+    fireEvent.pointerDown(guven, { pointerType: 'mouse', button: 2 });
+    expect(guven).not.toHaveAttribute('data-pressed');
+    fireEvent.pointerDown(guven, { pointerType: 'mouse', button: 0, isPrimary: true });
+    expect(guven).toHaveAttribute('data-pressed');
+    fireEvent.pointerUp(guven, { pointerType: 'mouse', button: 0 });
+    expect(guven).not.toHaveAttribute('data-pressed');
+    await user.click(guven);
+    await waitForReport('Veri güveni özeti');
+    expect(guven).toHaveAttribute('aria-current', 'true');
   }, JOURNEY_MS);
 });
 
@@ -376,7 +495,7 @@ describe('RaporlarPage › Kaleme göre harcama (pivot)', () => {
     const user = userEvent.setup();
     renderPage();
     await waitForReport('Aylık plan ve gerçek');
-    await user.click(await screen.findByRole('menuitem', { name: 'Kaleme göre harcama' }, WAIT));
+    await pickReport(user, 'Kaleme göre harcama');
 
     const table = await waitForReport('Kaleme göre harcama');
     const headers = headerTitles(table);
@@ -406,7 +525,7 @@ describe('RaporlarPage › Kaleme göre harcama (pivot)', () => {
     await waitForReport('Aylık plan ve gerçek');
     await user.click(screen.getByRole('combobox', { name: 'Dönem' }));
     await user.click(await screen.findByRole('option', { name: '2027' }));
-    await user.click(await screen.findByRole('menuitem', { name: 'Kaleme göre harcama' }, WAIT));
+    await pickReport(user, 'Kaleme göre harcama');
     expect(headerTitles(await waitForReport('Kaleme göre harcama'))).toContain(periodLabel('2027-12'));
     const KALEM = 'Örnek gider satırı 1';
     await waitFor(() => expect(screen.getByRole('row', { name: new RegExp(KALEM) }).textContent).toContain('12 plan · 0 gerçekleşen'));
@@ -419,10 +538,10 @@ describe('RaporlarPage › Kaleme göre harcama (pivot)', () => {
     await waitForReport('Aylık plan ve gerçek');
     // Rapor satırlarını tablo çizildikten sonra (etkide) kaydeder; düğme bir sonraki çizimde etkinleşir.
     await waitFor(() => expect(screen.getByRole('button', { name: 'Raporu dışa aktar' })).toBeEnabled());
-    await user.click(await screen.findByRole('menuitem', { name: 'Kaleme göre harcama' }, WAIT));
+    await pickReport(user, 'Kaleme göre harcama');
     await waitForReport('Kaleme göre harcama');
     await waitFor(() => expect(screen.getByRole('button', { name: 'Raporu dışa aktar' })).toBeEnabled());
-    await user.click(screen.getByRole('menuitem', { name: 'Oda bazında alımlar' }));
+    await pickReport(user, 'Oda bazında alımlar');
     await waitForReport('Oda bazında alımlar');
     await waitFor(() => expect(screen.getByRole('button', { name: 'Raporu dışa aktar' })).toBeEnabled());
   }, JOURNEY_MS);
@@ -431,7 +550,7 @@ describe('RaporlarPage › Kaleme göre harcama (pivot)', () => {
     const user = userEvent.setup();
     renderPage('desktop', withoutCollection('view_definitions'));
     await waitForReport('Aylık plan ve gerçek');
-    await user.click(await screen.findByRole('menuitem', { name: 'Kaleme göre harcama' }, WAIT));
+    await pickReport(user, 'Kaleme göre harcama');
     await screen.findByText(/^Pivot kullanılamaz: /);
     expect(screen.queryByRole('combobox', { name: 'Ölçü' })).not.toBeInTheDocument();
   }, JOURNEY_MS);
@@ -442,7 +561,7 @@ describe('RaporlarPage › diğer raporlar', () => {
     const user = userEvent.setup();
     renderPage();
     await waitForReport('Aylık plan ve gerçek');
-    await user.click(await screen.findByRole('menuitem', { name: 'Borç ödeme planı' }, WAIT));
+    await pickReport(user, 'Borç ödeme planı');
     expect(await screen.findByRole('heading', { level: 2, name: 'Kaynakta ödeme kaydı yok' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Raporu dışa aktar' })).not.toBeInTheDocument();
   }, JOURNEY_MS);
@@ -451,7 +570,7 @@ describe('RaporlarPage › diğer raporlar', () => {
     const user = userEvent.setup();
     renderPage();
     await waitForReport('Aylık plan ve gerçek');
-    await user.click(await screen.findByRole('menuitem', { name: 'Oda bazında alımlar' }, WAIT));
+    await pickReport(user, 'Oda bazında alımlar');
     const table = await waitForReport('Oda bazında alımlar');
     expect(headerTitles(table)).toEqual(['Oda', 'Alım', 'Plan tutarı yazılı', 'Gerçekleşen tutarı yazılı']);
     expect(bodyRows(table).length).toBeGreaterThan(0);
@@ -470,7 +589,7 @@ describe('RaporlarPage › diğer raporlar', () => {
     const user = userEvent.setup();
     renderPage();
     await waitForReport('Aylık plan ve gerçek');
-    await user.click(await screen.findByRole('menuitem', { name: 'Veri güveni özeti' }, WAIT));
+    await pickReport(user, 'Veri güveni özeti');
     const table = await waitForReport('Veri güveni özeti');
     expect(headerTitles(table)).toEqual(['Kod', 'Önem', 'Kayıt']);
     const issues = MANIFEST.files
@@ -486,6 +605,7 @@ describe('RaporlarPage › telefon', () => {
     const user = userEvent.setup();
     renderPage('phone');
     expect(screen.queryByRole('navigation', { name: 'Raporlar' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('list', { name: REPORT_PICKER })).not.toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: 'Rapor' })).toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole('button', { name: 'Raporu dışa aktar' })).toBeEnabled(), WAIT);
     const aylik = region('Aylık plan ve gerçek');
@@ -504,6 +624,7 @@ describe('RaporlarPage › telefon', () => {
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 50)); });
     expect(screen.queryByRole('img')).not.toBeInTheDocument();
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    expect(screen.queryByRole('list', { name: REPORT_PICKER })).not.toBeInTheDocument();
   }, JOURNEY_MS);
 
   it('dönem değişince yeni sonucun ilk satırı açık gelir (akordeon önceki açık satırı taşımaz)', async () => {

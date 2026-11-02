@@ -2,9 +2,11 @@
    (src/design/tokens.ts; admin.css :root yedekleri portallanan alt sayfa ve üst katmandaki panelde de çözer). Sabit renk
    yok; 14/16 px metin ölçüleri tasarım tipografisidir (tokens.json › type).
 
-   Yerel işaretleme: ul[role=menu].aile-menu > li[role=menuitem].aile-menu-item > (a | span).aile-menu-link. Zemin,
-   köşe ve basılı/seçili yüzey li'dedir; bağlantı satırı tüm öğeyi kaplar. Odak çizgisini admin.css çizer (odak
-   hedefinin ::after'ı, 4 px altında, 3 px); burada outline/halka yok. Öğeler arası boşluk bosluk-2 (8 px): çizgi
+   Yerel işaretleme (WAI-ARIA APG Menu): eylem öğesi ul[role=menu].aile-menu > li[role=menuitem].aile-menu-item;
+   bağlantı öğesi ul > li[role=none].aile-menu-satir > a[role=menuitem].aile-menu-item. İçerik her ikisinde
+   span.aile-menu-link. Zemin, köşe, basılı/seçili yüzey, aria-current ve odak menuitem'in kendisindedir; li[role=none]
+   yalnız yerleşimdir. Odak çizgisini admin.css çizer (odak hedefinin ::after'ı, 4 px altında, 3 px); burada
+   outline/halka yok. Öğeler arası boşluk bosluk-2 (8 px): çizgi
    (aralık 4 + kalınlık 3) iki öğe arasına sığar, alttaki öğenin üstüne binmez. Seçili durum vurgu kenarı değil yüzey
    tonu (secili) + 600 ağırlıktır. Hover yalnız birincil işaretçi hover destekliyorsa (hibrit dokunmatikte takılı kalmaz);
    basılı yüzey Pointer Events ile (data-pressed, pointercancel siler). */
@@ -24,6 +26,9 @@
 }
 .aile-menu[data-variant='nav'] { color: var(--aile-nav-metin); }
 .aile-menu-grup-kap { display: block; }
+/* Bağlantı öğesinin sarmalayıcısı (li[role=none]): menuitem satırı doldurur. Zemin ve köşe taşımaz. */
+.aile-menu-satir { display: flex; }
+.aile-menu-satir > .aile-menu-item { flex: 1 1 auto; min-width: 0; }
 
 /* Öğe: tek merkezi dokunma hedefi --aile-dokunma-hedefi (admin.css: 44 px; kaba işaretçi katmanında, :root ve
    .aile-admin [data-input-coarse], 48 px); etiket kesilmez, gerekirse sarılır. */
@@ -42,6 +47,12 @@
   -webkit-tap-highlight-color: transparent;
   transition: background-color var(--aile-sure) var(--aile-egri), color var(--aile-sure) var(--aile-egri);
 }
+/* Renk menüden gelir: bağlantı menuitem'i admin.css `.aile-admin a` (eylem rengi, 0,1,1) kuralını almaz; altı çizili
+   değildir. Durum renkleri aynı özgüllükle (0,2,0+) ve bu kuraldan sonra. */
+.aile-menu .aile-menu-item {
+  color: inherit;
+  text-decoration: none;
+}
 
 .aile-menu .aile-menu-link {
   display: flex;
@@ -54,7 +65,6 @@
   border-radius: inherit;
   color: inherit;
   font: inherit;
-  text-decoration: none;
   cursor: inherit;
 }
 .aile-menu .aile-menu-link svg { flex: none; }
@@ -70,10 +80,11 @@
   color: var(--aile-metin);
   font-weight: 600;
 }
-.aile-menu-item[aria-disabled='true'] { color: var(--aile-metin-ikincil); cursor: not-allowed; }
-
 /* Tehlikeli eylem: hata metni, hata yüzeyi. */
-.aile-menu-item--tehlike { color: var(--aile-hata); }
+.aile-menu .aile-menu-item--tehlike { color: var(--aile-hata); }
+.aile-menu .aile-menu-item[aria-current='page'] { color: var(--aile-metin); }
+.aile-menu .aile-menu-item[aria-disabled='true'] { color: var(--aile-metin-ikincil); cursor: not-allowed; }
+
 @media (hover: hover) {
   .aile-menu-item--tehlike:not([aria-disabled='true']):hover { background: var(--aile-hata-yuzey); }
 }
