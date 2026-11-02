@@ -14,7 +14,17 @@ import { useDevice } from '../device';
 import type { DataStatusProps, ResponsiveColumn } from '../shell/contracts';
 import { currentAdminLink } from '../shell/navigation';
 import { PageHeader } from '../shell/PageHeader';
-import { Button, Dialog, EmptyState, ErrorState, FormFooter, LoadingShell, ResponsiveTable, Select, Tabs, Tag, TextField } from '../ui';
+import { Button } from '../ui/Button';
+import { Dialog } from '../ui/Dialog';
+import { EmptyState } from '../ui/EmptyState';
+import { ErrorState } from '../ui/ErrorState';
+import { FormFooter } from '../ui/FormFooter';
+import { LoadingShell } from '../ui/LoadingShell';
+import { ResponsiveTable } from '../ui/ResponsiveTable';
+import { Select } from '../ui/Select';
+import { Tabs } from '../ui/Tabs';
+import { Tag } from '../ui/Tag';
+import { TextField } from '../ui/TextField';
 import {
   BILINMIYOR,
   VIEWS_SECTION,

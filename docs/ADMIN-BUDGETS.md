@@ -266,3 +266,17 @@ Rapor mutlak yol taşımaz. `delivery-report.json` gibi `dist` içinde durur. `c
 - `node --test scripts/check-budgets.test.mjs` ve `pnpm exec vitest run scripts/check-budgets.test.mjs` sentetik manifest, graph ve delivery-report kullanır. Kapsanan konular: rota kümeleri, font çözümleme, yetenek kaynağı (tembel ilk sayfa ve karma parça dahil), ratchet ve strict, bütçe dosyası doğrulaması, CLI çıkış kodları ve mutlak yolsuz rapor. Ayrıca `budgets.json` aday değerleri, ilk rotanın `navigation.ts` ile `routes.tsx`'e uyumu (iki yazım biçimi için çözümleyici testleriyle), kesim sonrası tavan sözleşmesi (yetenek ve aktarım tavanı yok; tavanlar ve antd istisnası kayıtlı ölçüme eşit) ve tavan kilidi (`CEILING_LOCK`: tavanlar yalnız düşer, bütçe değerleri sabit) test edilir.
 - Gerçek derleme: `pnpm exec vitest run src/admin/vite-config.test.ts` geçici klasöre sentetik kimlikle üretim derlemesi yapar; `check-delivery --strict` ve `check-budgets` o derlemede PASS olmalıdır.
 - Gerçek ölçüm: yukarıdaki komut sırası. Bu belgedeki sayılar o çıktıdan alındı.
+
+## Entegrasyon kararı — 2 Kasım 2026 (Emeklilik planı ve barrel düzeltmesi sonrası)
+
+Ölçüm koşulları değişmedi (gzip seviye 9, 1 KB = 1000 B, ilk rota `/genel`, sentetik nesil).
+
+| Bütçe | Önceki tavan | Ölçüm | Yeni tavan | Not |
+|---|---:|---:|---:|---|
+| phone-js | 171.040 | 174.066 | 174.066 | Entegrasyon sahibinin açık kararı; gerekçe `scripts/budgets.json` → `ratchet.karar` |
+| wide-js | 181.585 | 174.576 | — | Bütçe (180.000) içinde; ratchet kaydı kaldırıldı |
+| phone-transfer | — | 282.274 | — | Bütçe 500.000 içinde |
+
+Aynı ölçümde sayfa ve kabuk modüllerindeki `../ui` barrel importları doğrudan modül importlarına çevrildi; Alımlar ve Ödemeler telefon kapanışından Chart ve Overview parçaları çıktı (kural testi: `src/admin/pages/barrelKurali.test.ts`).
+
+Açık iş: telefon ilk rota JS hedefi 120 KB; bugün 174,1 KB. Dağılım (gzip): ortak çekirdek (React) 69,3 KB, yönetim girişi (kabuk, uyarlama, rotalar) 49,8 KB, veri katmanı (Zod dahil) 30,9 KB, simge parçası 6,8 KB, Genel sayfası 6,4 KB. Azaltma yönü: veri katmanını ve girişi rota başına bölmek.

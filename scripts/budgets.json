@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "entry": "admin.html",
-  "recorded": "2026-11-02, r4-gates (taban 006ee49; geniş-özel kod sayfa/birim başına parçalara bölündü, kendiliğinden yenileyen preloadRecovery kaldırıldı), VITE_BUDGET_SHEET_ID=synthetic-budget-sheet-2098, Node v24.21.0, Vite 8.3.5",
+  "recorded": "2026-11-02, entegrasyon (Emeklilik planı ve telefon barrel düzeltmesi sonrası), VITE_BUDGET_SHEET_ID=synthetic-budget-sheet-2098, Node v24.21.0, Vite 8.3.5",
   "units": {
     "kb": 1000,
     "measure": "gzip",
@@ -14,33 +14,88 @@
   },
   "wideStartup": {
     "sources": [],
-    "classes": ["wide"],
+    "classes": [
+      "wide"
+    ],
     "note": "Geniş profilin ilk rotada ek yüklediği dinamik kökler: wide sınıfı parçalar (statik kapanışlarıyla), zincirleme. r4-gates sonrası wide birim başınadır: /genel için wide-shell-workspacenav (masaüstü gezinme) ve wide-genel; başka sayfanın parçası çekilmez. adaptive/WideProviders (antd sağlayıcısı) geniş başlangıç kökü değildir: uygulama ağacını sarmaz, yalnız lazyWide(…, { antd: true }) adası geniş profilde render edilince iner; bugün böyle ada yok (t3-root)"
   },
   "budgets": [
-    { "id": "phone-html", "profile": "phone", "metric": "html", "max": 50000, "source": "adaptive-qa: Compressed initial HTML 50 KB" },
-    { "id": "phone-js", "profile": "phone", "metric": "js", "max": 120000, "source": "adaptive-qa: Complete phone initial-route JS 120 KB" },
-    { "id": "phone-css", "profile": "phone", "metric": "css", "max": 35000, "source": "adaptive-qa: Phone profile CSS 35 KB (rotanın tüm CSS'i; kritik CSS ayrı ölçülmez)" },
-    { "id": "phone-capability", "profile": "phone", "metric": "capabilityRequests", "max": 0, "source": "adaptive-qa: Unnecessary capability-specific resources, hedef sıfır istek; sınıflar delivery-report forbidden (antd, pro, icons, echarts, wide)" },
-    { "id": "phone-transfer", "profile": "phone", "metric": "transfer", "max": 500000, "source": "adaptive-qa: Initial transfer, excluding user content 500 KB" },
-    { "id": "wide-js", "profile": "wide", "metric": "js", "classes": { "exclude": ["antd"] }, "max": 180000, "source": "adaptive-qa: Complete desktop initial-route JS 180 KB; tablet ve masaüstü aynı geniş kaynak kümesini alır" },
-    { "id": "wide-antd", "profile": "wide", "metric": "js", "classes": { "only": ["antd"] }, "max": 0, "exception": true, "source": "Ölçülmüş istisna, t3-root sonrası kapalı: geniş ilk rota antd istemez (0 B). antd sağlayıcısı (adaptive/WideProviders) uygulama ağacını sarmaz; yalnız lazyWide(…, { antd: true }) adası render edilince iner ve bugün böyle ada yok. Önceki kayıtlar: 84410 B (x-cut, WideProviders tembel geniş başlangıç kökü), 0a8d903 ölçümü 37209 B. wide-js dışında, ayrı tavanla; antd'yi geniş ilk rotaya geri getiren ada entegrasyon sahibinin açık kararı ve yeni ölçüm ister" }
+    {
+      "id": "phone-html",
+      "profile": "phone",
+      "metric": "html",
+      "max": 50000,
+      "source": "adaptive-qa: Compressed initial HTML 50 KB"
+    },
+    {
+      "id": "phone-js",
+      "profile": "phone",
+      "metric": "js",
+      "max": 120000,
+      "source": "adaptive-qa: Complete phone initial-route JS 120 KB"
+    },
+    {
+      "id": "phone-css",
+      "profile": "phone",
+      "metric": "css",
+      "max": 35000,
+      "source": "adaptive-qa: Phone profile CSS 35 KB (rotanın tüm CSS'i; kritik CSS ayrı ölçülmez)"
+    },
+    {
+      "id": "phone-capability",
+      "profile": "phone",
+      "metric": "capabilityRequests",
+      "max": 0,
+      "source": "adaptive-qa: Unnecessary capability-specific resources, hedef sıfır istek; sınıflar delivery-report forbidden (antd, pro, icons, echarts, wide)"
+    },
+    {
+      "id": "phone-transfer",
+      "profile": "phone",
+      "metric": "transfer",
+      "max": 500000,
+      "source": "adaptive-qa: Initial transfer, excluding user content 500 KB"
+    },
+    {
+      "id": "wide-js",
+      "profile": "wide",
+      "metric": "js",
+      "classes": {
+        "exclude": [
+          "antd"
+        ]
+      },
+      "max": 180000,
+      "source": "adaptive-qa: Complete desktop initial-route JS 180 KB; tablet ve masaüstü aynı geniş kaynak kümesini alır"
+    },
+    {
+      "id": "wide-antd",
+      "profile": "wide",
+      "metric": "js",
+      "classes": {
+        "only": [
+          "antd"
+        ]
+      },
+      "max": 0,
+      "exception": true,
+      "source": "Ölçülmüş istisna, t3-root sonrası kapalı: geniş ilk rota antd istemez (0 B). antd sağlayıcısı (adaptive/WideProviders) uygulama ağacını sarmaz; yalnız lazyWide(…, { antd: true }) adası render edilince iner ve bugün böyle ada yok. Önceki kayıtlar: 84410 B (x-cut, WideProviders tembel geniş başlangıç kökü), 0a8d903 ölçümü 37209 B. wide-js dışında, ayrı tavanla; antd'yi geniş ilk rotaya geri getiren ada entegrasyon sahibinin açık kararı ve yeni ölçüm ister"
+    }
   ],
   "measured": {
     "note": "Kayıtlı ölçüm (recorded koşulları, ilk rota /genel): node scripts/check-budgets.mjs dist. Tavanlar ve wide-antd istisnası bu değerlerin aynısıdır, pay yok; check-budgets.test.mjs eşitliği doğrular. Önce/sonra: docs/ADMIN-BUDGETS.md",
-    "phone-html": 2104,
-    "phone-js": 171040,
-    "phone-css": 10288,
+    "phone-html": 2079,
+    "phone-js": 174066,
+    "phone-css": 9945,
     "phone-capability": 0,
-    "phone-transfer": 279616,
-    "wide-js": 181585,
+    "phone-transfer": 282274,
+    "wide-js": 174576,
     "wide-antd": 0
   },
   "ratchet": {
     "policy": "Geçiş ratchet'i: tavan, bütçeyi aşan kayıtlı ölçümdür ve yalnız düşer. check-budgets 'daraltılabilir' derse tavanı yeni ölçüme indirin; 'silinebilir' derse kaydı silin. Tavan yükseltmek ya da yeni kayıt eklemek bütçeyi gevşetir: yalnız entegrasyon sahibinin açık kararıyla; tavanlar scripts/check-budgets.test.mjs CEILING_LOCK ile kilitlidir. Liste boşalınca kapı --strict ile koşar.",
     "ceilings": {
-      "phone-js": 171040,
-      "wide-js": 181585
-    }
+      "phone-js": 174066
+    },
+    "karar": "2 Kasım 2026, entegrasyon sahibi: phone-js tavanı 171040 → 174066 B (+3026 B). Kaynak: dördüncü tur ve son tur düzeltmeleri (gerçekleşen anlamı, CSV koruması, kurtarma ve hazır sinyali, erişilebilirlik düzeltmeleri) ve Emeklilik planının gezinme kaydı; aynı ölçümde telefon sayfalarındaki ui barrel sızıntısı (Chart, Overview) kapatıldı. wide-js bütçe içinde (174576 ≤ 180000), tavanı kaldırıldı. 120 KB telefon hedefi açık iştir: ortak çekirdek 69,3 KB, yönetim girişi 49,8 KB, veri katmanı 30,9 KB (gzip)."
   }
 }

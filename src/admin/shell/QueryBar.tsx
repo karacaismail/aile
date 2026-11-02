@@ -1,7 +1,12 @@
 import { useMemo } from 'react';
 import { lazyWide } from '../adaptive';
 import { useDevice } from '../device';
-import { Button, IconButton, Select, Tabs, Tag, TextField } from '../ui';
+import { Button } from '../ui/Button';
+import { IconButton } from '../ui/IconButton';
+import { Select } from '../ui/Select';
+import { Tabs } from '../ui/Tabs';
+import { Tag } from '../ui/Tag';
+import { TextField } from '../ui/TextField';
 import { VIEW_LABELS, VIEW_MODES, type ActiveFilter, type QueryBarProps, type ViewMode } from './contracts';
 import type { KayitliGorunumProps } from './QueryBar.wide';
 import './QueryBar.css';

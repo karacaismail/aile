@@ -1,5 +1,8 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
-import { Button, Disclosure, Select, TextField } from '../ui';
+import { Button } from '../ui/Button';
+import { Disclosure } from '../ui/Disclosure';
+import { Select } from '../ui/Select';
+import { TextField } from '../ui/TextField';
 import type { FilterFacet, FilterOption, FilterPanelProps } from './contracts';
 import './FilterPanel.css';
 

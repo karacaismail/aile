@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { Money, Table } from '../../ui';
+import { Money } from '../../ui/Money';
+import { Table } from '../../ui/Table';
 import { fromMinor, type ParaToplami } from './para';
 import type { Pivot, PivotHucre, PivotSatiri } from './pivot';
 import './AlimlarPivot.wide.css';

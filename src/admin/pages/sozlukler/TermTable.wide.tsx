@@ -3,7 +3,8 @@ import { designTokens } from '../../../design/tokens.ts';
 import type { Term } from '../../data';
 import { useContainerWidth, useProfile } from '../../device';
 import type { ResponsiveColumn } from '../../shell/contracts';
-import { Table, Tag } from '../../ui';
+import { Table } from '../../ui/Table';
+import { Tag } from '../../ui/Tag';
 import { BILINMIYOR, type TermNode, type TermUsage } from './model';
 import './TermTable.wide.css';
 

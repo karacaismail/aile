@@ -1,4 +1,4 @@
-import { Select } from '../ui';
+import { Select } from '../ui/Select';
 import type { SavedView } from './contracts';
 
 // QueryBar'ın geniş-özel parçası: "Kayıtlı görünüm" seçimi yalnız masaüstü sorgu çubuğunda çizilir (tasarım

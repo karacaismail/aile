@@ -1,5 +1,5 @@
 import { RECORDED_IN_SOURCE_TEXT } from '../../data';
-import { Money } from '../../ui';
+import { Money } from '../../ui/Money';
 import { BILINMIYOR } from '../../ui/Money';
 import { ODEME_KAYDI_YOK, type OdemeRow } from './model';
 

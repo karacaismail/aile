@@ -1,6 +1,7 @@
 import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import type { Term } from '../../data';
-import { Icon, Tag } from '../../ui';
+import { Icon } from '../../ui/icons';
+import { Tag } from '../../ui/Tag';
 import { BILINMIYOR, kindBreakdown, usageText, type TermNode, type TermUsage } from './model';
 import './TermTree.css';
 

@@ -2,7 +2,8 @@ import { useMemo, type ReactNode } from 'react';
 import { defaultFilterOpen } from '../../data';
 import type { FilterFacet, ViewMode } from '../../shell/contracts';
 import { FilterPanel } from '../../shell/FilterPanel';
-import { DetailPanel, FilterArea } from '../../ui';
+import { DetailPanel } from '../../ui/DetailPanel';
+import { FilterArea } from '../../ui/FilterArea';
 import type { DetailPanelProps } from '../../ui/DetailPanel';
 import './AlimlarGenis.wide.css';
 

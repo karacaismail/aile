@@ -1,4 +1,5 @@
-import { Button, Dialog } from '../../ui';
+import { Button } from '../../ui/Button';
+import { Dialog } from '../../ui/Dialog';
 import { BILINMIYOR, sayi, zamanMetni } from './bicim';
 import type { NesilAdayi } from './klasor';
 import './NesilSecimi.css';

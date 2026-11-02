@@ -1,6 +1,6 @@
 import { memo, useCallback } from 'react';
 import type { RecordRow } from '../../shell/contracts';
-import { ListRow } from '../../ui';
+import { ListRow } from '../../ui/ListRow';
 
 // Liste görünümü (telefon önce). Tek yüzey <ul>; her satır ListRow (<li><button>). Satır bileşeni memo'ludur: seçim ya
 // da yerel durum değişikliğinde yalnız props'u değişen satır yeniden çizilir (kök neden: her değişiklik 28 satırı

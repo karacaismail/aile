@@ -1,6 +1,8 @@
 import { useId, type RefObject } from 'react';
 import { useDevice } from '../device';
-import { BottomSheet, Button, Drawer } from '../ui';
+import { BottomSheet } from '../ui/BottomSheet';
+import { Button } from '../ui/Button';
+import { Drawer } from '../ui/Drawer';
 import type { FilterPanelProps } from './contracts';
 import { FilterPanel, facetSelectedCount } from './FilterPanel';
 import './FilterDrawer.css';

@@ -12,7 +12,11 @@ import {
 } from '../data';
 import { PageHeader } from '../shell/PageHeader';
 import type { DataStatusProps, PageHeaderSummary, ResponsiveColumn } from '../shell/contracts';
-import { Button, EmptyState, ErrorState, LoadingShell, ResponsiveTable } from '../ui';
+import { Button } from '../ui/Button';
+import { EmptyState } from '../ui/EmptyState';
+import { ErrorState } from '../ui/ErrorState';
+import { LoadingShell } from '../ui/LoadingShell';
+import { ResponsiveTable } from '../ui/ResponsiveTable';
 import { BILINMIYOR, HENUZ_YOK, sayi, zamanMetni } from './veri/bicim';
 import { NesilSecimi } from './veri/NesilSecimi';
 import { SorunKuyrugu } from './veri/SorunKuyrugu';

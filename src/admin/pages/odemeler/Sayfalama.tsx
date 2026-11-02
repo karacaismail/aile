@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef } from 'react';
-import { Button } from '../../ui';
+import { Button } from '../../ui/Button';
 import { dahaFazlaMetni, gosterilenMetni } from './model';
 
 // Liste altı: "Gösterilen 10 / 20" (role=status, değişince duyurulur) + "N tahmini ödeme daha göster". Telefon ve geniş

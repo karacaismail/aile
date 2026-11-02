@@ -8,8 +8,9 @@ import { kayitOgesi, setup } from './alimlar/testkit';
 // dosyada temiz başlar, telefonun geniş modül indirmediği ve masaüstünün indirdiği aynı süreçte gözlenir.
 
 const { cizimler } = vi.hoisted(() => ({ cizimler: [] as string[] }));
-vi.mock('../ui', async (importOriginal) => {
-  const real = await importOriginal<typeof import('../ui')>();
+// Sayfalar ui bileşenlerini kendi modüllerinden alır (barrel değil); sayaç ListRow modülünün kendisine takılır.
+vi.mock('../ui/ListRow', async (importOriginal) => {
+  const real = await importOriginal<typeof import('../ui/ListRow')>();
   const Gercek = real.ListRow;
   function SayanListRow(props: Parameters<typeof Gercek>[0]) {
     cizimler.push(props.row.label);

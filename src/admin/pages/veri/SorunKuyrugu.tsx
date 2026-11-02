@@ -1,7 +1,10 @@
 import { useMemo, useRef, useState } from 'react';
 import type { Issue } from '../../data';
 import type { ResponsiveColumn } from '../../shell/contracts';
-import { Button, Disclosure, ResponsiveTable, Tag } from '../../ui';
+import { Button } from '../../ui/Button';
+import { Disclosure } from '../../ui/Disclosure';
+import { ResponsiveTable } from '../../ui/ResponsiveTable';
+import { Tag } from '../../ui/Tag';
 import { sayi } from './bicim';
 import { SAYFA_BOYUTU, aralikMetni, etkiMetni, hucreAdresi, kaynakAnahtari, sayfaDilimi, sorunDurumu, sorunGruplari, type SayfaDilimi, type SorunGrubu } from './sorunlar';
 import './SorunKuyrugu.css';
