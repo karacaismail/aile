@@ -1,9 +1,9 @@
 import { useId, type ReactNode } from 'react';
-import { designTokens } from '../../design/tokens.ts';
+import { spendLabel, sumMoney, type RecordedTotal, type RecordedValue } from '../data/actuals';
 import { useDevice } from '../device';
 import type { Money, ResponsiveColumn, StatusLabel } from '../shell/contracts';
-import { Checkbox, ConfigProvider, Progress, type ThemeConfig } from './antd';
 import { Icon } from './icons';
+import { HENUZ_YOK, Money as Tutar, formatMoney } from './Money';
 import { ResponsiveTable } from './ResponsiveTable';
 import { Tag } from './Tag';
 import './Overview.css';
@@ -14,17 +14,20 @@ import './Overview.css';
 // görevler. Her blok bir bölgedir (section + h2) ve başlık satırında ilgili sayfaya bağlantı taşır. Sayfa başlığı (h1,
 // amaç, tazelik) kabuğun PageHeader'ındadır; burada yalnız ölçüler ve bloklar vardır. Referansın gömülü örnek verisi yerine
 // her şey props ile gelir (sayfa hesaplar): bileşen yalnız çizer ve biçimler (₺8.500,00 tr-TR, 28.10.2026).
+// Telefon sunumu antd'siz: yerel HTML + ARIA + --aile-* tokenları; tek uygulama tüm profillere hizmet eder (dar/geniş
+// yerleşim narrow ya da profil ile, ödeme satırı kendi alanına container query ile uyar). Geniş-özel dosya yok.
 //  - Liste blokları düz <ul>: satır tek bağlantıdır (ödeme ya da dikkat satırı), kart ya da kenarlık yok, liste tek
-//    yuzey alanı, satırlar cizgi ile ayrılır. Envanterdeki ProList eşlemesi bilgi amaçlıdır: ProList satırı tek bir
-//    bağlantı değildir ve kendi meta/eylem yüzeyini getirir.
-//  - Bütçe tablosu ResponsiveTable (masaüstünde Table, telefonda akordeon): Planlanan, Gerçekleşen ve Kalan ayrı
-//    sütunlardır; hiçbir yerde tek sayıda birleşmez. Telefonda üçü de etiket–değer gövdesindedir (referansta Kalan
-//    etiketsiz ana tutardı; etiketsiz tutar plan mı gerçek mi belli olmaz). Kalem hücresinde ince çubuk antd Progress
-//    (small = 6 px, renkler tokens.ts) ve yüzde METNİ ("%65 harcandı"); çubuk aria-hidden, bilgiyi metin taşır.
-//  - Görevler antd Checkbox; durumu sayfa tutar (controlled), onToggleTask ile bildirilir. Onay kutusu köşesi kontrol
-//    köşesinin yarısı (README › Ölçü); yerel ConfigProvider yalnız bunu değiştirir.
+//    yuzey alanı, satırlar cizgi ile ayrılır.
+//  - Bütçe tablosu ResponsiveTable (geniş ekranda tablo, telefonda akordeon, ilk satır açık): Planlanan, Gerçekleşen ve
+//    Kalan ayrı sütunlardır; hiçbir yerde tek sayıda birleşmez. Gerçekleşen anlamı yalnız data/actuals.ts'ten (W0):
+//    oran, çubuk ve "%N harcandı" spendLabel'dan ve yalnız ödeme kanıtıyla; kanıtsız kaynak değeri "Kaynakta yazılı",
+//    gelecek dönem "Henüz yok". Kalan = Planlanan − Gerçekleşen, kesin ondalıkla (sumMoney), aynı para biriminde;
+//    eksi kalan metindeki "-" ile okunur, ton yalnız destekler. Çubuk aria-hidden; bilgiyi metin taşır.
+//  - Görevler yerel onay kutusu: satırın tamamı <label> (64 px hedef), girdinin adı görev adı, açıklaması meta satırı.
+//    Durumu sayfa tutar (controlled), onToggleTask ile bildirilir; işleyici yoksa kutu devre dışıdır.
 //  - Eksik bilgi adıyla: "Tarih yok", "Tutar yok", "Taraf bilinmiyor", "Plan yok", "Henüz yok", "Bilinmiyor"; boş blok
-//    gizlenmez, adıyla yazılır. Odak çizgisini admin.css çizer; Overview.css çizgiyi satırın alt kenarına çeker.
+//    gizlenmez, adıyla yazılır. Odak çizgisini admin.css çizer ([data-focus-line]); liste satırları data-focus-line="row"
+//    taşır ve Overview.css çizgiyi satırın alt kenarına çeker (README › Odak: liste satırında alt kenar).
 
 export interface OverviewLink { label: string; href: string }
 
@@ -47,8 +50,26 @@ export interface OverviewPayment {
   href?: string;
 }
 
-/** Bütçe kalemi: plan ve gerçek ayrı; Kalan ve yüzde burada ikisinden türetilir, ikisi de yoksa adıyla yazılır. */
-export interface OverviewBudgetRow { id: string; label: string; planned: Money | null; actual: Money | null }
+/** Bir kalemin Gerçekleşen anlamı: actuals.recordedFor (tek gözlem) ya da actuals.recordedTotal (dönem toplamı). */
+export type OverviewRecorded = RecordedValue | RecordedTotal;
+
+/**
+ * Bütçe kalemi: plan ve gerçek ayrı; Kalan ve harcama etiketi ikisinden türetilir, yoksa adıyla yazılır.
+ * recorded verilmezse (ya da null) Gerçekleşen "Henüz yok"tur.
+ */
+export interface OverviewBudgetRow {
+  id: string;
+  label: string;
+  planned: Money | null;
+  /** Gerçekleşen (data/actuals.ts): not_yet → "Henüz yok"; evidence false → "Kaynakta yazılı"; money null → "Bilinmiyor". */
+  recorded?: OverviewRecorded | null;
+  /**
+   * @deprecated recorded kullanın (actuals.recordedFor / recordedTotal). Geçiş için kabul edilir ve ödeme kanıtı
+   * taşımadığından kaynakta yazılı değer sayılır: oran ve "harcandı" üretilmez; null → "Henüz yok". recorded
+   * verildiğinde yok sayılır.
+   */
+  actual?: Money | null;
+}
 
 export interface OverviewAttentionItem { id: string; label: string; count: number; /** Gidilecek sayfanın adı. */ page: string; href: string }
 
@@ -70,6 +91,8 @@ export interface OverviewSection<T> {
   items: readonly T[];
   /** Boş blok metni; verilmezse bloğun kendi sözü ("Yaklaşan ödeme yok"). */
   empty?: string;
+  /** Başlığın altındaki kısa not; bölgenin açıklamasıdır (ör. bütçede actuals.MIRRORS_PLAN_NOTE). */
+  note?: string;
 }
 
 export interface OverviewProps {
@@ -80,11 +103,11 @@ export interface OverviewProps {
   budget: OverviewSection<OverviewBudgetRow>;
   attention: OverviewSection<OverviewAttentionItem>;
   tasks: OverviewSection<OverviewTask>;
+  /** Görev onay kutusu değişimi; verilmezse kutular devre dışıdır (sayfa değişikliği kaydedemiyor). */
   onToggleTask?(task: OverviewTask, done: boolean): void;
 }
 
 export const BILINMIYOR = 'Bilinmiyor';
-const HENUZ_YOK = 'Henüz yok';
 const PLAN_YOK = 'Plan yok';
 const TARIH_YOK = 'Tarih yok';
 const TUTAR_YOK = 'Tutar yok';
@@ -93,23 +116,12 @@ const BOS = { odeme: 'Yaklaşan ödeme yok', butce: 'Bütçe kalemi yok', dikkat
 const BUTCE_CAPTION = 'Bütçe kalemleri';
 const OLCU_AZAMI = 3;
 const META_AYRACI = ' · ';
+const OLCEK_AZAMI = 100;
 
 // --- Biçimleme (tr-TR) -----------------------------------------------------------------------------
-const paraBicimleri = new Map<string, Intl.NumberFormat>();
-/** ₺8.500,00 — tr-TR, iki ondalık. Geçersiz tutar "Bilinmiyor"; tanınmayan para birimi "8500.00 XXX" olarak kalır. */
-export function paraMetni({ amount, currency }: Money): string {
-  const sayi = Number(amount);
-  if (amount.trim() === '' || !Number.isFinite(sayi)) return BILINMIYOR;
-  let bicim = paraBicimleri.get(currency);
-  if (!bicim) {
-    try {
-      bicim = new Intl.NumberFormat('tr-TR', { style: 'currency', currency, minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    } catch {
-      return `${amount} ${currency}`;
-    }
-    paraBicimleri.set(currency, bicim);
-  }
-  return bicim.format(sayi);
+/** @deprecated ui/Money formatMoney kullanın. ₺8.500,00 — tr-TR, iki ondalık; bozuk tutar "Bilinmiyor". */
+export function paraMetni(money: Money): string {
+  return formatMoney(money, BILINMIYOR);
 }
 
 const tarihBicimi = new Intl.DateTimeFormat('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -125,39 +137,48 @@ function gunOku(iso: string | null | undefined): Date | undefined {
   return Number.isNaN(gun.getTime()) ? undefined : gun;
 }
 
-const sayiOku = (money: Money | null): number | undefined => {
-  if (!money) return undefined;
-  const sayi = Number(money.amount);
-  return money.amount.trim() === '' || !Number.isFinite(sayi) ? undefined : sayi;
-};
-
-/** Kalan = plan − gerçek; yalnız ikisi de biliniyor ve aynı para birimindeyse. */
-function kalan(row: OverviewBudgetRow): Money | undefined {
-  const plan = sayiOku(row.planned);
-  const gercek = sayiOku(row.actual);
-  if (plan === undefined || gercek === undefined || row.planned!.currency !== row.actual!.currency) return undefined;
-  return { amount: (plan - gercek).toFixed(2), currency: row.planned!.currency };
-}
-
-/** Harcanan yüzde (yuvarlanmış, 100'ü aşabilir); plan yok ya da sıfırsa, gerçek yoksa undefined. */
-function harcananYuzde(row: OverviewBudgetRow): number | undefined {
-  const plan = sayiOku(row.planned);
-  const gercek = sayiOku(row.actual);
-  if (plan === undefined || gercek === undefined || plan <= 0) return undefined;
-  return Math.round((gercek / plan) * 100);
-}
-
 const durumSozcugu = (status: StatusLabel) => (status.label.trim() ? status.label.trim() : BILINMIYOR);
 
+// --- Gerçekleşen (data/actuals.ts) ---------------------------------------------------------------------
+type Kayitli = Extract<OverviewRecorded, { kind: 'recorded' }>;
+
+/** Satırın Gerçekleşen anlamı; null = kayıt yok ("Henüz yok"). */
+function gerceklesen(row: OverviewBudgetRow): OverviewRecorded | null {
+  if (row.recorded !== undefined) {
+    const value = row.recorded;
+    // Dönemde hiç Gerçekleşen kaydı olmayan toplam: kaynakta yazılı bir şey yok.
+    if (value?.kind === 'recorded' && 'total' in value && value.total.counted === 0 && value.total.missing === 0) return null;
+    return value;
+  }
+  // Geçiş (deprecated actual): ödeme kanıtı yok; değer kaynakta yazılıdır, harcama sayılmaz.
+  return row.actual ? { kind: 'recorded', money: row.actual, evidence: false } : null;
+}
+
+const kayitli = (value: OverviewRecorded | null): value is Kayitli => value?.kind === 'recorded';
+
+/** -x (metin ondalık; kayan nokta yok). */
+const eksi = ({ amount, currency }: Money): Money => {
+  const metin = amount.trim();
+  return { amount: metin.startsWith('-') ? metin.slice(1) : `-${metin}`, currency };
+};
+
+/** Kalan = Planlanan − Gerçekleşen; ikisi de okunur ve aynı para birimindeyse kesin, aksi hâlde null. */
+function kalan(planned: Money, actual: Money): Money | null {
+  const fark = sumMoney([planned, eksi(actual)]);
+  return fark.counted === 2 && fark.money ? fark.money : null;
+}
+
 // --- Parçalar --------------------------------------------------------------------------------------
-function Blok({ title, link, children }: { title: string; link?: OverviewLink; children: ReactNode }) {
+function Blok({ title, link, note, children }: { title: string; link?: OverviewLink; note?: string; children: ReactNode }) {
   const id = useId();
+  const notId = `${id}-not`;
   return (
-    <section className="aile-ov-blok" aria-labelledby={id}>
+    <section className="aile-ov-blok" aria-labelledby={id} aria-describedby={note ? notId : undefined}>
       <div className="aile-ov-bas">
         <h2 id={id} className="aile-ov-baslik">{title}</h2>
         {link ? <a className="aile-ov-bag" href={link.href}>{link.label}</a> : null}
       </div>
+      {note ? <p id={notId} className="aile-ov-not aile-kucuk aile-ikincil">{note}</p> : null}
       {children}
     </section>
   );
@@ -175,7 +196,7 @@ function Ozet({ measures }: { measures: readonly OverviewMeasure[] }) {
           <dt className="aile-kucuk aile-ikincil">{olcu.label}</dt>
           <dd>
             <span className={olcu.value ? 'aile-ov-olcu-deger' : 'aile-ov-olcu-deger aile-ov-olcu-deger--yok'}>
-              {olcu.value ? paraMetni(olcu.value) : BILINMIYOR}
+              {formatMoney(olcu.value, BILINMIYOR)}
             </span>
             {olcu.note ? <span className="aile-kucuk aile-ikincil">{olcu.note}</span> : null}
           </dd>
@@ -199,64 +220,71 @@ function OdemeSatiri({ payment }: { payment: OverviewPayment }) {
         <span className="aile-ov-meta aile-kucuk aile-ikincil">{payment.party?.trim() || TARAF_BILINMIYOR}</span>
       </span>
       <span className="aile-ov-son">
-        {payment.amount ? <span className="aile-tutar">{paraMetni(payment.amount)}</span> : <span className="aile-ikincil">{TUTAR_YOK}</span>}
+        <Tutar value={payment.amount} label={TUTAR_YOK} />
         <Tag tone={payment.status.tone}>{durumSozcugu(payment.status)}</Tag>
       </span>
     </>
   );
   const classes = 'aile-ov-satir aile-ov-satir--odeme';
-  return <li>{payment.href ? <a className={classes} href={payment.href}>{icerik}</a> : <div className={classes}>{icerik}</div>}</li>;
+  return (
+    <li>
+      {payment.href ? <a className={classes} href={payment.href} data-focus-line="row">{icerik}</a> : <div className={classes}>{icerik}</div>}
+    </li>
+  );
 }
 
-function KalemHucresi({ row }: { row: OverviewBudgetRow }) {
-  const yuzde = harcananYuzde(row);
+/** İnce harcama çubuğu: süsleyici (aria-hidden), yalnız kanıtlı oranla; 100'ü aşan oran çubuğu taşırmaz, aşım tonlanır. */
+function Olcek({ percent }: { percent: number }) {
+  const dolu = Math.min(OLCEK_AZAMI, Math.max(0, percent));
   return (
-    <span className="aile-ov-kalem">
-      <span>{row.label}</span>
-      {yuzde !== undefined ? (
-        <>
-          {/* Çubuk süsleyicidir; yüzdeyi alttaki metin söyler. Renkler tek kaynaktan (tokens.ts), small = 6 px. */}
-          <span className="aile-ov-olcek" aria-hidden="true">
-            <Progress
-              type="line"
-              size="small"
-              percent={Math.min(100, Math.max(0, yuzde))}
-              showInfo={false}
-              status="normal"
-              strokeColor={designTokens.eylem}
-              railColor={designTokens.listeZemin}
-              classNames={{ root: 'aile-ov-olcek-kok' }}
-            />
-          </span>
-          <span className="aile-ov-yuzde aile-kucuk aile-ikincil">{`%${sayiBicimi.format(yuzde)} harcandı`}</span>
-        </>
-      ) : null}
+    <span className="aile-ov-olcek" aria-hidden="true" data-asim={percent > OLCEK_AZAMI ? 'true' : undefined}>
+      <span className="aile-ov-olcek-dolgu" style={{ width: `${dolu}%` }} />
     </span>
   );
 }
 
-/** Tutar hücresi: telefondaki akordeon gövdesinde (dd) de tabular-nums (admin.css .aile-tutar). */
-const TutarMetni = ({ value }: { value: Money }) => <span className="aile-tutar">{paraMetni(value)}</span>;
+function KalemHucresi({ row }: { row: OverviewBudgetRow }) {
+  const etiket = spendLabel(row.planned ?? undefined, gerceklesen(row));
+  // Parçalar arasındaki boşluk metinde kalır (satır ve akordeon başlığının erişilebilir adı "Mutfak Kaynakta yazılı");
+  // esnek sütunda görünmez.
+  return (
+    <span className="aile-ov-kalem">
+      <span>{row.label}</span>{' '}
+      {etiket.kind === 'spent' && etiket.percent !== null ? <Olcek percent={etiket.percent} /> : null}
+      {/* Gelecek dönemin "Henüz yok"u Gerçekleşen sütunundadır; burada tekrarlanmaz. */}
+      {etiket.kind !== 'not_yet' ? <span className="aile-ov-yuzde aile-kucuk aile-ikincil">{etiket.text}</span> : null}
+    </span>
+  );
+}
 
-const kalanMetni = (row: OverviewBudgetRow): ReactNode => {
-  if (!row.planned) return PLAN_YOK;
-  if (!row.actual) return HENUZ_YOK;
-  const fark = kalan(row);
-  return fark ? <TutarMetni value={fark} /> : BILINMIYOR;
-};
+function GerceklesenHucresi({ row }: { row: OverviewBudgetRow }) {
+  const deger = gerceklesen(row);
+  if (!kayitli(deger)) return <Tutar value={null} label={HENUZ_YOK} />;
+  // Toplamda birden çok para birimi: toplanmaz, adıyla ("Birden çok para birimi"); okunamayan değer "Bilinmiyor".
+  if (!deger.money) return <Tutar value={'total' in deger ? deger.total : null} label={BILINMIYOR} />;
+  return <Tutar value={deger.money} />;
+}
+
+function KalanHucresi({ row }: { row: OverviewBudgetRow }) {
+  const deger = gerceklesen(row);
+  if (!row.planned) return <Tutar value={null} label={PLAN_YOK} />;
+  if (!kayitli(deger)) return <Tutar value={null} label={HENUZ_YOK} />;
+  const fark = deger.money ? kalan(row.planned, deger.money) : null;
+  return <Tutar value={fark} label={BILINMIYOR} sign="negative" />;
+}
 
 // Sütun rolleri (ResponsiveTable): kalem başlık; üç tutar telefonda etiket–değer gövdesinde kalır (lead yok).
 const BUTCE_SUTUNLARI: readonly ResponsiveColumn<OverviewBudgetRow>[] = [
   { key: 'label', title: 'Kalem', minWidth: 160, m: 'title', render: row => <KalemHucresi row={row} /> },
-  { key: 'planned', title: 'Planlanan', align: 'right', minWidth: 112, render: row => (row.planned ? <TutarMetni value={row.planned} /> : PLAN_YOK) },
-  { key: 'actual', title: 'Gerçekleşen', align: 'right', minWidth: 120, render: row => (row.actual ? <TutarMetni value={row.actual} /> : HENUZ_YOK) },
-  { key: 'remaining', title: 'Kalan', align: 'right', minWidth: 112, render: kalanMetni },
+  { key: 'planned', title: 'Planlanan', align: 'right', minWidth: 112, render: row => <Tutar value={row.planned} label={PLAN_YOK} /> },
+  { key: 'actual', title: 'Gerçekleşen', align: 'right', minWidth: 120, render: row => <GerceklesenHucresi row={row} /> },
+  { key: 'remaining', title: 'Kalan', align: 'right', minWidth: 112, render: row => <KalanHucresi row={row} /> },
 ];
 
 function DikkatSatiri({ item }: { item: OverviewAttentionItem }) {
   return (
     <li>
-      <a className="aile-ov-satir aile-ov-satir--sayi" href={item.href}>
+      <a className="aile-ov-satir aile-ov-satir--sayi" href={item.href} data-focus-line="row">
         <span className="aile-ov-sayi">{sayiBicimi.format(item.count)}</span>
         <span className="aile-ov-satir-ana">
           <span className="aile-ov-ad">{item.label}</span>
@@ -268,10 +296,12 @@ function DikkatSatiri({ item }: { item: OverviewAttentionItem }) {
   );
 }
 
-// Onay kutusu köşesi kontrol köşesinin yarısı (README › Ölçü, köşe); diğer her şey ortak temadan (antdTheme.ts).
-const gorevTemasi: ThemeConfig = { components: { Checkbox: { borderRadiusSM: designTokens.koseKontrol / 2 } } };
-
+// Görev satırı: <label> satırın tamamıdır (dokunma ve tıklama her yerde); girdi görünür kutunun kendisidir
+// (appearance: none, forced-colors'ta sistem kutusu), onay işareti girdinin üstünde süsleyici simgedir.
 function GorevSatiri({ task, onToggle }: { task: OverviewTask; onToggle?: OverviewProps['onToggleTask'] }) {
+  const id = useId();
+  const adId = `${id}-ad`;
+  const metaId = `${id}-meta`;
   const vade = gunOku(task.due);
   const meta = [task.code, task.owner, vade ? tarihBicimi.format(vade) : task.due ? TARIH_YOK : undefined, task.project]
     .map(parca => parca?.trim())
@@ -279,16 +309,24 @@ function GorevSatiri({ task, onToggle }: { task: OverviewTask; onToggle?: Overvi
     .join(META_AYRACI);
   return (
     <li>
-      <Checkbox
-        className={task.done ? 'aile-ov-gorev aile-ov-gorev--bitti' : 'aile-ov-gorev'}
-        checked={!!task.done}
-        onChange={event => onToggle?.(task, event.target.checked)}
-      >
-        <span className="aile-ov-satir-ana">
-          <span className="aile-ov-gorev-ad">{task.label}</span>
-          {meta ? <span className="aile-ov-meta aile-kucuk aile-ikincil">{meta}</span> : null}
+      <label className={task.done ? 'aile-ov-gorev aile-ov-gorev--bitti' : 'aile-ov-gorev'} data-focus-line="row">
+        <span className="aile-ov-kutu">
+          <input
+            type="checkbox"
+            className="aile-ov-kutu-girdi"
+            checked={!!task.done}
+            disabled={!onToggle}
+            aria-labelledby={adId}
+            aria-describedby={meta ? metaId : undefined}
+            onChange={event => onToggle?.(task, event.currentTarget.checked)}
+          />
+          <Icon name="check" size={16} className="aile-ov-kutu-isaret" />
         </span>
-      </Checkbox>
+        <span className="aile-ov-satir-ana">
+          <span id={adId} className="aile-ov-gorev-ad">{task.label}</span>
+          {meta ? <span id={metaId} className="aile-ov-meta aile-kucuk aile-ikincil">{meta}</span> : null}
+        </span>
+      </label>
     </li>
   );
 }
@@ -302,14 +340,14 @@ export function Overview({ narrow, measures, payments, budget, attention, tasks,
       <Ozet measures={measures} />
       <div className="aile-ov-izgara">
         <div className="aile-ov-sutun">
-          <Blok title={payments.title} link={payments.link}>
+          <Blok title={payments.title} link={payments.link} note={payments.note}>
             {payments.items.length ? (
               <ul className="aile-ov-liste">{payments.items.map(payment => <OdemeSatiri key={payment.id} payment={payment} />)}</ul>
             ) : (
               <Bos text={payments.empty ?? BOS.odeme} />
             )}
           </Blok>
-          <Blok title={budget.title} link={budget.link}>
+          <Blok title={budget.title} link={budget.link} note={budget.note}>
             {budget.items.length ? (
               <ResponsiveTable<OverviewBudgetRow>
                 className="aile-ov-tablo"
@@ -326,18 +364,16 @@ export function Overview({ narrow, measures, payments, budget, attention, tasks,
           </Blok>
         </div>
         <div className="aile-ov-sutun">
-          <Blok title={attention.title} link={attention.link}>
+          <Blok title={attention.title} link={attention.link} note={attention.note}>
             {attention.items.length ? (
               <ul className="aile-ov-liste">{attention.items.map(item => <DikkatSatiri key={item.id} item={item} />)}</ul>
             ) : (
               <Bos text={attention.empty ?? BOS.dikkat} />
             )}
           </Blok>
-          <Blok title={tasks.title} link={tasks.link}>
+          <Blok title={tasks.title} link={tasks.link} note={tasks.note}>
             {tasks.items.length ? (
-              <ConfigProvider theme={gorevTemasi}>
-                <ul className="aile-ov-liste">{tasks.items.map(task => <GorevSatiri key={task.id} task={task} onToggle={onToggleTask} />)}</ul>
-              </ConfigProvider>
+              <ul className="aile-ov-liste">{tasks.items.map(task => <GorevSatiri key={task.id} task={task} onToggle={onToggleTask} />)}</ul>
             ) : (
               <Bos text={tasks.empty ?? BOS.gorev} />
             )}

@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { render, screen } from '@testing-library/react';
+import { MIXED_CURRENCY_TEXT, sumMoney, type MoneyTotal } from '../data/actuals';
 import { Money, formatMoney, parseMoneyInput } from './Money';
 import type { Money as MoneyValue } from '../shell/contracts';
 
@@ -17,6 +18,12 @@ describe('formatMoney', () => {
     expect(formatMoney(TRY('40425.9'))).toBe('₺40.425,90');
     expect(formatMoney(TRY('0'))).toBe('₺0,00');
     expect(formatMoney(TRY('-1234.5'))).toBe('-₺1.234,50');
+  });
+
+  it('writes a zero without a sign, even a negative zero from the source', () => {
+    expect(formatMoney(TRY('-0'))).toBe('₺0,00');
+    expect(formatMoney(TRY('-0.00'))).toBe('₺0,00');
+    expect(formatMoney(TRY('-0.001'))).toBe('₺0,00');
   });
 
   it('keeps the decimal text exact instead of rounding through a float', () => {
@@ -46,6 +53,21 @@ describe('formatMoney', () => {
     expect(formatMoney(TRY(''))).toBe('Bilinmiyor');
     expect(formatMoney(TRY('8.500,00'))).toBe('Bilinmiyor');
     expect(formatMoney(TRY('abc'), 'Henüz yok')).not.toBe('Henüz yok');
+  });
+});
+
+describe('formatMoney › MoneyTotal (actuals.sumMoney)', () => {
+  it('writes a single-currency total and never sums different currencies', () => {
+    expect(formatMoney(sumMoney([TRY('8500.00'), TRY('0.50')]))).toBe('₺8.500,50');
+    const mixed: MoneyTotal = sumMoney([TRY('100.00'), { amount: '20.00', currency: 'EUR' }]);
+    expect(mixed.money).toBeNull();
+    expect(formatMoney(mixed)).toBe(MIXED_CURRENCY_TEXT);
+    expect(formatMoney(mixed, 'Henüz yok')).toBe(MIXED_CURRENCY_TEXT);
+  });
+
+  it('names an empty or unreadable total with the missing text', () => {
+    expect(formatMoney(sumMoney([]), 'Henüz yok')).toBe('Henüz yok');
+    expect(formatMoney(sumMoney([undefined, null]), 'Fiyat yok')).toBe('Fiyat yok');
   });
 });
 
@@ -142,6 +164,64 @@ describe('Money', () => {
     expect(root).toHaveAttribute('id', 'plan-1');
     expect(root.className.split(' ')).toEqual(expect.arrayContaining(['aile-tutar', 'ek']));
     expect(root.textContent).toBe('₺97.800,00');
+  });
+
+  it('renders a MoneyTotal: one currency as an amount, mixed currencies by name (not summed, not "missing")', () => {
+    const { container, rerender } = render(<Money value={sumMoney([TRY('10.00'), TRY('5.25')])} label="Henüz yok" />);
+    const root = () => container.firstElementChild as HTMLElement;
+    expect(root().textContent).toBe('₺15,25');
+    expect(root()).not.toHaveAttribute('data-missing');
+    rerender(<Money value={sumMoney([TRY('10.00'), { amount: '5.00', currency: 'USD' }])} label="Henüz yok" />);
+    expect(root().textContent).toBe(MIXED_CURRENCY_TEXT);
+    expect(root()).toHaveAttribute('data-mixed', 'true');
+    expect(root()).not.toHaveAttribute('data-missing');
+    expect(root().className.split(' ')).toContain('aile-tutar--eksik');
+  });
+
+  it('writes the sign as text when a tone is shown: sign="negative" tones only a minus, sign="both" also a plus', () => {
+    const { container, rerender } = render(<Money value={TRY('-420.00')} sign="negative" />);
+    const root = () => container.firstElementChild as HTMLElement;
+    expect(root().textContent).toBe('-₺420,00');
+    expect(root()).toHaveAttribute('data-tone', 'hata');
+    rerender(<Money value={TRY('420.00')} sign="negative" />);
+    expect(root().textContent).toBe('₺420,00');
+    expect(root()).not.toHaveAttribute('data-tone');
+    rerender(<Money value={TRY('420.00')} sign="both" />);
+    expect(root().textContent).toBe('+₺420,00');
+    expect(root()).toHaveAttribute('data-tone', 'olumlu');
+    rerender(<Money value={TRY('-0.50')} sign="both" />);
+    expect(root().textContent).toBe('-₺0,50');
+    expect(root()).toHaveAttribute('data-tone', 'hata');
+    // Sıfırın yönü yok: işaret ve ton yok (eksi sıfır da).
+    for (const zero of ['0', '0.00', '-0.00']) {
+      rerender(<Money value={TRY(zero)} sign="both" />);
+      expect(root().textContent).toBe('₺0,00');
+      expect(root()).not.toHaveAttribute('data-tone');
+    }
+    // Eksik ve bozuk değer tonlanmaz.
+    rerender(<Money value={null} sign="both" label="Henüz yok" />);
+    expect(root()).not.toHaveAttribute('data-tone');
+    rerender(<Money value={TRY('x')} sign="both" />);
+    expect(root()).not.toHaveAttribute('data-tone');
+  });
+
+  it('keeps without a sign prop the plain Intl text and no tone', () => {
+    const { container } = render(<Money value={TRY('-420.00')} />);
+    const root = container.firstElementChild as HTMLElement;
+    expect(root.textContent).toBe('-₺420,00');
+    expect(root).not.toHaveAttribute('data-tone');
+  });
+
+  it('carries tabular-nums itself, so amounts align outside .aile-admin too (portalled layers)', () => {
+    const css = readFileSync(resolve(__dirname, 'Money.css'), 'utf8');
+    expect(css).toMatch(/(^|\n|\})\s*\.aile-tutar\s*\{[^}]*font-variant-numeric:\s*tabular-nums/);
+    expect(css).toMatch(/\[data-tone='hata'\][^{]*\{[^}]*var\(--aile-hata\)/);
+    expect(css).toMatch(/\[data-tone='olumlu'\][^{]*\{[^}]*var\(--aile-olumlu\)/);
+  });
+
+  it('imports nothing from antd or @ant-design', () => {
+    const source = readFileSync(resolve(__dirname, 'Money.tsx'), 'utf8');
+    expect(source).not.toMatch(/from\s+['"](antd|@ant-design\/[^'"]*|\.\/antd)['"]/);
   });
 
   it('styles only through --aile-* tokens: no literal colours, pixel sizes, outlines or shadows in its CSS', () => {
