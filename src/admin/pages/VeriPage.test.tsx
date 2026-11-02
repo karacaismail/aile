@@ -175,6 +175,12 @@ const sorunlarBolumu = () => section('Çözülecek sorunlar');
 const grupAdi = (tur: string) => new RegExp(`^${tur}\\s*\\d`);
 const grupDugmesi = (tur: string) => within(sorunlarBolumu()).getByRole('button', { name: grupAdi(tur) });
 const grupBolgesi = (tur: string) => within(sorunlarBolumu()).getByRole('region', { name: grupAdi(tur) });
+/** Bölgenin erişilebilir adı (aria-label ya da aria-labelledby metni); jsdom metinleri boşluksuz birleştirir. */
+const bolgeAdi = (element: HTMLElement) => {
+  const ids = element.getAttribute('aria-labelledby');
+  const adlar = ids ? ids.split(/\s+/).map(id => document.getElementById(id)?.textContent ?? '') : [element.getAttribute('aria-label') ?? ''];
+  return adlar.join(' ').trim();
+};
 // role="status" ad almaz (yalnız yazar adı); DataStatus data-state, LoadingShell aria-busy ile ayrılır.
 const veriDurumu = () => {
   const el = screen.getAllByRole('status').find(node => node.hasAttribute('data-state'));
@@ -306,6 +312,28 @@ describe('VeriPage › çözülecek sorunlar', () => {
       expect.stringMatching(/^Plan · E12.*Tip: #DIV\/0!/),
     ]);
     expect(within(grupBolgesi('Geçersiz bağlantı')).getByText('app_kalemler · 11. satır')).toBeInTheDocument();
+  }, UZUN);
+
+  it('telefon: her grubun listesi grup adını taşıyan bölgedir; sayfada aynı adlı iki bölge yok (landmark ayırt edici adla)', async () => {
+    // Liste bölgesinin adı yalnız sayım olsaydı ("1 kayıt") sekiz grup aynı adlı sekiz bölge üretirdi: ekran okuyucunun
+    // landmark listesinde ayırt edilemezler (admin-a11y › yapı sözleşmesi).
+    renderPage({ device: 'phone' });
+    await waitForSettled();
+    await waitFor(() => expect(grupBolgesi('Formül hatası')).toHaveTextContent('Gerçekleşen · G9'), HAZIR);
+    expect(within(grupBolgesi('Formül hatası')).getByRole('region', { name: 'Formül hatası · 2 kayıt' })).toBeInTheDocument();
+    expect(within(grupBolgesi('Geçersiz bağlantı')).getByRole('region', { name: 'Geçersiz bağlantı · 1 kayıt' })).toBeInTheDocument();
+    const adlar = screen.getAllByRole('region').map(bolgeAdi);
+    expect(adlar.filter(ad => !ad), 'adsız bölge').toEqual([]);
+    expect(adlar.filter((ad, i) => adlar.indexOf(ad) !== i), 'yinelenen bölge adı').toEqual([]);
+  }, UZUN);
+
+  it('telefon, sayfalı grup: liste bölgesinin adı grup adı + görünen aralık; sayfa değişince ad da değişir', async () => {
+    renderPage({ source: fixtureSource(withFormulaErrors(469)), device: 'phone' });
+    await waitFor(() => expect(grupDugmesi('Formül hatası')).toHaveAccessibleName(/^Formül hatası\s*469 kayıt$/), HAZIR);
+    const formul = grupBolgesi('Formül hatası');
+    expect(within(formul).getByRole('region', { name: 'Formül hatası · 1–20 / 469 kayıt' })).toBeInTheDocument();
+    await userEvent.click(within(formul).getByRole('button', { name: 'Sonraki sayfa' }));
+    expect(within(formul).getByRole('region', { name: 'Formül hatası · 21–40 / 469 kayıt' })).toBeInTheDocument();
   }, UZUN);
 
   it(`469 formül hatası: yalnız ilk grup açık, ${20}'lik sayfa; "Sonraki sayfa" dilimi değiştirir ve odağı grup başlığına taşır`, async () => {

@@ -490,6 +490,16 @@ describe('ButcePage › dönem ve tablo', () => {
     expect(screen.getAllByRole('button', { expanded: false }).filter(b => b.getAttribute('aria-controls'))).toHaveLength(7);
   });
 
+  it('telefonda satır seçimi yok: seçim yalnız geniş aylık eğilimi sürer; telefonda seçili satır ve işlevsiz "Ayrıntıyı aç" yok', async () => {
+    // Seçili kalem yalnız ButceTrend.wide'ı besler; telefon onu indirmez. Seçim yüzeyi (secili) ve gövdedeki
+    // "Ayrıntıyı aç" düğmesi telefonda hiçbir şey açmaz: tasarım (SayfaButceDar) seçim göstermez.
+    renderPage({}, { device: 'phone' });
+    const first = await headOf(LABEL_1);
+    expect(document.querySelectorAll('.aile-acc-item[data-selected="true"]')).toHaveLength(0);
+    expect(within(panelOf(first)).queryByRole('button', { name: 'Ayrıntıyı aç' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Ayrıntıyı aç' })).toBeNull();
+  });
+
   it('telefonda akordeon başlığı: kalem adı + tür (meta) başlıkta; tür gövdede yinelenmez', async () => {
     renderPage({}, { device: 'phone' });
     const first = await headOf(LABEL_1);

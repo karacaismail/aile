@@ -183,6 +183,9 @@ export function ButcePage({ location = LOCATION, now, live = true, liveBudgetImp
   const mirrored = useMemo(() => (period ? periodMirrorsPlan(observations.rows, period) : false), [observations.rows, period]);
   const [chosenLabel, setChosenLabel] = useState<string | null>(null);
   const selected = rows.find(row => row.label === chosenLabel) ?? rows[0] ?? null;
+  // Seçim yalnız geniş aylık eğilimi (ButceTrend.wide) sürer; telefon onu indirmez. Telefonda seçim yüzeyi ve gövdedeki
+  // "Ayrıntıyı aç" hiçbir şey açmazdı (SayfaButceDar seçim göstermez): seçim yalnız tablet ve masaüstünde verilir.
+  const selectable = profile !== 'phone';
 
   const plannedCount = rows.filter(row => row.planned || row.plannedAmbiguous || row.plannedUnreadable).length;
   const unclassifiedCount = rows.reduce((total, row) => total + row.unclassified, 0);
@@ -293,8 +296,8 @@ export function ButcePage({ location = LOCATION, now, live = true, liveBudgetImp
             mobileCaption={`${rows.length} kalem`}
             columns={columns}
             rows={rows}
-            selectedKey={selected?.key}
-            onRowClick={row => setChosenLabel(row.label)}
+            selectedKey={selectable ? selected?.key : undefined}
+            onRowClick={selectable ? row => setChosenLabel(row.label) : undefined}
             groupBy={liveBudgetModel ? row => row.parent ?? (row.ownership === 'subtotal' ? row.label : 'Diğer') : undefined}
           />
         ) : (
