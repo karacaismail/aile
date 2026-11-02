@@ -1,12 +1,13 @@
-/* ButcePage — tasarım README "Sayfa iskeleti" + ekranlar.md SayfaButce/SayfaButceDar. Tokenlar yalnız --aile-*
-   (src/design/tokens.ts; .aile-admin kökü). Kart/kenarlık yağmuru yok: araç satırı, tablo ve grafik zeminde durur,
-   kenar yalnız cizgi ayırıcı (1 px). Odak çizgisini admin.css çizer; burada outline/box-shadow yok. Kavisli kutuya
-   renkli şerit yok. Hareket tek süre/eğri; reduced-motion admin.css'te anlık. Sabit renk/px yok (1 px ayırıcı hariç). */
+/* ButcePage — tasarım README "Sayfa iskeleti" + "Uyarlanır teslim", ekranlar.md SayfaButce/SayfaButceDar. Telefon temel
+   sunumunun stilleri; aylık eğilim (grafik + tablo) geniş-özeldir: butce/ButceTrend.wide.css. Tokenlar yalnız --aile-*
+   (src/design/tokens.ts; .aile-admin kökü). Kart/kenarlık yağmuru yok: araç satırı ve tablo zeminde durur. Odak çizgisini
+   admin.css çizer; burada outline/box-shadow yok. Kavisli kutuya renkli şerit yok. Hareket yok. Genişlik medya sorgusu yok
+   (profil [data-profile] ile; burada gerekmiyor). Sabit renk/px yok. */
 .aile-butce { display: flex; flex-direction: column; min-width: 0; }
 .aile-butce-govde { display: flex; flex-direction: column; gap: var(--aile-bosluk-4); min-width: 0; }
 
 /* Birincil eylem devre dışı: nedeni hemen altında yazılı (Button README: aria-describedby). */
-.aile-butce-birincil { display: inline-flex; flex-direction: column; align-items: flex-end; gap: var(--aile-bosluk-1); }
+.aile-butce-birincil { display: inline-flex; flex-direction: column; align-items: flex-end; gap: var(--aile-bosluk-1); max-width: 100%; }
 .aile-ph--dar .aile-butce-birincil { align-items: flex-start; }
 
 /* Araç satırı: dönem seçici solda, sayım sağda; dar alanda alt alta. */
@@ -16,43 +17,44 @@
   align-items: flex-end;
   justify-content: space-between;
   gap: var(--aile-bosluk-3) var(--aile-bosluk-4);
+  min-width: 0;
 }
-.aile-butce-donem { min-width: calc(var(--aile-filtre-genislik) - var(--aile-bosluk-8)); }
+.aile-butce-donem { flex: 1 1 calc(var(--aile-filtre-genislik) - var(--aile-bosluk-8)); min-width: 0; max-width: var(--aile-ayrinti-genislik); }
 .aile-butce-sayim { margin: 0; min-height: var(--aile-hedef-asgari); display: flex; align-items: center; }
 
 /* Kalem hücresi: ad + (varsa) ara toplam adı; çocuk satır bir içeride. Metin kesilmez, kelimeden sarar. */
 .aile-butce-kalem { display: flex; flex-direction: column; min-width: 0; }
 .aile-butce-kalem-ad { font-weight: 600; overflow-wrap: normal; }
-.aile-butce-kalem--alt { padding-left: var(--aile-bosluk-4); }
+.aile-butce-kalem--alt { padding-inline-start: var(--aile-bosluk-4); }
+
+/* Telefon akordeon başlığındaki Fark: küçük "Fark" etiketi tutarın üstünde, sağa yaslı; lead dar kalır, kalem adına yer
+   bırakır (320 px'te "Fark Hesaplanmadı" yan yana başlığı sıkıştırmaz). */
+.aile-butce-fark { display: inline-flex; flex-direction: column; align-items: flex-end; }
+
+/* Gerçekleşen değeri + "Kaynakta yazılı" notu alt alta; hizayı kapsayıcının metin hizası verir (tabloda sağ). */
+.aile-butce-deger { display: inline-block; }
+.aile-butce-deger > * { display: block; }
+
+/* Durum etiketi + kanıtlı Gerçekleşende "%N harcandı" alt alta. */
+.aile-butce-durum { display: inline-flex; flex-direction: column; align-items: flex-start; gap: var(--aile-bosluk-1); }
 
 .aile-butce-not { margin: 0; }
+/* Plan aynası notu: kutusuz, gövde metni; renk tek işaret değil (cümle söyler). */
+.aile-butce-ayna { color: var(--aile-metin); }
 
-/* Grafik bölümü: h2 (admin.css ölçeği) + Chart (açıklama tablosu Chart'ın içinde, yanında). Üstte yalnız cizgi ayırıcı. */
-.aile-butce-grafik {
-  display: flex;
-  flex-direction: column;
-  gap: var(--aile-bosluk-3);
-  padding-top: var(--aile-bosluk-4);
-  border-top: 1px solid var(--aile-cizgi);
-}
-.aile-butce-egilim { border-collapse: collapse; width: 100%; max-width: var(--aile-ayrinti-genislik); }
-.aile-butce-egilim caption { text-align: left; font-weight: 600; padding-bottom: var(--aile-bosluk-2); }
-.aile-butce-egilim th, .aile-butce-egilim td {
-  padding: var(--aile-bosluk-2) var(--aile-bosluk-3);
-  text-align: left;
-  border-bottom: 1px solid var(--aile-cizgi);
-  vertical-align: baseline;
-}
-.aile-butce-egilim th[scope="row"] { font-weight: 400; }
-.aile-butce-sag { text-align: right; }
+/* Boş/hata durumları: uzun kaynak yolu ("data/…/00000.json") dar ekranda sayfayı taşırmaz. ErrorState sütunu
+   align-items: flex-start olduğundan ileti paragrafı en küçük içerik genişliğinde durur; break-word bunu küçültmez,
+   anywhere küçültür. Kapsam yalnız bu durum kabı (içinde tablo yok; tablo ilk sütunu kuralı etkilenmez). */
+.aile-butce-durumu { min-width: 0; overflow-wrap: anywhere; }
 
-/* Canlı Sheet: PageHeader children; etiket + DataStatus + fark tek satırda, dar alanda sarar. */
+/* Canlı Sheet: etiket + DataStatus + fark tek satırda, dar alanda sarar. */
 .aile-butce-canli {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--aile-bosluk-1) var(--aile-bosluk-3);
   padding-top: var(--aile-bosluk-2);
+  min-width: 0;
 }
 .aile-butce-canli-etiket { font-weight: 600; }
 .aile-butce-canli-fark { color: var(--aile-metin); }
