@@ -129,11 +129,9 @@ html[data-keyboard='true'] ul.aile-menu[data-variant='nav'] :is(a, [role=menuite
 }
 .aile-menu[data-variant='nav'] .aile-menu-divider { background: var(--aile-nav-basili); }
 
-/* --- Menü düğmesi ve açılır panel (tablet, masaüstü) ----------------------------------------------------------- */
-.aile-menu-dugme {
-  position: relative;
-  display: inline-flex;
-}
+/* --- Açılır panel (tablet, masaüstü) ----------------------------------------------------------------------------
+   Menü düğmesinin sarmalayıcısı (.aile-menu-dugme) Menu.lazy.css'tedir: düğme telefon ilk rotasında statik, bu dosya
+   gövdeyle (Menu.panel.tsx) tembel iner. */
 
 /* Panel: Popover API ile üst katmanda (UA stilleri sıfırlanır), sabit konum JS'ten (top/left/max-height). Alt boşluk
    bosluk-2: son öğenin odak çizgisi (7 px) kaydırma kutusunda kırpılmaz. Kenarlık yok; ayrım gölge ve yüzeyle. */

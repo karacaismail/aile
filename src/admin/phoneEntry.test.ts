@@ -120,6 +120,30 @@ describe('telefon girişi (src/admin/main.tsx) statik kapanışı', () => {
   });
 });
 
+// Telefon ilk rotası = giriş + ilk sayfa (Genel durum) parçası. PageHeader her sayfada statiktir; "Diğer" tetiği
+// (OverflowActions → menü düğmesi) statik kalır, ama açılır gövde (Menu listesi, açılır panel) ve alt sayfa (BottomSheet +
+// kipli katman) yalnız ilk niyette dinamik import() ile iner. Genel durum "Diğer" çizmez; gövde ilk rotaya girmez.
+describe('telefon ilk rotası (giriş + Genel durum) statik kapanışında menü gövdesi ve alt sayfa yok', () => {
+  const at = (name: string) => join(ROOT, 'src/admin', name);
+  const firstRoute = new Set(rel([...staticClosure(at('main.tsx')).files, ...staticClosure(at('pages/GenelPage.tsx')).files]));
+  const MENU_BODY = ['src/admin/ui/Menu.tsx', 'src/admin/ui/Menu.panel.tsx', 'src/admin/ui/BottomSheet.tsx', 'src/admin/ui/BottomSheet.layer.ts'];
+
+  it('PageHeader ve "Diğer" tetiği (OverflowActions) statik; Menu gövdesi, BottomSheet ve kipli katman yok', () => {
+    expect([...firstRoute]).toEqual(expect.arrayContaining(['src/admin/shell/PageHeader.tsx', 'src/admin/ui/OverflowActions.tsx']));
+    expect([...firstRoute].filter((file) => MENU_BODY.includes(file))).toEqual([]);
+  });
+
+  it('tetiğin statik kapanışı gövdeyi yalnız dinamik import() ile ister (tek parça: Menu.panel)', () => {
+    const trigger = staticClosure(at('ui/OverflowActions.tsx'));
+    expect(rel(trigger.files).filter((file) => MENU_BODY.includes(file))).toEqual([]);
+    // `typeof import('…')` tür ifadesi de dinamik kenar olarak görünür; kenarlar tekilleştirilir.
+    const dynamic = new Set([...trigger.files].flatMap((file) => importsOf(readFileSync(file, 'utf8'))
+      .filter((ref) => ref.kind === 'dynamic')
+      .map((ref) => `${relative(ROOT, file)} → ${ref.specifier}`)));
+    expect([...dynamic].filter((edge) => /Menu\.panel|BottomSheet/.test(edge))).toEqual(['src/admin/ui/Menu.lazy.tsx → ./Menu.panel']);
+  });
+});
+
 describe('kabuğun e-tablo bağlantısı dashboard modülünü içe aktarmadan aynı adresi kurar', () => {
   it('sheetLink.href === src/dashboard/data.ts sheetUrl', () => {
     expect(sheetLink.href).toBe(sheetUrl);

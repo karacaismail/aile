@@ -5,7 +5,9 @@ import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { DeviceContext } from '../device';
 import type { Device } from '../shell/contracts';
+import { importsOf } from '../adaptive/sourceRules';
 import { DANGER_GROUP_LABEL } from './Menu';
+import { loadMenuPanel } from './Menu.lazy';
 import { DEFAULT_LABEL, DEFAULT_TITLE, OverflowActions, OVERFLOW_MENU_MIN_WIDTH, type OverflowActionItem } from './OverflowActions';
 
 // Tasarım: components/OverflowActions/README.md + index.d.ts OverflowActionsProps + bundle.js OverflowActions.
@@ -29,6 +31,11 @@ vi.mock('./BottomSheet', () => ({
       </div>
     ),
 }));
+
+// Menü gövdesi (Menu.panel: liste, açılır panel, alt sayfa sarmalı) ilk niyette tembel iner. Bu dosya gövde yüklendikten
+// sonraki davranışı sınar: gövde baştan hazırdır, menü ilk tıklamada aynı karede açılır. İndirme, bekleme sırasındaki
+// açma isteği, hata ve yeniden deneme yolları Menu.lazy.test.tsx'tedir.
+beforeAll(() => loadMenuPanel());
 
 const onDevice = (device: Device) => ({ children }: { children: ReactNode }) =>
   <DeviceContext.Provider value={device}>{children}</DeviceContext.Provider>;
@@ -382,13 +389,16 @@ describe('OverflowActions › collapse="auto" (dar alanda Diğer menüsüne taş
 });
 
 describe('OverflowActions › kaynak sözleşmesi', () => {
-  it('uses Menu and ui/icons surfaces, no antd, no raw icon package, no hard-coded colour or focus ring', () => {
+  it('uses the Menu button (Menu.lazy) and ui/icons surfaces, no antd, no raw icon package, no hard-coded colour or focus ring', () => {
     const source = readFileSync(resolve(__dirname, 'OverflowActions.tsx'), 'utf8');
     expect(source).not.toMatch(/from ['"]antd['"]/);
     expect(source).not.toContain('@ant-design/');
     expect(source).not.toContain('@phosphor-icons/');
     expect(source).not.toMatch(/from ['"]\.\/antd['"]/);
-    expect(source).toContain("from './Menu'");
+    // Tetik (menü düğmesi) statik; gövde (Menu.panel, BottomSheet) ve tam Menu modülü statik içe aktarılmaz.
+    const runtime = importsOf(source).filter(ref => ref.kind === 'static' && !ref.typeOnly).map(ref => ref.specifier);
+    expect(runtime).toContain('./Menu.lazy');
+    expect(runtime.filter(specifier => /^\.\/(Menu|Menu\.panel|BottomSheet)$/.test(specifier))).toEqual([]);
     expect(source).not.toMatch(/#[0-9a-f]{3,8}\b/i);
     const css = readFileSync(resolve(__dirname, 'OverflowActions.css'), 'utf8');
     expect(css).not.toMatch(/#[0-9a-f]{3,8}\b/i);

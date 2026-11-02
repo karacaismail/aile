@@ -31,7 +31,7 @@ Seçenekler: `[dist] [--strict] [--budgets <json>] [--delivery-report <json>] [-
 | Birim | Rapor alanları bayttır. Bütçeler KB cinsinden okunur ve **1 KB = 1000 B** sayılır (120 KB = 120000 B). `check-delivery` özeti KiB (1024 B) yazar. Vite'ın derleme çıktısındaki kB 1000 B'dir, ama kendi gzip ayarıyla hesaplanır; bu sayılarla karşılaştırılamaz (kesim öncesi antd: Vite 235,59 kB, bu kapı 233210 B). |
 | Önbellek | Soğuk: HTTP önbelleği ve service worker yok. Her dosya bir istektir ve bir kez sayılır. Yönetim parçaları zaten ön belleğe alınmaz. Ana uygulamayla paylaşılan `shared` parçası, ana uygulamayı ziyaret etmiş bir cihazda ön bellekte olabilir. Bütçe yine de onu sayar. |
 | Veri | Derleme veriden bağımsızdır. Nesil (sentetik ya da gerçek) ve e-tablo istekleri kullanıcı içeriğidir; sayılmaz. Kayıtlı ölçüm `VITE_BUDGET_SHEET_ID=synthetic-budget-sheet-2098` ile alınan derlemedendir. Kimlik derlemeye gömülür. Başka bir kimlik birkaç bayt fark yaratır ve tam tavanlı bir ratchet'i düşürebilir. Bu yüzden kapı yalnız sentetik kimlikle derlenmiş çıktı üzerinde koşar. |
-| Araçlar | Node v24.21.0, Vite 8.3.5 (rolldown 1.2.15), taban `006ee49` + `r4-gates` (önceki kayıtlar: `0a8d903` + `t3-root`, `b061e08` + geçiş kesimi). Farklı bir Node zlib sürümü gzip baytını birkaç bayt oynatabilir. Sürüm değişince ölçümü yeniden kaydedin. |
+| Araçlar | Node v24.21.0, Vite 8.3.5 (rolldown 1.2.15), taban `d70c0ef` + `p-phonejs2` (önceki kayıtlar: `429e068` + `p-phonejs`, `006ee49` + `r4-gates`, `0a8d903` + `t3-root`, `b061e08` + geçiş kesimi). Farklı bir Node zlib sürümü gzip baytını birkaç bayt oynatabilir. Sürüm değişince ölçümü yeniden kaydedin. |
 | Donanım | Ölçüm statiktir; cihaz, ağ ve CPU içermez. Gerçek istek kümesini `e02-production` üretim ağ yalıtımı testi doğrular. Gerçek cihaz ölçümü yoktur (`not_run`). |
 | Hariç | favicon (`icon.svg`), görseller, veri istekleri, sonradan açılan sayfalar ve yetenekler. |
 
@@ -83,7 +83,75 @@ Seçilmeyen satırlar ve gerekçeleri:
 
 `phone-capability` sıfır istek hedefidir. Küçük bir bayt payına çevrilmez.
 
-## Kayıtlı ölçüm (p-phonejs, 2 Kasım 2026)
+## Kayıtlı ölçüm (p-phonejs2, 2 Kasım 2026)
+
+Ölçüm 2026-11-02 tarihinde, entegrasyon tabanı `d70c0ef` üzerinde `p-phonejs2` değişikliğiyle ve yukarıdaki koşullarla
+alındı (`VITE_BUDGET_SHEET_ID=synthetic-budget-sheet-2098`, Node v24.21.0, Vite 8.3.5, gzip seviye 9, 1 KB = 1000 B, ilk
+rota `/genel`). Değişiklik: `PageHeader` → `OverflowActions` → `Menu` → `BottomSheet` zincirinde "Diğer" tetiği (menü
+düğmesi) statik kaldı; açılır gövde (menü listesi, açılır panel, telefonda alt sayfa sarmalı) ve kipli katman
+(`BottomSheet`, `BottomSheet.layer`) ilk niyette tembel iner (`adaptive` `lazyResource`, Sayfalar çekmecesiyle aynı kalıp).
+`check-delivery --strict` PASS; `check-budgets` ratchet ve `--strict` PASS.
+
+Modül sınırları (davranış ve genel adlar değişmedi; `Menu.tsx` aynı adları dışa verir):
+
+| Modül | İlk rotada | İçerik |
+|---|---|---|
+| `ui/Menu.shared.ts` | statik | `MenuItem`/`MenuProps` türleri, `MENU_POPUP_MIN_WIDTH`, `DANGER_GROUP_LABEL`, düğme ile gövde arasındaki sözleşme |
+| `ui/Menu.lazy.tsx` + `Menu.lazy.css` | statik | menü düğmesi: durum, klavye, niyet, bekleme (`aria-busy`) ve kurtarma bildirimi |
+| `ui/Menu.panel.tsx` + `Menu.css` | tembel kök | liste (APG Menu), açılır panel, telefonda `BottomSheet` sarmalı |
+| `ui/Menu.tsx` | yok | genel yüzey: liste kipi ve eşzamanlı `<Menu trigger>`; gövdeyi statik alır (ilk tıklamada aynı karede açılır) |
+
+### Önce ve sonra (p-phonejs2)
+
+| Ölçüt | Önce, `d70c0ef` | Sonra, `p-phonejs2` | Fark | Bütçe |
+|---|---:|---:|---:|---:|
+| `phone-html` | 2046 B | 2030 B | −16 B | 50000 B |
+| `phone-js` | 118815 B | 113715 B | −5100 B | 120000 B |
+| `phone-css` | 9663 B | 8606 B | −1057 B | 35000 B |
+| `phone-capability` | 0 istek | 0 istek | 0 | 0 istek |
+| `phone-transfer` | 226708 B | 220535 B | −6173 B | 500000 B |
+| `wide-js` (antd hariç) | 121457 B | 116357 B | −5100 B | 180000 B |
+| `wide-antd` | 0 B | 0 B | 0 | 0 B |
+| Telefon JS dosyası | 12 | 11 | −1 | — |
+| Telefon statik kapanış (JS + CSS) | 9 dosya, gzip 114997 B | 8 dosya, gzip 108865 B | −6132 B | — |
+| `admin.html` giriş JS | 31965 B | 26961 B | −5004 B | — |
+
+`p-phonejs` kaydı (118807 B) `429e068` tabanındadır; aynı ölçüm `d70c0ef` tabanında 118815 B'dir (ara birleşmeler, +8 B).
+"Önce" sütunu `d70c0ef`'in kendi derlemesidir. `chunk:reload` (71 B) giriş parçasına katıldı (dosya sayısı −1).
+
+**Hedef `phone-js` ≤ 110000 B: ulaşılamadı (113715 B, hedefin 3715 B üstünde).** Ölçümle açıklama:
+
+- Zincirin üst sınırı: aynı tabanda (`d70c0ef`) `PageHeader`'dan `OverflowActions` tamamen çıkarılarak alınan deney
+  derlemesi (kaynağa işlenmedi) `phone-js` 112169 B verdi (−6646 B). "Diğer" tetiği hiç olmasa bile bu zincirle 110000 B'ye
+  inilemez (2169 B eksik kalır).
+- Statik kalan tetik (`OverflowActions` + `Menu.lazy` + `Menu.shared`) derlemede 1546 B'dir (113715 − 112169). Tetik
+  sözleşme gereği statiktir: "Diğer" başlıkla aynı karede çizilir, ilk basış kaybolmaz.
+- Kalan 3715 B bu görevin dosyaları dışındadır: ortak çekirdek (`chunk:shared`, React/ReactDOM) 69276 B, giriş parçası
+  26961 B (kabuk, uyarlama, rotalar, nesil sağlayıcısı, depo, değişiklik kümesi, `PageHeader` + `DataStatus`), Genel sayfası
+  6288 B. `DataStatus` Genel'in ilk boyamasında çizilir (tazelik satırı); tembel yapılamaz. 110 KB için aday yön
+  (ölçülmedi): giriş parçasında ilk boyamada gerekmeyen kabuk/veri kodunu aynı kalıpla bölmek (b01-shell, d02-loading,
+  d03-changeset sahipleri).
+
+Tembel kalan parça (delivery-report `lazy`):
+
+| Kök | Gzip | Ne zaman |
+|---|---:|---|
+| `src/admin/ui/Menu.panel.tsx` (+ `chunk:BottomSheet`) | 9309 B (4 dosya: `Menu.panel` JS 2952, `Menu.css` 1142, `BottomSheet` JS 4011, `BottomSheet.css` 1204) | "Diğer"e ilk basış, odak ya da tuş (niyet indirir, açmaz); açma isteği indirme sürerken kaybolmaz (`aria-expanded` + `aria-busy`, gövde gelince menü açılır, odak ilk/son öğede). Bir kez kendiliğinden yeniden denenir; olmazsa düğmenin altında "Menü yüklenemedi · Yeniden dene" ya da çevrim içi parça hatasında "Yeni sürüm var · Yenile". `BottomSheet` parçası onu statik içe aktaran sayfalarda (Select, Dialog, FilterDrawer kullanan rotalar) sayfa parçasıyla zaten gelir; orada "Diğer" yalnız `Menu.panel` + `Menu.css` ister. |
+
+Gerçek tarayıcı kanıtı (üretim önizlemesi `vite preview`, soğuk bağlam, service worker kapalı, dış ağ kesik; Chromium
+320×568 ve WebKit 390×844 dokunmatik; iki motorda aynı liste):
+
+- `admin.html#/genel`: istenen JS tam olarak ölçülen 11 dosyadır (`admin`, `rolldown-runtime`, `shared`, `router`,
+  `tokens`, `context`, `IconBase.es`, `GenelPage`, `views.sums`, `Money`, `AccordionList`) + 4 CSS (`admin`, `GenelPage`,
+  `Money`, `AccordionList`). `Menu.panel`, `Menu.css` ve `BottomSheet` istenmez.
+- Uygulama içinde `#/hesaplar`: `HesaplarPage`, `Select`, `BottomSheet`, `Dialog` (+ CSS) ve `icons.extra`; `Menu.panel`
+  istenmez.
+- "Diğer"e ilk basış: `Menu.panel-*.js` ve `Menu-*.css` tam bir kez; Escape ile kapatıp yeniden açmak yeni istek yapmaz.
+
+Emülasyondur, gerçek cihaz ölçümü yoktur (`not_run`). Aynı davranış geliştirme sunucusunda `e2e/admin-ui-p-phonejs2.spec.ts`
+ile (modül istek yolları, bekleme sırasında basış, odak, sürüm kayması bildirimi) Chromium ve WebKit'te sınanır.
+
+## Önceki kayıt: p-phonejs (2 Kasım 2026)
 
 Ölçüm 2026-11-02 tarihinde, entegrasyon tabanı `429e068` üzerinde `p-phonejs` değişikliğiyle ve yukarıdaki koşullarla
 alındı (`VITE_BUDGET_SHEET_ID=synthetic-budget-sheet-2098`, Node v24.21.0, Vite 8.3.5, gzip seviye 9, 1 KB = 1000 B, ilk
@@ -159,7 +227,7 @@ Tembel kalan parçalar ve ne zaman indikleri (delivery-report `lazy`):
 iki ana grafik parçasına bölündü (`schemas`, `data`), çünkü yönetim girişi artık `data` parçasını statik çekmez; ön
 bellek üyelik kuralları aynıdır (yalnız ana grafik + kök kabuk dosyaları, yönetim parçası yok; `vite-config.test.ts` PASS).
 
-Kalan sabit bedel: telefon JS'inin %58'i (69276 B) React/ReactDOM ortak çekirdeğidir. Girişte, Genel'in çizmediği ama
+(Sonraki not, p-phonejs2: aşağıda önerilen ui sınırı yapıldı; "Kayıtlı ölçüm (p-phonejs2)".) Kalan sabit bedel: telefon JS'inin %58'i (69276 B) React/ReactDOM ortak çekirdeğidir. Girişte, Genel'in çizmediği ama
 `PageHeader` → `OverflowActions` → `Menu` → `BottomSheet` yoluyla statik kalan açılır menü/alt sayfa kodu vardır (modül
 gzip toplamı ~12 KB); `PageHeader` sözleşmesi (telefonda "Diğer" düğmesi ve menünün eşzamanlı açılması) değişmeden tembel
 yapılamaz. Yön: Menu'nün açılır içeriğini ilk açılışta yükleyen bir ui sınırı (a06-menu, a05-sheet).
@@ -349,7 +417,10 @@ Rapor mutlak yol taşımaz. `delivery-report.json` gibi `dist` içinde durur. `c
 - Gerçek ölçüm: yukarıdaki komut sırası. Bu belgedeki sayılar o çıktıdan alındı.
 - Telefon girişinin kaynak düzeyi kuralı: `src/admin/phoneEntry.test.ts` (`main.tsx` statik kapanışında Zod, `contract.ts`,
   `src/dashboard/data.ts`, veri barrel'ı, canlı veri/görünüm/CSV/indeks/sorgu katmanları ve `MobileNavDrawer` yok; kabuğun
-  e-tablo adresi `dashboard/data.ts` ile aynı; `store.ts` sözleşmeyi yalnız dinamik içe aktarır). Tembel doğrulamanın
+  e-tablo adresi `dashboard/data.ts` ile aynı; `store.ts` sözleşmeyi yalnız dinamik içe aktarır; giriş + Genel durum
+  kapanışında `Menu.tsx`, `Menu.panel.tsx`, `BottomSheet` ve kipli katman yok, "Diğer" tetiği gövdeyi yalnız
+  `import('./Menu.panel')` ile ister). Menü gövdesinin bekleme, iptal, hata ve yeniden deneme yolu:
+  `src/admin/ui/Menu.lazy.test.tsx`; gerçek tarayıcıda `e2e/admin-ui-p-phonejs2.spec.ts`. Tembel doğrulamanın
   sıkılığı ve indirme hatası: `src/admin/data/store.contract.test.ts`. Simge derleme eklentisinin çıktısı paketin kendi
   bileşeniyle 23 simgede birebir aynı SVG'dir: `src/admin/ui/icons.build.test.tsx`. Çekmece hata/yeniden deneme yolu:
   `src/admin/shell/WorkspaceShell.drawer.test.tsx`.
@@ -366,4 +437,4 @@ Rapor mutlak yol taşımaz. `delivery-report.json` gibi `dist` içinde durur. `c
 
 Aynı ölçümde sayfa ve kabuk modüllerindeki `../ui` barrel importları doğrudan modül importlarına çevrildi; Alımlar ve Ödemeler telefon kapanışından Chart ve Overview parçaları çıktı (kural testi: `src/admin/pages/barrelKurali.test.ts`).
 
-Açık iş (kapandı, p-phonejs: 118807 B; "Kayıtlı ölçüm (p-phonejs)"): telefon ilk rota JS hedefi 120 KB; o gün 174,1 KB. Dağılım (gzip): ortak çekirdek (React) 69,3 KB, yönetim girişi (kabuk, uyarlama, rotalar) 49,8 KB, veri katmanı (Zod dahil) 30,9 KB, simge parçası 6,8 KB, Genel sayfası 6,4 KB. Azaltma yönü: veri katmanını ve girişi rota başına bölmek.
+Açık iş (kapandı, p-phonejs: 118807 B; "Önceki kayıt: p-phonejs"; sonra p-phonejs2: 113715 B): telefon ilk rota JS hedefi 120 KB; o gün 174,1 KB. Dağılım (gzip): ortak çekirdek (React) 69,3 KB, yönetim girişi (kabuk, uyarlama, rotalar) 49,8 KB, veri katmanı (Zod dahil) 30,9 KB, simge parçası 6,8 KB, Genel sayfası 6,4 KB. Azaltma yönü: veri katmanını ve girişi rota başına bölmek.

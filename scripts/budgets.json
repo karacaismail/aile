@@ -82,13 +82,13 @@
     }
   ],
   "measured": {
-    "note": "Kayıtlı ölçüm (recorded koşulları, ilk rota /genel): node scripts/check-budgets.mjs dist. Tavanlar ve wide-antd istisnası bu değerlerin aynısıdır, pay yok; check-budgets.test.mjs eşitliği doğrular. Önce/sonra: docs/ADMIN-BUDGETS.md",
-    "phone-html": 2045,
-    "phone-js": 118807,
-    "phone-css": 9663,
+    "note": "Kayıtlı ölçüm (recorded koşulları, ilk rota /genel): node scripts/check-budgets.mjs dist. Son ölçüm 2026-11-02, p-phonejs2 (taban d70c0ef: \"Diğer\" menü gövdesi ve BottomSheet ilk niyette tembel; d70c0ef'te phone-js 118815 B). Tavanlar ve wide-antd istisnası bu değerlerin aynısıdır, pay yok; check-budgets.test.mjs eşitliği doğrular. Önce/sonra: docs/ADMIN-BUDGETS.md",
+    "phone-html": 2030,
+    "phone-js": 113715,
+    "phone-css": 8606,
     "phone-capability": 0,
-    "phone-transfer": 226699,
-    "wide-js": 121447,
+    "phone-transfer": 220535,
+    "wide-js": 116357,
     "wide-antd": 0
   },
   "ratchet": {
