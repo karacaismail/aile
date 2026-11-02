@@ -1,9 +1,21 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { BOUNDARY_RULES, UI_BARREL_NAMES, boundaryViolations, scanBoundary } from './boundary';
-// Barrel statik yüklenir: antd + pro modül grafiği toplama (collection) aşamasında dönüşür; test gövdesindeki
-// dinamik import bu soğuk maliyeti test süresine yazıyor ve tam koşuda zaman aşımına yol açıyordu.
-import * as ui from './ui';
+// Barrel adları ui/index.ts kaynak metninden çözülür: antd + Pro + Phosphor grafiğini çalışma zamanında yüklemek bu
+// kapı için gereksizdi ve tam pakette yük altında 5 sn zaman aşımına yol açıyordu. Çalışma zamanı ihracatlarının
+// (ve her adın bileşen olmasının) tek doğrulayıcısı ui/barrel.test.ts'tir.
+
+/** ui/index.ts değer ihracatları (kaynak metinden). Yalnız `export { A } from './A'` ve `export type {…}` kabul edilir.
+ *  Aynı çözümleyici ui/barrel.test.ts'te çalışma zamanı ihracatlarıyla birebir karşılaştırılır. */
+function barrelValueExports(source: string): string[] {
+  const statements = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '').split(';').map((s) => s.trim()).filter(Boolean);
+  return statements.flatMap((statement) => {
+    if (/^export\s+type\s*\{[^}]*\}\s*from\s*['"][^'"]+['"]$/.test(statement)) return [];
+    const match = /^export\s*\{([^}]*)\}\s*from\s*['"][^'"]+['"]$/.exec(statement);
+    if (!match) throw new Error(`ui/index.ts desteklenmeyen deyim: ${statement}`);
+    return match[1].split(',').map((part) => part.trim()).filter((part) => part && !/^type\s/.test(part)).map((part) => part.split(/\s+as\s+/).pop()!);
+  });
+}
 
 // Kapı: antd/pro/phosphor/echarts yalnız src/admin/ui içinde; admin içinde Mantine yok; eski uygulamaya antd sızmaz.
 describe('boundaryViolations (saf)', () => {
@@ -94,6 +106,6 @@ describe('boundary (depo taraması)', () => {
   it('ui barrel exports exactly the 32 names the contract lists', () => {
     expect(UI_BARREL_NAMES).toHaveLength(32);
     expect(new Set(UI_BARREL_NAMES).size).toBe(32);
-    expect(Object.keys(ui).sort()).toEqual([...UI_BARREL_NAMES].sort());
+    expect(barrelValueExports(readFileSync(resolve(root, 'src/admin/ui/index.ts'), 'utf8')).sort()).toEqual([...UI_BARREL_NAMES].sort());
   });
 });
