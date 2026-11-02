@@ -15,10 +15,10 @@ import './Tabs.css';
 //    devre dışı radyo native disabled (odaklanamaz, atlanır).
 //  - Telefon + 5 ve üstü öğe: select-only combobox; liste alttan açılan sayfada (Tabs.secim.tsx).
 // Dar şerit kendi içinde yatay kayar; gizli sekme olan kenarda süsleyici taşma ipucu (Phosphor ok) görünür, basınca kaydırır.
-// Seçim (tasarım): secili yüzey + 600; sekmede ayrıca alt kenarda düz çizgi, sekmenin alt köşeleri her durumda radiussuz
-// (kavisli vurgu kenarı yok). Odak çizgisini admin.css çizer ([role=tab] / [data-focus-line] ::after, klavye modunda,
-// kontrolün 4 px altında); seçim çizgisi ::before'dadır, iki gösterge ayrıdır. Seçim tıklamada (pointerup → click) olur:
-// pointercancel ile biten dokunuş (şerit kaydırıldı) seçmez.
+// Seçim (tasarım README: "Seçimi şeritle gösterme"; Tabs README: "Alt çizgi yalnız odak içindir"): secili yüzey + 600,
+// seçim çizgisi yok. Odak çizgisini admin.css çizer ([role=tab] / [data-focus-line] ::after, klavye modunda, kontrolün
+// 4 px altında); odak seçimden ayrıdır. Seçim tıklamada (pointerup → click) olur: pointercancel ile biten dokunuş
+// (şerit kaydırıldı) seçmez.
 export type { TabItem } from './Tabs.gezinme';
 
 export interface TabsProps {

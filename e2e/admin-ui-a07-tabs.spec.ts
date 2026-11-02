@@ -2,8 +2,9 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 import { openAdmin, shiftTabKey, tabKey } from './admin-helpers';
 import { accentEdges, focusRing, smallText } from './admin-detectors';
 
-// Tabs (src/admin/ui/Tabs.*) gerçek rotalarda: /ev (Oda bölümleri, 2 sekme: telefonda da sekme şeridi), /alimlar (Görünüm
-// modu, 6 segment: telefonda combobox + alttan sayfa, genişte radiogroup), /sozlukler (Sözlük, 6 sekme). Görev koşusu:
+// Tabs (src/admin/ui/Tabs.*) gerçek rotalarda: /ev oda ayrıntısı (Oda bölümleri, 4 sekme: telefonda da sekme şeridi; dar
+// telefonda ve masaüstü yan panelinde şerit kendi içinde kayar), /alimlar (Görünüm modu, 6 segment: telefonda combobox +
+// alttan sayfa, genişte radiogroup), /sozlukler (Sözlük, 6 sekme; telefonda sayfa ui/Select kullanır). Görev koşusu:
 // chromium 320×568 dokunmatik + webkit 390×844 dokunmatik (ikisi de telefon profili). @matrix testleri entegrasyonda
 // 360/375/320×480/568×320 (telefon) ve tablet/masaüstü projelerinde de koşar; dallar data-profile'a göre seçilir.
 // Emülasyon gerçek cihaz değildir. Veri: webServer'ın sentetik nesli (fixtures/generation-synthetic); Google'a istek yok.
@@ -56,81 +57,139 @@ async function touchDrag(page: Page, from: { x: number; y: number }, to: { x: nu
   await cdp.detach();
 }
 
+/**
+ * Oda ayrıntısını açar (c06 /ev): telefonda akordeonun ilk (açık) satırındaki "Odayı aç"; masaüstünde oda tablosunun
+ * satırı; tablette tablo sığıyorsa satır, sığmıyorsa akordeon "Odayı aç" (ResponsiveTable kuralı). Geniş profilde liste
+ * modülü tembel gelir; masaüstünde tıklama telefon yedeğine düşmesin diye tablo beklenir (tablette iki sunumda da aynı
+ * "Odayı aç" vardır, seçili oda sayfada tutulur).
+ */
 async function openRoomDetail(page: Page) {
   await openAdmin(page, '/ev');
-  const open = page.getByRole('button', { name: 'Ayrıntıyı aç' }).first();
-  if (await open.count()) await open.click();
-  else await page.getByRole('table', { name: 'Odalar' }).getByRole('row').nth(1).click();
+  const table = page.getByRole('table', { name: 'Odalar' });
+  const open = page.getByRole('button', { name: 'Odayı aç' }).first();
+  if ((await profile(page)) === 'desktop') await expect(table).toBeVisible();
+  else await expect(table.or(open).first()).toBeVisible();
+  if (await table.isVisible()) await table.getByRole('row').nth(1).click();
+  else await open.click();
   const tablist = page.getByRole('tablist', { name: 'Oda bölümleri' });
   await expect(tablist).toBeVisible();
   return tablist;
 }
 
+/** --aile-secili'nin hesaplanmış rengi: öğenin yanına konan bir sondanın zemini (token değeri yönetim kökünden gelir). */
+const seciliRenk = (near: Locator) => near.evaluate((el) => {
+  const probe = document.createElement('span');
+  probe.style.backgroundColor = 'var(--aile-secili)';
+  el.parentElement!.appendChild(probe);
+  const value = getComputedStyle(probe).backgroundColor;
+  probe.remove();
+  return value;
+});
+const zemin = (locator: Locator) => locator.evaluate((el) => getComputedStyle(el).backgroundColor);
+
+/** Sekme şeridin görünür alanında ve üstünde başka öğe (taşma ipucu) yok: orta noktasına basılan öğe sekmenin kendisi. */
+const shownInStrip = (tab: Locator) => tab.evaluate((el) => {
+  const box = el.getBoundingClientRect();
+  const strip = el.closest('[role="tablist"]')!.getBoundingClientRect();
+  const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+  return { inside: box.left >= strip.left - 0.5 && box.right <= strip.right + 0.5, hit: hit !== null && (hit === el || el.contains(hit)) };
+});
+
 test.describe('Tabs › sekme şeridi (/ev Oda bölümleri)', () => {
-  test('APG sekmeler: tek durak, oklar + Home/End otomatik seçer, düz seçim çizgisi, 44/48 hedef, ≥14 px', MATRIX, async ({ page, browserName }) => {
+  test('APG sekmeler: tek durak, oklar + Home/End otomatik seçer, seçim secili yüzey + 600 (şerit yok), 44/48 hedef, ≥14 px', MATRIX, async ({ page, browserName }) => {
     const tablist = await openRoomDetail(page);
+    const tabs = tablist.getByRole('tab');
+    await expect(tabs).toHaveText(['Alımlar', 'İşler', 'Eşyalar', 'Aydınlatma']);
+    const alimlar = tablist.getByRole('tab', { name: 'Alımlar' });
+    const isler = tablist.getByRole('tab', { name: 'İşler' });
     const esyalar = tablist.getByRole('tab', { name: 'Eşyalar' });
     const aydinlatma = tablist.getByRole('tab', { name: 'Aydınlatma' });
     await expect(page.getByRole('group', { name: 'Oda bölümleri' })).toBeVisible();
-    await expect(esyalar).toHaveAttribute('aria-selected', 'true');
-    await expect(esyalar).toHaveAttribute('tabindex', '0');
-    await expect(aydinlatma).toHaveAttribute('tabindex', '-1');
+    await expect(tablist).toHaveAttribute('aria-orientation', 'horizontal');
+    await expect(alimlar).toHaveAttribute('aria-selected', 'true');
+    await expect(tablist.locator('[role="tab"][aria-selected="true"]')).toHaveCount(1);
+    await expect(tablist.locator('[role="tab"][tabindex="0"]')).toHaveCount(1);
+    await expect(alimlar).toHaveAttribute('tabindex', '0');
+    for (const tab of [isler, esyalar, aydinlatma]) await expect(tab).toHaveAttribute('tabindex', '-1');
 
-    // Seçim: secili yüzey + 600 + alt kenarda düz 3 px çizgi; sekmenin alt köşeleri 0 (kavisli vurgu kenarı yok).
-    const shape = await esyalar.evaluate((el) => {
+    // Seçim (tasarım: "Seçimi şeritle gösterme"): secili yüzey + 600; seçili olmayan saydam + 500. Şerit/çizgi yok,
+    // dört köşe de aynı kontrol köşesi (kavisli vurgu kenarı yok).
+    const secili = await seciliRenk(tablist);
+    expect(secili).not.toMatch(/rgba\(0, 0, 0, 0\)|transparent/);
+    const shape = await alimlar.evaluate((el) => {
       const s = getComputedStyle(el);
-      const line = getComputedStyle(el, '::before');
+      const before = getComputedStyle(el, '::before');
+      const next = getComputedStyle(el.nextElementSibling!);
       return {
-        weight: s.fontWeight, bottomLeft: s.borderBottomLeftRadius, bottomRight: s.borderBottomRightRadius, topLeft: s.borderTopLeftRadius,
-        lineBottom: line.bottom, lineHeight: line.height, lineColor: line.backgroundColor, lineContent: line.content,
+        weight: s.fontWeight, background: s.backgroundColor, nextWeight: next.fontWeight, nextBackground: next.backgroundColor,
+        radii: [s.borderTopLeftRadius, s.borderTopRightRadius, s.borderBottomRightRadius, s.borderBottomLeftRadius],
+        borders: [s.borderTopWidth, s.borderRightWidth, s.borderBottomWidth, s.borderLeftWidth],
+        before: ['none', 'normal', ''].includes(before.content) ? 'yok' : before.content,
       };
     });
     expect(shape.weight).toBe('600');
-    expect([shape.bottomLeft, shape.bottomRight]).toEqual(['0px', '0px']);
-    expect(shape.topLeft).not.toBe('0px');
-    expect(shape.lineContent).not.toBe('none');
-    expect([shape.lineBottom, shape.lineHeight]).toEqual(['0px', '3px']);
-    expect(shape.lineColor).not.toMatch(/rgba\(0, 0, 0, 0\)|transparent/);
+    expect(shape.nextWeight).toBe('500');
+    expect(shape.background).toBe(secili);
+    expect(shape.nextBackground).toBe('rgba(0, 0, 0, 0)');
+    expect(shape.before).toBe('yok');
+    expect(shape.borders).toEqual(['0px', '0px', '0px', '0px']);
+    expect(new Set(shape.radii).size, shape.radii.join(' ')).toBe(1);
+    expect(shape.radii[0]).not.toBe('0px');
     expect(await accentEdges(page, { root: '.aile-tabs' })).toEqual([]);
     expect(await smallText(page, { root: '.aile-tabs' })).toEqual([]);
-    await expectTargets(page, [esyalar, aydinlatma]);
+    await expectTargets(page, [alimlar, isler, esyalar, aydinlatma]);
     await noPageOverflow(page);
 
-    // Dokunma/işaretçi: dokunuş seçer; işaretçi modunda odak çizgisi görünmez.
-    if (await coarseInput(page)) await aydinlatma.tap();
-    else await aydinlatma.click();
-    await expect(aydinlatma).toHaveAttribute('aria-selected', 'true');
-    await expect(esyalar).toHaveAttribute('aria-selected', 'false');
+    // Dokunma/işaretçi: dokunuş seçer ve tek durağı taşır; işaretçi modunda odak çizgisi görünmez. Fareyle tıklanan
+    // sekme imleç üstündeyken de secili yüzeyde kalır (üzerine gelme seçimi silmez).
+    if (await coarseInput(page)) await isler.tap();
+    else await isler.click();
+    await expect(isler).toHaveAttribute('aria-selected', 'true');
+    await expect(alimlar).toHaveAttribute('aria-selected', 'false');
+    await expect.poll(() => zemin(isler)).toBe(secili);
+    await expect.poll(() => zemin(alimlar)).toBe('rgba(0, 0, 0, 0)');
+    await expect(isler).toHaveAttribute('tabindex', '0');
+    await expect(alimlar).toHaveAttribute('tabindex', '-1');
     expect(await keyboardMode(page)).toBe('false');
     expect(await focusRing(page, { target: '[role="tab"][aria-selected="true"]', keyboard: false })).toEqual([]);
 
-    // Klavye: Tab seçili sekmeye girer; oklar odağı taşır ve anında seçer (uçlarda sarar); Home/End.
-    await tabInto(page, browserName, aydinlatma);
+    // Klavye: Tab seçili sekmeye girer; oklar odağı taşır ve anında seçer (uçlarda sarar); Home/End. Seçilen sekme
+    // şeridin görünür alanına kayar ve ipucunun altında kalmaz.
+    await tabInto(page, browserName, isler);
     expect(await focusRing(page)).toEqual([]);
     await page.keyboard.press('ArrowLeft');
-    await expect(esyalar).toBeFocused();
-    await expect(esyalar).toHaveAttribute('aria-selected', 'true');
+    await expect(alimlar).toBeFocused();
+    await expect(alimlar).toHaveAttribute('aria-selected', 'true');
     expect(await focusRing(page)).toEqual([]);
     await page.keyboard.press('ArrowLeft');
     await expect(aydinlatma).toBeFocused();
     await expect(aydinlatma).toHaveAttribute('aria-selected', 'true');
+    await expect.poll(() => shownInStrip(aydinlatma)).toEqual({ inside: true, hit: true });
+    await page.keyboard.press('ArrowRight');
+    await expect(alimlar).toBeFocused();
+    await expect(alimlar).toHaveAttribute('aria-selected', 'true');
+    await expect.poll(() => shownInStrip(alimlar)).toEqual({ inside: true, hit: true });
+    await page.keyboard.press('End');
+    await expect(aydinlatma).toBeFocused();
+    await expect(aydinlatma).toHaveAttribute('aria-selected', 'true');
     await page.keyboard.press('Home');
-    await expect(esyalar).toBeFocused();
-    await expect(esyalar).toHaveAttribute('aria-selected', 'true');
+    await expect(alimlar).toBeFocused();
+    await expect(alimlar).toHaveAttribute('aria-selected', 'true');
     await page.keyboard.press('End');
     await expect(aydinlatma).toBeFocused();
     await page.keyboard.press('Escape');
     await expect(aydinlatma).toBeFocused();
     await expect(aydinlatma).toHaveAttribute('aria-selected', 'true');
+    await expect(tablist.locator('[role="tab"][aria-selected="true"]')).toHaveCount(1);
     // Sonraki Tab şeritten çıkar (tek sekme durağı), Shift+Tab seçili sekmeye döner; Shift+Tab şeridi geriye de tek
-    // adımda bırakır (seçili olmayan Eşyalar durak değildir), Tab yine seçili sekmeye girer.
+    // adımda bırakır (seçili olmayan sekmeler durak değildir), Tab yine seçili sekmeye girer.
     await page.keyboard.press(tabKey(browserName));
     expect(await page.evaluate(() => document.activeElement?.getAttribute('role'))).not.toBe('tab');
     await page.keyboard.press(shiftTabKey(browserName));
     await expect(aydinlatma).toBeFocused();
     await page.keyboard.press(shiftTabKey(browserName));
     expect(await page.evaluate(() => document.activeElement?.getAttribute('role'))).not.toBe('tab');
-    await expect(esyalar).not.toBeFocused();
+    for (const tab of [alimlar, isler, esyalar]) await expect(tab).not.toBeFocused();
     await page.keyboard.press(tabKey(browserName));
     await expect(aydinlatma).toBeFocused();
   });
@@ -138,9 +197,14 @@ test.describe('Tabs › sekme şeridi (/ev Oda bölümleri)', () => {
   test('dar şerit kendi içinde kayar: taşan yanda ipucu görünür, sayfa taşmaz; kaydırma dokunuşu (pointercancel) seçmez', MATRIX, async ({ page, browserName }) => {
     const tablist = await openRoomDetail(page);
     const ipucu = (yon: 'bas' | 'son') => page.locator(`.aile-tabs__ipucu[data-yon="${yon}"]`);
-    // Gerçek içerik sığar: ipucu yok.
+    const tasma = () => tablist.evaluate((el) => ({ bas: el.scrollLeft > 1, son: el.scrollLeft + el.clientWidth < el.scrollWidth - 1 }));
+    // Gerçek içerik (dört sekme): seçili ilk sekmeyle şerit baştadır, baş yanda ipucu yok; son yanda ipucu yalnız şerit
+    // gerçekten taşıyorsa (320 px telefonda ve 384 px yan panelde taşar, geniş tam sayfada sığar).
+    const gercek = await tasma();
+    expect(gercek.bas).toBe(false);
     await expect(ipucu('bas')).toHaveAttribute('data-gorunur', 'false');
-    await expect(ipucu('son')).toHaveAttribute('data-gorunur', 'false');
+    await expect(ipucu('son')).toHaveAttribute('data-gorunur', String(gercek.son));
+    await noPageOverflow(page);
 
     // Dar kap (uzun ad / çok sekme yerine): şerit taşar, sayfa taşmaz, son yanda ipucu görünür.
     await page.addStyleTag({ content: '.aile-tabs { max-width: 112px; }' });
@@ -162,14 +226,14 @@ test.describe('Tabs › sekme şeridi (/ev Oda bölümleri)', () => {
     await expect(ipucu('bas')).toHaveAttribute('data-gorunur', 'false');
 
     if (browserName === 'chromium' && (await coarseInput(page))) {
-      // Gerçek dokunmatik sürükleme, seçili olmayan Aydınlatma'nın GÖRÜNÜR kısmında başlar (ipucunun üstünde başlayan
-      // dokunuş ipucunundur): kap, Aydınlatma'nın ilk 40 px'i ipucunun solunda kalacak genişliğe ayarlanır. Şerit kayar →
+      // Gerçek dokunmatik sürükleme, seçili olmayan İşler'in GÖRÜNÜR kısmında başlar (ipucunun üstünde başlayan dokunuş
+      // ipucunundur): kap, İşler'in ilk 40 px'i ipucunun solunda kalacak genişliğe ayarlanır. Şerit kayar →
       // pointercancel, click yok, seçim değişmez.
-      const aydinlatma = tablist.getByRole('tab', { name: 'Aydınlatma' });
+      const isler = tablist.getByRole('tab', { name: 'İşler' });
       const listeX = (await tablist.boundingBox())!.x;
-      const aydinlatmaX = (await aydinlatma.boundingBox())!.x;
+      const islerX = (await isler.boundingBox())!.x;
       const ipucuW = (await ipucu('son').boundingBox())!.width;
-      await page.addStyleTag({ content: `.aile-tabs { max-width: ${Math.ceil(aydinlatmaX - listeX + 40 + ipucuW)}px; }` });
+      await page.addStyleTag({ content: `.aile-tabs { max-width: ${Math.ceil(islerX - listeX + 40 + ipucuW)}px; }` });
       await expect(ipucu('son')).toHaveAttribute('data-gorunur', 'true');
       await expect.poll(() => tablist.evaluate((el) => el.scrollLeft)).toBe(0);
       await page.evaluate(() => {
@@ -177,13 +241,14 @@ test.describe('Tabs › sekme şeridi (/ev Oda bölümleri)', () => {
         w.__aileCancel = 0;
         document.addEventListener('pointercancel', () => { w.__aileCancel += 1; }, true);
       });
-      const box = (await aydinlatma.boundingBox())!;
+      const box = (await isler.boundingBox())!;
       const y = box.y + box.height / 2;
-      expect(await page.evaluate(([x, py]) => document.elementFromPoint(x!, py!)?.textContent, [box.x + 12, y])).toBe('Aydınlatma');
+      expect(await page.evaluate(([x, py]) => document.elementFromPoint(x!, py!)?.textContent, [box.x + 12, y])).toBe('İşler');
       await touchDrag(page, { x: box.x + 12, y }, { x: box.x + 12 - 80, y });
       await expect.poll(() => page.evaluate(() => (window as unknown as { __aileCancel: number }).__aileCancel)).toBeGreaterThan(0);
       await expect.poll(() => tablist.evaluate((el) => el.scrollLeft)).toBeGreaterThan(0);
-      await expect(aydinlatma).toHaveAttribute('aria-selected', 'false');
+      await expect(isler).toHaveAttribute('aria-selected', 'false');
+      await expect(tablist.getByRole('tab', { name: 'Alımlar' })).toHaveAttribute('aria-selected', 'true');
     }
   });
 });
@@ -206,6 +271,25 @@ test.describe('Tabs › görünüm modu (/alimlar)', () => {
       expect(await accentEdges(page, { root: '.aile-tabs--segment' })).toEqual([]);
       expect(await smallText(page, { root: '.aile-tabs--segment' })).toEqual([]);
       await expectTargets(page, [group.getByRole('radio', { name: 'Liste' })]);
+      // Hareket: yüzey geçişi tek süre ve tek eğri; azaltılmış harekette süre 0 ve seçim anında. (Tercih çalışırken
+      // değişince geniş profilde antd sağlayıcısının alt ağacı yeniden kurması ayrı kayıttır; burada yalnız stil ve durum
+      // okunur, konumlayıcılar yeniden çözülür.)
+      // Liste öğeleri virgülle ayrılır; cubic-bezier(…) içindeki virgüller bölünmez.
+      const gecis = () => group.getByRole('radio', { name: 'Liste' }).evaluate((el) => ({
+        durations: getComputedStyle(el).transitionDuration.split(/,\s*(?![^(]*\))/), eases: getComputedStyle(el).transitionTimingFunction.split(/,\s*(?![^(]*\))/),
+      }));
+      const normal = await gecis();
+      expect(new Set(normal.durations)).toEqual(new Set(['0.24s']));
+      expect(new Set(normal.eases)).toEqual(new Set(['cubic-bezier(0.65, 0, 0.35, 1)']));
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await expect.poll(async () => [...new Set((await gecis()).durations)]).toEqual(['0s']);
+      // Seçim ve yüzey aynı anda: tıklamanın hemen ardından (bekleme yok) radyo işaretli ve yüzey son değerinde (secili;
+      // imleç üstünde kalsa da).
+      const liste = group.getByRole('radio', { name: 'Liste' });
+      const secili = await seciliRenk(liste);
+      await group.getByText('Liste', { exact: true }).click();
+      const anlik = await liste.evaluate((el) => ({ checked: el.getAttribute('aria-checked'), background: getComputedStyle(el).backgroundColor }));
+      expect(anlik).toEqual({ checked: 'true', background: secili });
       return;
     }
 
@@ -272,11 +356,12 @@ test.describe('Tabs › görünüm modu (/alimlar)', () => {
     await expect(combobox).toContainText('Tablo');
     expect(await focusRing(page)).toEqual([]);
 
-    // Azaltılmış hareket: geçiş süresi 0; kapanınca katman hemen kalkar, durum ve odak aynı anda. Not: tercih çalışırken
-    // değişince WideProviders (antd ConfigProvider teması) .aile-admin altını yeniden kurar ve odak body'ye düşer
-    // (entegrasyon kaydı); bu yüzden odak tercih değiştikten sonra klavyeyle yeniden tetiğe getirilir.
+    // Azaltılmış hareket: geçiş süresi 0; kapanınca katman hemen kalkar, durum ve odak aynı anda. Telefon profilinde antd
+    // sağlayıcısı (WideProviders) bağlı değildir (PHONE_WITHOUT_ANTD): tercih çalışırken değişince alt ağaç yeniden
+    // kurulmaz, odak tetikte ve klavye modu açık kalır. (Geniş profildeki yeniden kurulma ayrı kayıttır.)
     await page.emulateMedia({ reducedMotion: 'reduce' });
-    await tabInto(page, browserName, combobox);
+    await expect(combobox).toBeFocused();
+    expect(await keyboardMode(page)).toBe('true');
     await page.keyboard.press('Enter');
     await expect(sheet).toBeVisible();
     await expect(combobox).toHaveAttribute('aria-expanded', 'true');
@@ -306,11 +391,19 @@ test.describe('Tabs › 6 sekmeli şerit (/sozlukler Sözlük)', () => {
     const tablist = page.getByRole('tablist', { name: 'Sözlük' });
     await expect(tablist.getByRole('tab')).toHaveCount(6);
     const first = tablist.getByRole('tab').first();
+    const last = tablist.getByRole('tab', { name: 'Görünümler' });
+    // İçerik seçili sekmeye bağlı: görünüm tanımları bölümü yalnız "Görünümler" seçilince çizilir. Bölümün tablo mu
+    // yoksa (tablette sığmayan tablo) akordeon mu olduğunu ResponsiveTable seçer; burada içerik değişimi sınanır.
+    const gorunumler = page.getByRole('heading', { level: 2, name: 'Görünüm tanımları' });
     await expect(first).toHaveAttribute('aria-selected', 'true');
+    await expect(gorunumler).toHaveCount(0);
     await tabInto(page, browserName, first);
     await page.keyboard.press('End');
-    await expect(tablist.getByRole('tab', { name: 'Görünümler' })).toHaveAttribute('aria-selected', 'true');
-    await expect(page.getByRole('table', { name: 'Görünüm tanımları' })).toBeVisible();
+    await expect(last).toBeFocused();
+    await expect(last).toHaveAttribute('aria-selected', 'true');
+    await expect(first).toHaveAttribute('aria-selected', 'false');
+    await expect(gorunumler).toBeVisible();
+    await expect.poll(() => shownInStrip(last)).toEqual({ inside: true, hit: true });
     expect(await focusRing(page)).toEqual([]);
     expect(await accentEdges(page, { root: '.aile-tabs' })).toEqual([]);
   });
