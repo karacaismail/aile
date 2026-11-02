@@ -377,15 +377,21 @@ test.describe('Ödemeler geniş görünüm', () => {
 });
 
 test.describe('Ödemeler tablet', () => {
-  test('820×1180: tablo sığmaz, tarih gruplu akordeon; grup başlıkları h2, sayfanın başlık sırası atlamaz', async ({ page }) => {
+  // Başlık sırası (t3-pages): h1 sayfa → h2 liste bölümü "Tahmini ödemeler" (bölge adı da bu başlıktır) → h3 tarih grubu.
+  // Grup başlığı bölüm başlığıyla aynı düzeyde olmaz; hiçbir düzey atlanmaz.
+  test('820×1180: tablo sığmaz, tarih gruplu akordeon; h1 → h2 liste bölümü → h3 grup başlıkları, sayfanın başlık sırası atlamaz', async ({ page }) => {
     await hazirla(page, TABLET);
     const main = await openAdmin(page, '/odemeler');
     // Geniş sunum (lazyWide) gelene kadar telefon sunumu yedektir; geniş sorgu şeridinin görünüm modu düğmesi gelişini gösterir.
     await expect(main.getByText('Zaman çizelgesi', { exact: true }).first()).toBeVisible();
-    const alan = main.locator('[data-layout="accordion"]');
+    await expect(main.getByRole('heading', { level: 1, name: 'Ödemeler' })).toBeVisible();
+    const bolum = liste(page);
+    await expect(bolum.getByRole('heading', { level: 2, name: LISTE, exact: true })).toBeVisible();
+    const alan = bolum.locator('[data-layout="accordion"]');
     await expect(alan).toHaveCount(1);
-    await expect(alan.getByRole('heading', { level: 2 }).first()).toHaveText(/^Tarihi geçenler/);
-    expect(await alan.getByRole('heading', { level: 3 }).count(), 'h1 altında h3 grup başlığı').toBe(0);
+    await expect(main.locator('[data-layout="accordion"]'), 'akordeon liste bölümünün içinde').toHaveCount(1);
+    await expect(alan.getByRole('heading', { level: 3 }).first()).toHaveText(/^Tarihi geçenler/);
+    expect(await alan.getByRole('heading', { level: 2 }).count(), 'grup başlığı bölüm başlığıyla aynı düzeyde (h2)').toBe(0);
     expect(await baslikSirasiAtlamalari(page), 'başlık sırası atlıyor').toEqual([]);
     expect(await horizontalOverflow(page), 'belge düzeyinde yatay taşma').toEqual([]);
   });

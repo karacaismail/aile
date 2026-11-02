@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type RefObject } from 'react';
-import { lazyWide, useProfile, useWideModule } from '../adaptive';
+import { lazyWide, useProfile, useWideLoading, useWideModule } from '../adaptive';
 import type { WorkspaceShellProps } from './contracts';
 import { MobileNavDrawer, ShellIcon } from './MobileNavDrawer';
 import { currentAdminLink } from './navigation';
@@ -110,17 +110,37 @@ function readAnchor(root: HTMLElement | null, shell: HTMLElement | null): Anchor
   return chain;
 }
 
+/** Tutma, geniş yükleme bittikten sonra bu kadar ardışık karede boyut bildirimi gelmezse biter. */
+const SETTLE_FRAMES = 2;
+
 /**
  * Profil/gezinme düzeni değişince kaydırmayı korur: son kaydırmada kaydedilen çapanın (hâlâ bağlı ilk öğe) ekrandaki
  * konumu geri kurulur. Böylece hem yeniden boyutlanan içerik hem de üst çubuk ↔ yan gezinme değişimi telafi edilir.
+ *
+ * Geniş adalar kabuktan bağımsız ve sonra yerleşebilir (ör. Alımlar masaüstü yerleşimi yan gezinmeden ~26 ms sonra
+ * gelip içeriğin yüksekliğini değiştirir); kabuk yerleşim anahtarı o an değişmez. WebKit/Safari'de yerel kaydırma çapası
+ * (overflow-anchor) olmadığından içerik kayardı. Bu yüzden düzen değişiminden sonra çapa TUTULUR: geniş yükleme
+ * (useWideLoading, kökteki data-wide-loading ile aynı sinyal) sürdükçe ve main'in boyutu değiştikçe (ResizeObserver,
+ * yerleşimden sonra, boyamadan önce) çapa yeniden kurulur. Yükleme bitip boyut bildirimi SETTLE_FRAMES kare susunca
+ * ya da rota değişince tutma biter. Tutma sırasında kabuğun kendi düzeltmesi çapayı değiştirmez; kullanıcının (ya da
+ * tarayıcının) kaydırması ise yeni çapa olur: kullanıcıyla yarışılmaz.
  */
-function useScrollAnchor(main: RefObject<HTMLElement | null>, shell: RefObject<HTMLElement | null>, layout: string) {
+function useScrollAnchor(main: RefObject<HTMLElement | null>, shell: RefObject<HTMLElement | null>, layout: string, location: string) {
   const anchor = useRef<Anchor | null>(null);
+  /** Tutma etkinken: çapayı yeniden kurar; null = tutma yok. */
+  const hold = useRef<{ restore(): void; stop(): void } | null>(null);
+  /** Kabuğun son düzeltmesinden sonraki kaydırma konumu (kendi kaydırma olayını kullanıcınınkinden ayırmak için). */
+  const ownScrollY = useRef<number | null>(null);
+  const wideLoading = useWideLoading();
+  const loadingRef = useRef(wideLoading);
+  loadingRef.current = wideLoading;
+
   useEffect(() => {
     if (typeof document.elementFromPoint !== 'function') return;
     let frame = 0;
     const record = () => {
       frame = 0;
+      if (hold.current && ownScrollY.current !== null && Math.abs(window.scrollY - ownScrollY.current) < 1) return;
       anchor.current = readAnchor(main.current, shell.current);
     };
     const onScroll = () => { if (!frame) frame = window.requestAnimationFrame(record); };
@@ -131,18 +151,62 @@ function useScrollAnchor(main: RefObject<HTMLElement | null>, shell: RefObject<H
     };
   }, [main, shell]);
 
-  const previous = useRef(layout);
-  useLayoutEffect(() => {
-    if (previous.current === layout) return;
-    previous.current = layout;
+  const restore = useCallback(() => {
     const saved = anchor.current;
     const root = main.current;
     if (!saved || !root) return;
     const entry = saved.find(([node]) => node.isConnected && root.contains(node));
     if (!entry) return;
     const delta = entry[0].getBoundingClientRect().top - entry[1];
-    if (Math.abs(delta) >= 1) window.scrollBy(0, delta);
-  }, [layout, main]);
+    if (Math.abs(delta) < 1) return;
+    window.scrollBy(0, delta);
+    ownScrollY.current = window.scrollY;
+  }, [main]);
+
+  const startHold = useCallback(() => {
+    if (hold.current) return;
+    const root = main.current;
+    if (!root || typeof window.requestAnimationFrame !== 'function') return;
+    let quiet = 0;
+    let frame = 0;
+    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(() => { quiet = 0; restore(); }) : null;
+    observer?.observe(root);
+    if (root.firstElementChild) observer?.observe(root.firstElementChild);
+    const stop = () => {
+      observer?.disconnect();
+      window.cancelAnimationFrame(frame);
+      hold.current = null;
+      ownScrollY.current = null;
+    };
+    const tick = () => {
+      quiet = loadingRef.current ? 0 : quiet + 1;
+      if (quiet > SETTLE_FRAMES) stop();
+      else frame = window.requestAnimationFrame(tick);
+    };
+    frame = window.requestAnimationFrame(tick);
+    hold.current = { restore, stop };
+  }, [main, restore]);
+
+  const previous = useRef(layout);
+  useLayoutEffect(() => {
+    if (previous.current === layout) return;
+    previous.current = layout;
+    if (!anchor.current || !main.current) return;
+    restore();
+    startHold();
+  }, [layout, main, restore, startHold]);
+
+  // Geniş ada yerleşti (yükleme sinyali aynı çizimde düşer): içerik değişimi boyamadan önce telafi edilir.
+  useLayoutEffect(() => { hold.current?.restore(); }, [wideLoading]);
+
+  // Rota değişince (yeni sayfa başından açılır) ve sökülürken tutma biter.
+  const previousLocation = useRef(location);
+  useLayoutEffect(() => {
+    if (previousLocation.current === location) return;
+    previousLocation.current = location;
+    hold.current?.stop();
+  }, [location]);
+  useEffect(() => () => hold.current?.stop(), []);
 }
 
 export function WorkspaceShell({ location, children }: WorkspaceShellProps) {
@@ -191,7 +255,7 @@ export function WorkspaceShell({ location, children }: WorkspaceShellProps) {
     target?.focus({ preventScroll: true });
   }, [layout, side]);
 
-  useScrollAnchor(main, shell, layout);
+  useScrollAnchor(main, shell, layout, location);
   useTopBarScrollPadding(topBar, !side);
 
   // Rota değişimi: alt sayfa kapanır; sayfa değiştiyse ya da odak kaybolduysa odak main'e (alt sayfa kapandıktan,

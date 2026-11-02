@@ -61,7 +61,8 @@ export { pivotHesapla } from './alimlar/pivot';
 // "Listeye dön" ile liste konumu ve odak geri gelir) + durum değiştir alt sayfası (DetailPanel › Select) ve Geri al.
 // Bildirim kullanıcının baktığı yerde görünür: sayfada alta yapışık durum bölgesi (güvenli alan dahil), ayrıntı katmanı
 // açıkken katmanın altlığı. Tablo/Kanban/Zaman
-// çizelgesi ui/ bileşenlerinin telefon biçimiyle (akordeon, yana kayan pano) gelir; Pivot telefonda PivotStack.
+// çizelgesi ui/ bileşenlerinin telefon biçimiyle (akordeon, duruma göre gruplu dikey Kanban listesi; yana kayan pano
+// yalnız genişte) gelir; Pivot telefonda PivotStack.
 // Geniş-özel kod alimlar/*.wide.tsx'te ve lazyWide ile yüklenir (telefon indirmez): masaüstü yerleşimi (filtre paneli
 // 272 / şerit 56, ayrıntı sağda 384) ve pivot tablosu. Başlık ve sorgu çubuğu geniş modül gelince yeniden kurulmaz.
 // Veri: purchase_needs (useQuery: FACETS + facetCounts), modlar view_definitions'tan (desteklenmeyen mod gerekçesiyle
@@ -83,6 +84,9 @@ const SONUCLAR = 'Sonuçlar';
 /** Ayrıntıyı açabilen öğeler: satır düğmesi, tablo satırı (tabIndex 0), kart ve bağlantılar. */
 const ODAKLANABILIR = 'button, a[href], [tabindex]:not([tabindex="-1"])';
 const KANBAN_ETIKET = 'Duruma göre alımlar';
+/** Kanban notu sunumu anlatır (ui/Kanban): telefonda duruma göre gruplu dikey liste, genişte yana kayan pano. */
+const KANBAN_NOT_DAR = 'duruma göre gruplu';
+const KANBAN_NOT_GENIS = 'pano yana kayar';
 /** DetailPanel'in geri alma eyleminin erişilebilir adı (ui/DetailPanel UNDO; rol/ad genel sözleşmedir). */
 const GERI_AL = 'Geri al';
 /** Sonuç bölgesinde seçili kaydın işareti: liste satırı ve zaman çizelgesi aria-current, tablo aria-selected, akordeon data-selected. */
@@ -599,7 +603,7 @@ export function AlimlarPage({ location = KONUM }: AlimlarPageProps) {
       if (etkinMod === 'kanban') {
         return (
           <>
-            <p className="aile-alimlar-not aile-ikincil">{`${sayi.format(rows.length)} kayıt · pano yana kayar`}</p>
+            <p className="aile-alimlar-not aile-ikincil">{`${sayi.format(rows.length)} kayıt · ${device === 'phone' ? KANBAN_NOT_DAR : KANBAN_NOT_GENIS}`}</p>
             <Kanban items={rows} selectedKey={secili ?? undefined} onOpen={ac} label={KANBAN_ETIKET} />
           </>
         );
@@ -644,7 +648,7 @@ export function AlimlarPage({ location = KONUM }: AlimlarPageProps) {
       }
       return <AlimListesi rows={rows} seciliId={secili} dar={!genis || detayAcik} baslik={genis && !detayAcik} onAc={ac} />;
     },
-    [rows, activeFilters, temizle, etkinMod, secili, ac, zamanAlani, detayAcik],
+    [rows, activeFilters, temizle, etkinMod, secili, ac, zamanAlani, detayAcik, device],
   );
   const sonucBolgesi = useCallback(
     (genis: boolean) => (

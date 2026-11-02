@@ -25,6 +25,7 @@ const ROOMS = records<Room>('data/rooms/household/00000.json');
 const ODA_1 = 'Örnek oda 1';
 const ODA_1_KAYITLARI = PURCHASES.filter(record => record.room_id === ROOMS.find(room => room.label === ODA_1)!.id).map(record => record.label);
 const KASE = 'Örnek kase';
+const KASE_ID = PURCHASES.find(record => record.label === KASE)!.id;
 const sayi = (n: number) => new Intl.NumberFormat('tr-TR').format(n);
 
 type Profil = 'phone' | 'tablet' | 'desktop';
@@ -207,37 +208,87 @@ test.describe('Alımlar telefon yolculuğu', () => {
 });
 
 test.describe('Alımlar geniş yerleşim', () => {
-  // Geniş profilde antd sağlayıcı geçidi (adaptive/AdaptiveRoot) tembel bağlanır ve bağlanınca çalışma alanını bir kez
-  // yeniden kurar; yavaş ağda kullanıcı o arada bir kaydı açmış olabilir. Yeni sayfa örneği seçimi hash'ten alır ama açan
-  // satırı bilmez: kapanınca odak yine o kaydın satırına dönmeli (body'de kalmamalı). Geçidin modülü ayrıntı açılana
-  // kadar tutulur (sabit bekleme yok); telefon profili sağlayıcı istemez.
-  test('sağlayıcı geçidi ayrıntı açıkken bağlanırsa kapanınca odak açılan kaydın satırına döner', { tag: '@matrix' }, async ({ page }) => {
+  // Geniş profilde de antd sağlayıcısı yoktur (adaptive/flags PHONE_WITHOUT_ANTD; hiçbir ürün adası antd istemez): ne
+  // adaptive/WideProviders ne antd/@ant-design paketi istenir. Ayrıntı açıkken çalışma alanı iki yoldan yeniden kurulur:
+  // masaüstü yerleşim adası (alimlar/AlimlarGenis.wide) ayrıntı açıkken yerleşir ve sonuç listesini kendi içinde yeniden
+  // çizer (açan satır belgeden düşer); ya da profil değişir (tablet tam sayfa ↔ masaüstü sağ sütun). Ayrıntı her ikisinden
+  // sağ çıkmalı ve kapanınca odak açılan kaydın satırına dönmeli (body'de kalmamalı). Ada modülü ayrıntı açılana kadar
+  // tutulur (sabit bekleme yok). Tablet masaüstü yerleşimini indirmez; telefon hiçbir geniş modülü indirmez (ayrı test).
+  test('ayrıntı açıkken geniş ada yerleşir ve profil değişir; ayrıntı sağ kalır, kapanınca odak açılan kaydın satırına döner; antd ve WideProviders istenmez', { tag: '@matrix' }, async ({ page }) => {
+    const istekler = istekleriTopla(page);
     let birak!: () => void;
     const serbest = new Promise<void>(resolve => { birak = resolve; });
     let tutulan = 0;
-    await page.route(url => /\/adaptive\/WideProviders\.tsx$/.test(url.pathname), async route => {
+    await page.route(url => /\/pages\/alimlar\/AlimlarGenis\.wide\.tsx$/.test(url.pathname), async route => {
       tutulan += 1;
       await serbest;
       await route.fallback();
     });
     await gotoAdmin(page, '/alimlar');
     await expect(page.getByRole('heading', { level: 1, name: 'Alımlar ve eşyalar' })).toBeVisible();
-    const p = await profil(page);
-    test.skip(p === 'phone', 'telefon profili sağlayıcı geçidini istemez');
-    await expect.poll(() => tutulan, { message: 'geniş profilde sağlayıcı modülü istenmeli' }).toBeGreaterThan(0);
+    const baslangic = await profil(page);
+    test.skip(baslangic === 'phone', 'telefon profili geniş modül indirmez (telefon testleri)');
 
     const kaseSatiri = satir(page, KASE);
-    await kaseSatiri.click();
     const ayrinti = page.getByRole('dialog', { name: KASE });
-    await expect(ayrinti).toBeVisible();
-    await expect(page.locator('[aria-busy="true"]:not(main *)'), 'geçit henüz bağlanmadı').toHaveCount(1);
+    const adaBekliyor = page.locator('[data-wide-loading]');
+    /** Ayrıntı masaüstünde sonuçların sağında, akışta 384 (ada yerleşti). */
+    const sagSutunda = async () => {
+      await expect(ayrinti.getByRole('button', { name: 'Kapat', exact: true })).toBeVisible();
+      await expect(sorgu(page)).toBeVisible();
+      const ayrintiKutusu = (await ayrinti.boundingBox())!;
+      const sonucKutusu = (await sonuclar(page).boundingBox())!;
+      expect(ayrintiKutusu.x, 'ayrıntı sonuçların sağında').toBeGreaterThanOrEqual(sonucKutusu.x + sonucKutusu.width - 1);
+      expect(Math.abs(ayrintiKutusu.width - 384), 'ayrıntı 384').toBeLessThanOrEqual(24);
+    };
+    /** Tablette tam sayfa: sorgu çubuğu ve liste gizli, "Listeye dön" görünür. */
+    const tamSayfada = async () => {
+      await expect(ayrinti.getByRole('button', { name: 'Listeye dön', exact: true })).toBeVisible();
+      await expect(sorgu(page)).toBeHidden();
+      await expect(sonuclar(page)).toBeHidden();
+    };
 
-    birak();
-    await expect(page.locator('[aria-busy="true"]'), 'geçit bağlandı, yükleme bitti').toHaveCount(0);
-    await expect(ayrinti, 'seçim hash ile yeniden kurulumdan sağ çıkar').toBeVisible();
-    await ayrinti.getByRole('button', { name: p === 'desktop' ? 'Kapat' : 'Listeye dön', exact: true }).click();
+    if (baslangic === 'desktop') {
+      // Masaüstü: yerleşim adası hemen istenir ve tutulur; o sırada temel sunum (ayrıntı katmanı) kullanılabilir.
+      await expect.poll(() => tutulan, { message: 'masaüstünde yerleşim adası istenmeli' }).toBeGreaterThan(0);
+      await kaseSatiri.click();
+      await expect(ayrinti).toBeVisible();
+      await expect(adaBekliyor, 'ada ayrıntı açıkken henüz yerleşmedi').toHaveCount(1);
+      birak();
+      await expect(adaBekliyor, 'ada yerleşti').toHaveCount(0);
+      await expect(ayrinti, 'seçim ada yerleşmesinden sağ çıkar').toBeVisible();
+      await sagSutunda();
+
+      // Profil değişimi masaüstü → tablet: ayrıntı açık kalır ve tam sayfaya geçer.
+      await page.setViewportSize({ width: 820, height: 1180 });
+      await expect(page.locator('html')).toHaveAttribute('data-profile', 'tablet');
+      await expect(ayrinti, 'seçim profil değişiminden sağ çıkar').toBeVisible();
+      await tamSayfada();
+      await ayrinti.getByRole('button', { name: 'Listeye dön', exact: true }).click();
+    } else {
+      // Tablet: masaüstü yerleşimi indirilmez; ayrıntı tam sayfa.
+      await kaseSatiri.click();
+      await expect(ayrinti).toBeVisible();
+      await tamSayfada();
+      expect(tutulan, 'tablet masaüstü yerleşim adasını istedi').toBe(0);
+
+      // Profil değişimi tablet → masaüstü: ada şimdi istenir ve tutulur; ayrıntı açık kalır (katman), ada yerleşince sağ sütuna geçer.
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await expect(page.locator('html')).toHaveAttribute('data-profile', 'desktop');
+      await expect.poll(() => tutulan, { message: 'masaüstüne geçince yerleşim adası istenmeli' }).toBeGreaterThan(0);
+      await expect(ayrinti, 'seçim profil değişiminden sağ çıkar').toBeVisible();
+      await expect(adaBekliyor, 'ada ayrıntı açıkken henüz yerleşmedi').toHaveCount(1);
+      birak();
+      await expect(adaBekliyor, 'ada yerleşti').toHaveCount(0);
+      await expect(ayrinti, 'seçim ada yerleşmesinden sağ çıkar').toBeVisible();
+      await sagSutunda();
+      await ayrinti.getByRole('button', { name: 'Kapat', exact: true }).click();
+    }
     await expect(ayrinti).toBeHidden();
-    await expect(kaseSatiri).toBeFocused();
+    await expect(kaseSatiri, 'odak açılan kaydın satırına döner').toBeFocused();
+    await expect(page, 'kapanınca hash seçimi bırakır').not.toHaveURL(new RegExp(KASE_ID));
+    expect(istekler.filter(yol => /\/adaptive\/WideProviders\.tsx$/.test(yol)), 'geniş profil antd sağlayıcısını istedi').toEqual([]);
+    expect(istekler.filter(yol => ANTD.test(yol)), 'geniş profil antd/@ant-design istedi').toEqual([]);
   });
 
   test('masaüstü: geniş yerleşim lazyWide ile gelir; ayrıntı sağda 384; görünüm değişiminde seçim, filtre ve odak korunur', { tag: '@matrix' }, async ({ page }) => {

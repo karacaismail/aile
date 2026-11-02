@@ -233,6 +233,21 @@ describe('AlimlarPage › sorgu çubuğu ve modlar', () => {
     expect(within(region).getByRole('columnheader', { name: 'Gerçekleşen' })).toBeInTheDocument();
   });
 
+  // ui/Kanban: telefonda duruma göre gruplu DİKEY liste (yatay kaydırma yok); tablet ve masaüstünde yatay pano kendi
+  // içinde yana kayar. Sayfa notu sunumu anlatmalı: telefona "pano yana kayar" demek yanlış etkileşim talimatıdır.
+  it.each([
+    ['phone', 'duruma göre gruplu', /yana kayar/],
+    ['tablet', 'pano yana kayar', /gruplu/],
+    ['desktop', 'pano yana kayar', /gruplu/],
+  ] as const)('%s: Kanban notu o profildeki sunumu anlatır ("N kayıt · %s")', async (device, beklenen, olmayan) => {
+    window.location.hash = '#/alimlar/?mod=kanban';
+    setup({ device });
+    const region = await sonuclar();
+    const not = within(region).getByText(new RegExp(`^[\\d.]+ kayıt · `));
+    expect(not).toHaveTextContent(new RegExp(`^[\\d.]+ kayıt · ${beklenen}$`));
+    expect(not.textContent).not.toMatch(olmayan);
+  });
+
   it('Zaman çizelgesinde tarih alanı seçilir (native select yok, combobox)', async () => {
     const { user } = setup();
     await sonuclar();

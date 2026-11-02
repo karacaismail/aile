@@ -2,7 +2,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test, expect, type Locator, type Page } from '@playwright/test';
-import { enterKeyboardMode, gotoAdmin, horizontalOverflow } from './admin-helpers';
+import { enterKeyboardMode, horizontalOverflow, openAdmin } from './admin-helpers';
 import { accentEdges, focusRing, overflow, selfCheckDetectors, smallText } from './admin-detectors';
 
 // Alımlar ve eşyalar — uçtan uca kullanıcı yolculuğu (sentetik nesil). Tasarım: README › Sayfa iskeleti, ekranlar.md
@@ -121,12 +121,11 @@ const ayrinti = (page: Page, label: string) => page.getByRole('dialog', { name: 
 
 async function acilis(page: Page): Promise<string[]> {
   const istekler = await sentetikNesil(page);
-  await gotoAdmin(page, '/alimlar');
+  // Hazır sinyali (openAdmin): yükleme iskeleti (aria-busy) kalmadı ve geniş modül yüklemesi (data-wide-loading) bitti;
+  // masaüstünde yerleşim adası (alimlar/AlimlarGenis.wide) yerindedir. Yolculuk ondan sonra.
+  await openAdmin(page, '/alimlar');
   await expect(page.getByRole('heading', { level: 1, name: 'Alımlar ve eşyalar' })).toBeVisible();
   await expect(sonuclar(page)).toBeVisible();
-  // Hazır sinyali (openAdmin ile aynı): meşgul öğe kalmadı. Geniş profilde antd sağlayıcı geçidi tembel bağlanır ve
-  // bağlanınca çalışma alanı bir kez yeniden kurulur (AdaptiveRoot kökü o ana kadar aria-busy); yolculuk ondan sonra.
-  await expect(page.locator('[aria-busy="true"]'), 'yükleme ve sağlayıcı geçidi bitti').toHaveCount(0);
   return istekler;
 }
 
@@ -150,14 +149,22 @@ async function gorunenAdlar(page: Page): Promise<string[]> {
   return sirali(found);
 }
 
-/** Filtre paneli: masaüstünde FilterArea içinde açık; dar ekranda "Filtreler (N)" telefonda alt sayfa, tablette sağ çekmece açar. */
+/**
+ * Filtre paneli kapsamı, profil sözleşmesine göre ev sahibi: FilterPanel ev sahibinin içinde "bare" çizilir ve kökü
+ * landmark değildir (adını ev sahibi verir; aynı adlı iki landmark olmaz — f10 yapı sözleşmesi). Masaüstünde ev sahibi
+ * FilterArea bölgesi "Filtreler" (geniş yerleşimde açık); telefon ve tablette "Filtreler (N)" düğmesi FilterDrawer
+ * diyaloğunu açar ("Filtreler" ya da "Filtreler · N etkin"; telefonda alt sayfa, tablette sağ çekmece).
+ */
 async function filtrePaneli(page: Page): Promise<Locator> {
   if (cihaz(page) !== 'desktop') {
     await sorgu(page).getByRole('button', { name: /^Filtreler \(/ }).click();
-    await expect(page.getByRole('dialog', { name: /^Filtreler/ })).toBeVisible();
+    const dialog = page.getByRole('dialog', { name: /^Filtreler/ });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole('region', { name: 'Filtreler', exact: true }), 'çekmece içinde ikinci "Filtreler" landmark\'ı').toHaveCount(0);
+    return dialog;
   }
-  // Masaüstünde FilterArea bölgesi ("Filtreler") FilterPanel bölümünü ("Filtreler") sarar; dıştaki kapsam olarak yeter.
-  const panel = page.getByRole('region', { name: 'Filtreler', exact: true }).first();
+  const panel = page.getByRole('region', { name: 'Filtreler', exact: true });
+  await expect(panel, 'masaüstünde tek "Filtreler" bölgesi').toHaveCount(1);
   await expect(panel).toBeVisible();
   return panel;
 }
