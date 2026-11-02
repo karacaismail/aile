@@ -1,13 +1,18 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { DeviceContext } from '../device';
 import type { Device } from '../shell/contracts';
-import { OverflowActions, OVERFLOW_MENU_MIN_WIDTH, type OverflowActionItem } from './OverflowActions';
+import { DANGER_GROUP_LABEL } from './Menu';
+import { DEFAULT_LABEL, DEFAULT_TITLE, OverflowActions, OVERFLOW_MENU_MIN_WIDTH, type OverflowActionItem } from './OverflowActions';
 
-// Telefonda OverflowActions listeyi BottomSheet içinde açar. BottomSheet ayrı görevde yazılır; burada yalnız sözleşmesi
-// (index.d.ts BottomSheetProps + README: role dialog, başlık adı, görünür "Kapat", Escape kapatır, open=false çizmez)
-// taklit edilir ki OverflowActions'ın devri ve geri bağlantısı (onClose) BottomSheet'in uygulamasından bağımsız doğrulansın.
+// Tasarım: components/OverflowActions/README.md + index.d.ts OverflowActionsProps + bundle.js OverflowActions.
+// "Diğer": birincil eylem dışındaki eylemler; telefonda alttan sayfa, geniş ekranda açılır menü (Menu menü düğmesi kalıbı).
+// Ana eylem (primary) her zaman dışarıda kalır; tehlikeli eylem ayrı grupta; collapse="auto" dar alanda menüye taşır.
+//
+// Telefonda liste BottomSheet içinde açılır. BottomSheet ayrı görevde (a05) yazılır; burada yalnız sözleşmesi taklit edilir.
 vi.mock('./BottomSheet', () => ({
   BottomSheet: (p: { title: string; children?: ReactNode; onClose?: () => void; open?: boolean; inline?: boolean }) =>
     p.open === false ? null : (
@@ -34,180 +39,165 @@ function makeItems() {
   const sil = vi.fn();
   const items: readonly OverflowActionItem[] = [
     { label: 'Düzenle', icon: 'edit', onClick: duzenle },
+    { label: 'Sil', onClick: sil, danger: true },
     { label: 'Dışa aktar', icon: 'download', onClick: disaAktar },
-    { label: 'Sil', onClick: sil },
   ];
   return { items, duzenle, disaAktar, sil };
 }
 
-/** jsdom hareket bitişi üretmez; kapanış hareketini antd testleri gibi biz bitiririz ki destroyOnHidden menüyü kaldırsın.
- *  rc-motion olay adını tarayıcıdan türetir (jsdom'da AnimationEvent yok → webkitAnimationEnd); hepsini göndeririz. */
-function endLeaveMotion() {
-  const panel = document.querySelector('.aile-overflow-menu');
-  for (const name of ['animationend', 'webkitAnimationEnd', 'transitionend']) panel?.dispatchEvent(new Event(name));
-}
-/** rc-motion dinleyiciyi kapanış adımı başlayınca bağlar (raf); bitişi her denemede gönderip menünün kalkmasını bekleriz. */
-async function expectMenuRemoved() {
-  await waitFor(() => {
-    endLeaveMotion();
-    expect(screen.queryByRole('menu')).toBeNull();
-  });
-}
-
-// rc-menu okları ve Enter'ı `which` ile okur; user-event 14 keyCode/which doldurmaz. Tarayıcı ikisini de verir;
-// jsdom'da aynı olayı fireEvent ile kuruyoruz (seçici yine role ile). Escape `key` tabanlıdır, user-event ile basılır.
-const KEY = {
-  ArrowDown: { key: 'ArrowDown', keyCode: 40, which: 40 },
-  ArrowUp: { key: 'ArrowUp', keyCode: 38, which: 38 },
-  Enter: { key: 'Enter', keyCode: 13, which: 13 },
-} as const;
-
-describe('OverflowActions › masaüstü (antd Dropdown menü)', () => {
+describe('OverflowActions › geniş profil (açılır menü)', () => {
   const wrapper = onDevice('desktop');
 
-  // jsdom yerleşim hesaplamaz (offsetParent null, kutu 0×0); rc-menu ok dolaşımı öğeleri "görünür" saymak için
-  // offsetParent'a bakar. Bağlı öğeler için gövdeyi döndürürüz; her testten sonra geri alınır.
-  let offsetParent: ReturnType<typeof vi.spyOn>;
-  beforeEach(() => {
-    offsetParent = vi.spyOn(HTMLElement.prototype, 'offsetParent', 'get')
-      .mockImplementation(function (this: HTMLElement) { return this.isConnected ? document.body : null; });
-  });
-  afterEach(() => offsetParent.mockRestore());
-
-  it('metinli "Diğer" düğmesi: aria-haspopup=menu, kapalı başlar, menü çizilmez', () => {
+  it('text "Diğer" button: aria-haspopup=menu, closed by default, nothing drawn', () => {
     const { items } = makeItems();
     render(<OverflowActions items={items} />, { wrapper });
-    const trigger = screen.getByRole('button', { name: 'Diğer' });
+    const trigger = screen.getByRole('button', { name: DEFAULT_LABEL });
+    expect(DEFAULT_LABEL).toBe('Diğer');
     expect(trigger).toHaveAttribute('aria-haspopup', 'menu');
     expect(trigger).toHaveAttribute('aria-expanded', 'false');
     expect(trigger).toHaveTextContent('Diğer');
+    expect(trigger.querySelector('[data-icon="more"]')).not.toBeNull();
     expect(screen.queryByRole('menu')).toBeNull();
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
-  it('label ve title özelleştirilebilir', async () => {
+  it('label and title can be customised', async () => {
     const user = userEvent.setup();
     const { items } = makeItems();
     render(<OverflowActions items={items} label="Daha fazla" title="Alım eylemleri" />, { wrapper });
     await user.click(screen.getByRole('button', { name: 'Daha fazla' }));
-    expect(await screen.findByRole('menu', { name: 'Alım eylemleri' })).toBeInTheDocument();
+    expect(screen.getByRole('menu', { name: 'Alım eylemleri' })).toBeInTheDocument();
   });
 
-  it('tıklama menüyü açar: role menu, başlık adı, sıralı menuitem\'lar, simgeler, aria-expanded ve aria-controls', async () => {
+  it('opens a menu named "Diğer eylemler": ordered menuitems with icons, the danger action last in its own group', async () => {
     const user = userEvent.setup();
     const { items } = makeItems();
     render(<OverflowActions items={items} />, { wrapper });
     const trigger = screen.getByRole('button', { name: 'Diğer' });
     await user.click(trigger);
-    const menu = await screen.findByRole('menu', { name: 'Diğer eylemler' });
+    const menu = screen.getByRole('menu', { name: DEFAULT_TITLE });
     const menuItems = within(menu).getAllByRole('menuitem');
     expect(menuItems.map(item => item.textContent)).toEqual(['Düzenle', 'Dışa aktar', 'Sil']);
     expect(menuItems[0].querySelector('[data-icon="edit"]')).not.toBeNull();
     expect(menuItems[1].querySelector('[data-icon="download"]')).not.toBeNull();
     expect(menuItems[2].querySelector('[data-icon]')).toBeNull();
+    const danger = within(menu).getByRole('group', { name: DANGER_GROUP_LABEL });
+    expect(within(danger).getAllByRole('menuitem').map(item => item.textContent)).toEqual(['Sil']);
+    expect(within(menu).getAllByRole('separator')).toHaveLength(1);
     expect(trigger).toHaveAttribute('aria-expanded', 'true');
-    expect(menu.id).not.toBe('');
     expect(trigger).toHaveAttribute('aria-controls', menu.id);
   });
 
-  it('menü paneli en az 240 px (tasarım bundle.css .ai-pop); değer bileşen sabitidir', async () => {
+  it('the panel is at least 240 px wide (design bundle.css .ai-pop) and aligned to the end', async () => {
     const user = userEvent.setup();
     const { items } = makeItems();
     render(<OverflowActions items={items} />, { wrapper });
     await user.click(screen.getByRole('button', { name: 'Diğer' }));
-    await screen.findByRole('menu');
     expect(OVERFLOW_MENU_MIN_WIDTH).toBe(240);
-    const panel = document.querySelector('.aile-overflow-menu');
+    const panel = screen.getByRole('menu').closest('.aile-overflow-menu');
     expect(panel).not.toBeNull();
     expect(panel).toHaveStyle({ minWidth: `${OVERFLOW_MENU_MIN_WIDTH}px` });
+    expect(panel).toHaveAttribute('data-align', 'end');
   });
 
-  it('seçim ilgili onClick\'i bir kez çağırır, menüyü kapatır ve odağı düğmeye döndürür', async () => {
+  it('selecting calls only that onClick once, closes the menu and returns focus to the button first', async () => {
     const user = userEvent.setup();
     const { items, duzenle, disaAktar, sil } = makeItems();
+    let focusAtClick: Element | null = null;
+    disaAktar.mockImplementation(() => { focusAtClick = document.activeElement; });
     render(<OverflowActions items={items} />, { wrapper });
     const trigger = screen.getByRole('button', { name: 'Diğer' });
     await user.click(trigger);
-    const menu = await screen.findByRole('menu');
-    // Açılış odağı (autoFocus) yerleşsin; gerçek kullanıcı da menüyü gördükten sonra tıklar.
-    await waitFor(() => expect(within(menu).getAllByRole('menuitem')[0]).toHaveFocus());
-    await user.click(within(menu).getByRole('menuitem', { name: 'Dışa aktar' }));
+    await waitFor(() => expect(screen.getAllByRole('menuitem')[0]).toHaveFocus());
+    await user.click(screen.getByRole('menuitem', { name: 'Dışa aktar' }));
     expect(disaAktar).toHaveBeenCalledTimes(1);
+    expect(focusAtClick).toBe(trigger);
     expect(duzenle).not.toHaveBeenCalled();
     expect(sil).not.toHaveBeenCalled();
     expect(trigger).toHaveAttribute('aria-expanded', 'false');
     expect(trigger).toHaveFocus();
-    await expectMenuRemoved();
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
   });
 
-  it('klavye: açılınca odak ilk menuitem\'da, oklar menuitem\'lar arasında sarmalı dolaşır, Enter seçer', async () => {
+  it('keyboard: opens on the first item, arrows wrap across groups, Enter selects', async () => {
     const user = userEvent.setup();
     const { items, sil, duzenle } = makeItems();
     render(<OverflowActions items={items} />, { wrapper });
-    await user.click(screen.getByRole('button', { name: 'Diğer' }));
-    const menu = await screen.findByRole('menu');
-    const [duzenleItem, disaAktarItem, silItem] = within(menu).getAllByRole('menuitem');
-    // antd Dropdown autoFocus: rc-menu focus() ilk öğeye odaklanır (APG menü düğmesi).
-    await waitFor(() => expect(duzenleItem).toHaveFocus());
-
-    fireEvent.keyDown(duzenleItem, KEY.ArrowDown);
-    await waitFor(() => expect(disaAktarItem).toHaveFocus());
-    fireEvent.keyDown(disaAktarItem, KEY.ArrowDown);
-    await waitFor(() => expect(silItem).toHaveFocus());
-    // Sarmal: son öğeden aşağı → ilk öğe; ilk öğeden yukarı → son öğe.
-    fireEvent.keyDown(silItem, KEY.ArrowDown);
-    await waitFor(() => expect(duzenleItem).toHaveFocus());
-    fireEvent.keyDown(duzenleItem, KEY.ArrowUp);
-    await waitFor(() => expect(silItem).toHaveFocus());
-
-    fireEvent.keyDown(silItem, KEY.Enter);
+    screen.getByRole('button', { name: 'Diğer' }).focus();
+    await user.keyboard('{Enter}');
+    const item = (name: string) => screen.getByRole('menuitem', { name });
+    await waitFor(() => expect(item('Düzenle')).toHaveFocus());
+    await user.keyboard('{ArrowDown}');
+    expect(item('Dışa aktar')).toHaveFocus();
+    await user.keyboard('{ArrowDown}');
+    expect(item('Sil')).toHaveFocus();
+    await user.keyboard('{ArrowDown}');
+    expect(item('Düzenle')).toHaveFocus();
+    await user.keyboard('{ArrowUp}');
+    expect(item('Sil')).toHaveFocus();
+    await user.keyboard('{Enter}');
     expect(sil).toHaveBeenCalledTimes(1);
     expect(duzenle).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: 'Diğer' })).toHaveAttribute('aria-expanded', 'false');
   });
 
-  it('Escape menüyü kapatır, hiçbir eylemi çağırmaz, odak düğmeye döner', async () => {
+  it('Escape closes without an action and returns focus to the button', async () => {
     const user = userEvent.setup();
     const { items, duzenle, disaAktar, sil } = makeItems();
     render(<OverflowActions items={items} />, { wrapper });
     const trigger = screen.getByRole('button', { name: 'Diğer' });
     await user.click(trigger);
-    const menu = await screen.findByRole('menu');
-    const [first] = within(menu).getAllByRole('menuitem');
-    await waitFor(() => expect(first).toHaveFocus());
+    await waitFor(() => expect(screen.getAllByRole('menuitem')[0]).toHaveFocus());
     await user.keyboard('{Escape}');
     expect(trigger).toHaveAttribute('aria-expanded', 'false');
     expect(trigger).toHaveFocus();
     expect(duzenle).not.toHaveBeenCalled();
     expect(disaAktar).not.toHaveBeenCalled();
     expect(sil).not.toHaveBeenCalled();
-    await expectMenuRemoved();
   });
 
-  it('open=true açık başlar; inline menüyü bileşenin kendi kapsayıcısına çizer', async () => {
+  it('a disabled action is announced as disabled and cannot be chosen', async () => {
+    const user = userEvent.setup();
+    const yazdir = vi.fn();
+    render(<OverflowActions items={[{ label: 'Yazdır', onClick: yazdir, disabled: true }, { label: 'Paylaş' }]} />, { wrapper });
+    await user.click(screen.getByRole('button', { name: 'Diğer' }));
+    const disabled = screen.getByRole('menuitem', { name: 'Yazdır' });
+    expect(disabled).toHaveAttribute('aria-disabled', 'true');
+    await user.click(disabled);
+    expect(yazdir).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.getByRole('menuitem', { name: 'Paylaş' })).toHaveFocus());
+  });
+
+  it('open=true starts open; inline draws the panel inside the component', () => {
     const { items } = makeItems();
     const { container } = render(<OverflowActions items={items} open inline />, { wrapper });
-    const menu = await screen.findByRole('menu', { name: 'Diğer eylemler' });
+    const menu = screen.getByRole('menu', { name: 'Diğer eylemler' });
     expect(container.contains(menu)).toBe(true);
     expect(screen.getByRole('button', { name: 'Diğer' })).toHaveAttribute('aria-expanded', 'true');
   });
 
-  it('tablette de açılır menüdür, alt sayfa değil', async () => {
+  it('tablet uses the menu as well, not the sheet', async () => {
     const user = userEvent.setup();
     const { items } = makeItems();
     render(<OverflowActions items={items} />, { wrapper: onDevice('tablet') });
     const trigger = screen.getByRole('button', { name: 'Diğer' });
     expect(trigger).toHaveAttribute('aria-haspopup', 'menu');
     await user.click(trigger);
-    expect(await screen.findByRole('menu')).toBeInTheDocument();
+    expect(screen.getByRole('menu')).toBeInTheDocument();
     expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('without items there is no "Diğer" button; the primary stays', () => {
+    render(<OverflowActions items={[]} primary={<button type="button">Alım ekle</button>} />, { wrapper });
+    expect(screen.getByRole('button', { name: 'Alım ekle' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Diğer' })).toBeNull();
   });
 });
 
-describe('OverflowActions › telefon (BottomSheet listesi)', () => {
+describe('OverflowActions › telefon (alt sayfa listesi)', () => {
   const wrapper = onDevice('phone');
 
-  it('"Diğer" düğmesi aria-haspopup=dialog; kapalı başlar, alt sayfa çizilmez', () => {
+  it('"Diğer" has aria-haspopup=dialog; closed by default', () => {
     const { items } = makeItems();
     render(<OverflowActions items={items} />, { wrapper });
     const trigger = screen.getByRole('button', { name: 'Diğer' });
@@ -217,7 +207,7 @@ describe('OverflowActions › telefon (BottomSheet listesi)', () => {
     expect(screen.queryByRole('menu')).toBeNull();
   });
 
-  it('tıklama alt sayfayı açar: başlık, 44 px menuitem düğmeleri, simgeler; seçim onClick çağırır ve kapatır', async () => {
+  it('opens the sheet: title, menu of items with icons, danger group; selecting calls onClick, closes and returns focus', async () => {
     const user = userEvent.setup();
     const { items, duzenle, disaAktar, sil } = makeItems();
     render(<OverflowActions items={items} title="Alım eylemleri" />, { wrapper });
@@ -229,8 +219,8 @@ describe('OverflowActions › telefon (BottomSheet listesi)', () => {
     const menuItems = within(menu).getAllByRole('menuitem');
     expect(menuItems.map(item => item.textContent)).toEqual(['Düzenle', 'Dışa aktar', 'Sil']);
     expect(menuItems[0].querySelector('[data-icon="edit"]')).not.toBeNull();
-    expect(menuItems[2].querySelector('[data-icon]')).toBeNull();
-    menuItems.forEach(item => expect(item.tagName).toBe('BUTTON'));
+    expect(within(menu).getByRole('group', { name: DANGER_GROUP_LABEL })).toContainElement(menuItems[2]);
+    await waitFor(() => expect(menuItems[0]).toHaveFocus());
 
     await user.click(menuItems[0]);
     expect(duzenle).toHaveBeenCalledTimes(1);
@@ -241,7 +231,7 @@ describe('OverflowActions › telefon (BottomSheet listesi)', () => {
     expect(trigger).toHaveFocus();
   });
 
-  it('varsayılan başlık "Diğer eylemler"; inline alt sayfaya iletilir', async () => {
+  it('default title "Diğer eylemler"; inline is passed to the sheet', async () => {
     const user = userEvent.setup();
     const { items } = makeItems();
     render(<OverflowActions items={items} inline />, { wrapper });
@@ -250,13 +240,13 @@ describe('OverflowActions › telefon (BottomSheet listesi)', () => {
     expect(sheet).toHaveAttribute('data-inline', 'true');
   });
 
-  it('listede oklar menuitem\'lar arasında dolaşır (sarmalı), Home/End uçlara gider', async () => {
+  it('arrows move between menuitems (wrapping), Home/End go to the ends', async () => {
     const user = userEvent.setup();
     const { items } = makeItems();
     render(<OverflowActions items={items} />, { wrapper });
     await user.click(screen.getByRole('button', { name: 'Diğer' }));
     const [duzenle, disaAktar, sil] = screen.getAllByRole('menuitem');
-    duzenle.focus();
+    await waitFor(() => expect(duzenle).toHaveFocus());
     await user.keyboard('{ArrowDown}');
     expect(disaAktar).toHaveFocus();
     await user.keyboard('{ArrowDown}');
@@ -271,22 +261,23 @@ describe('OverflowActions › telefon (BottomSheet listesi)', () => {
     expect(sil).toHaveFocus();
   });
 
-  it('Escape (alt sayfanın onClose\'u) listeyi kapatır, eylem çağrılmaz', async () => {
+  it('Escape (sheet onClose) closes without an action and returns focus', async () => {
     const user = userEvent.setup();
     const { items, duzenle, disaAktar, sil } = makeItems();
     render(<OverflowActions items={items} />, { wrapper });
     const trigger = screen.getByRole('button', { name: 'Diğer' });
     await user.click(trigger);
-    screen.getAllByRole('menuitem')[0].focus();
+    await waitFor(() => expect(screen.getAllByRole('menuitem')[0]).toHaveFocus());
     await user.keyboard('{Escape}');
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    expect(trigger).toHaveFocus();
     expect(duzenle).not.toHaveBeenCalled();
     expect(disaAktar).not.toHaveBeenCalled();
     expect(sil).not.toHaveBeenCalled();
   });
 
-  it('görünür "Kapat" da kapatır', async () => {
+  it('the visible "Kapat" closes as well', async () => {
     const user = userEvent.setup();
     const { items } = makeItems();
     render(<OverflowActions items={items} />, { wrapper });
@@ -295,21 +286,126 @@ describe('OverflowActions › telefon (BottomSheet listesi)', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(screen.getByRole('button', { name: 'Diğer' })).toHaveAttribute('aria-expanded', 'false');
   });
+
+  it('the primary action stays outside the menu, before "Diğer"', async () => {
+    const user = userEvent.setup();
+    const { items } = makeItems();
+    render(<OverflowActions items={items} primary={<button type="button">Alım ekle</button>} />, { wrapper });
+    const primary = screen.getByRole('button', { name: 'Alım ekle' });
+    const trigger = screen.getByRole('button', { name: 'Diğer' });
+    expect(primary.compareDocumentPosition(trigger) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    await user.click(trigger);
+    expect(within(screen.getByRole('menu')).queryByText('Alım ekle')).toBeNull();
+  });
+});
+
+describe('OverflowActions › collapse="auto" (dar alanda Diğer menüsüne taşır)', () => {
+  type Observed = { callback: ResizeObserverCallback; targets: Element[] };
+  let observers: Observed[] = [];
+  const OriginalObserver = window.ResizeObserver;
+  beforeEach(() => {
+    observers = [];
+    window.ResizeObserver = class {
+      private entry: Observed;
+      constructor(callback: ResizeObserverCallback) { this.entry = { callback, targets: [] }; observers.push(this.entry); }
+      observe(target: Element) { this.entry.targets.push(target); }
+      unobserve() {}
+      disconnect() { this.entry.targets = []; }
+    } as unknown as typeof ResizeObserver;
+  });
+  afterEach(() => { window.ResizeObserver = OriginalObserver; });
+  const notifyResize = () => act(() => {
+    for (const observer of observers) if (observer.targets.length) observer.callback([], {} as ResizeObserver);
+  });
+
+  it('wide profile with room: secondary actions are buttons, the danger action is in its own group, the primary is last', async () => {
+    const user = userEvent.setup();
+    const { items, disaAktar } = makeItems();
+    render(<OverflowActions items={items} collapse="auto" primary={<button type="button">Alım ekle</button>} />, { wrapper: onDevice('desktop') });
+    expect(screen.queryByRole('button', { name: 'Diğer' })).toBeNull();
+    const buttons = screen.getAllByRole('button').map(button => button.textContent);
+    expect(buttons).toEqual(['Düzenle', 'Dışa aktar', 'Sil', 'Alım ekle']);
+    const danger = screen.getByRole('group', { name: DANGER_GROUP_LABEL });
+    expect(within(danger).getByRole('button', { name: 'Sil' })).toHaveAttribute('data-variant', 'danger');
+    await user.click(screen.getByRole('button', { name: 'Dışa aktar' }));
+    expect(disaAktar).toHaveBeenCalledTimes(1);
+  });
+
+  it('phone profile: always "Diğer" with the primary outside', () => {
+    const { items } = makeItems();
+    render(<OverflowActions items={items} collapse="auto" primary={<button type="button">Alım ekle</button>} />, { wrapper: onDevice('phone') });
+    expect(screen.getByRole('button', { name: 'Alım ekle' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Diğer' })).toHaveAttribute('aria-haspopup', 'dialog');
+    expect(screen.queryByRole('button', { name: 'Düzenle' })).toBeNull();
+  });
+
+  it('wide profile in a narrow container: overflowing buttons collapse into "Diğer"; they come back when the container grows', () => {
+    let parentWidth = 300;
+    const scrollWidth = vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.classList.contains('aile-overflow--satir') && this.dataset.collapsed === 'false' ? 520 : 0;
+    });
+    const clientWidth = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (this: HTMLElement) {
+      if (this.classList.contains('aile-overflow--satir')) return Math.min(parentWidth, 520);
+      if (this.dataset.testid === 'kap') return parentWidth;
+      return 0;
+    });
+    try {
+      const { items } = makeItems();
+      render(
+        <div data-testid="kap"><OverflowActions items={items} collapse="auto" primary={<button type="button">Alım ekle</button>} /></div>,
+        { wrapper: onDevice('desktop') },
+      );
+      expect(screen.getByRole('button', { name: 'Diğer' })).toHaveAttribute('aria-haspopup', 'menu');
+      expect(screen.getByRole('button', { name: 'Alım ekle' })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Düzenle' })).toBeNull();
+      parentWidth = 400;
+      notifyResize();
+      expect(screen.getByRole('button', { name: 'Diğer' })).toBeInTheDocument();
+      parentWidth = 900;
+      notifyResize();
+      expect(screen.queryByRole('button', { name: 'Diğer' })).toBeNull();
+      expect(screen.getByRole('button', { name: 'Düzenle' })).toBeInTheDocument();
+    } finally {
+      scrollWidth.mockRestore();
+      clientWidth.mockRestore();
+    }
+  });
+
+  // Gerçek tarayıcıda (e2e admin-ui-a06-menu "collapse=auto") esneyen düğmeler etiketi sarıp sıkışıyordu: satır hiç
+  // taşmadığı için ölçüm "Diğer"e geçmiyordu. Satırdaki öğeler doğal genişliğinde kalmalıdır.
+  it('row items keep their natural width (flex: none) so an overflowing row is measurable', () => {
+    const css = readFileSync(resolve(__dirname, 'OverflowActions.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    const rule = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+      .find(match => match[1].split(',').map(part => part.trim()).includes('.aile-overflow--satir > *'));
+    expect(rule?.[2]).toMatch(/flex:\s*none/);
+  });
 });
 
 describe('OverflowActions › kaynak sözleşmesi', () => {
-  it('ham antd / phosphor paketini değil ui/antd ve ui/icons yüzeylerini kullanır; sabit renk yazmaz', async () => {
-    const { readFileSync } = await import('node:fs');
-    const { resolve } = await import('node:path');
+  it('uses Menu and ui/icons surfaces, no antd, no raw icon package, no hard-coded colour or focus ring', () => {
     const source = readFileSync(resolve(__dirname, 'OverflowActions.tsx'), 'utf8');
     expect(source).not.toMatch(/from ['"]antd['"]/);
     expect(source).not.toContain('@ant-design/');
     expect(source).not.toContain('@phosphor-icons/');
-    expect(source).toContain("from './antd'");
+    expect(source).not.toMatch(/from ['"]\.\/antd['"]/);
+    expect(source).toContain("from './Menu'");
     expect(source).not.toMatch(/#[0-9a-f]{3,8}\b/i);
     const css = readFileSync(resolve(__dirname, 'OverflowActions.css'), 'utf8');
     expect(css).not.toMatch(/#[0-9a-f]{3,8}\b/i);
     expect(css).not.toMatch(/outline\s*:/);
     expect(css).not.toMatch(/box-shadow\s*:/);
+  });
+
+  it('a pointer cancel on a sheet item does not trigger the action', async () => {
+    const user = userEvent.setup();
+    const { items, duzenle } = makeItems();
+    render(<OverflowActions items={items} />, { wrapper: onDevice('phone') });
+    await user.click(screen.getByRole('button', { name: 'Diğer' }));
+    const item = screen.getByRole('menuitem', { name: 'Düzenle' });
+    fireEvent.pointerDown(item, { pointerType: 'touch', button: 0 });
+    expect(item).toHaveAttribute('data-pressed');
+    fireEvent.pointerCancel(item, { pointerType: 'touch' });
+    expect(item).not.toHaveAttribute('data-pressed');
+    expect(duzenle).not.toHaveBeenCalled();
   });
 });
