@@ -1,6 +1,8 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+vi.hoisted(() => vi.stubEnv('VITE_BUDGET_SHEET_ID', 'synthetic-budget-sheet-2098'));
 import { sheetUrl } from '../dashboard/data';
 import { importsOf } from './adaptive/sourceRules';
 import { sheetLink } from './shell/navigation';
@@ -146,6 +148,9 @@ describe('telefon ilk rotası (giriş + Genel durum) statik kapanışında menü
 
 describe('kabuğun e-tablo bağlantısı dashboard modülünü içe aktarmadan aynı adresi kurar', () => {
   it('sheetLink.href === src/dashboard/data.ts sheetUrl', () => {
+    // Kimlik sentetik değere sabitlenir: ortam değişkeni boşken iki taraf da ".../d//edit" olur ve yanlış değişken adı
+    // da eşitliği geçerdi.
+    expect(sheetLink.href).toBe('https://docs.google.com/spreadsheets/d/synthetic-budget-sheet-2098/edit');
     expect(sheetLink.href).toBe(sheetUrl);
     expect(sheetLink.path).toBe(sheetUrl);
   });
