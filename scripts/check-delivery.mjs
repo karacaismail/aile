@@ -1,17 +1,22 @@
 #!/usr/bin/env node
 // Uyarlamalı teslim kapısı: "telefon profili antd/pro/echarts ve geniş-özel parçaları hiç istemez".
 //
-// Telefon profili = admin.html girişinin STATİK kapanışı: Vite derleme manifestinde (dist/.vite/manifest.json) girişten
-// `imports` zinciriyle erişilen her parça. Tablet/masaüstü yetenekleri bu kapanışın dışında, dinamik import ile gelir.
-// Kural: statik kapanışta antd, pro, icons (@ant-design/icons), echarts (echarts/zrender) ve wide sınıfından modül yoktur.
+// Telefon profili = admin.html girişinin STATİK kapanışı + her rota sayfası dinamik girişinin (src/admin/pages/*Page.tsx;
+// telefon her rotada kendi sayfa parçasını indirir) STATİK kapanışı. Kapanış Vite derleme manifestinde
+// (dist/.vite/manifest.json) `imports` zinciriyle hesaplanır; dinamik importlara inilmez: lazyWide/wideResource
+// hedefleri, Chart.runtime (ECharts) ve tembel antd adası bu kümenin dışında kalır. Tablet/masaüstü yetenekleri yalnız
+// bu yollarla gelir. Kural: telefon kümesinde antd, pro, icons (@ant-design/icons), echarts (echarts/zrender) ve wide
+// sınıfından modül yoktur.
 //
 // Kapanış dosya adı tahminiyle değil manifest grafiğinden hesaplanır. Sınıf da parça adından değil modül üyeliğinden
 // gelir: vite.config.ts `deliveryGraph` eklentisi dist/.vite/delivery-graph.json yazar (parça başına codeSplitting grup
 // sayıları, paket sayıları ve paket/parça sınırını geçen statik import kenarları). İhlal kimliği "<sınıf> <- <içe
 // aktaran>" biçimindedir; içe aktaran proje modülü yolu (src/...) ya da paket adıdır, hash içermez.
 //
-// Modlar: varsayılan "ratchet" — scripts/delivery-baseline.json dışındaki her ihlal FAIL; liste küçülürse PASS ve
-// "baseline daraltılabilir" uyarısı. "--strict" — tek ihlal FAIL (baseline yok sayılır).
+// Modlar: "--strict" — tek ihlal FAIL (baseline yalnız bilgi için okunur). `pnpm check:delivery` bu modla koşar ve
+// src/admin/vite-config.test.ts gerçek derlemeyi --strict ile denetler (baseline boş kalmalıdır). Varsayılan "ratchet"
+// (scripts/delivery-baseline.json dışındaki her ihlal FAIL; liste küçülürse PASS + "baseline daraltılabilir") yalnız
+// geçiş dönemi içindir.
 // Rapor: <dist>/delivery-report.json (schema 1). Ölçüm: ham bayt + node:zlib gzip seviye 9, dosya başına.
 // Çıkış: 0 PASS, 1 FAIL, 2 girdi/kullanım hatası. Ağ çağrısı yok; yalnız dist okunur ve rapor yazılır.
 //
@@ -30,6 +35,8 @@ export const FORBIDDEN_PHONE_CLASSES = Object.freeze(['antd', 'pro', 'icons', 'e
 /** codeSplitting grubu olmayan ama sınıf sayılan paketler: ECharts çekirdeği ve çizim motoru. */
 export const ECHARTS_PACKAGES = Object.freeze(['echarts', 'zrender']);
 const PAGE_SOURCE = /^src\/admin\/pages\//;
+/** Rota sayfası dinamik girişi (routes.tsx PAGE_LOADERS): telefon profiline statik kapanışıyla girer. *.wide değil. */
+export const ROUTE_PAGE_SOURCE = /^src\/admin\/pages\/[^/]+Page\.tsx$/;
 const KIB = 1024;
 
 class InputError extends Error {}
@@ -79,19 +86,46 @@ export function chunkLabel(manifest, key) {
   return `chunk:${chunk.name ?? path.basename(chunk.file).replace(/-[^-]+\.[a-z]+$/, '')}`;
 }
 
-/** Girişten her anahtara statik imports üzerinden en kısa etiket yolu (giriş ve hedef dahil). */
-function shortestPaths(manifest, entry) {
+/**
+ * Telefon kökünden (giriş, sonra rota sayfaları sırasıyla) her anahtara statik imports üzerinden en kısa etiket yolu.
+ * Giriş kapanışındaki anahtar girişten, yalnız bir sayfanın kapanışındaki anahtar o sayfadan ulaşılır; sayfa yolu
+ * girişle başlar ("admin.html > src/admin/pages/X.tsx > …"): telefon sayfayı girişten dinamik import eder.
+ */
+function shortestPaths(manifest, entry, pages = []) {
   const parent = new Map([[entry, null]]);
-  const queue = [entry];
-  while (queue.length) {
-    const key = queue.shift();
-    for (const child of manifest[key].imports ?? []) if (!parent.has(child)) { parent.set(child, key); queue.push(child); }
+  const walk = (root) => {
+    const queue = [root];
+    while (queue.length) {
+      const key = queue.shift();
+      for (const child of manifest[key].imports ?? []) if (!parent.has(child)) { parent.set(child, key); queue.push(child); }
+    }
+  };
+  walk(entry);
+  for (const page of pages) {
+    if (parent.has(page)) continue;
+    parent.set(page, entry);
+    walk(page);
   }
   return (key) => {
     const chain = [];
     for (let at = key; at !== null && at !== undefined; at = parent.get(at)) chain.unshift(chunkLabel(manifest, at));
     return chain;
   };
+}
+
+/** Giriş kapanışından dinamik import edilen rota sayfaları (src/admin/pages/*Page.tsx), ilk görülme sırasıyla. */
+export function routePages(manifest, entryKeys) {
+  return dynamicRoots(manifest, entryKeys).filter((key) => ROUTE_PAGE_SOURCE.test(normalizeSource(manifest[key].src ?? key)));
+}
+
+/** Telefon profilinin anahtarları: giriş kapanışı + her rota sayfasının kapanışı (tekil, sırayla). */
+export function phoneProfileKeys(manifest, entry) {
+  const entryKeys = staticClosure(manifest, entry);
+  const pages = routePages(manifest, entryKeys);
+  const keys = [...entryKeys];
+  const seen = new Set(keys);
+  for (const page of pages) for (const key of staticClosure(manifest, page)) if (!seen.has(key)) { seen.add(key); keys.push(key); }
+  return { entryKeys, pages, keys };
 }
 // #endregion
 
@@ -122,8 +156,11 @@ function chunkProfile(manifest, graph, key) {
  *   sizeOf: (file: string) => { raw: number, gzip: number }, entry?: string, forbidden?: readonly string[] }} input
  */
 export function analyzeDelivery({ manifest, graph, sizeOf, entry = DEFAULT_ENTRY, forbidden = FORBIDDEN_PHONE_CLASSES }) {
-  const phoneKeys = staticClosure(manifest, entry);
+  // Giriş kapanışı (her rotada) ve telefon profili (giriş + rota sayfalarının kapanışları). Tembel kök listesi ve
+  // boyut özeti giriş kapanışından başlar (rapor biçimi korunur); ihlal taraması telefon profilinin tamamındadır.
+  const { entryKeys: phoneKeys, pages, keys: profileKeys } = phoneProfileKeys(manifest, entry);
   const phoneSet = new Set(phoneKeys);
+  const profileSet = new Set(profileKeys);
   const profiles = new Map();
   const profileOf = (key) => {
     if (!profiles.has(key)) profiles.set(key, chunkProfile(manifest, graph, key));
@@ -188,9 +225,16 @@ export function analyzeDelivery({ manifest, graph, sizeOf, entry = DEFAULT_ENTRY
   }
   for (const bucket of Object.values(groups)) bucket.list.sort();
 
-  // İhlaller: telefon kapanışındaki her parçada yasak sınıf → o sınıfa statik kenarla giren (sınıf dışı) modül.
-  const chainTo = shortestPaths(manifest, entry);
-  const fileToKey = new Map(phoneKeys.map((key) => [manifest[key].file, key]));
+  // Rota sayfaları: telefon her rotada sayfasının statik kapanışını indirir; sayfa başına giriş kapanışına eklediği parçalar.
+  const routes = pages.map((page) => {
+    const added = staticClosure(manifest, page).filter((key) => !phoneSet.has(key));
+    return { root: chunkLabel(manifest, page), file: manifest[page].file, added: { ...summarize(added), chunks: added.map((key) => chunkLabel(manifest, key)) } };
+  });
+
+  // İhlaller: telefon profilindeki (giriş + rota sayfaları) her parçada yasak sınıf → o sınıfa statik kenarla giren
+  // (sınıf dışı) modül. Yol girişten başlar; yalnız sayfa kapanışındaki parça için "admin.html > <sayfa> > …".
+  const chainTo = shortestPaths(manifest, entry, pages);
+  const fileToKey = new Map(profileKeys.map((key) => [manifest[key].file, key]));
   const violations = new Map();
   const add = (id, data, importerKey, target) => {
     const current = violations.get(id) ?? { id, ...data, importerChunks: [], via: chainTo(importerKey), targets: [] };
@@ -199,7 +243,7 @@ export function analyzeDelivery({ manifest, graph, sizeOf, entry = DEFAULT_ENTRY
     if (target && !current.targets.includes(target) && current.targets.length < 10) current.targets.push(target);
     violations.set(id, current);
   };
-  for (const key of phoneKeys) {
+  for (const key of profileKeys) {
     const file = manifest[key].file;
     for (const cls of profileOf(key).contains.filter((name) => forbidden.includes(name))) {
       const edges = graph.edges.filter((edge) => edge.toChunk === file && fileToKey.has(edge.fromChunk) && moduleClass(edge.to, edge.toGroup) === cls && moduleClass(edge.from, edge.fromGroup) !== cls);
@@ -208,7 +252,7 @@ export function analyzeDelivery({ manifest, graph, sizeOf, entry = DEFAULT_ENTRY
         continue;
       }
       // Kenar yoksa (grafik eksik/yeni kalıp) ihlal yine sayılır: içe aktaran parça etiketiyle, açıklanamadı olarak.
-      const importers = phoneKeys.filter((other) => other !== key && (manifest[other].imports ?? []).includes(key));
+      const importers = profileKeys.filter((other) => other !== key && (manifest[other].imports ?? []).includes(key));
       for (const importerKey of importers.length ? importers : [key]) {
         const label = chunkLabel(manifest, importerKey);
         add(`${cls} <- ?${label}`, { class: cls, importer: `?${label}`, attributed: false }, importerKey, chunkLabel(manifest, key));
@@ -220,7 +264,7 @@ export function analyzeDelivery({ manifest, graph, sizeOf, entry = DEFAULT_ENTRY
     schema: REPORT_SCHEMA,
     entry,
     profile: 'phone',
-    rule: `telefon statik kapanışında şu sınıflardan modül yok: ${forbidden.join(', ')}`,
+    rule: `telefon profilinde (${entry} statik kapanışı + rota sayfalarının statik kapanışları) şu sınıflardan modül yok: ${forbidden.join(', ')}`,
     forbidden: [...forbidden],
     measurement: {
       gzipLevel: GZIP_LEVEL,
@@ -230,7 +274,7 @@ export function analyzeDelivery({ manifest, graph, sizeOf, entry = DEFAULT_ENTRY
       scope: 'manifest parçasının JS dosyası + css[] dosyaları; font/görsel (assets[]) dahil değil; her dosya bir kez sayılır',
       sources: ['.vite/manifest.json', '.vite/delivery-graph.json'],
     },
-    phone: { static: { ...summarize(phoneKeys), chunks: phoneKeys.map(describe) } },
+    phone: { static: { ...summarize(phoneKeys), chunks: phoneKeys.map(describe) }, routes, profile: { ...summarize(profileKeys), pages: pages.length } },
     lazy,
     groups,
     violations: [...violations.values()].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)),
@@ -257,8 +301,11 @@ const row = (name, total) => `  ${name.padEnd(9)} ${String(total.files).padStart
 export function formatSummary(report) {
   const lines = [];
   const phone = report.phone.static;
-  lines.push(`check-delivery: ${report.entry} telefon profili (statik kapanış), mod ${report.mode}`);
+  lines.push(`check-delivery: ${report.entry} telefon profili (statik kapanış + rota sayfaları), mod ${report.mode}`);
   lines.push(`  statik kapanış: ${phone.files} dosya, ham ${phone.raw} B (${kib(phone.raw)} KiB), gzip ${phone.gzip} B (${kib(phone.gzip)} KiB)`);
+  const routes = report.phone.routes ?? [];
+  const profile = report.phone.profile;
+  if (profile) lines.push(`  rota sayfaları: ${routes.length} (telefon profili toplamı ${profile.files} dosya, ham ${profile.raw} B, gzip ${profile.gzip} B (${kib(profile.gzip)} KiB))`);
   lines.push(`  ${'sınıf'.padEnd(9)} ${'dosya'.padStart(5)} ${'ham B'.padStart(10)} ${'gzip B'.padStart(10)}`);
   for (const [name, total] of Object.entries(phone.byClass).sort()) lines.push(row(name, total));
   const kinds = {};

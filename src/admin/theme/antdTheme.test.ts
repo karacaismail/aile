@@ -15,7 +15,9 @@ const component = <K extends keyof NonNullable<typeof aileTema.components>>(name
 describe('aileTema (Ant Design 6 eşlemesi)', () => {
   it('uses the palette for text, action, borders and surfaces', () => {
     const t = token();
-    expect(t.fontFamily).toBe('Outfit, system-ui, sans-serif');
+    // Yığın tasarım tokenıdır (src/design/tokens.ts fontSans): Outfit ilk, ardından ölçü eşlemeli yerel yedek (fonts.css).
+    expect(t.fontFamily).toBe("Outfit, 'Outfit Yedek', system-ui, sans-serif");
+    expect(t.fontFamily).toBe(designTokens.fontSans);
     expect(hex(t.colorPrimary)).toBe('#326b94');
     expect(hex(t.colorLink)).toBe('#326b94');
     expect(hex(t.colorInfo)).toBe('#326b94');

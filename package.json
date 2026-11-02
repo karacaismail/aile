@@ -25,7 +25,7 @@
     "e2e:dashboard": "playwright test --config playwright.dashboard.config.ts",
     "e2e:admin": "playwright test --config playwright.admin.config.ts",
     "check:privacy": "node scripts/check-dist-privacy.mjs dist",
-    "check:delivery": "node scripts/check-delivery.mjs dist",
+    "check:delivery": "node scripts/check-delivery.mjs dist --strict",
     "check:budgets": "node scripts/check-budgets.mjs dist"
   },
   "dependencies": {

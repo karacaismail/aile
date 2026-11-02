@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "entry": "admin.html",
-  "recorded": "2026-11-02, t3-root (taban 0a8d903; antd sağlayıcısı uygulama ağacından çıktı, WideProviders hiçbir profilde yüklenmez, lazyWide hazır sinyali), VITE_BUDGET_SHEET_ID=synthetic-budget-sheet-2098, Node v24.21.0, Vite 8.3.5",
+  "recorded": "2026-11-02, r4-gates (taban 006ee49; geniş-özel kod sayfa/birim başına parçalara bölündü, kendiliğinden yenileyen preloadRecovery kaldırıldı), VITE_BUDGET_SHEET_ID=synthetic-budget-sheet-2098, Node v24.21.0, Vite 8.3.5",
   "units": {
     "kb": 1000,
     "measure": "gzip",
@@ -15,7 +15,7 @@
   "wideStartup": {
     "sources": [],
     "classes": ["wide"],
-    "note": "Geniş profilin ilk rotada ek yüklediği dinamik kökler: yalnız tek wide grubu (statik kapanışıyla). adaptive/WideProviders (antd sağlayıcısı) geniş başlangıç kökü değildir: uygulama ağacını sarmaz, yalnız lazyWide(…, { antd: true }) adası geniş profilde render edilince iner; bugün böyle ada yok (t3-root)"
+    "note": "Geniş profilin ilk rotada ek yüklediği dinamik kökler: wide sınıfı parçalar (statik kapanışlarıyla), zincirleme. r4-gates sonrası wide birim başınadır: /genel için wide-shell-workspacenav (masaüstü gezinme) ve wide-genel; başka sayfanın parçası çekilmez. adaptive/WideProviders (antd sağlayıcısı) geniş başlangıç kökü değildir: uygulama ağacını sarmaz, yalnız lazyWide(…, { antd: true }) adası geniş profilde render edilince iner; bugün böyle ada yok (t3-root)"
   },
   "budgets": [
     { "id": "phone-html", "profile": "phone", "metric": "html", "max": 50000, "source": "adaptive-qa: Compressed initial HTML 50 KB" },
@@ -28,19 +28,19 @@
   ],
   "measured": {
     "note": "Kayıtlı ölçüm (recorded koşulları, ilk rota /genel): node scripts/check-budgets.mjs dist. Tavanlar ve wide-antd istisnası bu değerlerin aynısıdır, pay yok; check-budgets.test.mjs eşitliği doğrular. Önce/sonra: docs/ADMIN-BUDGETS.md",
-    "phone-html": 2097,
-    "phone-js": 171767,
-    "phone-css": 10210,
+    "phone-html": 2104,
+    "phone-js": 171040,
+    "phone-css": 10288,
     "phone-capability": 0,
-    "phone-transfer": 280258,
-    "wide-js": 275959,
+    "phone-transfer": 279616,
+    "wide-js": 181585,
     "wide-antd": 0
   },
   "ratchet": {
-    "policy": "Geçiş ratchet'i: tavan, bütçeyi aşan kayıtlı ölçümdür ve yalnız düşer. check-budgets 'daraltılabilir' derse tavanı yeni ölçüme indirin; 'silinebilir' derse kaydı silin. Tavan yükseltmek ya da yeni kayıt eklemek bütçeyi gevşetir: yalnız entegrasyon sahibinin açık kararıyla. Liste boşalınca kapı --strict ile koşar.",
+    "policy": "Geçiş ratchet'i: tavan, bütçeyi aşan kayıtlı ölçümdür ve yalnız düşer. check-budgets 'daraltılabilir' derse tavanı yeni ölçüme indirin; 'silinebilir' derse kaydı silin. Tavan yükseltmek ya da yeni kayıt eklemek bütçeyi gevşetir: yalnız entegrasyon sahibinin açık kararıyla; tavanlar scripts/check-budgets.test.mjs CEILING_LOCK ile kilitlidir. Liste boşalınca kapı --strict ile koşar.",
     "ceilings": {
-      "phone-js": 171767,
-      "wide-js": 275959
+      "phone-js": 171040,
+      "wide-js": 181585
     }
   }
 }

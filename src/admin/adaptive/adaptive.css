@@ -15,7 +15,8 @@
 .aile-wide-notice[data-kind='error'] { background: var(--aile-hata-yuzey); }
 .aile-wide-notice__text { margin: 0; overflow-wrap: break-word; }
 .aile-wide-notice__action {
-  min-height: var(--aile-hedef-asgari);
+  /* Dokunma hedefi: 44 px, kaba işaretçi katmanında ([data-input-coarse]) 48 px (admin.css --aile-dokunma-hedefi). */
+  min-height: var(--aile-dokunma-hedefi);
   padding: 0 var(--aile-bosluk-4);
   border: 0;
   border-radius: var(--aile-kose-kontrol);

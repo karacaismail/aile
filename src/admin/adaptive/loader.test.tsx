@@ -120,6 +120,18 @@ describe('wideResource', () => {
     }
   });
 
+  // İnceleme bulgusu (major): Vite'ın ön yükleme yardımcısı `vite:preloadError` iptal edilince dinamik importu undefined
+  // ile çözer; kaynak bunu 'ready' sayıyor ve lazyWide render'da `module.default` okurken TypeError atıyordu.
+  it('treats an import that resolves to undefined or a non-module as a failure: retried once, then a recoverable error', async () => {
+    for (const value of [undefined, null, 'modül değil']) {
+      const importer = vi.fn(() => Promise.resolve(value as unknown as WideModule));
+      const resource = wideResource(key('undefined'), importer, { retryDelayMs: 0 });
+      await expect(resource.load(), String(value)).rejects.toThrow(/geçersiz modül/);
+      expect(importer).toHaveBeenCalledTimes(2);
+      expect(resource.getState().status, String(value)).toBe('error');
+    }
+  });
+
   it('lists every registered resource in the manifest', async () => {
     const name = key('manifest');
     const resource = wideResource(name, () => Promise.resolve(wideModule));
@@ -218,6 +230,19 @@ describe('<Adaptive>', () => {
     expect(screen.queryByRole('button', { name: 'Yeniden dene' })).toBeNull();
     fireEvent.click(reload);
     expect(reloadPage).toHaveBeenCalledTimes(1);
+  });
+
+  it('a module without a default component never renders as ready: notice + phone presentation, no render crash', async () => {
+    for (const value of [undefined, {}, { default: 'bileşen değil' }]) {
+      const importer = vi.fn(() => Promise.resolve(value as unknown as WideModule));
+      const Wide = lazyWide(key('no-default'), importer, { retryDelayMs: 0 });
+      const { unmount } = render(<AtProfile profile="desktop"><Adaptive phone={<PhoneView />} wide={<Wide label="Tablo" />} /></AtProfile>);
+      expect(await screen.findByRole('button', { name: 'Yeniden dene' }), JSON.stringify(value)).toBeInTheDocument();
+      expect(screen.getByLabelText('Telefon notu')).toBeInTheDocument();
+      expect(Wide.resource.getState().status).toBe('error');
+      expect(importer).toHaveBeenCalledTimes(2);
+      unmount();
+    }
   });
 
   it('switches plain (non-lazy) wide content by profile', () => {
