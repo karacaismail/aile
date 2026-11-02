@@ -4,6 +4,7 @@
    Hareket tek süre ve tek eğri; reduced-motion'da anlık. Odak: çevreleyen halka ve gölge yok; satır başlığı
    düğmesinde çizgi etiket metninin altındadır (README › Odak, bundle .ai-ul), aşağıda. */
 .aile-acc {
+  container: aile-acc / inline-size;
   display: flex;
   flex-direction: column;
   gap: var(--aile-bosluk-3);
@@ -17,7 +18,7 @@
   justify-content: space-between;
   flex-wrap: wrap;
   gap: var(--aile-bosluk-2);
-  min-height: var(--aile-hedef-asgari);
+  min-height: var(--aile-dokunma-hedefi);
 }
 .aile-acc-bar-metin { margin: 0; }
 
@@ -56,7 +57,7 @@
 }
 .aile-acc-item + .aile-acc-item { border-top: 1px solid var(--aile-cizgi); }
 
-/* Satır başlığı: tamamı düğme; 64 px asgari yükseklik (2 × bosluk-8), 3 sütun: içerik · lead · 32 px ok kutusu. */
+/* Satır başlığı: tamamı düğme; 64 px asgari yükseklik (2 × bosluk-8; dokunma hedefi 44/48 bunun altında), 3 sütun: içerik · lead · 32 px ok kutusu. */
 .aile-acc-head {
   position: relative;
   display: grid;
@@ -64,7 +65,7 @@
   gap: var(--aile-bosluk-3);
   align-items: center;
   width: 100%;
-  min-height: max(var(--aile-hedef-asgari), calc(2 * var(--aile-bosluk-8)));
+  min-height: max(var(--aile-dokunma-hedefi), calc(2 * var(--aile-bosluk-8)));
   padding: var(--aile-bosluk-3) var(--aile-bosluk-4);
   border: 0;
   border-radius: 0;
@@ -108,6 +109,28 @@ button.aile-acc-head:active { background: var(--aile-secili); }
 .aile-acc-lead {
   font-weight: 500;
   font-variant-numeric: tabular-nums;
+}
+
+/* Dar liste (320 px telefon; eşik rem: kök yazı boyutu büyüyünce erken devreye girer): ana tutar başlık bloğunun altına
+   iner, başlık · meta · durum satırın genişliğini alır; ok kutusu sağda iki satırı kaplar. Aksi hâlde uzun ad çok satıra
+   bölünür ve tek parça durum etiketi ("Gecikti · 109 gün") başlık sütunundan taşar. */
+@container aile-acc (max-width: 21rem) {
+  .aile-acc-head {
+    grid-template-columns: minmax(0, 1fr) var(--aile-bosluk-8);
+    row-gap: var(--aile-bosluk-1);
+  }
+  .aile-acc-end {
+    grid-column: 1;
+    grid-row: 2;
+    align-items: flex-start;
+    text-align: left;
+  }
+  .aile-acc-end:empty { display: none; }
+  .aile-acc-tog,
+  .aile-acc-chev-flat {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
 }
 
 /* Ok kutusu: 32 px (bosluk-8), kenar-kontrol çerçeve, eylem renkli ok; hover'da bilgi-yuzey. Süsleyicidir; durum
