@@ -445,14 +445,14 @@ Açık iş (kapandı, p-phonejs: 118807 B; "Önceki kayıt: p-phonejs"; sonra p-
 
 | Bütçe | 429e068 (barrel sonrası) | p-phonejs | p-phonejs2 | Entegrasyon (son) | Bütçe |
 |---|---:|---:|---:|---:|---:|
-| `phone-html` | 2079 B | 2045 B | 2030 B | 2050 B | 50000 B |
-| `phone-js` | 174066 B | 118807 B | 113715 B | 114662 B | 120000 B |
+| `phone-html` | 2079 B | 2045 B | 2030 B | 2051 B | 50000 B |
+| `phone-js` | 174066 B | 118807 B | 113715 B | 114637 B | 120000 B |
 | `phone-css` | 9945 B | 9663 B | 8606 B | 8780 B | 35000 B |
 | `phone-capability` | 0 istek | 0 istek | 0 istek | 0 istek | 0 istek |
-| `phone-transfer` | 282274 B | 226699 B | 220535 B | 221676 B | 500000 B |
-| `wide-js` (antd hariç) | 174576 B | 121447 B | 116357 B | 117303 B | 180000 B |
+| `phone-transfer` | 282274 B | 226699 B | 220535 B | 221652 B | 500000 B |
+| `wide-js` (antd hariç) | 174576 B | 121447 B | 116357 B | 117310 B | 180000 B |
 | `wide-antd` | 0 B | 0 B | 0 B | 0 B | 0 B |
 
-p-fix (p-phonejs bağımsız inceleme bulguları: niyetle yükleme yardımcısı `adaptive/intent.ts`, tek parça hata sınıflandırıcısı `adaptive/chunkError.ts`, sözleşme ve simge parçasında eski sürüm bildirimi, çekmecenin bekleme şeridi ve canlı bölge) kendi tabanında +781 B; simge ölçüsünün tek kaynağa (`src/design/tokens.ts` `iconTokens.simgeOlcu`) taşınması +42 B. `ui/icons` → `adaptive/*` ve `ShellIcon` → `ui/icons` statik kenarları derleyicinin girişten ayrı parça bölmesine yol açar (+150–500 B); tokens parçası zaten ilk rotada olduğu için ona bağlanmak bölme yapmaz.
+p-fix (p-phonejs bağımsız inceleme bulguları: niyetle yükleme yardımcısı `adaptive/intent.ts`, tek parça hata sınıflandırıcısı `adaptive/chunkError.ts`, sözleşme ve simge parçasında eski sürüm bildirimi, çekmecenin bekleme şeridi ve canlı bölge) kendi tabanında +781 B; simge ölçüsünün tek kaynağa (`src/design/tokens.ts` `iconTokens.simgeOlcu`) taşınması +17 B. `ui/icons` → `adaptive/*` ve `ShellIcon` → `ui/icons` statik kenarları derleyicinin girişten ayrı parça bölmesine yol açar (+150–500 B); tokens parçası zaten ilk rotada olduğu için ona bağlanmak bölme yapmaz.
 
-Entegrasyon kararı: 110 KB, p-phonejs2'nin pay hedefiydi, bütçe değil. Ölçülen üst sınır (PageHeader'dan tüm menü zinciri çıkarılsa) 112.169 B'dir; kalan bayt React (69.276 B), yönetim girişi (~27 KB) ve Genel sayfasıdır ve DataStatus ilk boyamada çizildiği için tembel olamaz. Bütçe 120.000 B kalır; bugünkü pay 5.338 B. Yeni bir özellik ilk rota kapanışına girerse pay ölçümle izlenir (`src/admin/phoneEntry.test.ts` kural testleri, `check-budgets --strict`).
+Entegrasyon kararı: 110 KB, p-phonejs2'nin pay hedefiydi, bütçe değil. Ölçülen üst sınır (PageHeader'dan tüm menü zinciri çıkarılsa) 112.169 B'dir; kalan bayt React (69.276 B), yönetim girişi (~27 KB) ve Genel sayfasıdır ve DataStatus ilk boyamada çizildiği için tembel olamaz. Bütçe 120.000 B kalır; bugünkü pay 5.363 B. Yeni bir özellik ilk rota kapanışına girerse pay ölçümle izlenir (`src/admin/phoneEntry.test.ts` kural testleri, `check-budgets --strict`).

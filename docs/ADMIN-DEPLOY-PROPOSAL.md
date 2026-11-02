@@ -33,7 +33,7 @@ Bu belge `.github/workflows/*.yml` dosyalarını değiştirmez. Önerilen yama a
 | # | Önkoşul | Bugün | Sahip |
 |---|---|---|---|
 | Ö1 | `main` yayın akışı yeşil | Kırmızı. Son koşu c62f2a6 (run 41304097996) dashboard E2E adımında düştü: `e2e/family-dashboard.spec.ts:498` (chromium-desktop) başarısız, 11 test kararsız. Canlı site son başarılı koşudan (25a5ed5, run 41302668945) geliyor. | Codex |
-| Ö2 | Entegrasyon adayı tüm kapılarda yeşil; `check-delivery --strict` PASS | Son entegrasyon sentetik build'i: `pnpm check:privacy` 0 bulgu, `pnpm check:delivery` strict PASS (13 rota sayfası), `pnpm check:budgets` ratchet ve `--strict` PASS (phone-js 114.662 B / 120.000 B). Tam Vitest ve tüm E2E projeleri aday commit'te koşulur; sonuçlar Codex devir notundadır. | entegrasyon |
+| Ö2 | Entegrasyon adayı tüm kapılarda yeşil; `check-delivery --strict` PASS | Son entegrasyon sentetik build'i: `pnpm check:privacy` 0 bulgu, `pnpm check:delivery` strict PASS (13 rota sayfası), `pnpm check:budgets` ratchet ve `--strict` PASS (phone-js 114.637 B / 120.000 B). Tam Vitest ve tüm E2E projeleri aday commit'te koşulur; sonuçlar Codex devir notundadır. | entegrasyon |
 | Ö3 | LegacyApp → antd statik kenarı kapalı (§8) | Kapandı: `babel-runtime` grubu; 9b16c43 manifestinde `src/LegacyApp.tsx` statik kapanışında antd, pro ve icons yok | entegrasyon |
 | Ö4 | Rota parçası düşünce boş sayfa yok (§5) | Kapandı: her rota `Suspense`'ini saran hata sınırı (`routes.tsx`); üretim kanıtı `e2e/admin-production.spec.ts` | b02-header-routes, entegrasyon |
 | Ö5 | Workflow yaması (§4) uygulanmış ve PR CI'da yeşil | Uygulanmadı | Codex |

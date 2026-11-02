@@ -83,12 +83,12 @@
   ],
   "measured": {
     "note": "Kayıtlı ölçüm (recorded koşulları, ilk rota /genel): node scripts/check-budgets.mjs dist. Son ölçüm 2026-11-02 entegrasyon (p-phonejs2 + p-fix + simge tokenı sonrası). Ratchet tavanı yok; wide-antd istisnası 0. Önce/sonra: docs/ADMIN-BUDGETS.md",
-    "phone-html": 2050,
-    "phone-js": 114662,
+    "phone-html": 2051,
+    "phone-js": 114637,
     "phone-css": 8780,
     "phone-capability": 0,
-    "phone-transfer": 221676,
-    "wide-js": 117303,
+    "phone-transfer": 221652,
+    "wide-js": 117310,
     "wide-antd": 0
   },
   "ratchet": {
