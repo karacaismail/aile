@@ -2,7 +2,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test, expect, type Locator, type Page } from '@playwright/test';
-import { ADMIN_MAIN, enterKeyboardMode, horizontalOverflow, openAdmin } from './admin-helpers';
+import { ADMIN_MAIN, enterKeyboardMode, horizontalOverflow, openAdmin, tabKey } from './admin-helpers';
 import { accentEdges, focusRing, overflow, smallText } from './admin-detectors';
 
 // Ayarlar — kritik kullanıcı yolculuğu (tasarım: ekranlar.md SayfaAyarlar / SayfaAyarlarDar, bundle.js Aile.Pages.Ayarlar).
@@ -10,7 +10,10 @@ import { accentEdges, focusRing, overflow, smallText } from './admin-detectors';
 // entegrasyonda 320×480, 360, 375, 568×320 (telefon profili), 820×1180 tablet ve 1440 masaüstünde de koşar.
 // Yolculuk: veri kaynağı durumu (nesil + canlı bağlantı) → Apps Script adresi/anahtarı kaydet (anahtar hiçbir yerde düz
 // metin değil) → yerel değişiklik kümesini dışa aktar (indirilen JSON'da gizli değer yok) → önbelleği onayla temizle
-// (bekleyen değişiklik, adres ve anahtar korunur). Veri: dev sunucusunun sentetik nesli (AILE_GENERATION_DIR);
+// (bekleyen değişiklik, adres ve anahtar korunur). Ortak cihaz yolculuğu: bu cihazdaki tüm panel verisi onayla silinir
+// (nesil önbelleği, canlı bütçe son okuması, değişiklik kümesi; ana uygulamanın verisi ve seçilmezse adres/anahtar
+// kalır), sayfa yeniden yüklenir ve sonucu duyurur. Gizlilik: geliştirme ara katmanı nesli yalnız aynı kökene verir.
+// Veri: dev sunucusunun sentetik nesli (AILE_GENERATION_DIR);
 // Google'a hiçbir istek gitmez (gidenler kesilir ve test düşer). Seçiciler role/label; antd iç sınıfı yok.
 
 // --- Sentetik nesil (beklenenler fixture'dan hesaplanır) -------------------------------------------------------------
@@ -50,6 +53,15 @@ const SEED_OP = {
 
 // --- IndexedDB (ham API; sayfa bağlamında) ---------------------------------------------------------------------------
 type IdbAction = { db: string; store: string; op: 'keys' } | { db: string; store: string; op: 'get'; key: string } | { db: string; store: string; op: 'put'; key: string; value: unknown };
+
+/** Ana uygulamanın aynı idb-keyval deposundaki anahtarı (src/sync/cache.ts DATA_KEY): panel silmesi buna dokunmamalı. */
+const MAIN_APP_KEY = 'aile:data:v1';
+const MAIN_APP_VALUE = { sentetik: true, savedAt: '2026-10-28T11:00:00.000Z', items: [] };
+const keyvalGet = (page: Page, key: string) => idb<unknown>(page, { db: 'keyval-store', store: 'keyval', op: 'get', key });
+const CIHAZ_BOLGESI = 'Cihazdaki panel verisi';
+const CIHAZ_DUGMESI = 'Bu cihazdaki tüm panel verisini sil';
+const CIHAZ_ONAYI = 'Bu cihazdaki tüm panel verisi silinsin mi?';
+const BAGLANTI_SECENEGI = 'Apps Script adresini ve uygulama anahtarını da sil';
 
 function idb<T>(page: Page, action: IdbAction): Promise<T> {
   return page.evaluate(
@@ -259,6 +271,143 @@ test.describe('Ayarlar › kritik yolculuk', () => {
   });
 });
 
+// --- Ortak cihaz: bu cihazdaki tüm panel verisini silme ------------------------------------------------------------------
+test.describe('Ayarlar › ortak cihazda tam silme', () => {
+  test('tüm panel verisi onayla silinir; ana uygulamanın verisi ve (seçilmezse) adres/anahtar kalır; sayfa yenilenip sonucu duyurur', async ({ page }, testInfo) => {
+    const google = await googleKapisi(page);
+    // Taze bağlam: Ayarlar'ın kendi okuduğu parçalar (yeniden yüklemede yine okunacaklar) kaydedilir.
+    await openAdmin(page, '/ayarlar');
+    const ayarlarParcalari = new Set(await partitionKeys(page));
+    await idb(page, { db: 'keyval-store', store: 'keyval', op: 'put', key: CHANGE_SET_KEY, value: [SEED_OP] });
+    await idb(page, { db: 'keyval-store', store: 'keyval', op: 'put', key: LIVE_BUDGET_KEY, value: LIVE_LAST_GOOD });
+    await idb(page, { db: 'keyval-store', store: 'keyval', op: 'put', key: MAIN_APP_KEY, value: MAIN_APP_VALUE });
+    await page.evaluate(([adres, anahtar]) => {
+      localStorage.setItem('aile:apiUrl', adres);
+      localStorage.setItem('aile:appKey', anahtar);
+    }, [ADRES, ANAHTAR] as const);
+    // Alımlar başka koleksiyonların parçalarını önbelleğe yazar (geliştirmede kalıcı önbellek açık).
+    await openAdmin(page, '/alimlar');
+    const main = await openAdmin(page, '/ayarlar');
+    const once = await partitionKeys(page);
+    expect(once.filter(key => !ayarlarParcalari.has(key)).length, 'Ayarlar dışında önbelleğe yazılmış parça').toBeGreaterThan(0);
+
+    const bolge = bolum(main, CIHAZ_BOLGESI);
+    await expect(bolge).toContainText('Ortak bir cihazda');
+    await expect(bolum(main, 'Değişiklik kümesi')).toContainText('1 bekleyen değişiklik');
+    await bolge.getByRole('button', { name: CIHAZ_DUGMESI }).click();
+    const katman = page.getByRole('alertdialog', { name: CIHAZ_ONAYI });
+    await expect(katman).toBeVisible();
+    await expect(katman).toContainText(`Nesil önbelleği: ${sayi(once.length)} parça`);
+    await expect(katman).toContainText('Son canlı bütçe okuması');
+    await expect(katman).toContainText('Bekleyen değişiklikler: 1 (e-tabloya gönderilmedi; silinince geri gelmez)');
+    const secenek = katman.getByRole('checkbox', { name: BAGLANTI_SECENEGI });
+    await expect(secenek).not.toBeChecked();
+    // Seçenek satırının tamamı dokunma hedefidir: 44 px, kaba girişte 48 px.
+    const hedef = (await page.locator('html[data-input-coarse]').count()) > 0 ? 48 : 44;
+    const satir = await secenek.locator('xpath=ancestor::label[1]').boundingBox();
+    expect(Math.round(satir!.height), 'seçenek dokunma hedefi').toBeGreaterThanOrEqual(hedef);
+    const tumunuSil = katman.getByRole('button', { name: 'Tümünü sil' });
+    await tumunuSil.scrollIntoViewIfNeeded();
+    await expect(tumunuSil).toBeInViewport();
+    await page.screenshot({ path: testInfo.outputPath('cihaz-onay.png') });
+    expect(await smallText(page, { root: '[role="alertdialog"]' }), 'onay metni ≥ 14 CSS px').toEqual([]);
+
+    // Sil → sayfa yeniden yüklenir (bellekteki kopyalar da gider) ve sonucu bir kez duyurur.
+    await Promise.all([page.waitForEvent('load'), tumunuSil.click()]);
+    const yeni = page.locator(ADMIN_MAIN);
+    const sonuc = bolum(yeni, CIHAZ_BOLGESI).getByRole('status');
+    await expect(sonuc).toContainText(`Bu cihazdaki panel verisi silindi: ${sayi(once.length)} nesil parçası`);
+    await expect(sonuc).toContainText('Apps Script adresi ve uygulama anahtarı korundu.');
+    await expect(bolum(yeni, 'Değişiklik kümesi')).toContainText('Bekleyen değişiklik yok');
+    await expect(bolum(yeni, 'Bütçe e-tablosu')).toContainText('Henüz yok');
+
+    expect(await storedOps(page), 'değişiklik kümesi silindi').toBeUndefined();
+    expect(await keyvalGet(page, LIVE_BUDGET_KEY), 'canlı bütçe son okuması silindi').toBeUndefined();
+    expect(await keyvalGet(page, MAIN_APP_KEY), 'ana uygulamanın verisi korunur').toEqual(MAIN_APP_VALUE);
+    // Yeniden yüklenen Ayarlar yalnız kendi parçalarını yeniden okuyabilir; Alımlar'ın parçaları gitti.
+    expect((await partitionKeys(page)).filter(key => !ayarlarParcalari.has(key)), 'silinmeyen parça').toEqual([]);
+    expect(await page.evaluate(() => [localStorage.getItem('aile:apiUrl'), localStorage.getItem('aile:appKey')])).toEqual([ADRES, ANAHTAR]);
+    expect(await page.evaluate(() => sessionStorage.getItem('aile:admin:cihaz-silindi')), 'sonuç yalnız bir kez duyurulur').toBeNull();
+    await page.screenshot({ path: testInfo.outputPath('cihaz-sonra.png'), fullPage: true });
+    await kurallar(page);
+    expect(google, 'Google\'a istek yok').toEqual([]);
+  });
+
+  test('seçenek işaretlenirse Apps Script adresi ve anahtarı da silinir (ana uygulamayla ortak ayar)', async ({ page }) => {
+    await openAdmin(page, '/ayarlar');
+    await page.evaluate(([adres, anahtar]) => {
+      localStorage.setItem('aile:apiUrl', adres);
+      localStorage.setItem('aile:appKey', anahtar);
+    }, [ADRES, ANAHTAR] as const);
+    const main = await openAdmin(page, '/ayarlar');
+    await expect(bolum(main, 'Canlı bağlantı')).toContainText('ana uygulamayla ortaktır');
+    await bolum(main, CIHAZ_BOLGESI).getByRole('button', { name: CIHAZ_DUGMESI }).click();
+    const katman = page.getByRole('alertdialog', { name: CIHAZ_ONAYI });
+    await katman.getByRole('checkbox', { name: BAGLANTI_SECENEGI }).check();
+    await Promise.all([page.waitForEvent('load'), katman.getByRole('button', { name: 'Tümünü sil' }).click()]);
+    const yeni = page.locator(ADMIN_MAIN);
+    await expect(bolum(yeni, CIHAZ_BOLGESI).getByRole('status')).toContainText('Apps Script adresi ve uygulama anahtarı da silindi.');
+    await expect(bolum(yeni, 'Canlı bağlantı')).toContainText('Adres yok');
+    await expect(bolum(yeni, 'Canlı bağlantı')).toContainText('Anahtar yok');
+    expect(await page.evaluate(() => [localStorage.getItem('aile:apiUrl') ?? '', localStorage.getItem('aile:appKey')])).toEqual(['', null]);
+  });
+
+  test('klavye: onay açılır, Tab seçeneğe gelir (tek alt çizgi, halka yok), Space işaretler, Escape kapatır ve odak düğmeye döner', async ({ page, browserName }) => {
+    const main = await openAdmin(page, '/ayarlar');
+    await enterKeyboardMode(page, browserName);
+    const dugme = bolum(main, CIHAZ_BOLGESI).getByRole('button', { name: CIHAZ_DUGMESI });
+    await dugme.focus();
+    await page.keyboard.press('Enter');
+    const katman = page.getByRole('alertdialog', { name: CIHAZ_ONAYI });
+    await expect(katman).toBeVisible();
+    const secenek = katman.getByRole('checkbox', { name: BAGLANTI_SECENEGI });
+    // WebKit'te Tab yalnız metin alanlarına gider; düğme/onay kutusu için Alt+Tab (Safari "her öğeyi vurgula" ayarı).
+    for (let i = 0; i < 10 && !(await secenek.evaluate(element => element === document.activeElement)); i++) await page.keyboard.press(tabKey(browserName));
+    await expect(secenek).toBeFocused();
+    expect(await focusRing(page)).toEqual([]);
+    const cizgi = await secenek.locator('xpath=ancestor::label[1]').evaluate(element => {
+      const after = getComputedStyle(element, '::after');
+      return { content: after.content, height: after.height };
+    });
+    expect(cizgi.content, 'odak çizgisi görünür').not.toBe('none');
+    await page.keyboard.press('Space');
+    await expect(secenek).toBeChecked();
+    await page.keyboard.press('Escape');
+    await expect(katman).toBeHidden();
+    await expect(dugme).toBeFocused();
+    expect(await focusRing(page)).toEqual([]);
+  });
+});
+
+// --- Gizlilik: geliştirme ara katmanı yalnız aynı kökene ---------------------------------------------------------------
+test('gizlilik: nesil ara katmanı başka localhost kökenine 403 verir; panelin okumadığı nesil dosyaları 404', async ({ page, baseURL }) => {
+  const kendi = new URL(baseURL!).origin;
+  const baska = `http://localhost:${new URL(baseURL!).port}`;
+  // Adres çubuğundan açılan sayfa (Sec-Fetch-Site: none) okunur; sonra o sayfa (localhost kökeni) 127.0.0.1'i ister.
+  const meta = await page.goto(`${baska}/__aile/generation/_meta`);
+  expect(meta?.status()).toBe(200);
+  const sonuc = await page.evaluate(async ([ayniKok, baskaKok]) => {
+    const oku = async (url: string) => {
+      try {
+        const response = await fetch(url, { cache: 'no-store' });
+        return { status: response.status, body: await response.text() };
+      } catch (error) {
+        return { status: 0, body: String(error) };
+      }
+    };
+    return {
+      ayni: await oku(`${ayniKok}/__aile/generation/manifest.json`),
+      capraz: await oku(`${baskaKok}/__aile/generation/manifest.json`),
+      ham: await oku(`${ayniKok}/__aile/generation/contracts/postgres-mapping.json`),
+    };
+  }, [baska, kendi] as const);
+  expect(sonuc.ayni.status, 'aynı köken').toBe(200);
+  expect(JSON.parse(sonuc.ayni.body).generation_id).toBe(GENERATION_ID);
+  expect(sonuc.capraz.status, 'başka köken').toBe(403);
+  expect(sonuc.capraz.body).not.toContain(GENERATION_ID);
+  expect(sonuc.ham.status, 'panelin okumadığı nesil dosyası').toBe(404);
+});
+
 // --- Uyarlanır yerleşim (matris) ---------------------------------------------------------------------------------------
 test('Ayarlar uyarlanır yerleşim: profil, satır düzeni, ana eylem ve onay katmanı görünüm alanında', { tag: '@matrix' }, async ({ page }) => {
   const main = await openAdmin(page, '/ayarlar');
@@ -300,6 +449,23 @@ test('Ayarlar uyarlanır yerleşim: profil, satır düzeni, ana eylem ve onay ka
   if (beklenen === 'phone') expect(Math.round(kutu!.y + kutu!.height)).toBeGreaterThanOrEqual(vp.height - 1);
   await katman.getByRole('button', { name: 'Vazgeç' }).click();
   await expect(katman).toBeHidden();
+
+  // Tam silme onayı (daha uzun içerik): kısa yükseklikte de birincil eylem ve seçenek erişilebilir, katman taşmaz.
+  await bolum(main, CIHAZ_BOLGESI).getByRole('button', { name: CIHAZ_DUGMESI }).click();
+  const tam = page.getByRole('alertdialog', { name: CIHAZ_ONAYI });
+  await expect(tam).toBeVisible();
+  const secenek = tam.getByRole('checkbox', { name: BAGLANTI_SECENEGI });
+  await secenek.scrollIntoViewIfNeeded();
+  await expect(secenek).toBeInViewport();
+  const tumunuSil = tam.getByRole('button', { name: 'Tümünü sil' });
+  await tumunuSil.scrollIntoViewIfNeeded();
+  await expect(tumunuSil).toBeInViewport();
+  const tamKutu = await tam.boundingBox();
+  expect(tamKutu!.width).toBeLessThanOrEqual(vp.width + 1);
+  if (beklenen === 'phone') expect(Math.round(tamKutu!.y + tamKutu!.height)).toBeGreaterThanOrEqual(vp.height - 1);
+  expect(await smallText(page, { root: '[role="alertdialog"]' }), 'onay metni ≥ 14 CSS px').toEqual([]);
+  await tam.getByRole('button', { name: 'Vazgeç' }).click();
+  await expect(tam).toBeHidden();
 
   await kurallar(page);
 });

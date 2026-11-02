@@ -2,6 +2,16 @@
 // ve parça metinlerini generation_id anahtarıyla idb-keyval'de önbellekler. React/antd bilmez; kabuk `subscribe`
 // ile durumu izler. Yarım veya bozuk nesil asla son iyi veriyi ezmez: aday nesil tamamlanmadan yayınlanmaz.
 //
+// Bütünlük (data-platform/validate.mjs ile aynı kurallar): her parça manifestteki sha256 ile (önbellekten okunsa da)
+// doğrulanır; parçadaki kayıt sayısı manifestteki `count` ile, parçası olan her koleksiyonun `counts` değeri
+// parçalarındaki kayıt sayılarının toplamıyla eşleşmelidir. generation_id yalnız biçimiyle denetlenir, içerik özeti olarak
+// yeniden hesaplanmaz: imzasız öz-özettir (manifesti değiştiren onu da yeniden hesaplar), parça hash'leri ve kayıt
+// sayıları tutarsız/yarım nesli zaten yakalar; gerekçe docs/ADMIN-RUNBOOK.md "Yerel veri ve gizlilik" bölümündedir.
+//
+// Kalıcı önbellek (gizlilik): üretim derlemesinde (import.meta.env.PROD) varsayılan KAPALIDIR; yalnız
+// VITE_AILE_PARTITION_CACHE=idb|on ile açılır. Geliştirmede varsayılan açıktır ('off'/'memory' kapatır). Yeni nesil
+// yayınlanınca diğer nesillerin önbellek girdileri budanır (PartitionCache.prune).
+//
 // Tembel yükleme: koleksiyon yalnız istenince, istenirse yalnız belirli dönemlerin (YYYY-MM bölütlü) parçalarıyla
 // okunur. Parça okuması nesil içinde tekilleştirilir ve bellekte tutulur (aynı parçayı isteyen her çağrı aynı okumayı
 // bekler); en fazla MAX_CONCURRENT_PARTITION_READS okuma aynı anda sürer. Çağıran AbortSignal verebilir: iptal eden
@@ -43,6 +53,8 @@ export interface LoadCollectionOptions extends CollectionScopeOptions {
 export interface PartitionCache {
   get(key: string): Promise<string | undefined>;
   set(key: string, value: string): Promise<void>;
+  /** Verilen nesil dışındaki bütün girdileri siler; depo yeni nesli yayınlayınca çağırır (hatası yutulur). */
+  prune?(keepGenerationId: string): Promise<void>;
 }
 
 export interface StoreStatus {
@@ -58,7 +70,7 @@ export interface StoreStatus {
 }
 
 export interface GenerationStoreOptions {
-  /** null → önbellek yok. Verilmezse idb-keyval (IndexedDB yoksa yine önbellek yok). */
+  /** null → önbellek yok. Verilmezse defaultPartitionCache() (üretimde açık istek yoksa yok; IndexedDB yoksa yok). */
   cache?: PartitionCache | null;
   now?: () => Date;
 }
@@ -264,6 +276,12 @@ type JobKind = 'write' | 'read';
 const IDB_DATABASE = 'aile-admin';
 const IDB_STORE = 'partitions';
 
+/** Depodaki `keep` nesli dışındaki bütün girdileri siler (anahtar `<generation_id>/<yol>`). */
+async function pruneStore(store: UseStore, keepGenerationId: string): Promise<void> {
+  const all = await keys<IDBValidKey>(store);
+  await Promise.all(all.filter(key => typeof key !== 'string' || !key.startsWith(`${keepGenerationId}/`)).map(key => del(key, store)));
+}
+
 export function createIdbPartitionCache(): PartitionCache | null {
   if (typeof indexedDB === 'undefined') return null;
   let store: UseStore | undefined;
@@ -276,35 +294,66 @@ export function createIdbPartitionCache(): PartitionCache | null {
     async set(key, value) {
       await set(key, value, useStore());
     },
+    prune: keepGenerationId => pruneStore(useStore(), keepGenerationId),
   };
 }
 
-/** Kalıcı parça önbelleği seçimi (import.meta.env alt kümesi). */
+/** Kalıcı yerel saklama seçimi (import.meta.env alt kümesi). */
 export interface PartitionCacheEnv {
   /**
-   * Boş, 'idb' ya da 'on' → IndexedDB (aile-admin/partitions). 'off' ya da 'memory' → kalıcı önbellek yok: veri yalnız
-   * sekme belleğinde kalır (Pages build'i, ortak köken). Tanınmayan değer gizlilik için kapalı sayılır.
+   * 'idb' ya da 'on' → IndexedDB (nesil parçaları aile-admin/partitions; canlı bütçenin son iyi okuması). 'off' ya da
+   * 'memory' → kalıcı saklama yok: veri yalnız sekme belleğinde kalır. Boş: geliştirmede açık, üretimde KAPALI.
+   * Tanınmayan değer gizlilik için kapalı sayılır.
    */
   VITE_AILE_PARTITION_CACHE?: string;
+  /** import.meta.env.PROD: üretim derlemesi (Pages, ortak köken). Kalıcı saklama orada yalnız açık istekle açılır. */
+  PROD?: boolean;
 }
 
 function partitionCacheEnv(): PartitionCacheEnv {
-  return { VITE_AILE_PARTITION_CACHE: import.meta.env.VITE_AILE_PARTITION_CACHE as string | undefined };
+  return { VITE_AILE_PARTITION_CACHE: import.meta.env.VITE_AILE_PARTITION_CACHE as string | undefined, PROD: import.meta.env.PROD === true };
 }
 
-/** GenerationProvider'ın önbellek varsayılanı: derleme ortamına göre IndexedDB ya da kalıcı önbellek yok (null). */
-export function defaultPartitionCache(env: PartitionCacheEnv = partitionCacheEnv()): PartitionCache | null {
+/**
+ * Panel verisi (nesil parçaları, canlı bütçe son iyi okuması) bu cihazda kalıcı saklanabilir mi. Fail-closed: üretim
+ * derlemesinde yalnız VITE_AILE_PARTITION_CACHE=idb|on ile; geliştirmede boş değer de açar; diğer her değer kapalı.
+ */
+export function persistentCacheAllowed(env: PartitionCacheEnv = partitionCacheEnv()): boolean {
   const mode = (env.VITE_AILE_PARTITION_CACHE ?? '').trim().toLowerCase();
-  if (mode === '' || mode === 'idb' || mode === 'on') return createIdbPartitionCache();
-  return null;
+  if (mode === 'idb' || mode === 'on') return true;
+  return mode === '' && env.PROD !== true;
 }
 
-/** Yayındaki nesil dışındaki önbellek girdilerini siler; kabuk yeni nesil ready olduktan sonra çağırabilir. */
+/** GenerationProvider/GenerationStore önbellek varsayılanı: kalıcı saklama izinliyse IndexedDB, değilse yok (null). */
+export function defaultPartitionCache(env: PartitionCacheEnv = partitionCacheEnv()): PartitionCache | null {
+  return persistentCacheAllowed(env) ? createIdbPartitionCache() : null;
+}
+
+/** Yayındaki nesil dışındaki önbellek girdilerini siler (depo bunu yeni nesil yayınlanınca kendisi yapar). */
 export async function pruneIdbPartitionCache(keepGenerationId: string): Promise<void> {
   if (typeof indexedDB === 'undefined') return;
-  const store = createStore(IDB_DATABASE, IDB_STORE);
-  const all = await keys<string>(store);
-  await Promise.all(all.filter(key => typeof key === 'string' && !key.startsWith(`${keepGenerationId}/`)).map(key => del(key, store)));
+  await pruneStore(createStore(IDB_DATABASE, IDB_STORE), keepGenerationId);
+}
+
+/**
+ * validate.mjs kuralı (manifest düzeyi): parçası olan her koleksiyonun counts değeri, parçalarındaki kayıt sayılarının
+ * toplamıdır. Sayfalar "kayıt yok" kararını counts ile verir; ayrışan sayım yanlış boş durum gösterirdi. Parçası olmayan
+ * koleksiyonun sayımı (panelin okumadığı kayıtlar, boş koleksiyon) serbesttir. Parçanın kendi sayısı okunurken denetlenir.
+ */
+function checkCounts(manifest: Manifest) {
+  const sums = new Map<string, number>();
+  for (const file of manifest.files) {
+    if (file.kind !== 'partition' || typeof file.collection !== 'string' || typeof file.count !== 'number') continue;
+    sums.set(file.collection, (sums.get(file.collection) ?? 0) + file.count);
+  }
+  const counts = (manifest.counts ?? {}) as Record<string, unknown>;
+  for (const [collection, sum] of sums) {
+    const declared = counts[collection];
+    if (declared !== sum) {
+      const text = typeof declared === 'number' ? String(declared) : 'yok';
+      throw new ContractError('manifest.json', `counts.${collection} (${text}) parçalardaki kayıt sayısıyla (${sum}) uyuşmuyor`);
+    }
+  }
 }
 
 export async function sha256Hex(text: string): Promise<string> {
@@ -397,9 +446,11 @@ export class GenerationStore {
   private readonly readers = new Set<Promise<unknown>>();
   private active = 0;
   private busy: { before: Outcome; succeeded: boolean; failure: Outcome | null } | null = null;
+  /** Önbelleği en son hangi nesil için budadık; aynı neslin yenilemesi yeniden budamaz. */
+  private prunedFor: string | null = null;
 
   constructor(private readonly source: GenerationSource, options: GenerationStoreOptions = {}) {
-    this.cache = options.cache === undefined ? createIdbPartitionCache() : options.cache;
+    this.cache = options.cache === undefined ? defaultPartitionCache() : options.cache;
     this.now = options.now ?? (() => new Date());
   }
 
@@ -599,6 +650,17 @@ export class GenerationStore {
     this.current = snapshot;
     this.refreshFailure = null;
     this.touch();
+    this.pruneCache(snapshot.generationId);
+  }
+
+  /** Yeni yayınlanan nesil dışındaki önbellek girdilerini siler; beklenmez, hatası yüklemeyi etkilemez. */
+  private pruneCache(generationId: string) {
+    if (!this.cache?.prune || this.prunedFor === generationId) return;
+    this.prunedFor = generationId;
+    void this.cache.prune(generationId).catch(() => {
+      // Budama yardımcıdır; başarısızsa sonraki yayın yeniden dener.
+      if (this.prunedFor === generationId) this.prunedFor = null;
+    });
   }
 
   /** Kapsamı nesle yazar; aynı kapsamı eşzamanlı yükleyen önce yazdıysa onun dizisi döner (referans kararlı). */
@@ -647,7 +709,7 @@ export class GenerationStore {
       try {
         const text = await this.readPartitionText(snapshot.generationId, file, controller.signal);
         if (controller.signal.aborted) throw abortError();
-        return this.parsePartition(collection, file.path, text);
+        return this.parsePartition(collection, file, text);
       } finally {
         release();
       }
@@ -688,6 +750,7 @@ export class GenerationStore {
     for (const file of manifest.files) {
       if (!file || typeof file.path !== 'string' || typeof file.sha256 !== 'string') throw new ContractError('manifest.json', 'files girdisi path/sha256 taşımıyor');
     }
+    checkCounts(manifest);
     return {
       generationId: manifest.generation_id,
       manifest,
@@ -711,7 +774,8 @@ export class GenerationStore {
     return text;
   }
 
-  private parsePartition(name: CollectionName, path: string, text: string): BaseRecord[] {
+  private parsePartition(name: CollectionName, file: ManifestFile, text: string): BaseRecord[] {
+    const { path } = file;
     let raw: unknown;
     try {
       raw = JSON.parse(text);
@@ -726,6 +790,9 @@ export class GenerationStore {
     }
     if (!envelope || envelope.schemaVersion !== 1 || !Array.isArray(envelope.records)) throw new ContractError(path, 'parça zarfı schemaVersion 1 / records değil');
     if (envelope.collection !== name) throw new ContractError(path, `zarf koleksiyonu ${String(envelope.collection)}, beklenen ${name}`);
+    if (typeof file.count === 'number' && envelope.records.length !== file.count) {
+      throw new ContractError(path, `kayıt sayısı manifestle uyuşmuyor (manifest ${file.count}, parça ${envelope.records.length})`);
+    }
     return envelope.records;
   }
 

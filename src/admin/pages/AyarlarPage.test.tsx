@@ -16,6 +16,7 @@ import { GenerationProvider, type GenerationProviderProps } from '../data/useGen
 import type { Manifest, PurchaseNeedRecord } from '../data/types';
 import { AyarlarPage, type AyarlarPageProps } from './AyarlarPage';
 import type { PartitionCacheControl } from './ayarlar/onbellek';
+import type { DeviceDataControl, DeviceWipeOptions } from './ayarlar/cihazVerisi';
 
 // --- Sentetik nesil → bellek -------------------------------------------------------------------------
 const here = dirname(fileURLToPath(import.meta.url));
@@ -111,7 +112,7 @@ interface RenderOptions extends Partial<GenerationProviderProps>, Omit<AyarlarPa
   budgetSheetId?: string;
 }
 
-function renderPage({ device = 'desktop', budgetSheetId = '', source, cacheControl, saveFile, now, liveLastRead = async () => null, ...props }: RenderOptions = {}) {
+function renderPage({ device = 'desktop', budgetSheetId = '', source, cacheControl, saveFile, now, liveLastRead = async () => null, deviceData, reloadPage, persistentCache, ...props }: RenderOptions = {}) {
   const Wrapper = ({ children }: { children: ReactNode }) => (
     <DeviceContext.Provider value={device}>
       <GenerationProvider source={source ?? fixtureSource()} cache={null} changeSet={props.changeSet ?? null} {...props}>
@@ -120,7 +121,19 @@ function renderPage({ device = 'desktop', budgetSheetId = '', source, cacheContr
     </DeviceContext.Provider>
   );
   const cache = cacheControl ?? fakeCache().control;
-  return render(<AyarlarPage budgetSheetId={budgetSheetId} cacheControl={cache} saveFile={saveFile} now={now} liveLastRead={liveLastRead} />, { wrapper: Wrapper });
+  return render(
+    <AyarlarPage
+      budgetSheetId={budgetSheetId}
+      cacheControl={cache}
+      saveFile={saveFile}
+      now={now}
+      liveLastRead={liveLastRead}
+      deviceData={deviceData}
+      reloadPage={reloadPage}
+      persistentCache={persistentCache}
+    />,
+    { wrapper: Wrapper },
+  );
 }
 
 /** Başlıktaki tazelik satırı (DataStatus): <header> banner içindeki tek role="status". */
@@ -143,6 +156,7 @@ const waitReady = () =>
 
 beforeEach(() => {
   localStorage.clear();
+  sessionStorage.clear();
 });
 
 describe('AyarlarPage › başlık ve özet', () => {
@@ -639,6 +653,128 @@ describe('AyarlarPage › Önbellek (onaylı temizleme)', () => {
     await user.click(within(sayfa).getByRole('button', { name: 'Önbelleği temizle' }));
     expect(cache.clear).toHaveBeenCalledTimes(1);
     expect(await within(onbellek).findByText(/^Önbellek temizlendi: 2 parça silindi\./)).toBeInTheDocument();
+  });
+});
+
+// r4-privacy: ortak cihazda bütün panel verisi tek onayla silinir; adres/anahtar ayrı seçenektir (ana uygulamayla ortak).
+describe('AyarlarPage › Cihazdaki panel verisi (onaylı tam silme)', () => {
+  const BOLGE = 'Cihazdaki panel verisi';
+  const DUGME = 'Bu cihazdaki tüm panel verisini sil';
+  const ONAY = 'Bu cihazdaki tüm panel verisi silinsin mi?';
+  const SECENEK = 'Apps Script adresini ve uygulama anahtarını da sil';
+
+  function fakeDevice(overrides: Partial<DeviceDataControl> = {}) {
+    const wipe = vi.fn(async ({ connection }: DeviceWipeOptions) => ({ partitions: 4, panelKeys: ['aile:admin:changeset:v1', 'aile:admin:live-budget:v1'], connection }));
+    return { control: { available: true, wipe, ...overrides } as DeviceDataControl, wipe };
+  }
+
+  async function birBekleyenle() {
+    const changeSet = await ChangeSet.load({ storage: createMemoryStorage(), now: () => '2026-10-28T14:05:00.000Z', newId: () => 'OP001' });
+    await changeSet.add(notOpu());
+    return changeSet;
+  }
+
+  it('onay neyin silineceğini ve bekleyen değişiklik sayısını söyler; adres/anahtar seçeneği kapalı başlar; Vazgeç hiçbir şey silmez', async () => {
+    const user = userEvent.setup();
+    const device = fakeDevice();
+    const reload = vi.fn();
+    const changeSet = await birBekleyenle();
+    renderPage({ cacheControl: fakeCache(4).control, deviceData: device.control, reloadPage: reload, changeSet: () => Promise.resolve(changeSet) });
+    await waitReady();
+    const bolge = screen.getByRole('region', { name: BOLGE });
+    expect(within(bolge).getByText(/ortak bir cihazda/i)).toBeInTheDocument();
+    await waitFor(() => expect(within(screen.getByRole('region', { name: 'Değişiklik kümesi' })).getByText('1 bekleyen değişiklik')).toBeInTheDocument());
+    await user.click(within(bolge).getByRole('button', { name: DUGME }));
+    const onay = await screen.findByRole('alertdialog', { name: ONAY });
+    expect(onay).toHaveTextContent('Nesil önbelleği: 4 parça');
+    expect(onay).toHaveTextContent('Son canlı bütçe okuması');
+    expect(onay).toHaveTextContent('Bekleyen değişiklikler: 1 (e-tabloya gönderilmedi; silinince geri gelmez)');
+    expect(onay).toHaveTextContent('Geri alınamaz');
+    const secenek = within(onay).getByRole('checkbox', { name: SECENEK });
+    expect(secenek).not.toBeChecked();
+    expect(onay).toHaveTextContent('ana uygulamayla ortaktır');
+    await user.click(within(onay).getByRole('button', { name: 'Vazgeç' }));
+    expect(device.wipe).not.toHaveBeenCalled();
+    expect(reload).not.toHaveBeenCalled();
+  });
+
+  it('onay: adres ve anahtar korunarak siler, sonucu sonraki açılışa bırakır ve sayfayı yeniden yükler', async () => {
+    const user = userEvent.setup();
+    const device = fakeDevice();
+    const reload = vi.fn();
+    const { unmount } = renderPage({ cacheControl: fakeCache(4).control, deviceData: device.control, reloadPage: reload });
+    await waitReady();
+    await user.click(within(screen.getByRole('region', { name: BOLGE })).getByRole('button', { name: DUGME }));
+    const onay = await screen.findByRole('alertdialog', { name: ONAY });
+    await user.click(within(onay).getByRole('button', { name: 'Tümünü sil' }));
+    await waitFor(() => expect(reload).toHaveBeenCalledTimes(1));
+    expect(device.wipe).toHaveBeenCalledWith({ connection: false });
+    unmount();
+
+    // Yeniden yüklenen sayfa sonucu bir kez duyurur (sekme oturumunda; aile verisi taşımaz).
+    renderPage({ cacheControl: fakeCache(0).control, deviceData: device.control, reloadPage: reload });
+    await waitReady();
+    const bolge = screen.getByRole('region', { name: BOLGE });
+    const sonuc = within(bolge).getByText(/^Bu cihazdaki panel verisi silindi: 4 nesil parçası/);
+    expect(sonuc.closest('[role="status"]')).not.toBeNull();
+    expect(sonuc).toHaveTextContent('Apps Script adresi ve uygulama anahtarı korundu.');
+    await waitFor(() => expect(sessionStorage.length).toBe(0));
+  });
+
+  it('seçenek işaretlenirse adres ve anahtar da silinir; sonuç bunu adıyla söyler', async () => {
+    const user = userEvent.setup();
+    const device = fakeDevice();
+    const reload = vi.fn();
+    const { unmount } = renderPage({ device: 'phone', cacheControl: fakeCache(2).control, deviceData: device.control, reloadPage: reload });
+    await waitReady();
+    await user.click(within(screen.getByRole('region', { name: BOLGE })).getByRole('button', { name: DUGME }));
+    const sayfa = await screen.findByRole('alertdialog', { name: ONAY });
+    expect(sayfa.closest('.aile-dialog')).toHaveClass('aile-dialog--sheet');
+    await user.click(within(sayfa).getByRole('checkbox', { name: SECENEK }));
+    await user.click(within(sayfa).getByRole('button', { name: 'Tümünü sil' }));
+    await waitFor(() => expect(reload).toHaveBeenCalledTimes(1));
+    expect(device.wipe).toHaveBeenCalledWith({ connection: true });
+    unmount();
+    renderPage({ cacheControl: fakeCache(0).control, deviceData: device.control, reloadPage: reload });
+    await waitReady();
+    expect(within(screen.getByRole('region', { name: BOLGE })).getByText(/Apps Script adresi ve uygulama anahtarı da silindi\.$/)).toBeInTheDocument();
+  });
+
+  it('silme başarısızsa "Hata: …" ve nasıl düzeleceği; sayfa yenilenmez', async () => {
+    const user = userEvent.setup();
+    const device = fakeDevice({ wipe: vi.fn(async () => { throw new Error('InvalidStateError'); }) });
+    const reload = vi.fn();
+    renderPage({ cacheControl: fakeCache(2).control, deviceData: device.control, reloadPage: reload });
+    await waitReady();
+    const bolge = screen.getByRole('region', { name: BOLGE });
+    await user.click(within(bolge).getByRole('button', { name: DUGME }));
+    const onay = await screen.findByRole('alertdialog', { name: ONAY });
+    await user.click(within(onay).getByRole('button', { name: 'Tümünü sil' }));
+    expect(await within(bolge).findByText(/^Hata: panel verisi silinemedi \(InvalidStateError\)\. Sayfayı yenileyip yeniden deneyin\.$/)).toBeInTheDocument();
+    expect(reload).not.toHaveBeenCalled();
+  });
+});
+
+describe('AyarlarPage › gizlilik metinleri', () => {
+  it('Canlı bağlantı: adres ve anahtarın ana uygulamayla ortak olduğu ve ana uygulamanın yazdığı adresi de değiştirdiği yazılı', async () => {
+    renderPage();
+    await waitReady();
+    const canli = screen.getByRole('region', { name: 'Canlı bağlantı' });
+    expect(within(canli).getByText(/ana uygulamayla ortaktır/i)).toBeInTheDocument();
+    expect(within(canli).getByText(/ana uygulamanın kayıt yazdığı adres ve anahtar da değişir/i)).toBeInTheDocument();
+  });
+
+  it('kalıcı önbellek kapalı derlemede (üretim varsayılanı) Önbellek satırı bunu söyler; açıkken eski metin', async () => {
+    const { unmount } = renderPage({ persistentCache: false });
+    await waitReady();
+    let onbellek = screen.getByRole('region', { name: 'Önbellek' });
+    expect(within(onbellek).getByText(/bu derlemede nesil parçaları bu tarayıcıda kalıcı saklanmaz/i)).toBeInTheDocument();
+    unmount();
+    renderPage({ persistentCache: true });
+    await waitReady();
+    onbellek = screen.getByRole('region', { name: 'Önbellek' });
+    expect(within(onbellek).queryByText(/kalıcı saklanmaz/i)).not.toBeInTheDocument();
+    expect(within(onbellek).getByText(/daha hızlı açılış için bu tarayıcıda \(IndexedDB\) saklanır/i)).toBeInTheDocument();
   });
 });
 

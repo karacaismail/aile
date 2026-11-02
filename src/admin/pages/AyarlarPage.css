@@ -74,6 +74,35 @@
 .aile-ayarlar__onay { display: flex; flex-direction: column; gap: var(--aile-bosluk-2); }
 .aile-ayarlar__onay > p { margin: 0; }
 
+/* Silinecekler listesi (tam silme onayı): madde imli, boşluk tokenla. */
+.aile-ayarlar__silinecek {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-1);
+  margin: 0;
+  padding-inline-start: var(--aile-bosluk-6);
+}
+
+/* Seçenek: yerel onay kutusu + etiket; tüm satır dokunma hedefi (44, kaba girişte 48). Odak çizgisini admin.css
+   [data-focus-line]:has(:focus-visible) çizer; halka yok. Kutu rengi eylem tokenı. */
+.aile-ayarlar__secenek {
+  display: flex;
+  align-items: center;
+  gap: var(--aile-bosluk-3);
+  min-height: var(--aile-dokunma-hedefi);
+  cursor: pointer;
+}
+.aile-ayarlar__kutu {
+  flex: none;
+  width: calc(var(--aile-bosluk-4) + var(--aile-bosluk-1));
+  height: calc(var(--aile-bosluk-4) + var(--aile-bosluk-1));
+  margin: 0;
+  accent-color: var(--aile-eylem);
+  cursor: pointer;
+}
+.aile-ayarlar__kutu:disabled,
+.aile-ayarlar__kutu:disabled + span { cursor: not-allowed; color: var(--aile-metin-ikincil); }
+
 /* Tazelik satırı + "Eski veri" canlı bölgesi: bölge boşken boşluk bırakmaz (aralık yalnız içerik varken). */
 .aile-ayarlar__tazelik { display: flex; flex-direction: column; min-width: 0; }
 .aile-ayarlar__canli:not(:empty) { margin-top: var(--aile-bosluk-2); }

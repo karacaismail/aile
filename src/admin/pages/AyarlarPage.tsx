@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { sheetId as envBudgetSheetId } from '../../dashboard/data';
 import { getApiUrl, getAppKey, setApiUrl, setAppKey } from '../../sync/config';
-import { BUDGET_TIME_ZONE, lastGoodBudget, useChangeSet, useCollection, useGeneration, type BatchConversion, type GenerationState, type OverlayRecord, type SettingRecord } from '../data';
+import { BUDGET_TIME_ZONE, lastGoodBudget, persistentCacheAllowed, useChangeSet, useCollection, useGeneration, type BatchConversion, type GenerationState, type OverlayRecord, type SettingRecord } from '../data';
+import { reloadPage as tarayiciyiYenile } from '../adaptive/reload';
 import { useDevice } from '../device';
 import type { DataStatusProps, DataStatusState, PageHeaderSummary, Tone } from '../shell/contracts';
 import { settingsLink } from '../shell/navigation';
@@ -9,6 +10,7 @@ import { PageHeader } from '../shell/PageHeader';
 import { Button, DataStatus, Dialog, Disclosure, ErrorState, FormFooter, LoadingShell, StatusText, TextField } from '../ui';
 import { changeSetExportText, exportFileName, saveJsonFile } from './ayarlar/disaAktar';
 import { createPartitionCacheControl, type PartitionCacheControl } from './ayarlar/onbellek';
+import { createDeviceDataControl, type DeviceDataControl, type DeviceWipeResult } from './ayarlar/cihazVerisi';
 import './AyarlarPage.css';
 
 // Tasarım: bundle.js › Pages.Ayarlar (Row: başlık + yardım solda, alanlar sağda; dar ekranda alt alta; altta FormFooter),
@@ -26,6 +28,10 @@ import './AyarlarPage.css';
 // yazar ve "Yeniden dene" manifest gelince koleksiyonu ilk kez ister (önceden istenip hata alan koleksiyon yenilemede
 // toparlanmıyordu).
 // Canlı Sheets durumu: kimlik tanımlı mı + son başarılı canlı okuma zamanı (yerel son iyi okuma; Ayarlar ağa çıkmaz).
+// Gizlilik: Apps Script adresi/anahtarı ana uygulamayla ortaktır (yardım metni bunu söyler). "Cihazdaki panel verisi"
+// ortak cihaz için onaylı tam silme sunar (nesil önbelleği, canlı bütçe son okuması, değişiklik kümesi; adres/anahtar
+// ayrı seçenek); silme bellekteki kopyalar da gitsin diye sayfayı yeniden yükler, sonucu sekme oturumunda bir kez
+// duyurur. Kalıcı önbellek üretimde varsayılan kapalıdır (store.ts persistentCacheAllowed); Önbellek satırı bunu söyler.
 // Geniş-özel modül yok: masaüstü yalnız satır düzenini (başlık solda, alanlar sağda) CSS ile alır.
 
 export interface AyarlarPageProps {
@@ -39,6 +45,12 @@ export interface AyarlarPageProps {
   now?: () => Date;
   /** Son başarılı canlı bütçe okumasının zamanı (ISO) ya da null; ağa çıkmaz (varsayılan: yerel son iyi okuma). */
   liveLastRead?: () => Promise<string | null>;
+  /** Bu cihazdaki tüm panel verisini silme (varsayılan: tarayıcı depoları; ayarlar/cihazVerisi.ts). */
+  deviceData?: DeviceDataControl;
+  /** Silmeden sonra sayfayı yeniden yükler: bellekteki kopyalar da gider (varsayılan: window.location.reload). */
+  reloadPage?: () => void;
+  /** Nesil parçaları bu derlemede bu tarayıcıda kalıcı saklanıyor mu (varsayılan: persistentCacheAllowed()). */
+  persistentCache?: boolean;
 }
 
 const HENUZ_YOK = 'Henüz yok';
@@ -58,6 +70,15 @@ const ESKI_VERI = 'Eski veri: son başarılı nesil gösteriliyor; kaynak yenile
 const ONBELLEK_YOK = 'Bu tarayıcıda önbellek yok; temizlenecek bir şey yok.';
 const ONAY_BASLIGI = 'Önbellek temizlensin mi?';
 const CANLI_OKUMA_NOTU = 'Bu tarayıcıda; Bütçe sayfası açılınca okunur. Ayarlar e-tabloya istek göndermez.';
+const CANLI_BAGLANTI_YARDIMI = 'Uygulama kayıtları bu Apps Script adresinden canlı okunur. Adres ve anahtar ana uygulamayla ortaktır: burada değiştirilirse ana uygulamanın kayıt yazdığı adres ve anahtar da değişir. Yalnız bu tarayıcıda saklanır.';
+const ONBELLEK_YARDIMI = 'Nesil parçaları daha hızlı açılış için bu tarayıcıda (IndexedDB) saklanır. Temizlemek bekleyen değişiklikleri, adresi ve anahtarı silmez.';
+const ONBELLEK_KAPALI_YARDIMI = 'Bu derlemede nesil parçaları bu tarayıcıda kalıcı saklanmaz; burada yalnız önceki sürümlerden kalan parçalar sayılır. Temizlemek bekleyen değişiklikleri, adresi ve anahtarı silmez.';
+const CIHAZ_YARDIMI = 'Ortak bir cihazda paneli bırakmadan önce bu tarayıcıdaki panel verisini silin: nesil önbelleği, son canlı bütçe okuması ve bekleyen değişiklikler. E-tabloya ve nesil klasörüne dokunulmaz.';
+const CIHAZ_DUGMESI = 'Bu cihazdaki tüm panel verisini sil';
+const CIHAZ_ONAY_BASLIGI = 'Bu cihazdaki tüm panel verisi silinsin mi?';
+const BAGLANTI_SECENEGI = 'Apps Script adresini ve uygulama anahtarını da sil';
+/** Silme sonucu yeniden yüklenen sayfada bir kez duyurulur (sekme oturumu; sayı ve metin, aile verisi yok). */
+const SILME_SONUCU_ANAHTARI = 'aile:admin:cihaz-silindi';
 const sayi = (n: number) => new Intl.NumberFormat('tr-TR').format(n);
 const simdi = () => new Date();
 /** Yerel son iyi canlı okuma (IndexedDB); Google'a istek yok. */
@@ -74,6 +95,17 @@ function zaman(iso: string): string | null {
 let varsayilanOnbellek: PartitionCacheControl | undefined;
 /** Tek denetim nesnesi (IndexedDB bağlantısı tembel açılır). */
 const varsayilanOnbellekDenetimi = () => (varsayilanOnbellek ??= createPartitionCacheControl());
+let varsayilanCihaz: DeviceDataControl | undefined;
+const varsayilanCihazDenetimi = () => (varsayilanCihaz ??= createDeviceDataControl());
+
+/** sessionStorage erişimi hata atabilir (Safari gizli kip, engellenmiş site verisi); o zaman sonuç yalnız bu sekmede. */
+function oturumDeposu(): Storage | null {
+  try {
+    return typeof sessionStorage === 'undefined' ? null : sessionStorage;
+  } catch {
+    return null;
+  }
+}
 
 function hataAyrintisi(error: unknown): string {
   if (error instanceof Error) return error.message || error.name;
@@ -372,6 +404,154 @@ function Onbellek({ cache, pending, phone, recountKey }: OnbellekProps) {
   );
 }
 
+// --- Cihazdaki panel verisi (onaylı tam silme) --------------------------------------------------------------------
+function silmeSonucuMetni(result: DeviceWipeResult): string {
+  const baglanti = result.connection ? 'Apps Script adresi ve uygulama anahtarı da silindi.' : 'Apps Script adresi ve uygulama anahtarı korundu.';
+  return `Bu cihazdaki panel verisi silindi: ${sayi(result.partitions)} nesil parçası, son canlı bütçe okuması ve değişiklik kümesi. ${baglanti}`;
+}
+
+function bekleyenMetni(pending: number | null): string {
+  if (pending === null) return `Bekleyen değişiklikler: ${BILINMIYOR}`;
+  if (pending === 0) return 'Bekleyen değişiklikler: yok';
+  return `Bekleyen değişiklikler: ${sayi(pending)} (e-tabloya gönderilmedi; silinince geri gelmez)`;
+}
+
+interface CihazVerisiProps {
+  control: DeviceDataControl;
+  cache: PartitionCacheControl;
+  /** Bekleyen değişiklik sayısı; küme hazır değilse null. */
+  pending: number | null;
+  phone: boolean;
+  reload(): void;
+}
+
+function CihazVerisi({ control, cache, pending, phone, reload }: CihazVerisiProps) {
+  // Önceki sayfanın silme sonucu: yalnız okunur; anahtar efektte kaldırılır (StrictMode'da iki kez okunsa da kaybolmaz).
+  const [sonuc, setSonuc] = useState<Sonuc | null>(() => {
+    try {
+      const text = oturumDeposu()?.getItem(SILME_SONUCU_ANAHTARI);
+      return text ? { tone: 'olumlu', text } : null;
+    } catch {
+      return null;
+    }
+  });
+  useEffect(() => {
+    try {
+      oturumDeposu()?.removeItem(SILME_SONUCU_ANAHTARI);
+    } catch {
+      /* depolama yok; duyurulacak bir şey de yok */
+    }
+  }, []);
+  const [onay, setOnay] = useState(false);
+  const [baglantiDa, setBaglantiDa] = useState(false);
+  const [calisiyor, setCalisiyor] = useState(false);
+  const [parca, setParca] = useState<Sayim>({ durum: 'okunuyor' });
+  const secenekYardimi = useId();
+  const bagli = useRef(true);
+  useEffect(() => {
+    bagli.current = true;
+    return () => {
+      bagli.current = false;
+    };
+  }, []);
+
+  const ac = () => {
+    setBaglantiDa(false);
+    setOnay(true);
+    if (!cache.available) {
+      setParca({ durum: 'tamam', n: 0 });
+      return;
+    }
+    setParca({ durum: 'okunuyor' });
+    cache.count().then(
+      (n) => {
+        if (bagli.current) setParca({ durum: 'tamam', n });
+      },
+      () => {
+        if (bagli.current) setParca({ durum: 'bilinmiyor' });
+      },
+    );
+  };
+  const kapat = () => {
+    if (!calisiyor) setOnay(false);
+  };
+  const onayla = async () => {
+    if (calisiyor) return;
+    setCalisiyor(true);
+    try {
+      const result = await control.wipe({ connection: baglantiDa });
+      const text = silmeSonucuMetni(result);
+      try {
+        oturumDeposu()?.setItem(SILME_SONUCU_ANAHTARI, text);
+      } catch {
+        /* sonuç yalnız bu sekmede duyurulur */
+      }
+      if (bagli.current) setSonuc({ tone: 'olumlu', text });
+      // Bellekteki kopyalar (değişiklik kümesi, okunan nesil, seçilen klasör) da gitsin: sayfa yeniden yüklenir.
+      reload();
+    } catch (error) {
+      if (bagli.current) setSonuc({ tone: 'hata', text: `Hata: panel verisi silinemedi (${hataAyrintisi(error)}). Sayfayı yenileyip yeniden deneyin.` });
+    } finally {
+      if (bagli.current) {
+        setCalisiyor(false);
+        setOnay(false);
+      }
+    }
+  };
+
+  const parcaMetni = parca.durum === 'tamam' ? `${sayi(parca.n)} parça` : parca.durum === 'okunuyor' ? 'Sayılıyor…' : BILINMIYOR;
+  return (
+    <>
+      <div className="aile-ayarlar__eylem">
+        <Button variant="danger" onClick={ac}>{CIHAZ_DUGMESI}</Button>
+      </div>
+      <p className={sonuc?.tone === 'hata' ? 'aile-ayarlar__sonuc aile-ayarlar__hata' : 'aile-ayarlar__sonuc'} role="status">{sonuc?.text ?? ''}</p>
+      <Dialog
+        open={onay}
+        alert
+        title={CIHAZ_ONAY_BASLIGI}
+        onClose={kapat}
+        footer={(
+          <FormFooter
+            narrow={phone}
+            sticky={false}
+            status={calisiyor ? 'Siliniyor…' : 'Geri alınamaz; silme bitince sayfa yeniden yüklenir.'}
+            primaryLabel="Tümünü sil"
+            primaryDisabled={calisiyor}
+            onPrimary={() => void onayla()}
+            secondaryLabel="Vazgeç"
+            onSecondary={kapat}
+          />
+        )}
+      >
+        <div className="aile-ayarlar__onay">
+          <p>Bu tarayıcıdan silinir:</p>
+          <ul className="aile-ayarlar__silinecek">
+            <li>{`Nesil önbelleği: ${parcaMetni}`}</li>
+            <li>Son canlı bütçe okuması</li>
+            <li>{bekleyenMetni(pending)}</li>
+          </ul>
+          <label className="aile-ayarlar__secenek" data-focus-line="">
+            <input
+              type="checkbox"
+              className="aile-ayarlar__kutu"
+              checked={baglantiDa}
+              disabled={calisiyor}
+              aria-describedby={secenekYardimi}
+              onChange={(event) => setBaglantiDa(event.currentTarget.checked)}
+            />
+            <span>{BAGLANTI_SECENEGI}</span>
+          </label>
+          <p id={secenekYardimi} className="aile-kucuk aile-ikincil">
+            Bu ayar ana uygulamayla ortaktır: işaretlenirse ana uygulama da bu cihazda adresi ve anahtarı yeniden ister.
+          </p>
+          <p>E-tabloya, nesil klasörüne ve ana uygulamanın kendi verisine dokunulmaz.</p>
+        </div>
+      </Dialog>
+    </>
+  );
+}
+
 // --- Sayfa ---------------------------------------------------------------------------------------------------
 interface Kayitli { url: string; hasKey: boolean }
 interface Taslak { url: string; /** Yeni anahtar; kayıtlı anahtar buraya hiçbir zaman okunmaz. */ key: string; removeKey: boolean }
@@ -379,7 +559,10 @@ interface Taslak { url: string; /** Yeni anahtar; kayıtlı anahtar buraya hiçb
 const kayitliOku = (): Kayitli => ({ url: getApiUrl(), hasKey: getAppKey() !== undefined });
 const bosTaslak = (saved: Kayitli): Taslak => ({ url: saved.url, key: '', removeKey: false });
 
-export function AyarlarPage({ budgetSheetId = envBudgetSheetId, cacheControl, saveFile = saveJsonFile, now = simdi, liveLastRead = yerelSonCanliOkuma }: AyarlarPageProps) {
+export function AyarlarPage({
+  budgetSheetId = envBudgetSheetId, cacheControl, saveFile = saveJsonFile, now = simdi, liveLastRead = yerelSonCanliOkuma,
+  deviceData, reloadPage = tarayiciyiYenile, persistentCache,
+}: AyarlarPageProps) {
   const device = useDevice();
   const narrow = device !== 'desktop';
   const phone = device === 'phone';
@@ -387,6 +570,8 @@ export function AyarlarPage({ budgetSheetId = envBudgetSheetId, cacheControl, sa
   const changeSet = useChangeSet();
   const [onizlemeAcik, setOnizlemeAcik] = useState(false);
   const cache = cacheControl ?? varsayilanOnbellekDenetimi();
+  const cihaz = deviceData ?? varsayilanCihazDenetimi();
+  const kaliciOnbellek = useMemo(() => persistentCache ?? persistentCacheAllowed(), [persistentCache]);
 
   // Canlı bağlantı: kayıtlı değer (localStorage) ve taslak. Kayıtlı anahtar yalnız "var/yok" olarak bilinir.
   const [saved, setSaved] = useState<Kayitli>(kayitliOku);
@@ -484,7 +669,7 @@ export function AyarlarPage({ budgetSheetId = envBudgetSheetId, cacheControl, sa
           )}
         </Row>
 
-        <Row title="Canlı bağlantı" help="Uygulama kayıtları bu Apps Script adresinden canlı okunur. Adres ve anahtar yalnız bu tarayıcıda saklanır.">
+        <Row title="Canlı bağlantı" help={CANLI_BAGLANTI_YARDIMI}>
           <div className="aile-ayarlar__durum">
             <span className="aile-ayarlar__etiket aile-kucuk aile-ikincil">Durum</span>
             <StatusText label={canli.label} tone={canli.tone} />
@@ -567,12 +752,22 @@ export function AyarlarPage({ budgetSheetId = envBudgetSheetId, cacheControl, sa
           </Disclosure>
         </Row>
 
-        <Row title="Önbellek" help="Nesil parçaları daha hızlı açılış için bu tarayıcıda (IndexedDB) saklanır. Temizlemek bekleyen değişiklikleri, adresi ve anahtarı silmez.">
+        <Row title="Önbellek" help={kaliciOnbellek ? ONBELLEK_YARDIMI : ONBELLEK_KAPALI_YARDIMI}>
           <Onbellek
             cache={cache}
             pending={changeSet.ready ? changeSet.pending : null}
             phone={phone}
             recountKey={`${generation.lastReadAt ?? ''}|${generation.state}`}
+          />
+        </Row>
+
+        <Row title="Cihazdaki panel verisi" help={CIHAZ_YARDIMI}>
+          <CihazVerisi
+            control={cihaz}
+            cache={cache}
+            pending={changeSet.ready ? changeSet.pending : null}
+            phone={phone}
+            reload={reloadPage}
           />
         </Row>
 

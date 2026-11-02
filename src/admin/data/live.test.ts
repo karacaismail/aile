@@ -1,7 +1,10 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { get, set } from 'idb-keyval';
+import { del, get, set } from 'idb-keyval';
+// data-platform üretici kuralı (Node ESM): canlı tutarın nesildeki tutarla aynı metne çevrildiği bununla sınanır.
+import { decimal as platformDecimal } from '../../../data-platform/core.mjs';
+import { sumMoney } from './actuals';
 import { gviz } from '../../dashboard/fixtures';
 import { syntheticCurrentSheets } from '../../dashboard/currentFixtures';
 import { syntheticBridgeInflows, syntheticBridgeMetadata } from '../../dashboard/bridgeFixtures';
@@ -17,6 +20,8 @@ import { fetchBudget, sheetId } from '../../dashboard/data';
 import {
   ConfigError,
   LIVE_BUDGET_CACHE_KEY,
+  clearLiveBudgetCache,
+  liveAmount,
   LIVE_FAILURE_TITLE,
   createIdbLiveBudgetCache,
   createMemoryLiveBudgetCache,
@@ -39,9 +44,11 @@ afterEach(() => {
   vi.useRealTimers();
   vi.mocked(get).mockReset();
   vi.mocked(set).mockReset();
+  vi.mocked(del).mockReset();
 });
 
-const DECIMAL = /^-?[0-9]+\.[0-9]{2}$/;
+/** Canlı tutar: yuvarlanmamış ondalık metin, en az iki ondalık (data-platform decimal() + kuruş dolgusu). */
+const DECIMAL = /^-?[0-9]+\.[0-9]{2,}$/;
 const API = 'https://script.google.com/macros/s/synthetic/exec';
 /** Gerçek zamanlayıcılarla hızlı politika: ağa çıkılmaz, bekleme milisaniye düzeyinde. */
 const FAST = { timeoutMs: 40, retry: { baseDelayMs: 1, maxDelayMs: 2 }, cache: null } satisfies LiveBudgetOptions;
@@ -115,8 +122,8 @@ describe('liveBudget', () => {
     expect([...budget.periods].sort()).toEqual(budget.periods);
     const first = budget.months[0];
     expect(first.period).toBe(expected.months[0].key);
-    expect(first.planned.income).toEqual({ amount: expected.months[0].income.plan.toFixed(2), currency: 'TRY' });
-    expect(first.actual.income).toEqual({ amount: expected.months[0].income.current.toFixed(2), currency: 'TRY' });
+    expect(first.planned.income).toEqual({ amount: liveAmount(expected.months[0].income.plan), currency: 'TRY' });
+    expect(first.actual.income).toEqual({ amount: liveAmount(expected.months[0].income.current), currency: 'TRY' });
     expect(first.planned.income).not.toBe(first.actual.income);
     for (const month of budget.months) for (const side of [month.planned, month.actual]) for (const money of Object.values(side)) expect(money?.amount).toMatch(DECIMAL);
     expect(Object.keys(first)).not.toContain('total');
@@ -127,8 +134,8 @@ describe('liveBudget', () => {
     expect(Object.keys(category.actual)).toEqual(budget.periods);
     budget.periods.forEach((period, i) => {
       const plan = source.plan[i], current = source.current[i];
-      expect(category.planned[period]).toEqual(plan === null ? null : { amount: plan.toFixed(2), currency: 'TRY' });
-      expect(category.actual[period]).toEqual(current === null ? null : { amount: current.toFixed(2), currency: 'TRY' });
+      expect(category.planned[period]).toEqual(plan === null ? null : { amount: liveAmount(plan), currency: 'TRY' });
+      expect(category.actual[period]).toEqual(current === null ? null : { amount: liveAmount(current), currency: 'TRY' });
     });
     expect(budget.groups.map(g => g.label)).toEqual(expected.groups.map(g => g.label));
   });
@@ -499,6 +506,87 @@ describe('liveBudget › son iyi okuma önbelleği ve "Son okuma"', () => {
     const ok = await liveBudget({ ...FAST, cache: undefined, fetchBudgetImpl: vi.fn(async () => budgetFixture()) });
     if (!ok.ok) throw new Error(ok.message);
     await vi.waitFor(() => expect(set).toHaveBeenCalledWith(LIVE_BUDGET_CACHE_KEY, { v: 1, sheet: sheetId, budget: ok.budget }));
+  });
+});
+
+// r4-privacy: canlı tutar yuvarlanmaz (data-platform decimal() kuralı); yuvarlama yalnız görüntülemede (formatMoney).
+describe('toBudgetViewModel › tutarlar yuvarlanmaz (data-platform decimal() kuralı)', () => {
+  const irregular = (plan: number | null): Budget['irregular'][number] => ({ id: `t-${String(plan)}`, label: 'x', type: '', planMonth: '', month: '', plan, current: null, status: '', room: '', note: '', manual: false });
+  const amountOf = (value: number) => toBudgetViewModel({ months: [], categories: [], groups: [], irregular: [irregular(value)] }, 'now').irregular[0]!.planned.amount!.amount;
+
+  it.each([
+    [8333.333333333334, '8333.333333333334'],
+    [1234.5600000000002, '1234.5600000000002'],
+    [1.005, '1.005'],
+    [0.1 + 0.2, '0.30000000000000004'],
+    [8500, '8500.00'],
+    [-12.5, '-12.50'],
+    [-0, '0.00'],
+    [1e21, '1000000000000000000000.00'],
+    [1e-7, '0.0000001'],
+    [-1.5e-7, '-0.00000015'],
+  ])('%s → "%s" (kayan nokta yuvarlaması yok, en az iki ondalık)', (value, expected) => {
+    expect(amountOf(value)).toBe(expected);
+    expect(liveAmount(value)).toBe(expected);
+  });
+
+  it('nesildeki tutarla (data-platform decimal) farkı tam sıfırdır: "Nesil ile N fark" yalnız gerçek farkta artar', () => {
+    for (const value of [8333.333333333334, 1234.5600000000002, 1.005, 0.1 + 0.2, 8500, -12.5, 1e21, 1e-7, 99999999.99, 4166.666666666667]) {
+      const live = { amount: amountOf(value), currency: 'TRY' };
+      const generation = { amount: platformDecimal(value) as string, currency: 'TRY' };
+      const difference = sumMoney([live, { amount: generation.amount.startsWith('-') ? generation.amount.slice(1) : `-${generation.amount}`, currency: 'TRY' }]);
+      expect(Number(difference.money!.amount), String(value)).toBe(0);
+      expect(Number(live.amount), String(value)).toBe(value);
+    }
+  });
+
+  it('sonlu olmayan değer tutar sayılmaz (null, "Bilinmiyor")', () => {
+    expect(liveAmount(Number.NaN)).toBeNull();
+    expect(liveAmount(Number.POSITIVE_INFINITY)).toBeNull();
+  });
+});
+
+// r4-privacy: üretim derlemesinde canlı bütçenin son iyi okuması açık istek olmadan cihaza yazılmaz (yalnız sekme belleği).
+describe('liveBudget › üretimde son iyi okuma yalnız bellekte (fail-closed)', () => {
+  afterEach(async () => {
+    vi.unstubAllEnvs();
+    await clearLiveBudgetCache();
+  });
+
+  it("PROD + IndexedDB: başarılı okuma IndexedDB'ye yazılmaz; son iyi okuma yalnız bu sekmede taşınır", async () => {
+    vi.stubEnv('PROD', true);
+    vi.stubEnv('VITE_AILE_PARTITION_CACHE', '');
+    vi.stubGlobal('indexedDB', {});
+    const ok = await liveBudget({ ...FAST, cache: undefined, fetchBudgetImpl: vi.fn(async () => budgetFixture()) });
+    if (!ok.ok) throw new Error(ok.message);
+    const failed = await liveBudget({ ...FAST, cache: undefined, fetchBudgetImpl: vi.fn(async (): Promise<Budget> => { throw new TypeError('Failed to fetch'); }) });
+    expect(failed).toMatchObject({ ok: false, kind: 'network', lastGood: ok.budget });
+    expect(await lastGoodBudget()).toEqual(ok.budget);
+    expect(set).not.toHaveBeenCalled();
+    expect(get).not.toHaveBeenCalled();
+  });
+
+  it("PROD + VITE_AILE_PARTITION_CACHE=idb: kalıcı saklama açıkça istenmişse IndexedDB'ye yazılır", async () => {
+    vi.stubEnv('PROD', true);
+    vi.stubEnv('VITE_AILE_PARTITION_CACHE', 'idb');
+    vi.stubGlobal('indexedDB', {});
+    vi.mocked(set).mockResolvedValue(undefined);
+    const ok = await liveBudget({ ...FAST, cache: undefined, fetchBudgetImpl: vi.fn(async () => budgetFixture()) });
+    if (!ok.ok) throw new Error(ok.message);
+    await vi.waitFor(() => expect(set).toHaveBeenCalledWith(LIVE_BUDGET_CACHE_KEY, { v: 1, sheet: sheetId, budget: ok.budget }));
+  });
+
+  it('clearLiveBudgetCache: bellekteki ve IndexedDB\'deki son iyi okumayı siler', async () => {
+    vi.stubEnv('PROD', true);
+    vi.stubEnv('VITE_AILE_PARTITION_CACHE', '');
+    vi.stubGlobal('indexedDB', {});
+    vi.mocked(del).mockResolvedValue(undefined);
+    const ok = await liveBudget({ ...FAST, cache: undefined, fetchBudgetImpl: vi.fn(async () => budgetFixture()) });
+    if (!ok.ok) throw new Error(ok.message);
+    expect(await lastGoodBudget()).toEqual(ok.budget);
+    await clearLiveBudgetCache();
+    expect(await lastGoodBudget()).toBeNull();
+    expect(del).toHaveBeenCalledWith(LIVE_BUDGET_CACHE_KEY);
   });
 });
 

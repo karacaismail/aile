@@ -43,9 +43,9 @@ Kullanılan iki anahtar ana kopyanın `.env.local` dosyasındadır (Git dışın
 | Anahtar | Okuyan | Not |
 |---|---|---|
 | `VITE_BUDGET_SHEET_ID` | Vite, istemci koduna (`import.meta.env`) | Canlı bütçe okuması ve "E-tabloyu aç" bağlantısı |
-| `AILE_GENERATION_DIR` | Yalnız dev middleware `/__aile/generation/*` (`src/admin/devServer/privateData.ts`), süreç ortamından | data-platform ile üretilmiş özel nesil kökü (`/PRIVATE/data` gibi; `generations/<sha256>/manifest.json` taşır) |
+| `AILE_GENERATION_DIR` | Yalnız dev middleware `/__aile/generation/*` (`src/admin/devServer/privateData.ts`), yalnız süreç ortamından | data-platform ile üretilmiş özel nesil kökü (`/PRIVATE/data` gibi; `generations/<sha256>/manifest.json` taşır) |
 
-Vite `.env.local` içinden yalnız `VITE_` önekli anahtarları alır; `AILE_GENERATION_DIR`'ı süreç ortamına koymaz. Bu yüzden düz `pnpm dev` gerçek nesli göremez ve sunucu Node'un `--env-file=.env.local` seçeneğiyle başlatılır. Kabukta aynı adlı bir değişken varsa hem Node hem Vite onu dosyaya tercih eder; `env -u` bu yüzden ikisini de temizler.
+Vite `.env.local` içinden yalnız `VITE_` önekli anahtarları alır; `AILE_GENERATION_DIR`'ı süreç ortamına koymaz. Ara katman da `.env` / `.env.local` dosyalarını okumaz (birim testi `privateData.test.ts` bunu denetler). Bu yüzden düz `pnpm dev` gerçek nesli göremez ve sunucu Node'un `--env-file=.env.local` seçeneğiyle açık komutla başlatılır. Kabukta aynı adlı bir değişken varsa hem Node hem Vite onu dosyaya tercih eder; `env -u` bu yüzden ikisini de temizler.
 
 1. Değer yazdırmadan anahtarların tanımlı olduğunu denetleyin:
 
@@ -199,3 +199,28 @@ Her sayfada bakılacaklar:
 Geri bildirim şu bilgilerle verilir: sayfa adresi (`#/alimlar` gibi), genişlik × yükseklik, tarayıcı, giriş biçimi (dokunma, fare, klavye), ne görüldü, ne bekleniyordu ve ekran görüntüsü. Ekran görüntüsü gerçek veri içeriyorsa paylaşılmadan önce sorun sentetik önizlemede yeniden gösterilir.
 
 Görsel referans değişiklikleri sessizce veya toplu onaylanmaz: her değişiklik önce/sonra/fark görüntüsü ve gerekçesiyle kullanıcıya sunulur; değişikliği yapan kendi değişikliğinin tek onaylayıcısı olmaz. Yayın, gerçek e-tabloya yazma ve lisans gibi kararlar kullanıcıya aittir.
+
+## 9. Yerel veri ve gizlilik
+
+Panel tarayıcıda yalnız aşağıdakileri saklar. Hepsi yalnız o tarayıcıdadır; e-tabloya ve nesil klasörüne yazılmaz.
+
+| Veri | Yer | Ne zaman |
+|---|---|---|
+| Nesil parça önbelleği | IndexedDB `aile-admin` / `partitions`, anahtar `<generation_id>/<yol>` | Kalıcı saklama açıksa (aşağıda). Yeni nesil yayınlanınca diğer nesillerin parçaları budanır. |
+| Canlı bütçenin son iyi okuması | idb-keyval varsayılan deposu, `aile:admin:live-budget:v1` | Kalıcı saklama açıksa; kapalıysa yalnız sekme belleğinde. |
+| Yerel değişiklik kümesi (durum ve not değişiklikleri) | idb-keyval varsayılan deposu, `aile:admin:changeset:v1` | Her derlemede; kullanıcının henüz e-tabloya gönderilmemiş girdisidir. |
+| Apps Script adresi ve uygulama anahtarı | localStorage `aile:apiUrl`, `aile:appKey` | Kullanıcı Ayarlar'dan kaydedince. Ana uygulamayla ortaktır: panelde değiştirmek ana uygulamanın kayıt yazdığı adresi ve anahtarı da değiştirir. |
+
+Kalıcı saklama `VITE_AILE_PARTITION_CACHE` ile seçilir (`src/admin/data/store.ts` `persistentCacheAllowed`). Boş değer geliştirmede açık, üretim derlemesinde kapalıdır (fail-closed). Üretimde yalnız `idb` ya da `on` açar; `off`, `memory` ve tanınmayan değerler kapalıdır. Pages kökeni başka projelerle paylaşıldığı için yayında kalıcı önbellek ancak kullanıcının açık kararıyla açılır (`docs/ADMIN-DEPLOY-PROPOSAL.md` Ö6).
+
+Ortak cihaz: Ayarlar › "Cihazdaki panel verisi" › "Bu cihazdaki tüm panel verisini sil" onay ister ve bekleyen değişiklik sayısını gösterir. Onaylanınca nesil önbelleğini, `aile:admin:` önekli bütün anahtarları (değişiklik kümesi, canlı bütçe son okuması) ve sekme belleğindeki canlı bütçe kopyasını siler. Ardından sayfa yeniden yüklenir; böylece bellekteki kopyalar ve seçilen klasör de gider. Adres ve anahtar ayrı bir seçenektir ve varsayılan olarak korunur. Ana uygulamanın aynı depodaki verisine (`aile:data:v1`, `aile:outbox:v1`) dokunulmaz. Başka sekmede açık bir panel varsa önce o kapatılır. Açık kalırsa o sekmede yapılan yeni bir değişiklik, bellekteki değişiklik kümesini yeniden yazar. "Önbelleği temizle" yalnız parça önbelleğini siler.
+
+Geliştirme ara katmanı (`/__aile/generation/*`) yalnız `manifest.json`, `data/<koleksiyon>/…/<parça>.json` ve `_meta` yollarını servis eder; `raw/`, `schemas/` ve `contracts/` servis edilmez. Yalnız aynı kökene yanıt verir. `Origin` başlığı sunucunun kendi kökeni değilse ya da `Sec-Fetch-Site` değeri `same-origin` veya `none` değilse 403 döner. Vite'nin varsayılan CORS ayarı başka localhost portlarına izin verse de nesil o kökenlere okunmaz. `curl` gibi başlıksız istekler okunur.
+
+Nesil bütünlüğü (`src/admin/data/store.ts`, `data-platform/validate.mjs` ile aynı kurallar):
+
+- Her parça manifestteki sha256 ile doğrulanır. Önbellekten okunan parça da yeniden doğrulanır.
+- Parçadaki kayıt sayısı manifestteki `count` ile eşleşmelidir.
+- Parçası olan her koleksiyonun `counts` değeri, parçalarındaki kayıt sayılarının toplamına eşit olmalıdır. Uyuşmazlık `ContractError` verir ve nesil yayınlanmaz.
+- Parçası olmayan koleksiyonun sayımı serbesttir (panelin okumadığı kayıtlar ya da boş koleksiyon).
+- `generation_id` yalnız biçimiyle (64 hex) denetlenir; tarayıcıda içerik özeti olarak yeniden hesaplanmaz. Bu kimlik imzasız bir öz-özettir: manifesti değiştiren biri onu da yeniden hesaplar, yani kurcalamaya karşı ek koruma vermez. Yarım ya da elle bozulmuş bir neslin yaratacağı tutarsızlıkları parça hash'leri ve kayıt sayıları zaten yakalar. Kimliğin içerikle eşleştiği üretici tarafında `data-platform/cli.mjs validate` ile doğrulanır. Ayrıca `generation_id` panelde yalnız önbellek anahtarı ve nesil sabitleme kimliğidir; önbellekten okunan her parça yine sha256 ile doğrulandığından aynı kimliği taşıyan farklı bir manifest yanlış veri yayınlatamaz.

@@ -1,22 +1,44 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createHash } from 'node:crypto';
 import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import {
   ContractError,
   GenerationStore,
   contractSummary,
+  createIdbPartitionCache,
   HEAVY_COLLECTIONS,
   HeavyCollectionError,
   IntegrityError,
   defaultPartitionCache,
   partitionPeriod,
   periodsBetween,
+  persistentCacheAllowed,
   type GenerationSource,
   type PartitionCache,
   type StoreStatus,
 } from './store';
 import type { ReadTextOptions } from './sources';
 import type { CollectionName } from './types';
+
+// idb-keyval bellek içi sahtesi: jsdom'da IndexedDB yok. Depo adı "<veritabanı>/<depo>" anahtarıyla tutulur; testler
+// kalıcı önbelleğe gerçekten yazılıp yazılmadığını buradan okur. Diğer testler cache: null ya da MemoryCache verir.
+const idb = vi.hoisted(() => {
+  const stores = new Map<string, Map<string, unknown>>();
+  const open = (store: unknown) => {
+    const name = String(store);
+    if (!stores.has(name)) stores.set(name, new Map());
+    return stores.get(name)!;
+  };
+  return { stores, open };
+});
+vi.mock('idb-keyval', () => ({
+  createStore: vi.fn((db: string, name: string) => `${db}/${name}`),
+  get: vi.fn(async (key: string, store: unknown) => idb.open(store).get(key)),
+  set: vi.fn(async (key: string, value: unknown, store: unknown) => { idb.open(store).set(key, value); }),
+  del: vi.fn(async (key: string, store: unknown) => { idb.open(store).delete(key); }),
+  keys: vi.fn(async (store: unknown) => [...idb.open(store).keys()]),
+}));
 
 const FIXTURE_ROOT = path.resolve(__dirname, '../../../fixtures/generation-synthetic');
 
@@ -28,6 +50,8 @@ class FixtureSource implements GenerationSource {
   failAll = false;
   /** Verilirse manifest.json yerine bu metin döner (yenilemede bozuk aday). */
   manifestOverride: string | null = null;
+  /** Yol → metin: diskteki parça yerine döner (manifest hash'i testte yeniden hesaplanır). */
+  readonly texts = new Map<string, string>();
   readonly options: { path: string; options?: ReadTextOptions }[] = [];
   constructor(private readonly root: string) {}
   async readText(relative: string, options?: ReadTextOptions): Promise<string> {
@@ -35,6 +59,8 @@ class FixtureSource implements GenerationSource {
     this.options.push({ path: relative, options });
     if (this.failAll || this.failing.has(relative)) throw new Error(`okunamadı: ${relative}`);
     if (relative === 'manifest.json' && this.manifestOverride !== null) return this.manifestOverride;
+    const override = this.texts.get(relative);
+    if (override !== undefined) return override;
     const text = await readFile(path.join(this.root, relative), 'utf8');
     return this.corrupt.has(relative) ? `${text} ` : text;
   }
@@ -607,5 +633,187 @@ describe('defaultPartitionCache (Pages için kalıcı önbelleği kapatma)', () 
       if (original === undefined) delete (globalThis as { indexedDB?: unknown }).indexedDB;
       else (globalThis as { indexedDB?: unknown }).indexedDB = original;
     }
+  });
+});
+
+// --- r4-privacy: üretimde kalıcı önbellek kapalı (fail-closed), eski nesil budama, manifest kayıt sayıları ------------
+
+/** indexedDB'yi (jsdom'da yok) geçici olarak tanımlar; idb-keyval yukarıda bellek içi sahtedir. */
+function withIndexedDb<T>(run: () => T): T {
+  const original = (globalThis as { indexedDB?: unknown }).indexedDB;
+  (globalThis as { indexedDB?: unknown }).indexedDB = {};
+  try {
+    return run();
+  } finally {
+    if (original === undefined) delete (globalThis as { indexedDB?: unknown }).indexedDB;
+    else (globalThis as { indexedDB?: unknown }).indexedDB = original;
+  }
+}
+
+const PARTITION_STORE = 'aile-admin/partitions';
+const sha256 = (text: string) => createHash('sha256').update(text, 'utf8').digest('hex');
+
+describe('defaultPartitionCache › üretim derlemesinde fail-closed', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    idb.stores.clear();
+  });
+
+  it('PROD iken açıkça istenmedikçe (idb/on) kalıcı önbellek yok; geliştirmede varsayılan IndexedDB', () => {
+    withIndexedDb(() => {
+      for (const env of [{ PROD: true }, { PROD: true, VITE_AILE_PARTITION_CACHE: '' }, { PROD: true, VITE_AILE_PARTITION_CACHE: 'off' }, { PROD: true, VITE_AILE_PARTITION_CACHE: 'bilinmeyen' }]) {
+        expect(defaultPartitionCache(env), JSON.stringify(env)).toBeNull();
+        expect(persistentCacheAllowed(env), JSON.stringify(env)).toBe(false);
+      }
+      for (const env of [{ PROD: true, VITE_AILE_PARTITION_CACHE: 'idb' }, { PROD: true, VITE_AILE_PARTITION_CACHE: ' ON ' }, { PROD: false }, { PROD: false, VITE_AILE_PARTITION_CACHE: 'idb' }]) {
+        expect(defaultPartitionCache(env), JSON.stringify(env)).not.toBeNull();
+        expect(persistentCacheAllowed(env), JSON.stringify(env)).toBe(true);
+      }
+    });
+  });
+
+  it('ortam verilmezse import.meta.env okunur: PROD derlemesinde varsayılan kapalı', () => {
+    vi.stubEnv('PROD', true);
+    vi.stubEnv('VITE_AILE_PARTITION_CACHE', '');
+    withIndexedDb(() => {
+      expect(persistentCacheAllowed()).toBe(false);
+      expect(defaultPartitionCache()).toBeNull();
+    });
+    vi.stubEnv('VITE_AILE_PARTITION_CACHE', 'idb');
+    withIndexedDb(() => expect(defaultPartitionCache()).not.toBeNull());
+  });
+
+  it("cache verilmeyen GenerationStore aynı varsayılanı kullanır: üretimde doğrulanan parça IndexedDB'ye yazılmaz", async () => {
+    vi.stubEnv('PROD', true);
+    vi.stubEnv('VITE_AILE_PARTITION_CACHE', '');
+    const original = (globalThis as { indexedDB?: unknown }).indexedDB;
+    (globalThis as { indexedDB?: unknown }).indexedDB = {};
+    try {
+      await new GenerationStore(source).loadCollection('rooms');
+      expect(idb.stores.get(PARTITION_STORE)?.size ?? 0).toBe(0);
+      vi.stubEnv('PROD', false);
+      await new GenerationStore(new FixtureSource(generationDir)).loadCollection('rooms');
+      expect([...(idb.stores.get(PARTITION_STORE)?.keys() ?? [])]).toEqual([`${generationId}/data/rooms/household/00000.json`]);
+    } finally {
+      if (original === undefined) delete (globalThis as { indexedDB?: unknown }).indexedDB;
+      else (globalThis as { indexedDB?: unknown }).indexedDB = original;
+    }
+  });
+});
+
+/** Budama çağrılarını kaydeden bellek önbelleği; prune gerçek IndexedDB önbelleğiyle aynı kuralla siler. */
+class PruningCache extends MemoryCache {
+  readonly prunes: string[] = [];
+  failPrune = false;
+  async prune(keep: string) {
+    this.prunes.push(keep);
+    if (this.failPrune) throw new Error('idb kapalı');
+    for (const key of [...this.map.keys()]) if (!key.startsWith(`${keep}/`)) this.map.delete(key);
+  }
+}
+
+describe('GenerationStore › eski nesillerin önbellekten budanması', () => {
+  afterEach(() => idb.stores.clear());
+
+  it('createIdbPartitionCache.prune yayındaki nesil dışındaki bütün parçaları siler', async () => {
+    const cache = withIndexedDb(() => createIdbPartitionCache())!;
+    await cache.set('a'.repeat(64) + '/data/rooms/household/00000.json', 'eski');
+    await cache.set('b'.repeat(64) + '/data/rooms/household/00000.json', 'yeni');
+    await cache.set('c'.repeat(64) + '/data/terms/household/00000.json', 'eski');
+    expect(typeof cache.prune).toBe('function');
+    await cache.prune!('b'.repeat(64));
+    expect([...idb.stores.get(PARTITION_STORE)!.keys()]).toEqual(['b'.repeat(64) + '/data/rooms/household/00000.json']);
+  });
+
+  it('nesil yayınlanınca (ready) bir kez budanır: eski neslin parçaları önbellekten silinir', async () => {
+    const cache = new PruningCache();
+    cache.map.set(`${'0'.repeat(64)}/data/rooms/household/00000.json`, 'eski nesil');
+    const store = new GenerationStore(source, { cache });
+    await store.loadCollection('rooms');
+    expect(cache.prunes).toEqual([generationId]);
+    expect([...cache.map.keys()]).toEqual([`${generationId}/data/rooms/household/00000.json`]);
+    // Aynı nesil yeniden okunursa (yenileme) budama tekrarlanmaz.
+    await store.refresh();
+    expect(cache.prunes).toEqual([generationId]);
+  });
+
+  it('yeni nesle geçen yenileme yeni kimlikle budar; reddedilen aday budamaz', async () => {
+    const cache = new PruningCache();
+    const store = new GenerationStore(source, { cache });
+    await store.loadCollection('rooms');
+    const manifest = JSON.parse(await readFile(path.join(generationDir, 'manifest.json'), 'utf8')) as Record<string, unknown>;
+    source.manifestOverride = JSON.stringify({ ...manifest, generation_id: 'f'.repeat(64) });
+    source.corrupt.add('data/rooms/household/00000.json');
+    await expect(store.refresh()).rejects.toBeInstanceOf(IntegrityError);
+    expect(cache.prunes).toEqual([generationId]);
+    source.corrupt.clear();
+    await store.refresh();
+    expect(store.status.generationId).toBe('f'.repeat(64));
+    expect(cache.prunes).toEqual([generationId, 'f'.repeat(64)]);
+    expect([...cache.map.keys()].every(key => key.startsWith(`${'f'.repeat(64)}/`))).toBe(true);
+  });
+
+  it('budama hatası yüklemeyi durdurmaz', async () => {
+    const cache = new PruningCache();
+    cache.failPrune = true;
+    const store = new GenerationStore(source, { cache });
+    await expect(store.loadCollection('rooms')).resolves.toHaveLength((await manifestOf(generationDir)).counts.rooms!);
+    await settle();
+    expect(store.status.state).toBe('ready');
+  });
+});
+
+describe('GenerationStore › manifest kayıt sayıları (validate.mjs ile aynı kural)', () => {
+  async function manifestJson() {
+    return JSON.parse(await readFile(path.join(generationDir, 'manifest.json'), 'utf8')) as {
+      counts: Record<string, number>;
+      files: { path: string; kind: string; collection?: string; count?: number; sha256: string; bytes: number }[];
+    };
+  }
+
+  it('counts, koleksiyonun parçalarındaki kayıt sayılarının toplamından farklıysa manifest reddedilir', async () => {
+    const manifest = await manifestJson();
+    manifest.counts.rooms = manifest.counts.rooms! + 1;
+    source.manifestOverride = JSON.stringify(manifest);
+    const store = new GenerationStore(source, { cache: null });
+    const error = await store.loadManifest().catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(ContractError);
+    expect((error as Error).message).toMatch(/^manifest\.json sözleşmeye uymuyor: counts\.rooms /);
+    expect(store.status.state).toBe('error');
+  });
+
+  it('parçası olan koleksiyonun sayımı yoksa manifest reddedilir', async () => {
+    const manifest = await manifestJson();
+    delete manifest.counts.rooms;
+    source.manifestOverride = JSON.stringify(manifest);
+    await expect(new GenerationStore(source, { cache: null }).loadManifest()).rejects.toThrow(/counts\.rooms/);
+  });
+
+  it('parçası olmayan koleksiyonun sayımı (panelin okumadığı kayıtlar) ve parçasız boş koleksiyon kabul edilir', async () => {
+    const manifest = await manifestJson();
+    manifest.counts.payments = 3;
+    manifest.files = manifest.files.filter(file => file.collection !== 'rooms');
+    manifest.counts.rooms = 0;
+    source.manifestOverride = JSON.stringify(manifest);
+    const store = new GenerationStore(source, { cache: null });
+    await expect(store.loadManifest()).resolves.toMatchObject({ counts: { payments: 3, rooms: 0 } });
+    await expect(store.loadCollection('rooms')).resolves.toEqual([]);
+  });
+
+  it('parçadaki kayıt sayısı manifestteki count ile uyuşmazsa (hash tutsa da) koleksiyon yayınlanmaz', async () => {
+    const manifest = await manifestJson();
+    const file = manifest.files.find(entry => entry.kind === 'partition' && entry.collection === 'rooms')!;
+    const envelope = JSON.parse(await readFile(path.join(generationDir, file.path), 'utf8')) as { records: unknown[] };
+    const text = JSON.stringify({ ...envelope, records: envelope.records.slice(1) });
+    file.sha256 = sha256(text);
+    file.bytes = Buffer.byteLength(text);
+    source.texts.set(file.path, text);
+    source.manifestOverride = JSON.stringify(manifest);
+    const store = new GenerationStore(source, { cache: null });
+    const error = await store.loadCollection('rooms').catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(ContractError);
+    expect((error as Error).message).toBe(`${file.path} sözleşmeye uymuyor: kayıt sayısı manifestle uyuşmuyor (manifest ${file.count}, parça ${envelope.records.length - 1})`);
+    expect(store.getCollection('rooms')).toBeUndefined();
+    expect(store.status.state).toBe('error');
   });
 });

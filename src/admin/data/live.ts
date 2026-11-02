@@ -1,14 +1,19 @@
 // Canlı Google Sheets adaptörleri. Saf TS; React/antd yok. Yalnız okur: Sheets'e ya da Apps Script'e yazma yok.
 // - liveBudget: mevcut GViz okuyucu (src/dashboard/data.ts fetchBudget) → panelin Bütçe görünüm modeli.
 //   Plan ve gerçek ayrı alanlarda kalır; ay anahtarı period (YYYY-MM); tutarlar veri platformu Money zarfı
-//   (ondalık metin + ISO 4217). Okuma sağlamlaştırılmıştır:
+//   (ondalık metin + ISO 4217). Sayı yuvarlanmaz: data-platform decimal() kuralıyla (String(number) + üs açılımı) tam
+//   ondalık metne çevrilir, en az iki ondalığa sıfırla tamamlanır (liveAmount); yuvarlama yalnız görüntülemededir
+//   (formatMoney). Böylece nesildeki tutarla karşılaştırma ("Nesil ile N fark") yalnız gerçek farkı sayar.
+//   Okuma sağlamlaştırılmıştır:
 //   · Her deneme zaman aşımıyla (varsayılan 10 sn) kesilir; okuyucu sinyali dinlemese de bırakılır.
 //   · Yalnız geçici hatalar (ağ, zaman aşımı, HTTP 408/425/429/5xx) sınırlı sayıda, üstel ve eşit jitter'lı
 //     geri çekilmeyle yeniden denenir (varsayılan 3 deneme, 400 ms → 800 ms, en çok 3 sn bekleme).
 //   · Hata sınıfları karışmaz: network "Sheets'e ulaşılamadı" ≠ empty "Veri yok" ≠ integrity "Biçim değişti"
 //     (+ config, aborted). Metin "Hata: <sınıf>. <ayrıntı>" biçimindedir; ayrıntı BudgetIntegrityError metnidir.
-//   · Son iyi okuma IndexedDB'de (idb-keyval, LIVE_BUDGET_CACHE_KEY) saklanır; hata sonucu onu `lastGood` olarak
-//     (okuma zamanı readAt ile) taşır ama başarı saymaz: arayüz "eski" der, taze göstermez.
+//   · Son iyi okuma saklanır; hata sonucu onu `lastGood` olarak (okuma zamanı readAt ile) taşır ama başarı saymaz:
+//     arayüz "eski" der, taze göstermez. Kalıcı saklama (IndexedDB, idb-keyval, LIVE_BUDGET_CACHE_KEY) store.ts
+//     persistentCacheAllowed() ile aynı bayrağa bağlıdır: üretim derlemesinde VITE_AILE_PARTITION_CACHE=idb|on yoksa
+//     son iyi okuma yalnız sekme belleğinde durur (fail-closed). clearLiveBudgetCache ikisini de siler.
 //   · Eşzamanlı çağrılar aynı okuyucu için tek okumayı paylaşır; her çağıranın AbortSignal'i yalnız kendisini
 //     iptal eder, ortak okuma son çağıran ayrılınca (aynı görevde yeniden katılan yoksa) iptal edilir.
 // - parseTurkishDecimal / parseTurkishMoney: "8.500,00", "₺8.500,00", "(1.250,50)" gibi Türkçe biçimleri kesin
@@ -16,7 +21,7 @@
 // - liveAppRecords: Apps Script read ucu (src/sync/api.ts callApi) → items/settings/cash + sürüm bilgisi.
 // - diffLiveRecords: canlı kayıtları nesildeki purchase_need'lerle source_record_id üzerinden eşler ve yalnız
 //   değişen alanları listeler ("canlı sürüm farkı"). Panel bu farkı yazmaz; Sheets'e yazma bu dilimde yok.
-import { get as idbGet, set as idbSet } from 'idb-keyval';
+import { del as idbDel, get as idbGet, set as idbSet } from 'idb-keyval';
 import type { Budget, Category, Irregular, Month } from '../../dashboard/data';
 import { fetchBudget, sheetId } from '../../dashboard/data';
 import { BudgetIntegrityError } from '../../dashboard/integrity';
@@ -24,6 +29,7 @@ import { sheetMonthKey } from '../../dashboard/current';
 import { ApiError, callApi } from '../../sync/api';
 import type { ReadFull, ReadResponse } from '@shared/api';
 import type { CashEntry, Item, Setting } from '@shared/schema';
+import { persistentCacheAllowed } from './store';
 import type { Decimal, Money, PurchaseNeedRecord } from './types';
 
 /** Eksik yapılandırma (API adresi, APP_KEY, Sheet kimliği). Ağa çıkılmadan atılır. */
@@ -133,7 +139,10 @@ export interface LiveBudgetOptions {
   retry?: LiveRetryOptions;
   /** Jitter kaynağı [0, 1]; varsayılan Math.random. */
   random?: () => number;
-  /** undefined → IndexedDB varsa idb-keyval, yoksa önbellek yok; null → önbellek yok. */
+  /**
+   * undefined → kalıcı saklama izinliyse (persistentCacheAllowed) IndexedDB varken idb-keyval, yoksa önbellek yok;
+   * izin yoksa (üretim varsayılanı) yalnız sekme belleği. null → önbellek yok.
+   */
   cache?: LiveBudgetCache | null;
 }
 /*
@@ -141,8 +150,37 @@ export interface LiveBudgetOptions {
  * çağrınınkidir; sonradan katılan yalnız sonucu alır.
  */
 
-const toMoney = (value: number | null | undefined): Money =>
-  typeof value === 'number' && Number.isFinite(value) ? { amount: value.toFixed(2), currency: CURRENCY } : null;
+/**
+ * Sheets sayısını veri platformu ondalık metnine çevirir: data-platform/core.mjs decimal() ile aynı kural (String(number)
+ * + üs açılımı; kayan nokta yuvarlaması yok: 8333.333333333334 → "8333.333333333334", 1e21 → "1000000000000000000000"),
+ * ardından en az iki ondalığa sıfırla tamamlar ("8500" → "8500.00"; sumMoney ile aynı yazım). Sonlu değilse null.
+ */
+export function liveAmount(value: number): Decimal | null {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+  const text = String(value);
+  let plain: string;
+  if (!/[eE]/.test(text)) {
+    plain = text.replace(/^(-?)0+(?=\d)/, '$1');
+  } else {
+    const [coefficient, exponent] = text.toLowerCase().split('e');
+    const negative = coefficient!.startsWith('-');
+    const [whole, fraction = ''] = coefficient!.replace(/^-/, '').split('.');
+    const digits = whole! + fraction;
+    const place = whole!.length + Number(exponent);
+    const body = place <= 0
+      ? `0.${'0'.repeat(-place)}${digits}`
+      : place >= digits.length ? digits + '0'.repeat(place - digits.length) : `${digits.slice(0, place)}.${digits.slice(place)}`;
+    plain = `${negative ? '-' : ''}${body}`;
+  }
+  const negative = plain.startsWith('-');
+  const [whole, fraction = ''] = plain.replace(/^-/, '').split('.');
+  return `${negative ? '-' : ''}${whole}.${fraction.padEnd(2, '0')}`;
+}
+
+const toMoney = (value: number | null | undefined): Money => {
+  const amount = typeof value === 'number' ? liveAmount(value) : null;
+  return amount === null ? null : { amount, currency: CURRENCY };
+};
 
 const totals = (month: Month, side: 'plan' | 'current'): BudgetTotals => ({
   income: toMoney(month.income[side]),
@@ -192,7 +230,7 @@ const irregularView = (row: Irregular, labels: ReadonlyMap<string, Period>): Bud
   actual: { period: periodOf(row.month, labels), amount: toMoney(row.current) },
 });
 
-/** fetchBudget sonucunu panelin Bütçe görünüm modeline çevirir. Sayı yuvarlama yapılmaz; 2 ondalık metin. */
+/** fetchBudget sonucunu panelin Bütçe görünüm modeline çevirir. Sayı yuvarlanmaz (liveAmount); en az 2 ondalık metin. */
 export function toBudgetViewModel(budget: Budget, readAt: string): BudgetViewModel {
   const periods = budget.months.map(month => month.key);
   const labels = new Map(budget.months.map(month => [month.label.toLocaleLowerCase('tr'), month.key] as const));
@@ -475,6 +513,8 @@ export const LIVE_BUDGET_CACHE_KEY = 'aile:admin:live-budget:v1';
 interface LastGoodEntry { v: 1; sheet: string; budget: BudgetViewModel }
 
 let idbCache: LiveBudgetCache | null = null;
+/** Kalıcı saklama kapalıyken (üretim varsayılanı) son iyi okuma yalnız bu sekmenin belleğindedir. */
+let sessionCache: LiveBudgetCache | null = null;
 
 /** idb-keyval varsayılan deposu üzerinde önbellek (changeSet ile aynı depo, ayrı anahtar). */
 export function createIdbLiveBudgetCache(): LiveBudgetCache {
@@ -495,8 +535,19 @@ export function createMemoryLiveBudgetCache(): LiveBudgetCache {
 
 function resolveCache(cache: LiveBudgetCache | null | undefined): LiveBudgetCache | null {
   if (cache !== undefined) return cache;
+  if (!persistentCacheAllowed()) return (sessionCache ??= createMemoryLiveBudgetCache());
   if (typeof indexedDB === 'undefined') return null;
   return (idbCache ??= createIdbLiveBudgetCache());
+}
+
+/**
+ * Son iyi canlı okumayı bu cihazdan siler: sekme belleğindeki kopya ve (IndexedDB varsa) idb-keyval kaydı. Ayarlar'daki
+ * "Bu cihazdaki tüm panel verisini sil" bunu çağırır. IndexedDB hatası yutulmaz; çağıran "Hata: …" yazar.
+ */
+export async function clearLiveBudgetCache(): Promise<void> {
+  sessionCache = null;
+  if (typeof indexedDB === 'undefined') return;
+  await idbDel(LIVE_BUDGET_CACHE_KEY);
 }
 
 /** Yazma beklenmez ve hatası yutulur: önbellek okumayı hiçbir zaman bozmaz. */

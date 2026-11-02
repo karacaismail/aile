@@ -3,10 +3,19 @@
 // Git dışındadır; yol bilgisi (ne mutlak yol ne de dosya sistemi hata ayrıntısı) hiçbir yanıta yazılmaz.
 // ?generation=<sha256> verilirse o nesil (diskte durdukça) servis edilir: panel parçaları tembel okur ve manifestten
 // sonra yeni nesil üretilse de aynı nesilden okumayı sürdürür; nesil kalktıysa 410 döner (panel yeniler).
-import type { IncomingMessage, ServerResponse } from 'node:http';
+//
+// Gizlilik sınırları:
+//   - AILE_GENERATION_DIR YALNIZ süreç ortamından okunur; .env / .env.local dosyaları okunmaz. Düz `pnpm dev` gerçek
+//     nesli göremez; gerçek veriyle önizleme açık komutla başlar (docs/ADMIN-RUNBOOK.md §4).
+//   - Yalnız panelin okuduğu yollar: manifest.json, data/<koleksiyon>/…/<parça>.json ve _meta. raw/, schemas/,
+//     contracts/ gibi nesil dosyaları servis edilmez (klasör kaynağının yol kuralıyla aynı: data/sources.ts).
+//   - Yalnız aynı köken: Origin başlığı sunucunun kendi kökeni (Host) değilse ya da Sec-Fetch-Site same-origin/none
+//     değilse 403. Vite'nin varsayılan CORS'u başka localhost portlarına izin verse de nesil onlara okunmaz. Başlıksız
+//     istek (curl, Node) tarayıcı kökeni taşımadığından okunur.
+import type { IncomingHttpHeaders, IncomingMessage, ServerResponse } from 'node:http';
 import { readdir, readFile, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
-import { loadEnv, type Plugin, type ResolvedConfig, type ViteDevServer } from 'vite';
+import type { Plugin, ViteDevServer } from 'vite';
 
 export const PRIVATE_DATA_PREFIX = '/__aile/generation';
 const generationName = /^[a-f0-9]{64}$/;
@@ -114,6 +123,39 @@ export function relativeGenerationPath(rest: string): string | null {
   return segments.join('/');
 }
 
+/** Panelin okuduğu nesil yolları: manifest.json, _meta ve data/<koleksiyon>/…/<parça>.json (en az üç bölüt). */
+function isServedPath(relative: string): boolean {
+  if (relative === 'manifest.json' || relative === '_meta') return true;
+  const segments = relative.split('/');
+  return segments[0] === 'data' && segments.length >= 3 && segments[segments.length - 1]!.endsWith('.json');
+}
+
+const SAME_ORIGIN_SITES = new Set(['same-origin', 'none']);
+
+function headerValue(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+/**
+ * Tarayıcı isteği bu sunucunun kendi kökeninden mi. Sec-Fetch-Site varsa same-origin ya da none (adres çubuğu) olmalı;
+ * Origin varsa (CORS, POST) Host ile aynı http(s) kökeni olmalı ("null" köken reddedilir). İkisi de yoksa (curl, Node)
+ * istek tarayıcıdaki başka bir kökenden gelmiyordur.
+ */
+export function isSameOriginRequest(headers: IncomingHttpHeaders | undefined): boolean {
+  const site = headerValue(headers?.['sec-fetch-site'])?.trim().toLowerCase();
+  if (site !== undefined && !SAME_ORIGIN_SITES.has(site)) return false;
+  const origin = headerValue(headers?.origin)?.trim();
+  if (origin === undefined) return true;
+  let parsed: URL;
+  try {
+    parsed = new URL(origin);
+  } catch {
+    return false;
+  }
+  const host = headerValue(headers?.host)?.trim().toLowerCase();
+  return (parsed.protocol === 'http:' || parsed.protocol === 'https:') && host !== undefined && parsed.host === host;
+}
+
 /** Connect tarzı middleware; `env` okuyucusu testte enjekte edilir, üretimde process.env'dir. */
 export function createPrivateDataHandler(readEnv: () => { AILE_GENERATION_DIR?: string } = () => process.env): Handler {
   return (req, res, next) => {
@@ -143,6 +185,11 @@ function requestedGeneration(url: string | undefined): string | null | undefined
 }
 
 async function handle(pathname: string, req: IncomingMessage, res: ServerResponse, readEnv: () => { AILE_GENERATION_DIR?: string }) {
+  // Başka bir kökenden (ör. aynı makinedeki başka localhost uygulaması) gelen tarayıcı isteği hiçbir şey öğrenmez.
+  if (!isSameOriginRequest(req.headers)) {
+    sendJson(res, 403, { error: 'Yalnız aynı kökenden okunur' });
+    return;
+  }
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     sendJson(res, 405, { error: 'Yalnız GET ve HEAD' }, { Allow: 'GET, HEAD' });
     return;
@@ -158,8 +205,8 @@ async function handle(pathname: string, req: IncomingMessage, res: ServerRespons
     sendJson(res, 400, { error: 'Geçersiz yol' });
     return;
   }
-  if (relative !== '_meta' && !relative.endsWith('.json')) {
-    sendJson(res, 404, { error: 'Yalnız .json dosyaları servis edilir' });
+  if (!isServedPath(relative)) {
+    sendJson(res, 404, { error: 'Yalnız manifest.json ve data/** parçaları servis edilir' });
     return;
   }
   const configured = readEnv().AILE_GENERATION_DIR?.trim();
@@ -201,31 +248,17 @@ async function handle(pathname: string, req: IncomingMessage, res: ServerRespons
   res.end(req.method === 'HEAD' ? undefined : bytes);
 }
 
-type GenerationEnv = { AILE_GENERATION_DIR?: string };
-
-/** process.env önce gelir; orada yoksa (ya da boşsa) .env dosyalarından okunan değer. */
-export function resolveGenerationEnv(processEnv: GenerationEnv, fileEnv: GenerationEnv): GenerationEnv {
-  const fromProcess = processEnv.AILE_GENERATION_DIR;
-  if (typeof fromProcess === 'string' && fromProcess.trim() !== '') return { AILE_GENERATION_DIR: fromProcess };
-  const fromFile = fileEnv.AILE_GENERATION_DIR;
-  return typeof fromFile === 'string' && fromFile.trim() !== '' ? { AILE_GENERATION_DIR: fromFile } : {};
-}
-
 /**
- * Dev eklentisi. AILE_GENERATION_DIR process.env'de yoksa configResolved'da loadEnv(mode, envDir, 'AILE_') ile
- * .env / .env.local / .env.<mode>(.local) dosyalarından okunur (Vite yalnız VITE_ önekini otomatik yükler).
- * Değer yalnız sunucu tarafında kalır; istemciye ve yanıtlara yazılmaz.
+ * Dev eklentisi. AILE_GENERATION_DIR yalnız süreç ortamından (process.env) okunur; ortam dosyaları bilinçli olarak
+ * okunmaz: yanlışlıkla açılan düz bir dev sunucusu (paralel ajanlar, önizleme) gerçek nesli servis etmez. Değer yalnız
+ * sunucu tarafında kalır; istemciye ve yanıtlara yazılmaz.
  */
 export function privateDataPlugin(): Plugin {
-  let fileEnv: GenerationEnv = {};
   return {
     name: 'aile-private-data',
     apply: 'serve',
-    configResolved(config: Pick<ResolvedConfig, 'mode' | 'envDir'>) {
-      fileEnv = config.envDir === false ? {} : { AILE_GENERATION_DIR: loadEnv(config.mode, config.envDir, 'AILE_').AILE_GENERATION_DIR };
-    },
     configureServer(server: Pick<ViteDevServer, 'middlewares'>) {
-      server.middlewares.use(createPrivateDataHandler(() => resolveGenerationEnv(process.env, fileEnv)));
+      server.middlewares.use(createPrivateDataHandler());
     },
   };
 }
