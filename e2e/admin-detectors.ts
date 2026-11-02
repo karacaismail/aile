@@ -8,9 +8,14 @@
  *    bottom 0; tek satır modelinde (li ya da role=listitem içindeki tek odaklanabilir, satırın içerik genişliğini
  *    dolduran A/BUTTON; gezinme bağlantısı satırı dahil) bağlantının/düğmenin ya da li'nin ::after'ı, çizilen alt kenarı
  *    li'nin alt kenarına 1 px içinde oturuyorsa kabul. Tek istisna forced-colors + klavye modunda 2px solid outline.
+ *    Bulunan çizgi ayrıca: altındaki gerçek zemine karşı en az 3:1 (contrast; zemin elementsFromPoint yığınından,
+ *    opaklıklar dahil harmanlanır) ve anında görünür (göstergeyi taşıyan sözde öğede görünürlüğü/boyamayı değiştiren
+ *    sıfırdan büyük geçiş ya da animasyon yok: odak işareti geciktirilmez, zorla fade uygulanmaz). Opaklığı 0 olan
+ *    sözde öğe gösterge sayılmaz.
  *  - smallTextViolations: görünür metin (metin düğümü, form değeri, sözde öğe metni) en az 14 CSS px.
  *  - accentEdgeViolations: radiuslu kutuda, değdiği köşelerden en az biri radiuslu tek kenar şeridi yasak
- *    (kenarlık, inset box-shadow, sözde öğe).
+ *    (kenarlık, inset box-shadow, sözde öğe). Sözde öğe şeridinin ucu radiuslu ve taşmayı kırpan bir atanın köşe
+ *    eğrisiyle kesiliyorsa da yasak (son satır odak çizgisi radiuslu listenin kenarına oturur).
  *  - overflowViolations: sayfa düzeyinde yatay taşma ve görünüm alanından taşan öğe (kaydırma kapsayıcısı içindekiler hariç);
  *    kesilen etiket/eylem metni (ellipsis, nowrap+hidden, line-clamp).
  *  - motionViolations: sıfırdan büyük her transition/animation tek süre ve tek eğride; reduced-motion açıkken süre 0.
@@ -46,6 +51,12 @@ export interface DetectorEnv {
   scroll(el: Element): { scrollWidth: number; clientWidth: number; scrollHeight: number; clientHeight: number; scrollTop?: number; scrollLeft?: number };
   /** Noktadaki en üst öğe (document.elementFromPoint); yoksa örtülme denetimleri yalnız geometriyle yapılır. */
   hit?(x: number, y: number): Element | null;
+  /**
+   * Noktalardaki öğe yığınları, en üstteki önce (document.elementsFromPoint). `host` verilirse onun ::before/::after
+   * sözde öğeleri pointer-events: none olsa da isabet alır; böylece sözde öğenin boyama sırasındaki yeri (yığında host)
+   * bulunur. Yoksa odak çizgisinin zemin kontrastı denetlenmez.
+   */
+  stack?(points: { x: number; y: number }[], host?: Element): Element[][];
   /** Metin düğümünün satır kutuları (Range.getClientRects); yoksa üst öğenin kutusu kullanılır. */
   textRects?(node: Text): DetectorRect[];
   /** Görsel görünüm alanı (window.visualViewport); yoksa null. */
@@ -64,6 +75,11 @@ export interface FocusRingOptions {
   gap?: number;
   /** Halka/çizgi taşıyıcısı sayılacak en çok ata sayısı (affix, select seçici), varsayılan 3. */
   depth?: number;
+  /**
+   * Çizginin altındaki gerçek zemine karşı asgari kontrast (WCAG 1.4.11, AGENT.md: komşu yüzeye en az 3:1); varsayılan 3,
+   * false kapatır. Ölçüm env.stack ile yapılır; ölçülemeyen nokta (opak örtü, arka plan görseli, medya) atlanır.
+   */
+  contrast?: number | false;
   env?: DetectorEnv;
 }
 export interface RootOptions { root?: DetectorRoot; max?: number; env?: DetectorEnv }
@@ -108,6 +124,36 @@ export function focusRingViolations(opts: FocusRingOptions = {}): string[] {
     viewport: () => ({ width: document.documentElement.clientWidth, height: window.innerHeight }),
     media: (q) => window.matchMedia(q).matches,
     scroll: (el) => ({ scrollWidth: el.scrollWidth, clientWidth: el.clientWidth, scrollHeight: el.scrollHeight, clientHeight: el.clientHeight }),
+    // Sözde öğe isabeti: geçici öznitelik + yalnız pointer-events yazan kural; ölçümden hemen sonra geri alınır.
+    stack: typeof document.elementsFromPoint === 'function' ? (points, host) => {
+      const attr = 'data-detector-isabet';
+      const css = `[${attr}]::before, [${attr}]::after { pointer-events: auto !important; }`;
+      let sheet: CSSStyleSheet | null = null;
+      let tag: HTMLStyleElement | null = null;
+      if (host) {
+        host.setAttribute(attr, '');
+        try {
+          sheet = new CSSStyleSheet();
+          sheet.replaceSync(css);
+          document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
+        } catch {
+          sheet = null;
+          tag = document.createElement('style');
+          tag.textContent = css;
+          document.head.appendChild(tag);
+        }
+      }
+      try {
+        return points.map((p) => document.elementsFromPoint(p.x, p.y));
+      } finally {
+        if (host) {
+          host.removeAttribute(attr);
+          const added = sheet;
+          if (added) document.adoptedStyleSheets = document.adoptedStyleSheets.filter((one) => one !== added);
+          if (tag) tag.remove();
+        }
+      }
+    } : undefined,
   };
   const label = (el: Element) => {
     const cls = typeof el.className === 'string' && el.className.trim() ? '.' + el.className.trim().split(/\s+/)[0] : '';
@@ -212,6 +258,7 @@ export function focusRingViolations(opts: FocusRingOptions = {}): string[] {
     const ps = env.style(c, '::after');
     if (!hasContent(ps.getPropertyValue('content'))) continue;
     if (ps.getPropertyValue('display') === 'none' || ps.getPropertyValue('visibility') === 'hidden') continue;
+    if (ps.getPropertyValue('opacity').trim() === '0') continue;
     if (Math.abs(px(ps.getPropertyValue('height')) - thickness) > 0.5) continue;
     if (!visibleColor(ps.getPropertyValue('background-color'))) continue;
     anyLine = true;
@@ -248,6 +295,176 @@ export function focusRingViolations(opts: FocusRingOptions = {}): string[] {
   // forced-colors istisnasında izinli 2px outline'ın kendisi görünür göstergedir.
   if (keyboard && !found && !forcedIndicator) out.push(problem || `${label(target)}: klavye odağı görünmez, gösterge yok`);
   if (!keyboard && anyLine) out.push(`${label(target)}: odak göstergesi klavye modu dışında görünür`);
+  if (!keyboard || !found) return out;
+  const host = found;
+  const line = env.style(host, '::after');
+
+  // Anında görünürlük (hareket sözleşmesi): odak işareti geciktirilmez ve zorla fade uygulanmaz. Göstergeyi taşıyan sözde
+  // öğede görünürlüğü ya da boyamayı değiştiren sıfırdan büyük geçiş (gecikme dahil) ve her animasyon ihlaldir.
+  const items = (v: string) => {
+    const parts: string[] = [];
+    let depth = 0;
+    let cur = '';
+    for (const ch of v || '') {
+      if (ch === '(') depth++;
+      if (ch === ')') depth--;
+      if (ch === ',' && depth === 0) { parts.push(cur.trim()); cur = ''; } else cur += ch;
+    }
+    if (cur.trim()) parts.push(cur.trim());
+    return parts;
+  };
+  const ms = (v: string) => { const n = parseFloat(v || ''); if (!Number.isFinite(n)) return 0; return /ms$/.test(v.trim()) ? n : n * 1000; };
+  const at = (list: string[], i: number) => (list.length ? list[i % list.length] : '0s');
+  const FADE = /^(all|opacity|visibility|background|background-color|transform|scale|translate|width|height|inset|left|right|top|bottom|clip-path|filter)$/;
+  const tDurations = items(line.getPropertyValue('transition-duration'));
+  const tDelays = items(line.getPropertyValue('transition-delay'));
+  const fades = items(line.getPropertyValue('transition-property')).flatMap((prop, i) => {
+    const duration = ms(at(tDurations, i));
+    const delay = Math.max(0, ms(at(tDelays, i)));
+    return FADE.test(prop) && duration + delay > 0 ? [`${prop} ${Math.round(duration)}ms${delay > 0 ? ` +${Math.round(delay)}ms gecikme` : ''}`] : [];
+  });
+  if (fades.length) out.push(`${label(host)}::after: odak göstergesi geçişle beliriyor (${fades.join(', ')}); anında görünmeli`);
+  const aDurations = items(line.getPropertyValue('animation-duration'));
+  const animations = items(line.getPropertyValue('animation-name')).flatMap((name, i) => {
+    const duration = ms(at(aDurations, i));
+    return name !== 'none' && duration > 0 ? [`${name} ${Math.round(duration)}ms`] : [];
+  });
+  if (animations.length) out.push(`${label(host)}::after: odak göstergesi animasyonla beliriyor (${animations.join(', ')}); anında görünmeli`);
+
+  // Zemin kontrastı: çizgi dikdörtgeninin her piksel satırında üç noktada çizginin altındaki gerçek yüzey bulunur.
+  // forced-colors açıkken renkleri sistem paleti zorlar (çizgi ve zemin Canvas olur); gösterge orada 2px outline
+  // istisnasıdır, kontrast ölçülmez.
+  const minContrast = opts.contrast === undefined ? 3 : opts.contrast;
+  if (forced || minContrast === false || !(minContrast > 0) || !env.stack) return out;
+  const isPx = (v: string) => /^-?\d*\.?\d+px$/.test((v || '').trim());
+  // Mutlak sözde öğenin kapsayan bloğu: konumlanmış (ya da dönüşümlü) en yakın ata-ya-da-kendisi; fixed ise görünüm alanı.
+  let cb: Element | null = host;
+  const fixed = line.getPropertyValue('position') === 'fixed';
+  while (!fixed && cb && cb !== document.documentElement) {
+    const cs = env.style(cb);
+    const transform = cs.getPropertyValue('transform');
+    if (!/^(static|)$/.test(cs.getPropertyValue('position')) || (transform && transform !== 'none')) break;
+    cb = cb.parentElement;
+  }
+  let box = { left: 0, top: 0, right: env.viewport().width, bottom: env.viewport().height };
+  if (!fixed && cb && cb !== document.documentElement) {
+    const cr = env.rect(cb);
+    const cs = env.style(cb);
+    box = {
+      left: cr.left + px(cs.getPropertyValue('border-left-width')),
+      top: cr.top + px(cs.getPropertyValue('border-top-width')),
+      right: cr.right - px(cs.getPropertyValue('border-right-width')),
+      bottom: cr.bottom - px(cs.getPropertyValue('border-bottom-width')),
+    };
+  }
+  const L = line.getPropertyValue('left');
+  const R = line.getPropertyValue('right');
+  const T = line.getPropertyValue('top');
+  const B = line.getPropertyValue('bottom');
+  const W = line.getPropertyValue('width');
+  const H = line.getPropertyValue('height');
+  const x0 = isPx(L) ? box.left + px(L) : isPx(R) && isPx(W) ? box.right - px(R) - px(W) : NaN;
+  const x1 = isPx(W) ? x0 + px(W) : isPx(R) ? box.right - px(R) : NaN;
+  const y1 = isPx(B) ? box.bottom - px(B) : isPx(T) && isPx(H) ? box.top + px(T) + px(H) : NaN;
+  const y0 = isPx(H) ? y1 - px(H) : isPx(T) ? box.top + px(T) : NaN;
+  if (![x0, x1, y0, y1].every(Number.isFinite) || x1 - x0 <= 0 || y1 - y0 <= 0) return out;
+
+  type Rgba = [number, number, number, number];
+  const parse = (c: string): Rgba | null => {
+    const v = (c || '').trim();
+    if (v === 'transparent') return [0, 0, 0, 0];
+    const m = v.match(/^rgba?\(([^)]*)\)$/i);
+    if (!m) return null;
+    const parts = m[1].split(/[\s,/]+/).filter(Boolean);
+    if (parts.length < 3) return null;
+    const channel = (p: string) => (/%$/.test(p) ? parseFloat(p) * 2.55 : parseFloat(p));
+    const alpha = parts.length > 3 ? (/%$/.test(parts[3]) ? parseFloat(parts[3]) / 100 : parseFloat(parts[3])) : 1;
+    const out4: Rgba = [channel(parts[0]), channel(parts[1]), channel(parts[2]), alpha];
+    return out4.every(Number.isFinite) ? out4 : null;
+  };
+  // Opaklık grup olarak uygulanır: çizgi ile zeminin ortak atalarının opaklığı (ör. açılış hareketindeki katman) ikisini
+  // birlikte soldurur, tasarım kontrastını değiştirmez. Yalnız ortak atanın altındaki zincir sayılır.
+  const fade = (from: Element | null, stop: Element | null) => {
+    let o = 1;
+    for (let n = from; n && n !== stop; n = n.parentElement) {
+      const v = parseFloat(env.style(n).getPropertyValue('opacity'));
+      if (Number.isFinite(v)) o *= v;
+    }
+    return o;
+  };
+  const common = (a: Element, b: Element | null) => {
+    if (!b) return null;
+    for (let n: Element | null = a; n; n = n.parentElement) if (n === b || n.contains(b)) return n;
+    return null;
+  };
+  const blend = (top: Rgba, under: number[]) => [0, 1, 2].map((i) => top[i] * top[3] + under[i] * (1 - top[3]));
+  const lum = (c: number[]) => {
+    const f = (v: number) => { const x = v / 255; return x <= 0.04045 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); };
+    return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]);
+  };
+  const ratio = (a: number[], b: number[]) => { const la = lum(a); const lb = lum(b); return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05); };
+  const rgb = (c: number[]) => `rgb(${c.map((n) => Math.round(n)).join(', ')})`;
+  const own = parse(line.getPropertyValue('background-color'));
+  if (!own) return out;
+  const lineOpacity = parseFloat(line.getPropertyValue('opacity'));
+  const lineAlpha = own[3] * (Number.isFinite(lineOpacity) ? lineOpacity : 1);
+  const MEDIA = /^(img|svg|video|canvas|iframe|object|embed|picture)$/i;
+  const paints = (el: Element) => {
+    const cs = env.style(el);
+    const image = cs.getPropertyValue('background-image');
+    const color = parse(cs.getPropertyValue('background-color'));
+    return MEDIA.test(el.tagName) || (Boolean(image) && image !== 'none') || !color || color[3] > 0;
+  };
+
+  const vp = env.viewport();
+  const rows = Math.max(1, Math.round(y1 - y0));
+  const inset = Math.min(2, (x1 - x0) / 2);
+  const points: { x: number; y: number }[] = [];
+  for (let i = 0; i < rows; i++) {
+    const y = y0 + (i + 0.5) * ((y1 - y0) / rows);
+    for (const x of [x0 + inset, (x0 + x1) / 2, x1 - inset]) if (x >= 0 && y >= 0 && x < vp.width && y < vp.height) points.push({ x, y });
+  }
+  if (!points.length) return out;
+  const hostBox = env.rect(host);
+  const stacks = env.stack(points, host);
+  let measured = 0;
+  let failed = 0;
+  let worst: { ratio: number; line: number[]; ground: number[] } | null = null;
+  points.forEach((p, i) => {
+    const list = stacks[i] || [];
+    const index = list.indexOf(host);
+    if (index < 0) return; // sözde öğe bu noktada isabet almadı (görünüm dışı, kırpılmış): ölçülemez
+    const before = list.slice(0, index);
+    // Konağın üstündeki boyalı öğe çizgiyi örter: bu noktada çizgi görünmez, kontrast ölçülemez.
+    if (before.some((el) => !host.contains(el) && paints(el))) return;
+    const inside = p.x >= hostBox.left && p.x < hostBox.right && p.y >= hostBox.top && p.y < hostBox.bottom;
+    const beneath = [...before.filter((el) => el !== host && host.contains(el)), ...(inside ? [host] : []), ...list.slice(index + 1)];
+    const layers: Rgba[] = [];
+    let base: Element | null = null;
+    for (const el of beneath) {
+      const cs = env.style(el);
+      const image = cs.getPropertyValue('background-image');
+      const color = parse(cs.getPropertyValue('background-color'));
+      if (MEDIA.test(el.tagName) || (image && image !== 'none') || !color) return; // görsel/medya/çözülemeyen renk
+      const alpha = color[3] * fade(el, common(el, host));
+      if (alpha <= 0) continue;
+      layers.push([color[0], color[1], color[2], Math.min(1, alpha)]);
+      if (alpha >= 1) { base = el; break; }
+    }
+    // Opak zemin yoksa tuval beyazdır (çizginin bütün opaklık zinciri sayılır).
+    let ground: number[] = [255, 255, 255];
+    for (const layer of layers.reverse()) ground = blend(layer, ground);
+    const seen = blend([own[0], own[1], own[2], lineAlpha * fade(host, common(host, base))], ground);
+    const r = ratio(seen, ground);
+    measured++;
+    if (r + 1e-6 < minContrast) failed++;
+    if (!worst || r < worst.ratio) worst = { ratio: r, line: seen, ground };
+  });
+  const low = worst as { ratio: number; line: number[]; ground: number[] } | null;
+  if (failed > 0 && low) {
+    out.push(`${label(host)}::after: odak çizgisi zemine karşı ${(Math.floor(low.ratio * 100) / 100).toFixed(2)}:1 < ${minContrast}:1`
+      + ` (çizgi ${rgb(low.line)}, zemin ${rgb(low.ground)}; ${failed}/${measured} nokta)`);
+  }
   return out;
 }
 
@@ -363,6 +580,88 @@ export function accentEdgeViolations(opts: RootOptions = {}): string[] {
     left: ['top-left', 'bottom-left'],
   };
 
+  const short = (el: Element) => {
+    const cls = typeof el.className === 'string' && el.className.trim() ? '.' + el.className.trim().split(/\s+/)[0] : '';
+    return el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + cls;
+  };
+  /** Mutlak/sabit sözde öğenin görünüm alanı dikdörtgeni (kapsayan blok: konumlanmış ya da dönüşümlü en yakın ata). */
+  const pseudoBox = (host: Element, ps: { getPropertyValue(name: string): string }) => {
+    let cb: Element | null = host;
+    const fixed = ps.getPropertyValue('position') === 'fixed';
+    while (!fixed && cb && cb !== document.documentElement) {
+      const cs = env.style(cb);
+      const transform = cs.getPropertyValue('transform');
+      if (!/^(static|)$/.test(cs.getPropertyValue('position')) || (transform && transform !== 'none')) break;
+      cb = cb.parentElement;
+    }
+    let box = { left: 0, top: 0, right: env.viewport().width, bottom: env.viewport().height };
+    if (!fixed && cb && cb !== document.documentElement) {
+      const cr = env.rect(cb);
+      const cs = env.style(cb);
+      box = {
+        left: cr.left + px(cs.getPropertyValue('border-left-width')),
+        top: cr.top + px(cs.getPropertyValue('border-top-width')),
+        right: cr.right - px(cs.getPropertyValue('border-right-width')),
+        bottom: cr.bottom - px(cs.getPropertyValue('border-bottom-width')),
+      };
+    }
+    const v = (name: string) => ps.getPropertyValue(name);
+    const left = isPx(v('left')) ? box.left + px(v('left')) : isPx(v('right')) && isPx(v('width')) ? box.right - px(v('right')) - px(v('width')) : NaN;
+    const right = isPx(v('width')) ? left + px(v('width')) : isPx(v('right')) ? box.right - px(v('right')) : NaN;
+    const bottom = isPx(v('bottom')) ? box.bottom - px(v('bottom')) : isPx(v('top')) && isPx(v('height')) ? box.top + px(v('top')) + px(v('height')) : NaN;
+    const top = isPx(v('height')) ? bottom - px(v('height')) : isPx(v('top')) ? box.top + px(v('top')) : NaN;
+    return [left, right, top, bottom].every(Number.isFinite) && right > left && bottom > top ? { left, right, top, bottom } : null;
+  };
+  type Strip = { left: number; right: number; top: number; bottom: number };
+  /**
+   * Şeridi kırpan radiuslu ata: overflow ≠ visible olan her atanın dolgu kutusu köşe elipsleri (iç radius = radius −
+   * kenarlık; toplamı kenarı aşan radiuslar CSS gibi ölçeklenir). Şeridin köşeye en yakın pikselinin merkezi elipsin
+   * dışındaysa şeridin ucu köşe eğrisiyle kesilir. Döner: [ata, köşe] ya da null. Sabit konumlu atada durulur.
+   */
+  const clippedBy = (host: Element, strip: Strip): [Element, string] | null => {
+    const start = /^(visible|)$/.test(env.style(host).getPropertyValue('overflow-x')) && /^(visible|)$/.test(env.style(host).getPropertyValue('overflow-y')) ? host.parentElement : host;
+    for (let a = start; a && a !== document.documentElement; a = a.parentElement) {
+      const as = env.style(a);
+      const clips = !/^(visible|)$/.test(as.getPropertyValue('overflow-x')) || !/^(visible|)$/.test(as.getPropertyValue('overflow-y'));
+      if (clips) {
+        const ar = env.rect(a);
+        const bw = (side: string) => px(as.getPropertyValue(`border-${side}-width`));
+        const radii: Record<string, [number, number]> = {};
+        for (const corner of ['top-left', 'top-right', 'bottom-right', 'bottom-left']) {
+          const parts = as.getPropertyValue(`border-${corner}-radius`).trim().split(/\s+/);
+          const one = (value: string, base: number) => (/%$/.test(value) ? (parseFloat(value) / 100) * base : px(value));
+          const h = one(parts[0] || '0', ar.width);
+          radii[corner] = [h, parts[1] ? one(parts[1], ar.height) : /%$/.test(parts[0] || '') ? one(parts[0], ar.height) : h];
+        }
+        const sums = [
+          ar.width / (radii['top-left'][0] + radii['top-right'][0] || Infinity),
+          ar.width / (radii['bottom-left'][0] + radii['bottom-right'][0] || Infinity),
+          ar.height / (radii['top-left'][1] + radii['bottom-left'][1] || Infinity),
+          ar.height / (radii['top-right'][1] + radii['bottom-right'][1] || Infinity),
+        ];
+        const f = Math.min(1, ...sums);
+        const pb = { left: ar.left + bw('left'), top: ar.top + bw('top'), right: ar.right - bw('right'), bottom: ar.bottom - bw('bottom') };
+        const overlaps = strip.right > pb.left && strip.left < pb.right && strip.bottom > pb.top && strip.top < pb.bottom;
+        if (overlaps) {
+          const corners: [string, boolean, boolean][] = [['top-left', true, true], ['top-right', false, true], ['bottom-right', false, false], ['bottom-left', true, false]];
+          for (const [corner, west, north] of corners) {
+            const rx = Math.max(0, radii[corner][0] * f - bw(west ? 'left' : 'right'));
+            const ry = Math.max(0, radii[corner][1] * f - bw(north ? 'top' : 'bottom'));
+            if (rx <= 0 || ry <= 0) continue;
+            const x = west ? Math.max(strip.left, pb.left) + 0.5 : Math.min(strip.right, pb.right) - 0.5;
+            const y = north ? Math.max(strip.top, pb.top) + 0.5 : Math.min(strip.bottom, pb.bottom) - 0.5;
+            const cx = west ? pb.left + rx : pb.right - rx;
+            const cy = north ? pb.top + ry : pb.bottom - ry;
+            const inCorner = (west ? x < cx : x > cx) && (north ? y < cy : y > cy);
+            if (inCorner && Math.pow((x - cx) / rx, 2) + Math.pow((y - cy) / ry, 2) > 1) return [a, corner];
+          }
+        }
+      }
+      if (as.getPropertyValue('position') === 'fixed') break;
+    }
+    return null;
+  };
+
   const out: string[] = [];
   for (const el of [root, ...Array.from(root.querySelectorAll('*'))]) {
     const s = env.style(el);
@@ -372,7 +671,35 @@ export function accentEdgeViolations(opts: RootOptions = {}): string[] {
     const radius: Record<string, number> = {};
     for (const corner of ['top-left', 'top-right', 'bottom-right', 'bottom-left']) radius[corner] = px(s.getPropertyValue(`border-${corner}-radius`));
     const touchesRadius = (side: string) => CORNERS[side].some((corner) => radius[corner] > 0);
-    if (!Object.values(radius).some((v) => v > 0)) continue;
+    const reported = new Set<string>();
+
+    // 4) Ata kırpma: sözde öğe şeridinin ucu radiuslu ve taşmayı kırpan bir atanın köşe eğrisiyle kesiliyor (son satırın
+    //    odak çizgisi radiuslu listenin kenarına oturur). Kendi kutusunun radiuslu kenarındaki şerit aşağıda (3).
+    const ancestorClip = (pseudo: string) => {
+      const ps = env.style(el, pseudo);
+      const content = ps.getPropertyValue('content');
+      if (!content || content === 'none' || content === 'normal') return;
+      if (!/^(absolute|fixed)$/.test(ps.getPropertyValue('position'))) return;
+      if (ps.getPropertyValue('display') === 'none' || ps.getPropertyValue('visibility') === 'hidden' || ps.getPropertyValue('opacity').trim() === '0') return;
+      const bg = ps.getPropertyValue('background-color');
+      if (!bg || !visibleColor(bg)) return;
+      const strip = pseudoBox(el, ps);
+      if (!strip) return;
+      const w = strip.right - strip.left;
+      const h = strip.bottom - strip.top;
+      const horizontal = h <= 8 && w >= 16 && w >= 2 * h;
+      const vertical = w <= 8 && h >= 16 && h >= 2 * w;
+      if (!horizontal && !vertical) return;
+      const hit = clippedBy(el, strip);
+      if (!hit) return;
+      const [ancestor, corner] = hit;
+      const side = horizontal ? (corner.startsWith('top') ? 'top' : 'bottom') : (corner.endsWith('left') ? 'left' : 'right');
+      out.push(`${label(el)}${pseudo}: radiuslu ve kırpan ata kenarında şerit (${short(ancestor)}, ${NAMES[side]})`);
+    };
+    if (!Object.values(radius).some((v) => v > 0)) {
+      for (const pseudo of ['::before', '::after']) ancestorClip(pseudo);
+      continue;
+    }
 
     // 1) Kenarlık: çoğunluktan farklı her mevcut kenar şerittir.
     const specs = SIDES.map((side) => {
@@ -430,8 +757,12 @@ export function accentEdgeViolations(opts: RootOptions = {}): string[] {
       let side = '';
       if (w > 0 && w <= 8 && h >= r.height * 0.5) side = at('left') ? 'left' : at('right') ? 'right' : '';
       else if (h > 0 && h <= 8 && w >= r.width * 0.5) side = at('top') ? 'top' : at('bottom') ? 'bottom' : '';
-      if (side && touchesRadius(side)) out.push(`${label(el)}${pseudo}: radiuslu kutuda sözde öğe şeridi (${NAMES[side]})`);
+      if (side && touchesRadius(side)) {
+        out.push(`${label(el)}${pseudo}: radiuslu kutuda sözde öğe şeridi (${NAMES[side]})`);
+        reported.add(pseudo);
+      }
     }
+    for (const pseudo of ['::before', '::after']) if (!reported.has(pseudo)) ancestorClip(pseudo);
   }
   return out.slice(0, max);
 }
@@ -1315,6 +1646,11 @@ export async function emulateSafeArea(page: Page, insets: SafeAreaInsets): Promi
  * yönde sınanır: li'yi dolduran bağlantının bottom 0 çizgisi li alt kenarındayken yanlış alarm yok
  * ('focusRingViolations:satır yanlış alarm'), li'de alt boşluk varken (çizgi satırın içinde) ihlal yakalanır
  * ('focusRingViolations:satır'). Sözde öğe stili yapılandırılmış stil sayfasıyla (CSSOM) verilir ve geri alınır.
+ * Görünüm alanına sabitlenen ikinci parça (diğer ölçümler bittikten sonra eklenir) gerçek isabet testiyle sınar:
+ * lacivert kutudaki odak-nav çizgisi kutu içindeyken temiz, kutunun dışına beyaz zemine düşünce kontrast ihlali
+ * ('focusRingViolations:kontrast' / 'kontrast yanlış alarm'); opaklık geçişiyle beliren çizgi ('focusRingViolations:geçiş');
+ * radiuslu ve taşmayı kırpan listenin son satırındaki alt kenar çizgisi ihlal, listenin alt köşeleri radiussuzken temiz
+ * ('accentEdgeViolations:ata kırpma' / 'ata kırpma yanlış alarm').
  */
 export function selfCheckScript(): string {
   return `(() => {
@@ -1323,8 +1659,9 @@ export function selfCheckScript(): string {
     const before = { x: window.scrollX, y: window.scrollY, focus: document.activeElement };
     const host = document.createElement('div');
     host.setAttribute('data-detector-selfcheck', '');
-    // En üst katman: uygulamanın sabit/yapışkan katmanları örtüşme ve örtülme ölçümünü (elementFromPoint) bozmasın.
-    host.style.cssText = 'position:absolute;top:0;left:0;width:240px;z-index:2147483647;';
+    // En üst katman: uygulamanın sabit/yapışkan katmanları örtüşme ve örtülme ölçümünü (elementFromPoint) bozmasın. Opak
+    // beyaz zemin: odak çizgisi kontrastı alttaki sayfaya (ör. masaüstünde lacivert yan gezinme) bağlı olmasın.
+    host.style.cssText = 'position:absolute;top:0;left:0;width:240px;z-index:2147483647;background:rgb(255, 255, 255);';
     const add = (tag, css, text) => { const el = document.createElement(tag); el.style.cssText = css; if (text) el.textContent = text; host.appendChild(el); return el; };
     add('p', 'font-size:12px;margin:0', 'küçük metin');
     add('div', 'border-radius:12px;border-left:4px solid rgb(50, 107, 148);width:120px;height:40px', 'şerit');
@@ -1339,7 +1676,7 @@ export function selfCheckScript(): string {
     field.setAttribute('aria-label', 'öz denetim alanı');
     add('div', 'position:absolute;left:0;top:300px;width:60px;overflow:hidden;white-space:nowrap;font-size:16px', 'kesilen uzun metin örneği burada');
     // Tek satır modeli: ul > li > a (bağlantı li'yi doldurur), çizgi bağlantının ::after'ı, bottom 0.
-    const list = add('ul', 'position:absolute;left:0;top:360px;width:200px;margin:0;padding:0;list-style:none;font-size:16px', '');
+    const list = add('ul', 'position:absolute;left:0;top:360px;width:200px;margin:0;padding:0;list-style:none;font-size:16px;background:rgb(255, 255, 255)', '');
     const rowLink = (pad) => {
       const li = document.createElement('li');
       li.setAttribute('data-detector-row', '');
@@ -1354,7 +1691,20 @@ export function selfCheckScript(): string {
     };
     const rowFlush = rowLink(0);
     const rowInset = rowLink(12);
-    const rowCss = '[data-detector-selfcheck] [data-detector-row] > a::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgb(50, 107, 148); }';
+    const rowCss = [
+      '[data-detector-selfcheck] [data-detector-row] > a::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgb(50, 107, 148); }',
+      // Görünüm alanına sabit ikinci parça: lacivert kutuda odak-nav çizgisi (kontrolün 4 px altında), opaklık geçişli
+      // çizgi ve radiuslu/kırpan liste. Yalnız [data-detector-probe] altında geçerli; parça kalkınca etkisi kalmaz.
+      '[data-detector-probe] .dp-nav { background: rgb(27, 62, 85); padding: 8px 8px 12px; margin: 0 0 16px; }',
+      '[data-detector-probe] .dp-nav.dp-dar { padding-bottom: 0; }',
+      '[data-detector-probe] .dp-btn { position: relative; display: block; width: 160px; height: 44px; margin: 0; padding: 0; border: 0; background: transparent; color: rgb(255, 255, 255); font-size: 16px; }',
+      '[data-detector-probe] .dp-btn::after { content: ""; position: absolute; left: 0; right: 0; bottom: -7px; height: 3px; background: rgb(166, 190, 208); pointer-events: none; }',
+      '[data-detector-probe] .dp-btn.dp-fade::after { transition: opacity 240ms cubic-bezier(.65,0,.35,1); }',
+      '[data-detector-probe] .dp-liste { list-style: none; margin: 0 0 16px; padding: 0; width: 200px; border-radius: 12px; overflow: hidden; background: rgb(255, 255, 255); }',
+      '[data-detector-probe] .dp-liste.dp-kose { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }',
+      '[data-detector-probe] .dp-liste a { position: relative; display: block; height: 44px; line-height: 44px; font-size: 16px; }',
+      '[data-detector-probe] .dp-liste a::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgb(50, 107, 148); }',
+    ].join(' ');
     let rowSheet = null;
     try {
       rowSheet = new CSSStyleSheet();
@@ -1368,6 +1718,15 @@ export function selfCheckScript(): string {
     }
     document.body.appendChild(host);
     button.focus();
+    // İkinci parça (görünüm alanına sabit, en üst katman, beyaz zemin): diğer ölçümler bittikten sonra eklenir.
+    const probe = document.createElement('div');
+    probe.setAttribute('data-detector-probe', '');
+    probe.style.cssText = 'position:fixed;left:0;top:0;width:240px;padding:8px;z-index:2147483647;background:rgb(255, 255, 255);';
+    probe.innerHTML = '<div class="dp-nav"><button type="button" class="dp-btn" id="dp-temiz">Temiz</button></div>'
+      + '<div class="dp-nav dp-dar"><button type="button" class="dp-btn" id="dp-dar">Dar</button></div>'
+      + '<div class="dp-nav"><button type="button" class="dp-btn dp-fade" id="dp-fade">Solan</button></div>'
+      + '<ul class="dp-liste" id="dp-kirpan"><li><a href="#oz-denetim">Son satır</a></li></ul>'
+      + '<ul class="dp-liste dp-kose" id="dp-kosesiz"><li><a href="#oz-denetim">Son satır</a></li></ul>';
     const root = '[data-detector-selfcheck]';
     const missed = [];
     try {
@@ -1385,8 +1744,16 @@ export function selfCheckScript(): string {
       field.focus();
       if (!d.keyboard({ target: field, keyboard: Math.round(window.innerHeight / 2) }).length) missed.push('virtualKeyboardViolations');
       if (!d.clipped({ root }).some((m) => /kesilen uzun metin/.test(m))) missed.push('clippedTextViolations');
+      document.body.appendChild(probe);
+      const one = (id) => probe.querySelector('#' + id);
+      if (d.focus({ target: one('dp-temiz'), keyboard: true }).length) missed.push('focusRingViolations:kontrast yanlış alarm');
+      if (!d.focus({ target: one('dp-dar'), keyboard: true }).some((m) => /zemine karşı/.test(m))) missed.push('focusRingViolations:kontrast');
+      if (!d.focus({ target: one('dp-fade'), keyboard: true }).some((m) => /geçişle beliriyor/.test(m))) missed.push('focusRingViolations:geçiş');
+      if (!d.accent({ root: one('dp-kirpan') }).some((m) => /kırpan ata/.test(m))) missed.push('accentEdgeViolations:ata kırpma');
+      if (d.accent({ root: one('dp-kosesiz') }).length) missed.push('accentEdgeViolations:ata kırpma yanlış alarm');
     } finally {
       host.remove();
+      probe.remove();
       if (rowSheet) document.adoptedStyleSheets = document.adoptedStyleSheets.filter((sheet) => sheet !== rowSheet);
       // Odak ve kaydırma eski hâline döner: öz denetim sonraki ölçümleri (güvenli alan, klavye) etkilemez. Odaktaki
       // parça host ile kalktığından önceden odak yoksa odak kendiliğinden body'ye döner.

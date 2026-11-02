@@ -83,12 +83,14 @@ const toRect = (r: Rect) => ({ ...r, right: r.left + r.width, bottom: r.top + r.
 
 /**
  * Sahte ortam: stil, kutu, metin satırı kutuları ve kaydırma ölçüleri öğe başına kaydedilir; sözde öğede varsayılan
- * content 'none'. `hit` verilirse örtülme denetimi (elementFromPoint) onu kullanır; `visual` görsel görünüm alanıdır.
+ * content 'none'. `hit` verilirse örtülme denetimi (elementFromPoint) onu kullanır; `stack` noktalardaki öğe yığınıdır
+ * (elementsFromPoint, en üstteki önce; `host` verilirse onun sözde öğeleri de isabet alır); `visual` görsel görünüm alanıdır.
  */
 function makeEnv(init: {
   viewport?: { width: number; height: number };
   media?: Record<string, boolean>;
   hit?: (x: number, y: number) => Element | null;
+  stack?: (points: { x: number; y: number }[], host?: Element) => Element[][];
   visual?: VisualViewport | null;
 } = {}) {
   const styles = new Map<Element, Map<string, Css>>();
@@ -99,6 +101,7 @@ function makeEnv(init: {
   const media = init.media ?? {};
   const env: DetectorEnv = {
     hit: init.hit,
+    stack: init.stack,
     textRects: (node) => (node.parentElement ? texts.get(node.parentElement) ?? [] : []).map(toRect),
     visualViewport: () => init.visual ?? null,
     style(el, pseudo) {
@@ -366,6 +369,185 @@ describe('focusRingViolations › tek satır modeli', () => {
   });
 });
 
+/**
+ * Göstergenin gerçek zemine karşı kontrastı (AGENT.md: komşu yüzeye en az 3:1) ve anlık görünürlüğü (hareket sözleşmesi:
+ * odak işareti geciktirilmez, zorla fade uygulanmaz). Zemin, çizgi dikdörtgeninin her piksel satırında birkaç noktada
+ * env.stack (tarayıcıda elementsFromPoint, sözde öğe isabetli) ile bulunur: yığında konağın altındaki öğeler (konağın
+ * kendisi yalnız nokta onun kutusundaysa) yukarıdan aşağı harmanlanır; konağın üstündeki opak örtü noktayı ölçülemez kılar.
+ */
+describe('focusRingViolations › gösterge zemin kontrastı ve anlık görünürlük', () => {
+  const NAV = 'rgb(27, 62, 85)'; // --aile-nav
+  const ODAK_NAV = 'rgb(166, 190, 208)'; // --aile-odak-nav
+  const ODAK = 'rgb(50, 107, 148)'; // --aile-odak
+  const ZEMIN = 'rgb(245, 247, 250)'; // --aile-zemin
+  const SECILI = 'rgb(201, 219, 231)'; // --aile-secili
+  type Stack = (points: { x: number; y: number }[], host?: Element) => Element[][];
+
+  /**
+   * Lacivert üst çubuk (0 → barBottom) içinde 8–52 px düğme; çubuğun altı açık zemin. Çizgi düğmenin 4 px altında
+   * (56–59 px). Kaba işaretçi katmanında çubuğun alt payı küçülür: çizginin bir kısmı çubuğun dışına, açık zemine düşer.
+   */
+  function shell(barBottom: number, extra: { contrast?: number | false } = {}) {
+    mount('<div id="sayfa"><header id="bar"><button id="b" type="button">Sayfalar</button></header></div>');
+    const stack: Stack = (points, host) => points.map((p) => [...(host ? [host] : []), p.y < barBottom ? $('#bar') : $('#sayfa'), document.body]);
+    const kit = makeEnv({ stack });
+    kit.box($('#sayfa'), { left: 0, top: 0, width: 320, height: 568 });
+    kit.css($('#sayfa'), { 'background-color': ZEMIN });
+    kit.box($('#bar'), { left: 0, top: 0, width: 320, height: barBottom });
+    kit.css($('#bar'), { 'background-color': NAV });
+    kit.box($('#b'), { left: 16, top: 8, width: 120, height: 44 });
+    kit.css($('#b'), { position: 'relative' });
+    kit.css($('#b'), { ...LINE, 'background-color': ODAK_NAV }, '::after');
+    return focusRingViolations({ target: '#b', keyboard: true, env: kit.env, ...extra });
+  }
+
+  it('çizgi lacivert çubuğun içindeyse temiz (odak-nav lacivertte ≈5,8:1)', () => {
+    expect(shell(60)).toEqual([]);
+  });
+
+  it('çizginin bir kısmı çubuğun dışına açık zemine düşerse (≈1,8:1) yakalanır; contrast:false kapatır', () => {
+    const out = shell(57);
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatch(/button#b.*::after: odak çizgisi zemine karşı 1[.,]\d+:1 < 3:1/);
+    expect(out[0]).toMatch(/rgb\(245, 247, 250\)/);
+    expect(shell(57, { contrast: false })).toEqual([]);
+    expect(shell(57, { contrast: 1.5 })).toEqual([]);
+  });
+
+  /** Beyaz kart üstünde kontrol çizgisi; konak ya da çizgi opaklığı verilebilir. */
+  function onCard(line: Css, host: Css = {}) {
+    mount('<div id="kart"><button id="b">Kaydet</button></div>');
+    const stack: Stack = (points, h) => points.map(() => [...(h ? [h] : []), $('#kart'), document.body]);
+    const kit = makeEnv({ stack });
+    kit.css($('#kart'), { 'background-color': 'rgb(255, 255, 255)' });
+    kit.box($('#kart'), { left: 0, top: 0, width: 320, height: 200 });
+    kit.box($('#b'), { left: 10, top: 10, width: 120, height: 44 });
+    kit.css($('#b'), { position: 'relative', ...host });
+    kit.css($('#b'), { ...LINE, ...line }, '::after');
+    return focusRingViolations({ target: '#b', keyboard: true, env: kit.env });
+  }
+
+  it('opak odak çizgisi beyazda temiz; yarı saydam çizgi ya da yarı saydam konak zemine karışır ve yakalanır; opaklık 0 gösterge değildir', () => {
+    expect(onCard({ 'background-color': ODAK })).toEqual([]);
+    expect(onCard({ 'background-color': ODAK, opacity: '0.3' }).join()).toMatch(/zemine karşı 1[.,]\d+:1 < 3:1/);
+    expect(onCard({ 'background-color': 'rgba(50, 107, 148, 0.3)' }).join()).toMatch(/zemine karşı 1[.,]\d+:1 < 3:1/);
+    expect(onCard({ 'background-color': ODAK }, { opacity: '0.4' }).join()).toMatch(/zemine karşı \d[.,]\d+:1 < 3:1/);
+    expect(onCard({ 'background-color': ODAK, opacity: '0' }).join()).toMatch(/gösterge yok/);
+  });
+
+  /** Satır taşıyıcısı ([data-focus-line='row']): çizgi kendi alt kenarında, yani konağın kendi yüzeyinin üstünde. */
+  function navRow(hostBackground: string, above: (row: Element) => Element[] = () => []) {
+    mount('<nav id="nav" aria-label="Sayfalar"><a id="h" href="#/genel" data-focus-line="row">Genel</a><div id="ust"></div></nav>');
+    const stack: Stack = (points, h) => points.map(() => [...above($('#h')), ...(h ? [h] : []), $('#nav'), document.body]);
+    const kit = makeEnv({ stack });
+    kit.css($('#nav'), { 'background-color': NAV });
+    kit.box($('#h'), { left: 0, top: 100, width: 272, height: 48 });
+    kit.css($('#h'), { position: 'relative', 'background-color': hostBackground });
+    kit.css($('#h'), { ...LINE, width: '272px', bottom: '0px', 'background-color': ODAK }, '::after');
+    return { kit, run: () => focusRingViolations({ target: '#h', keyboard: true, env: kit.env }) };
+  }
+
+  it('nokta konağın kutusundaysa konağın kendi yüzeyi zemindir (seçili sayfa ≈4:1 temiz; çizgi rengindeki yüzey yakalanır)', () => {
+    expect(navRow(SECILI).run()).toEqual([]);
+    // Saydam konakta zemin lacivert: odak rengi lacivertte ≈1,96:1 (admin.css'in belgelediği değer).
+    expect(navRow('rgba(0, 0, 0, 0)').run().join()).toMatch(/zemine karşı 1[.,]9\d:1 < 3:1.*rgb\(27, 62, 85\)/);
+    expect(navRow(ODAK).run().join()).toMatch(/zemine karşı 1[.,]00:1 < 3:1/);
+  });
+
+  it('çizginin üstündeki saydam öğe zemin sayılmaz; üstteki opak örtü ve arka plan görseli noktayı ölçülemez kılar (yanlış alarm yok)', () => {
+    const saydam = navRow('rgba(0, 0, 0, 0)', () => [$('#ust')]);
+    expect(saydam.run().join(), 'üstteki saydam öğe atlanır, alttaki lacivert ölçülür').toMatch(/zemine karşı 1[.,]9\d:1/);
+    const ortu = navRow('rgba(0, 0, 0, 0)', () => [$('#ust')]);
+    ortu.kit.css($('#ust'), { 'background-color': 'rgb(255, 255, 255)' });
+    expect(ortu.run()).toEqual([]);
+    const gorsel = navRow('rgba(0, 0, 0, 0)');
+    gorsel.kit.css($('#nav'), { 'background-image': 'linear-gradient(rgb(0, 0, 0), rgb(255, 255, 255))' });
+    expect(gorsel.run()).toEqual([]);
+  });
+
+  it('yarı saydam katmanlar alttaki opak zeminle harmanlanır; opak zemin yoksa tuval beyazdır', () => {
+    mount('<div id="perde"><button id="b">Uygula</button></div>');
+    const stack: Stack = (points, h) => points.map(() => [...(h ? [h] : []), $('#perde'), document.body, document.documentElement]);
+    const kit = makeEnv({ stack });
+    kit.box($('#b'), { left: 10, top: 10, width: 120, height: 44 });
+    kit.css($('#b'), { position: 'relative' });
+    kit.css($('#b'), { ...LINE, 'background-color': ODAK_NAV }, '::after');
+    // Opak zemin yok: tuval beyaz; odak-nav beyazda ≈1,9:1.
+    expect(focusRingViolations({ target: '#b', keyboard: true, env: kit.env }).join()).toMatch(/zemine karşı 1[.,]\d+:1 < 3:1.*rgb\(255, 255, 255\)/);
+    // %80 lacivert perde beyaz tuval üstünde: harman koyu, odak-nav ≥ 3:1.
+    kit.css($('#perde'), { 'background-color': 'rgba(27, 62, 85, 0.8)' });
+    expect(focusRingViolations({ target: '#b', keyboard: true, env: kit.env })).toEqual([]);
+  });
+
+  it('katmanın kendisi (çizgi ile zemininin ortak atası) solarak açılırken ortak opaklık kontrastı değiştirmez; yalnız çizgiye özgü opaklık sayılır', () => {
+    // Menü paneli açılış hareketinin başında (opaklık 0,05): panel zemini ve çizgi birlikte solar; tasarım kontrastı
+    // panel zemini üzerinde ölçülür (odak beyazda ≈5,6:1). Panel içindeki öğenin kendi opaklığı ise yalnız çizgiyi soldurur.
+    mount('<div id="sayfa"><div id="panel" role="menu"><div id="oge" role="menuitem" tabindex="-1">Düzenle</div></div></div>');
+    const stack: Stack = (points, h) => points.map(() => [...(h ? [h] : []), $('#panel'), $('#sayfa'), document.body]);
+    const kit = makeEnv({ stack });
+    kit.css($('#sayfa'), { 'background-color': ZEMIN });
+    kit.css($('#panel'), { 'background-color': 'rgb(255, 255, 255)', opacity: '0.05' });
+    kit.box($('#oge'), { left: 10, top: 10, width: 120, height: 44 });
+    kit.css($('#oge'), { position: 'relative' });
+    kit.css($('#oge'), { ...LINE, 'background-color': ODAK }, '::after');
+    expect(focusRingViolations({ target: '#oge', keyboard: true, env: kit.env })).toEqual([]);
+    kit.css($('#oge'), { opacity: '0.3' });
+    expect(focusRingViolations({ target: '#oge', keyboard: true, env: kit.env }).join()).toMatch(/zemine karşı 1[.,]\d+:1 < 3:1.*zemin rgb\(255, 255, 255\)/);
+  });
+
+  it('forced-colors açıkken kontrast ölçülmez (renkleri sistem paleti zorlar; gösterge 2px outline istisnasıdır)', () => {
+    mount('<div id="kart"><button id="b">Kaydet</button></div>');
+    const stack: Stack = (points, h) => points.map(() => [...(h ? [h] : []), $('#kart')]);
+    const kit = makeEnv({ stack, media: { '(forced-colors: active)': true } });
+    kit.css($('#kart'), { 'background-color': 'rgb(255, 255, 255)' });
+    kit.box($('#b'), { left: 10, top: 10, width: 120, height: 44 });
+    kit.css($('#b'), { position: 'relative', 'outline-style': 'solid', 'outline-width': '2px', 'outline-color': 'canvastext' });
+    // Zorlanan palette çizginin zemini Canvas olur (1:1); bu ihlal değildir.
+    kit.css($('#b'), { ...LINE, 'background-color': 'rgb(255, 255, 255)' }, '::after');
+    expect(focusRingViolations({ target: '#b', keyboard: true, env: kit.env })).toEqual([]);
+  });
+
+  it('stack yoksa (ölçüm ortamı yok) kontrast denetlenmez; konak yığında yoksa nokta atlanır', () => {
+    mount('<div id="kart"><button id="b">Kaydet</button></div>');
+    const kit = makeEnv();
+    kit.box($('#b'), { left: 10, top: 10, width: 120, height: 44 });
+    kit.css($('#b'), { position: 'relative' });
+    kit.css($('#b'), { ...LINE, 'background-color': 'rgb(250, 250, 250)' }, '::after');
+    expect(focusRingViolations({ target: '#b', keyboard: true, env: kit.env })).toEqual([]);
+    const yok = makeEnv({ stack: (points) => points.map(() => [$('#kart')]) });
+    yok.box($('#b'), { left: 10, top: 10, width: 120, height: 44 });
+    yok.css($('#b'), { position: 'relative' });
+    yok.css($('#b'), { ...LINE, 'background-color': 'rgb(250, 250, 250)' }, '::after');
+    expect(focusRingViolations({ target: '#b', keyboard: true, env: yok.env })).toEqual([]);
+  });
+
+  it('gösterge sözde öğesinde sıfırdan büyük opacity/visibility/all/zemin rengi geçişi ya da animasyon ihlaldir; 0 s ve konağın renk geçişi temiz', () => {
+    const run = (line: Css, host: Css = {}) => {
+      mount('<button id="b">Kaydet</button>');
+      const kit = makeEnv();
+      kit.box($('#b'), { left: 10, top: 10, width: 120, height: 44 });
+      kit.css($('#b'), { position: 'relative', ...host });
+      kit.css($('#b'), { ...LINE, ...line }, '::after');
+      return focusRingViolations({ target: '#b', keyboard: true, env: kit.env });
+    };
+    const fade = (property: string, duration = '0.24s'): Css => ({ 'transition-property': property, 'transition-duration': duration, 'transition-timing-function': 'cubic-bezier(0.65, 0, 0.35, 1)' });
+    const solma = run(fade('opacity'));
+    expect(solma).toHaveLength(1);
+    expect(solma[0]).toMatch(/button#b.*::after: odak göstergesi geçişle beliriyor \(opacity 240ms\); anında görünmeli/);
+    expect(run(fade('visibility')).join()).toMatch(/visibility 240ms/);
+    expect(run(fade('all')).join()).toMatch(/all 240ms/);
+    expect(run(fade('opacity, background-color', '0s, 0.24s')).join()).toMatch(/background-color 240ms/);
+    expect(run({ 'animation-name': 'aile-belir', 'animation-duration': '0.24s' }).join()).toMatch(/animasyonla beliriyor \(aile-belir 240ms\)/);
+    expect(run(fade('opacity', '0s'))).toEqual([]);
+    expect(run({}, fade('color'))).toEqual([]);
+    // İşaretçi modunda (gösterge yok) geçiş ölçülmez; görünür gösterge zaten ayrı ihlaldir.
+    mount('<button id="b">Kaydet</button>');
+    const kit = makeEnv();
+    kit.box($('#b'), { left: 10, top: 10, width: 120, height: 44 });
+    expect(focusRingViolations({ target: '#b', keyboard: false, env: kit.env })).toEqual([]);
+  });
+});
+
 describe('smallTextViolations', () => {
   it('14 px altındaki görünür metni yakalar, 14 px temizdir', () => {
     mount('<p id="k">Fiyat yok</p><p id="t">Henüz yok</p>');
@@ -456,6 +638,68 @@ describe('accentEdgeViolations', () => {
     box($('#b'), { left: 0, top: 0, width: 120, height: 44 });
     css($('#b'), LINE, '::after');
     expect(accentEdgeViolations({ root: '#kok', env })).toEqual([]);
+  });
+});
+
+/**
+ * Ata kırpma radiusu: sözde öğe şeridi kendi kutusunun kenarında olmasa da, radiuslu ve taşmayı kırpan (overflow ≠ visible)
+ * bir atanın köşe eğrisi şeridin ucunu kırpıyorsa kavisli vurgu kenarıdır. Ölçüt geometriktir: şeridin o köşeye en yakın
+ * pikselinin merkezi atanın iç (dolgu kutusu) köşe elipsinin dışındaysa uç eğriyle kesilir.
+ */
+describe('accentEdgeViolations › ata kırpma radiusu', () => {
+  /**
+   * ul (320×120, radius 12, overflow hidden) > li × 2; son satırın bağlantısı li'yi doldurur, ::after çizgisi bağlantının
+   * odak-aralik altında (bottom -7) ve li'nin alt boşluğu 7 px: çizgi listenin alt kenarına oturur (GenelPage son satır).
+   */
+  function liste(opts: { list?: Css; gap?: number; inset?: number; line?: Css; border?: number } = {}) {
+    mount('<ul id="liste"><li id="l1"><a id="a1" href="#/a">Birinci</a></li><li id="l2"><a id="a2" href="#/b">Son satır</a></li></ul>');
+    const kit = makeEnv();
+    const inset = opts.inset ?? 0;
+    const gap = opts.gap ?? 7;
+    const border = opts.border ?? 0;
+    kit.box($('#liste'), { left: 0, top: 0, width: 320, height: 120 });
+    kit.css($('#liste'), { ...radius('12px'), 'overflow-x': 'hidden', 'overflow-y': 'hidden', 'background-color': 'rgb(255, 255, 255)', ...opts.list });
+    if (border) for (const side of ['top', 'right', 'bottom', 'left']) kit.css($('#liste'), solid(side, `${border}px`, 'rgb(220, 228, 235)'));
+    kit.box($('#l1'), { left: border, top: border, width: 320 - 2 * border, height: 60 });
+    kit.box($('#l2'), { left: border, top: 60, width: 320 - 2 * border, height: 60 - border });
+    // Bağlantının alt kenarı: listenin iç alt kenarından (7 = aralık + kalınlık) + ek boşluk kadar yukarıda.
+    const bottom = 120 - border - 7 - gap + 7;
+    kit.box($('#a2'), { left: border + inset, top: 60, width: 320 - 2 * border - 2 * inset, height: bottom - 60 });
+    kit.css($('#a2'), { position: 'relative' });
+    kit.css($('#a2'), { ...LINE, width: `${320 - 2 * border - 2 * inset}px`, ...opts.line }, '::after');
+    return accentEdgeViolations({ root: '#kok', env: kit.env });
+  }
+
+  it('son satırın odak çizgisi radiuslu ve kırpan listenin alt kenarında: köşeler eğriyle kesilir, yakalanır', () => {
+    const out = liste();
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatch(/a#a2.*::after: radiuslu ve kırpan ata kenarında şerit \(ul#liste, alt\)/);
+  });
+
+  it('kenardan 1 px yukarıdaki ve 4 px içeriden başlayan çizgi de eğriyle kırpılır; kenarlıklı atada iç radius kullanılır', () => {
+    expect(liste({ gap: 8 }).join()).toMatch(/ul#liste, alt/);
+    expect(liste({ inset: 4 }).join()).toMatch(/ul#liste, alt/);
+    expect(liste({ border: 1 }).join()).toMatch(/ul#liste, alt/);
+  });
+
+  it('temiz: listenin alt köşeleri radiussuz; çizgi köşe bölgesinin dışında (kenardan uzak ya da radius kadar içeride); görünmez sözde öğe', () => {
+    expect(liste({ list: { 'border-bottom-left-radius': '0px', 'border-bottom-right-radius': '0px' } })).toEqual([]);
+    expect(liste({ gap: 20 })).toEqual([]);
+    expect(liste({ inset: 12 })).toEqual([]);
+    expect(liste({ line: { opacity: '0' } })).toEqual([]);
+    expect(liste({ list: { 'overflow-x': 'visible', 'overflow-y': 'visible' } })).toEqual([]);
+  });
+
+  it('dikey şerit de sol/sağ köşede eğriyle kırpılırsa yakalanır; kırpmayan radiussuz ara ata geçilir', () => {
+    mount('<div id="kart"><div id="ara"><p id="p">Not</p></div></div>');
+    const kit = makeEnv();
+    kit.box($('#kart'), { left: 0, top: 0, width: 300, height: 80 });
+    kit.css($('#kart'), { ...radius('12px'), 'overflow-x': 'hidden', 'overflow-y': 'hidden' });
+    kit.box($('#ara'), { left: 0, top: 0, width: 300, height: 80 });
+    kit.box($('#p'), { left: 0, top: 0, width: 300, height: 80 });
+    kit.css($('#p'), { position: 'relative' });
+    kit.css($('#p'), { content: '""', position: 'absolute', left: '0px', top: '0px', width: '4px', height: '80px', 'background-color': 'rgb(50, 107, 148)' }, '::before');
+    expect(accentEdgeViolations({ root: '#kok', env: kit.env }).join()).toMatch(/p#p.*::before: radiuslu ve kırpan ata kenarında şerit \(div#kart, sol\)/);
   });
 });
 
@@ -1155,5 +1399,9 @@ describe('tarayıcıya kaynak metin olarak aktarım', () => {
     const script = selfCheckScript();
     expect(() => new Function(`return ${script}`)).not.toThrow();
     for (const name of ['focusRingViolations', 'smallTextViolations', 'accentEdgeViolations', 'overflowViolations', 'motionViolations', 'touchTargetViolations', 'safeAreaViolations', 'virtualKeyboardViolations', 'clippedTextViolations']) expect(script).toContain(name);
+    // Kontrast, anlık gösterge ve ata kırpma denetimleri de iki yönde (ihlal yakalanır, temiz durumda alarm yok) sınanır.
+    for (const probe of ['focusRingViolations:kontrast', 'focusRingViolations:kontrast yanlış alarm', 'focusRingViolations:geçiş', 'accentEdgeViolations:ata kırpma', 'accentEdgeViolations:ata kırpma yanlış alarm']) {
+      expect(script).toContain(`'${probe}'`);
+    }
   });
 });

@@ -1,6 +1,6 @@
 import { test, expect, type Locator, type Page } from '@playwright/test';
 import { openAdmin, shiftTabKey, tabKey } from './admin-helpers';
-import { focusRing, selfCheckDetectors } from './admin-detectors';
+import { accentEdges, focusRing, selfCheckDetectors } from './admin-detectors';
 
 // Odak sözleşmesi (AGENT.md kesin odak kuralı, tasarım README › Odak, src/admin/admin.css):
 //  - Görünür odak modu kapalı başlar (html[data-keyboard='false']); yalnız Tab/Shift+Tab açar. Ok, Escape, yazma ve Enter
@@ -28,17 +28,21 @@ import { focusRing, selfCheckDetectors } from './admin-detectors';
 //    body'ye düşmek (document.hasFocus() iken) kayıp odaktır ve hatadır.
 //  - .aile-admin dışına portallanan yerel katman (data-aile-katman / role=dialog) aynı sözleşmeye uyar: [data-focus-line]
 //    düğme, [data-focus-line] sarmalayıcıdaki input ve [data-odak-zemin='nav'] yüzeyindeki bağlantı (çizgi odak-nav).
-// Ölçüm paylaşılan dedektörle yapılır (e2e/admin-detectors.ts focusRingViolations, sahibi f09-detectors). Dedektörün
-// modellemediği iki tasarım kalıbı yalnız onun açık seçenekleriyle ifade edilir: satır çizgisi gap = -kalınlık (beklenen
-// bottom 0), etiket çizgisi target = etiket öğesi + gap = aralık - kalınlık (beklenen bottom -aralık). Dedektörün görmediği
-// üç şey burada yerel ve dar tutulur: çizgi renginin token olması, tek çizgi sayımı (sözde öğe opaklığı dahil) ve etiket
-// çizgisinin konağını bulmak. Öz denetim testleri her ihlali sayfaya enjekte eder (ürün durumundan bağımsız sentetik
-// parça dahil) ve yakalandığını kanıtlar.
+//  - Gösterge anında görünür ve okunur: göstergeyi taşıyan sözde öğede çalışan ya da tanımlı geçiş/animasyon ihlaldir
+//    (hareket sözleşmesi: odak işareti geciktirilmez, zorla fade uygulanmaz); çizgi altındaki gerçek zemine karşı en az
+//    3:1 (AGENT.md); çizgi radiuslu ve taşmayı kırpan bir atanın köşe eğrisiyle kesilmez (kavisli vurgu kenarı yok).
+// Ölçüm paylaşılan dedektörle yapılır (e2e/admin-detectors.ts focusRingViolations ve accentEdgeViolations, sahibi
+// f09-detectors). Dedektörün modellemediği iki tasarım kalıbı yalnız onun açık seçenekleriyle ifade edilir: satır çizgisi
+// gap = -kalınlık (beklenen bottom 0), etiket çizgisi target = etiket öğesi + gap = aralık - kalınlık (beklenen bottom
+// -aralık). Dedektörün görmediği üç şey burada yerel ve dar tutulur: çizgi renginin token olması, tek çizgi sayımı (sözde
+// öğe opaklığı dahil) ve etiket çizgisinin konağını bulmak. Öz denetim testleri her ihlali sayfaya enjekte eder (ürün
+// durumundan bağımsız sentetik parça dahil) ve yakalandığını kanıtlar.
 //
 // Veri: playwright.admin.config.ts webServer'ı AILE_GENERATION_DIR = fixtures/generation-synthetic ve sentetik Sheet
 // kimliğiyle başlatır; /__aile/generation/* sentetik nesli sunucudan verir. Bu dosya nesil için page.route sahtesi kurmaz
 // (kurulsaydı sunucudan önce gelirdi). Yerel olmayan her istek (Google dahil) kesilir. Hazır sinyali openAdmin; sabit
-// bekleme yok, her tuştan sonra odak ve geçişler (240 ms opaklık geçişi dahil) oturana kadar kare kare beklenir.
+// bekleme yok, her tuştan sonra odak ve sayfadaki geçişler oturana kadar kare kare beklenir. Odak göstergesini taşıyan
+// sözde öğedeki hareket beklenmez: gösterge anında görünmelidir, bu yüzden görülen her hareket ihlal sayılır.
 // Projeler: görev koşusu chromium 320×568 ve webkit 390×844 (ikisi telefon profili, dokunmatik); @matrix etiketli sayfa
 // ve katman testleri entegrasyonda 360/375/320×480/568×320, tablet ve masaüstünde de koşar. Katmanı o profilde olmayan
 // test atlanır (not_applicable); telefonda katmanın olmaması hatadır.
@@ -61,6 +65,10 @@ const LAYER_STOPS = 90;
 const LINE_HOST = 'data-f01-line-host';
 /** Açık açılır listede aria-activedescendant'ın gösterdiği etkin seçenek (focusPlan işaretler). */
 const ACTIVE = 'data-f01-active';
+/** Odak bölgesi: çizgi taşıyıcılarının (ve satır kabının) en dıştakisi; kavisli vurgu kenarı burada ölçülür. */
+const EDGE = 'data-f01-edge';
+/** İşaretçiyle dokunulacak etkileşimsiz katman yüzeyi. */
+const SPOT = 'data-f01-spot';
 const TARGET = 'data-f01-target';
 const FIRST = 'data-f01-first';
 const LOCAL_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]']);
@@ -114,11 +122,12 @@ interface FocusPlan {
  * sınıflar ve görünür odak çizgilerini toplar. Taşıyıcı kuralı paylaşılan dedektörle aynıdır: hedef + başka odaklanabilir
  * içermeyen en çok 3 ata (landmark/diyalog rolünde durulur).
  */
-function focusPlan(args: { hostAttr: string; activeAttr: string; targetAttr: string | null }): FocusPlan {
+function focusPlan(args: { hostAttr: string; activeAttr: string; edgeAttr: string; targetAttr: string | null }): FocusPlan {
   const root = document.documentElement;
-  document.querySelectorAll(`[${args.hostAttr}], [${args.activeAttr}]`).forEach(el => {
+  document.querySelectorAll(`[${args.hostAttr}], [${args.activeAttr}], [${args.edgeAttr}]`).forEach(el => {
     el.removeAttribute(args.hostAttr);
     el.removeAttribute(args.activeAttr);
+    el.removeAttribute(args.edgeAttr);
   });
   const target = args.targetAttr ? document.querySelector(`[${args.targetAttr}]`) : document.activeElement;
   const keyboard = root.dataset.keyboard === 'true';
@@ -271,6 +280,8 @@ function focusPlan(args: { hostAttr: string; activeAttr: string; targetAttr: str
   const rowBox = kind === 'row' ? target.closest('li, [role=listitem], tr, [role=row]') : null;
   const rowBottom = rowBox ? Math.round(rowBox.getBoundingClientRect().bottom * 10) / 10 : null;
   if (kind === 'label' && labelHostEl) labelHostEl.setAttribute(args.hostAttr, '');
+  const outer = carriers[carriers.length - 1];
+  if (kind !== 'container') (rowBox && rowBox !== outer && rowBox.contains(outer) ? rowBox : outer).setAttribute(args.edgeAttr, '');
   return {
     focused: true, describe: label(target), keyboard, kind, thickness, gap, allowed, expectedColor, surface, lines, hidden,
     labelHost: kind === 'label' && Boolean(labelHostEl), inMain: Boolean(target.closest('main')), rowBottom, active: Boolean(active),
@@ -278,29 +289,65 @@ function focusPlan(args: { hostAttr: string; activeAttr: string; targetAttr: str
 }
 
 let settleProbe = 0;
-/** Odaklı öğe iki ardışık karede aynı ve sonlu hiçbir geçiş/animasyon sürmüyor (240 ms opaklık geçişi dahil). */
-async function settle(page: Page) {
-  const key = JSON.stringify(`__f01Settle${++settleProbe}`);
-  await page.waitForFunction(
-    `(() => { const w = window; const el = document.activeElement;`
-      + ` const busy = document.getAnimations().some(a => a.playState === 'running' && Number.isFinite(Number(a.effect && a.effect.getComputedTiming().endTime)));`
-      + ` const prev = w[${key}]; const n = prev && prev.el === el && !busy ? prev.n + 1 : 0; w[${key}] = { el, n }; return n >= 2; })()`,
-    undefined,
-    { polling: 'raf', timeout: 5_000 },
-  );
+/**
+ * Odaklı öğe iki ardışık karede aynı ve gösterge dışında sonlu hiçbir geçiş/animasyon sürmüyor. Odak göstergesini taşıyan
+ * sözde öğedeki (odaklı öğenin, içindeki öğelerin ya da onu saran en çok 4 atanın ::before/::after'ı) çalışan hareket
+ * BEKLENMEZ: gösterge anında görünür (hareket sözleşmesi), bu yüzden görülen her biri döndürülür ve çağıran ihlal sayar.
+ */
+async function settle(page: Page): Promise<string[]> {
+  const key = `__f01Settle${++settleProbe}`;
+  const handle = await page.waitForFunction((name: string) => {
+    type State = { el: Element | null; n: number; seen: string[] };
+    const store = window as unknown as Record<string, State | undefined>;
+    const el = document.activeElement;
+    const prev = store[name];
+    const seen = prev ? prev.seen : [];
+    const near = (node: Element | null | undefined) => {
+      if (!node || !el || el === document.body || el === document.documentElement) return false;
+      if (node === el || el.contains(node)) return true;
+      let depth = 0;
+      for (let up = el.parentElement; up && depth < 4; up = up.parentElement, depth += 1) if (up === node) return true;
+      return false;
+    };
+    let busy = false;
+    for (const animation of document.getAnimations()) {
+      if (animation.playState !== 'running') continue;
+      const effect = animation.effect as KeyframeEffect | null;
+      if (!effect) continue;
+      const timing = effect.getComputedTiming();
+      if (!Number.isFinite(Number(timing.endTime))) continue;
+      const pseudo = effect.pseudoElement || '';
+      if (/^::?(before|after)$/.test(pseudo) && near(effect.target)) {
+        const what = (animation as CSSTransition).transitionProperty || (animation as CSSAnimation).animationName || 'hareket';
+        const where = (effect.target!.getAttribute('aria-label') || effect.target!.textContent || effect.target!.tagName).replace(/\s+/g, ' ').trim().slice(0, 24);
+        const item = `${where}${pseudo} ${what} ${Math.round(Number(timing.duration) || 0)}ms`;
+        if (!seen.includes(item)) seen.push(item);
+        continue;
+      }
+      busy = true;
+    }
+    const n = prev && prev.el === el && !busy ? prev.n + 1 : 0;
+    store[name] = { el, n, seen };
+    return n >= 2 ? seen : false;
+  }, key, { polling: 'raf', timeout: 5_000 });
+  return (await handle.jsonValue()) as string[];
 }
 
 async function plan(page: Page, targetAttr: string | null = null): Promise<FocusPlan> {
-  return page.evaluate(focusPlan, { hostAttr: LINE_HOST, activeAttr: ACTIVE, targetAttr });
+  return page.evaluate(focusPlan, { hostAttr: LINE_HOST, activeAttr: ACTIVE, edgeAttr: EDGE, targetAttr });
 }
+
+/** Dedektör iletisinin geometri (konum, genişlik, yokluk) sorunu olup olmadığı; kontrast, hareket, halka değildir. */
+const geometryProblem = (problem: string) => /konum|genişlik|gösterge yok/.test(problem);
 
 /** Klavye modundaki odaklı öğe için sözleşme ihlalleri; boş = tek görünür alt çizgi, halka yok. */
 async function keyboardProblems(page: Page, targetAttr: string | null = null): Promise<{ plan: FocusPlan; problems: string[] }> {
-  await settle(page);
+  const motion = await settle(page);
   const current = await plan(page, targetAttr);
   if (!current.focused) return { plan: current, problems: ['odak belgeye düştü: görünür klavye odağı yok'] };
   const problems: string[] = [];
   if (!current.keyboard) problems.push('klavye modu kapalı');
+  if (motion.length) problems.push(`odak göstergesi hareketle beliriyor (anında görünmeli): ${motion.join(', ')}`);
   const target = targetAttr ? `[${targetAttr}]` : undefined;
   const base = { thickness: current.thickness, gap: current.gap, ...(target ? { target } : {}) };
   if (current.kind === 'container') {
@@ -317,7 +364,7 @@ async function keyboardProblems(page: Page, targetAttr: string | null = null): P
   else if (current.kind === 'control') problems.push(...await focusRing(page, base));
   else {
     const asControl = await focusRing(page, base);
-    if (asControl.length > 0 && current.labelHost) {
+    if (asControl.some(geometryProblem) && current.labelHost) {
       problems.push(...await focusRing(page, { thickness: current.thickness, gap: current.gap - current.thickness, target: `[${LINE_HOST}]` }));
       problems.push(...await focusRing(page, { ...base, keyboard: false }));
     } else {
@@ -332,6 +379,9 @@ async function keyboardProblems(page: Page, targetAttr: string | null = null): P
     if (!current.allowed.includes(line.color)) problems.push(`${line.where}: çizgi rengi ${line.color} token dışı (izinli ${current.allowed.join(' / ')})`);
     else if (line.color !== current.expectedColor) problems.push(`${line.where}: çizgi rengi ${line.color}, ${current.surface} beklenir (${current.expectedColor})`);
   }
+  // Çizgi radiuslu ve taşmayı kırpan bir atanın kenarına oturup köşe eğrisiyle kesilmez (kavisli vurgu kenarı).
+  const edges = [...await accentEdges(page, { root: `[${EDGE}]` }), ...(current.active ? await accentEdges(page, { root: `[${ACTIVE}]` }) : [])];
+  problems.push(...edges.map(edge => `kavisli vurgu kenarı: ${edge}`));
   return { plan: current, problems };
 }
 
@@ -341,21 +391,23 @@ async function keyboardProblems(page: Page, targetAttr: string | null = null): P
  * kenarında"dır; kontrol çizgisi satırın içinde ya da altındaki komşu satırda kalırsa hata.
  */
 async function rowProblems(page: Page, current: FocusPlan, base: { thickness: number; gap: number; target?: string }): Promise<string[]> {
+  // Geometri tutuyorsa dedektörün geri kalan bulguları (kontrast, hareket, halka) olduğu gibi döner.
   const atEdge = await focusRing(page, { ...base, gap: -current.thickness });
-  if (atEdge.length === 0) return [];
+  if (!atEdge.some(geometryProblem)) return atEdge;
   const below = await focusRing(page, base);
   const line = current.lines.length === 1 ? current.lines[0] : null;
-  if (below.length > 0 || !line || current.rowBottom === null) return atEdge;
-  if (Math.abs(line.bottom - current.rowBottom) <= 1) return [];
-  return [`${line.where}: satır çizgisi satırın alt kenarında değil (çizgi alt ${line.bottom}px, satır alt ${current.rowBottom}px)`];
+  if (below.some(geometryProblem) || !line || current.rowBottom === null) return atEdge;
+  if (Math.abs(line.bottom - current.rowBottom) <= 1) return below;
+  return [`${line.where}: satır çizgisi satırın alt kenarında değil (çizgi alt ${line.bottom}px, satır alt ${current.rowBottom}px)`, ...below];
 }
 
 /** İşaretçi modundaki odaklı öğe için ihlaller; boş = mod kapalı, çizgi ve halka yok. */
 async function pointerProblems(page: Page, targetAttr: string | null = null): Promise<{ plan: FocusPlan; problems: string[] }> {
-  await settle(page);
+  const motion = await settle(page);
   const current = await plan(page, targetAttr);
   const problems: string[] = [];
   if (current.keyboard) problems.push('işaretçi sonrası klavye modu açık kaldı');
+  if (motion.length) problems.push(`odak göstergesi hareketle kayboluyor (anında kalkmalı): ${motion.join(', ')}`);
   if (!current.focused) return { plan: current, problems };
   if (current.lines.length > 0) problems.push(`işaretçi modunda odak çizgisi görünüyor: ${current.lines.map(line => line.where).join(', ')}`);
   const target = targetAttr ? `[${targetAttr}]` : undefined;
@@ -405,8 +457,9 @@ async function activeDescribe(page: Page) {
   return (await plan(page)).describe;
 }
 
+/** Odak katmanda mı; katman kapanıp DOM'dan kalktıysa beklemeden false (locator.evaluate kalkan öğeyi beklerdi). */
 async function focusInside(layer: Locator) {
-  return layer.evaluate(el => el.contains(document.activeElement));
+  return layer.evaluateAll(els => els.some(el => el.contains(document.activeElement)));
 }
 
 /**
@@ -454,6 +507,17 @@ test.describe('odak dedektörü öz denetimi', () => {
       expect(caught.problems.length, `enjekte ${name} yakalanmadı · ${caught.plan.describe}`).toBeGreaterThan(0);
       await style.evaluate(el => (el as Element).remove());
     }
+    // Paylaşılan dedektörün yeni denetimleri adıyla yakalar: zemine karışan çizgi (kontrast) ve geçişle beliren çizgi.
+    const named: [string, string, RegExp][] = [
+      ['zemine karışan neredeyse saydam çizgi', "html[data-keyboard='true'] [data-f01-target]::after, html[data-keyboard='true'] [data-f01-target] *::after { background: rgba(50, 107, 148, 0.1) !important; }", /zemine karşı \d[.,]\d+:1 < 3:1/],
+      ['opaklık geçişiyle beliren çizgi', "[data-f01-target]::after, [data-f01-target] *::after { transition: opacity 240ms cubic-bezier(.65,0,.35,1) !important; }", /geçişle beliriyor \(opacity 240ms\)/],
+    ];
+    for (const [name, css, pattern] of named) {
+      const style = await page.addStyleTag({ content: css });
+      const caught = await keyboardProblems(page, TARGET);
+      expect(caught.problems.join('\n'), `enjekte ${name} adıyla yakalanmadı · ${caught.plan.describe}`).toMatch(pattern);
+      await style.evaluate(el => (el as Element).remove());
+    }
     const after = await keyboardProblems(page, TARGET);
     expect(after.problems, 'enjeksiyonlar kaldırıldıktan sonra temiz').toEqual([]);
 
@@ -497,6 +561,7 @@ test.describe('odak dedektörü öz denetimi', () => {
       ['genişliği sıfır etiket çizgisi', '.f01-ul::after { right: auto !important; width: 0 !important; }'],
       ['etiketten dar çizgi (sarılmış satır)', '.f01-ul::after { right: auto !important; width: 6px !important; }'],
       ['yanlış aralıkta çizgi', '.f01-ul::after { bottom: 0 !important; }'],
+      ['solarak beliren etiket çizgisi (tanımlı geçiş)', '.f01-ul::after { transition: opacity 240ms cubic-bezier(.65,0,.35,1) !important; }'],
     ];
     for (const [name, css] of injections) {
       const style = await page.addStyleTag({ content: css });
@@ -505,6 +570,60 @@ test.describe('odak dedektörü öz denetimi', () => {
       await style.evaluate(el => (el as Element).remove());
     }
     expect((await keyboardProblems(page, TARGET)).problems, 'enjeksiyonlar kaldırıldıktan sonra temiz').toEqual([]);
+
+    // settle göstergedeki çalışan hareketi beklemez, ihlal sayar: gösterge Tab ile yeniden belirirken (yalnız beliriş
+    // yönünde uzun sentetik geçiş: Tab ile ayrılınca anında söner, Shift+Tab ile dönünce 0'dan başlar ve ölçüm sırasında
+    // kesin sürer) ilk ölçüm hareketi bildirir. Geçiş kalkınca aynı yol temiz.
+    const fade = await page.addStyleTag({ content: "html[data-keyboard='true'] .f01-acc:focus-visible .f01-ul::after { transition: opacity 4000ms cubic-bezier(.65,0,.35,1) !important; }" });
+    await keyboardFocus(page, browserName, page.locator('button.f01-acc'));
+    const moving = await keyboardProblems(page, TARGET);
+    expect(moving.problems.join('\n'), 'göstergedeki çalışan hareket ihlal sayılmadı').toMatch(/odak göstergesi hareketle beliriyor \(anında görünmeli\): .*::after opacity 4000ms/);
+    await fade.evaluate(el => (el as Element).remove());
+    // Enjekte edilen sentetik geçişin kendisi de kaldırılır (WebKit kural kalkınca süren geçişi bitirmeden bırakabilir).
+    await page.evaluate(() => {
+      for (const animation of document.getAnimations()) {
+        const target = (animation.effect as KeyframeEffect | null)?.target;
+        if (target && target.classList.contains('f01-ul')) animation.cancel();
+      }
+    });
+    await keyboardFocus(page, browserName, page.locator('button.f01-acc'));
+    expect((await keyboardProblems(page, TARGET)).problems, 'geçiş kalkınca temiz').toEqual([]);
+  });
+
+  test('zemin kontrastı ve kırpan radiuslu kenar (sentetik): nav yüzeyinde temiz; çizgi yüzeyin dışına ya da radiuslu kırpan kenara düşünce yakalanır', async ({ page, browserName }) => {
+    // Ürün durumundan bağımsız: çizgileri admin.css'in kendi kuralları çizer ([data-focus-line] düğme, nav zemininde
+    // odak-nav; satırı dolduran bağlantı). Lacivert çubuğun alt payı çizgiyi taşıyacak kadar; liste radiuslu ve taşmayı
+    // kırpar, son satır odaktayken değdiği alt köşeler radiussuzdur.
+    await openAdmin(page, '/alimlar');
+    await page.addStyleTag({ content: [
+      '.f01-cubuk { background: var(--aile-nav); color: var(--aile-nav-metin); padding: 8px 8px calc(var(--aile-odak-aralik) + var(--aile-odak-kalinlik) + 4px); }',
+      '.f01-cubuk button { min-height: 44px; color: inherit; background: transparent; border: 0; }',
+      '.f01-kirpan { list-style: none; margin: 16px 0; padding: 0; background: var(--aile-yuzey); border-radius: var(--aile-kose-kart); overflow: hidden; }',
+      '.f01-kirpan > li { padding-bottom: calc(var(--aile-odak-aralik) + var(--aile-odak-kalinlik)); }',
+      '.f01-kirpan a { display: block; min-height: 44px; }',
+      "html[data-keyboard='true'] .f01-kirpan:has(> li:last-child :focus-visible) { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }",
+    ].join('\n') });
+    await page.locator('main#admin-content').evaluate(main => {
+      const part = document.createElement('div');
+      part.innerHTML = [
+        '<div class="f01-cubuk" data-odak-zemin="nav"><button type="button" data-focus-line id="f01-cubuk-dugme">Deneme sayfaları</button></div>',
+        '<ul class="f01-kirpan"><li><a href="#/alimlar">İlk satır</a></li><li><a href="#/alimlar" id="f01-kirpan-son">Son satır</a></li></ul>',
+      ].join('');
+      main.prepend(part);
+    });
+    const cases: [string, string, RegExp][] = [
+      ['#f01-cubuk-dugme', '.f01-cubuk { padding-bottom: 0 !important; }', /zemine karşı 1[.,]\d+:1 < 3:1/],
+      ['#f01-kirpan-son', '.f01-kirpan { border-radius: var(--aile-kose-kart) !important; }', /kavisli vurgu kenarı: .*radiuslu ve kırpan ata kenarında şerit \(ul\.f01-kirpan, alt\)/],
+    ];
+    for (const [selector, css, pattern] of cases) {
+      await keyboardFocus(page, browserName, page.locator(selector));
+      expect((await keyboardProblems(page)).problems, `${selector}: temiz`).toEqual([]);
+      const style = await page.addStyleTag({ content: css });
+      const caught = await keyboardProblems(page);
+      expect(caught.problems.join('\n'), `${selector}: enjekte ihlal yakalanmadı · ${caught.plan.describe}`).toMatch(pattern);
+      await style.evaluate(el => (el as Element).remove());
+      expect((await keyboardProblems(page)).problems, `${selector}: enjeksiyon kaldırılınca temiz`).toEqual([]);
+    }
   });
 
   test('satır, gezinme ve etkin seçenek kalıpları (sentetik): temizi geçer, her ihlal yakalanır', async ({ page, browserName }) => {
@@ -563,9 +682,13 @@ test.describe('odak dedektörü öz denetimi', () => {
     await check('#f01-nav-bag', 'label', [
       ['nav zemininde açık yüzey rengi', "#f01-nav-bag::after { background: var(--aile-odak) !important; }"],
     ]);
-    await check('#f01-nav-secili', 'label', [
-      ['seçili nav öğesinde odak-nav rengi', "#f01-nav-secili::after { background: var(--aile-odak-nav) !important; }"],
-    ]);
+    // Satır işareti olmayan seçili nav öğesi: çizgi kontrolün altında, seçili yüzeyin dışında laciverte düşer; odak rengi
+    // lacivertte ≈1,96:1 (admin.css bunu belgeler: lacivertteki seçili öğe satır taşıyıcısı olmalı). Kontrast denetimi
+    // yakalar. Seçili öğede renk kuralı (odak, odak-nav değil) aşağıda satır işaretli seçili öğede temiz yolla sınanır.
+    await keyboardFocus(page, browserName, page.locator('#f01-nav-secili'));
+    const navSecili = await keyboardProblems(page);
+    expect(navSecili.plan.kind, '#f01-nav-secili: sınıf').toBe('label');
+    expect(navSecili.problems.join('\n'), '#f01-nav-secili: lacivertteki odak rengi çizgi').toMatch(/zemine karşı 1[.,]9\d:1 < 3:1.*zemin rgb\(27, 62, 85\)/);
     // Satır işaretli gezinme bağlantısı (kabuk: data-focus-line="row"): satır kalıbı, çizgi bağlantının alt kenarında;
     // nav zemininde odak-nav, seçili öğede (secili yüzey üzerinde) odak. Kontrol geometrisi (-7 px) yakalanır.
     const asControl = (id: string) => `html[data-keyboard='true'] #${id}::after { bottom: calc(-1 * (var(--aile-odak-aralik) + var(--aile-odak-kalinlik))) !important; }`;
@@ -739,6 +862,8 @@ const LAYERS: readonly LayerCase[] = [
   { name: 'Sayfalar gezinme çekmecesi', route: '/alimlar', opener: page => page.getByRole('button', { name: 'Sayfalar' }), layer: page => page.getByRole('dialog', { name: /^Sayfalar/ }) },
   { name: 'Filtreler çekmecesi', route: '/alimlar', opener: page => page.getByRole('button', { name: /^Filtreler \(/ }), layer: page => page.getByRole('dialog', { name: /^Filtreler/ }) },
   { name: 'Sıralama seçim listesi (alt sayfa)', route: '/alimlar', opener: page => page.getByRole('combobox', { name: /Sıralama/ }), layer: page => page.getByRole('dialog', { name: /^Sıralama/ }), phoneOnly: true },
+  // Telefonda 5+ sekmeli Görünüm modu (QueryBar) combobox + alt sayfa listbox'tır; genişte segment (radiogroup), katman yok.
+  { name: 'Görünüm modu seçim listesi (alt sayfa)', route: '/alimlar', opener: page => page.getByRole('combobox', { name: 'Görünüm modu' }), layer: page => page.getByRole('dialog', { name: /^Görünüm modu/ }), phoneOnly: true },
   { name: 'Diğer eylemler menüsü (alt sayfa)', route: '/butce', opener: page => page.getByRole('button', { name: /^Diğer/ }), layer: page => page.getByRole('dialog', { name: /^Diğer eylemler/ }) },
   { name: 'Terim ekle diyaloğu', route: '/sozlukler', opener: page => page.getByRole('button', { name: /^Terim ekle/ }), layer: page => page.getByRole('dialog', { name: /^Terim ekle/ }) },
 ];
@@ -752,7 +877,9 @@ async function openLayer(page: Page, browserName: string, layerCase: LayerCase) 
   test.skip(profile !== 'phone' && (!present || Boolean(layerCase.phoneOnly)), `${layerCase.name}: ${profile} profilinde bu katman yok (not_applicable)`);
   await expect(opener, `${layerCase.name}: telefonda açan kontrol yok`).toBeVisible();
   await keyboardFocus(page, browserName, opener);
-  await expectKeyboardIndicator(page, `${layerCase.name} açan kontrol`);
+  // Açan kontrolün göstergesi yumuşak iddia: kusuru test sonunda bildirilir, katmanın kendi denetimleri yine koşar.
+  const openerCheck = await keyboardProblems(page);
+  expect.soft(openerCheck.problems, `${layerCase.name} açan kontrol · ${openerCheck.plan.describe} (${openerCheck.plan.kind})`).toEqual([]);
   const layer = layerCase.layer(page);
   await page.keyboard.press('Enter');
   await expect(layer).toBeVisible();
@@ -866,6 +993,70 @@ test.describe('açık katmanlar', () => {
     });
   }
 
+  for (const layerCase of LAYERS) {
+    test(`${layerCase.name}: işaretçiyle katmanın etkileşimsiz yüzeyine dokunduktan sonra Tab katmanda kalır, Escape kapatır`, MATRIX, async ({ page, browserName }, testInfo) => {
+      // Başlığa ya da boş alana dokunmak odağı kipli katmandan düşürmemeli: sonraki Tab arka plana değil katmana gider,
+      // Escape katmanı kapatır ve odak açan kontrole döner (kipli katman sözleşmesi; dokunma da fare de aynı).
+      const { opener, layer } = await openLayer(page, browserName, layerCase);
+      // Açılış hareketi bitmeden ölçülen nokta, dokunuş anında başka öğeye (ör. seçeneğe) düşer: önce katman oturur.
+      await settle(page);
+      const spot = await layer.evaluate((root, attr) => {
+        document.querySelectorAll(`[${attr}]`).forEach(el => el.removeAttribute(attr));
+        // tabindex=-1 (programatik odak hedefi: panel, başlık) etkileşimli sayılmaz.
+        const INTERACTIVE = 'a[href], button, input, select, textarea, summary, label, [tabindex]:not([tabindex="-1"]), [contenteditable="true"], '
+          + '[role=button], [role=link], [role=option], [role=listbox], [role=menu], [role=menuitem], [role=menuitemradio], [role=menuitemcheckbox], '
+          + '[role=tab], [role=tablist], [role=checkbox], [role=radio], [role=radiogroup], [role=switch], [role=combobox], [role=slider], [role=treeitem]';
+        // Yalnız nokta ile katman kökü arasındaki atalar denetlenir; başka bir denetimin etiketi (aria-labelledby) olan metin
+        // de etkileşimlidir (tıklaması denetimi açabilir).
+        const labelIds = new Set(Array.from(root.querySelectorAll('[aria-labelledby]')).flatMap(el => (el.getAttribute('aria-labelledby') || '').split(/\s+/)));
+        const inert = (el: Element) => {
+          for (let node: Element | null = el; node && node !== root; node = node.parentElement) {
+            if (node.matches(INTERACTIVE) || (node.id && labelIds.has(node.id))) return false;
+          }
+          return root.contains(el);
+        };
+        const hits = (x: number, y: number) => {
+          const hit = document.elementFromPoint(x, y);
+          return hit && inert(hit) ? hit : null;
+        };
+        const mark = (hit: Element, x: number, y: number, what: string) => {
+          hit.setAttribute(attr, '');
+          return { x, y, what };
+        };
+        // Önce başlık (katmanın adı), sonra metinsiz boş alan (iç boşluk); denetim etiketi olabilecek serbest metin seçilmez.
+        for (const heading of Array.from(root.querySelectorAll('h1, h2, h3, h4, h5, h6, [role=heading]'))) {
+          const r = heading.getBoundingClientRect();
+          if (r.width < 4 || r.height < 4) continue;
+          const x = r.left + Math.min(r.width / 2, 24);
+          const y = r.top + r.height / 2;
+          const hit = hits(x, y);
+          if (hit) return mark(hit, x, y, `başlık "${(heading.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 24)}"`);
+        }
+        const box = root.getBoundingClientRect();
+        for (let y = box.top + 4; y < box.bottom - 4; y += 8) {
+          for (let x = box.left + 4; x < box.right - 4; x += 8) {
+            const hit = hits(x, y);
+            const ownText = hit ? Array.from(hit.childNodes).some(n => n.nodeType === 3 && (n.textContent || '').trim()) : true;
+            if (hit && !ownText) return mark(hit, x, y, `${hit.tagName.toLowerCase()} (boş alan)`);
+          }
+        }
+        return null;
+      }, SPOT);
+      expect(spot, `${layerCase.name}: katmanda dokunulacak etkileşimsiz yüzey yok`).not.toBeNull();
+      if (testInfo.project.use.hasTouch) await page.touchscreen.tap(spot!.x, spot!.y);
+      else await page.mouse.click(spot!.x, spot!.y);
+      await expect(layer, `${layerCase.name}: ${spot!.what} dokunuşu katmanı kapattı`).toBeVisible();
+      expect(await keyboardMode(page), 'dokunuş görsel klavye modunu kapatır').toBe('false');
+      await page.keyboard.press(tabKey(browserName));
+      await settle(page);
+      const where = await focusWhere(page, layer);
+      expect(where, `${layerCase.name}: ${spot!.what} dokunuşundan sonra Tab → ${await activeDescribe(page)}`).toBe('layer');
+      await page.keyboard.press('Escape');
+      await expect(layer, `${layerCase.name}: dokunuş + Tab sonrası Escape katmanı kapatmadı`).toBeHidden();
+      await expect(opener, `${layerCase.name}: Escape sonrası odak açana dönmedi`).toBeFocused();
+    });
+  }
+
   test('Sıralama seçimi: klavyeyle açılır, oklar seçenekte gezer, Escape kapatır; işaretçiyle açılınca oklar modu açmaz', MATRIX, async ({ page, browserName }) => {
     await openAdmin(page, '/alimlar');
     const combo = page.getByRole('combobox', { name: /Sıralama/ }).first();
@@ -969,7 +1160,7 @@ const NATIVE_LAYER = [
   ' style="position:fixed;left:0;right:0;bottom:0;z-index:9999;padding:16px;background:Canvas">',
   '<button type="button" data-focus-line id="f01-dugme" style="min-height:44px">Uygula</button>',
   '<span data-focus-line id="f01-sarmal" style="display:block;margin-top:12px"><input id="f01-alan" aria-label="Ad"></span>',
-  '<div data-odak-zemin="nav" style="padding:8px;margin-top:12px"><a href="#/genel" id="f01-nav">Genel</a></div>',
+  '<div data-odak-zemin="nav" style="padding:8px;margin-top:12px;background:var(--aile-nav);color:var(--aile-nav-metin)"><a href="#/genel" id="f01-nav" style="color:inherit">Genel</a></div>',
   '</div>',
 ].join('');
 
