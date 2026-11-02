@@ -23,7 +23,10 @@
     "gas:push": "pnpm gas:build && clasp push -f",
     "seed": "node scripts/seed.mjs",
     "e2e:dashboard": "playwright test --config playwright.dashboard.config.ts",
-    "e2e:admin": "playwright test --config playwright.admin.config.ts"
+    "e2e:admin": "playwright test --config playwright.admin.config.ts",
+    "check:privacy": "node scripts/check-dist-privacy.mjs dist",
+    "check:delivery": "node scripts/check-delivery.mjs dist",
+    "check:budgets": "node scripts/check-budgets.mjs dist"
   },
   "dependencies": {
     "@ant-design/pro-components": "3.1.15-9",

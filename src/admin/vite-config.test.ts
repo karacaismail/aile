@@ -32,6 +32,20 @@ function wideModulePattern(): RegExp {
   return new Function(`return ${match![1]};`)() as RegExp;
 }
 
+/** Bir CHUNK_GROUPS satırındaki `test: (id: string) => /…/.test(id)` düzenli ifadesi (metinden; config yürütülmez). */
+function groupPattern(name: string): RegExp {
+  const match = /test: \(id: string\) => (\/.+?\/[a-z]*)\.test\(id\)/.exec(groupLine(name));
+  expect(match, `${name} grubunun düzenli ifadesi bulunamadı`).not.toBeNull();
+  return new Function(`return ${match![1]};`)() as RegExp;
+}
+
+/** `navigateFallbackDenylist: [ … ]` içindeki düzenli ifadeler (metinden). */
+function denylistPatterns(): RegExp[] {
+  const match = source.match(/navigateFallbackDenylist:\s*\[([^\]]*)\]/);
+  expect(match, 'navigateFallbackDenylist bulunamadı').not.toBeNull();
+  return match![1].split(/,(?=\s*\/)/).map((s) => s.trim()).filter(Boolean).map((literal) => new Function(`return ${literal};`)() as RegExp);
+}
+
 const LEGACY_IGNORES = ['Charts-*', 'PaymentChart-*', 'VehiclePage-*', 'TimelinePage-*', 'FinancePage-*', 'timelineStore-*', 'financeStore-*', 'LegacyApp-*', 'HomePlanPage-*', 'NumberInput-*', 'Collapse-*', 'Tabs-*'];
 const ADMIN_IGNORES = ['admin.html', 'admin-*', 'antd-*', 'pro-*', 'icons-*', 'wide-*'];
 
@@ -45,9 +59,9 @@ describe('vite.config.ts admin sözleşmesi', () => {
     expect(source).toMatch(/input:\s*\{\s*index:\s*'index\.html',\s*admin:\s*'admin\.html'\s*\}/);
   });
 
-  it('codeSplitting grupları wide/tokens/antd/pro/icons/router/shared adlarını taşır (tek liste: CHUNK_GROUPS)', () => {
+  it('codeSplitting grupları wide/tokens/pro/icons/babel-runtime/antd/router/shared adlarını taşır (tek liste: CHUNK_GROUPS)', () => {
     const names = [...groupsBlock().matchAll(/name:\s*'([^']+)'/g)].map((m) => m[1]);
-    expect([...names].sort()).toEqual(['antd', 'icons', 'pro', 'router', 'shared', 'tokens', 'wide']);
+    expect([...names].sort()).toEqual(['antd', 'babel-runtime', 'icons', 'pro', 'router', 'shared', 'tokens', 'wide']);
     const block = source.slice(source.indexOf('codeSplitting:'));
     expect(source).toContain('codeSplitting:');
     expect(block).toMatch(/groups:\s*CHUNK_GROUPS,/);
@@ -58,7 +72,7 @@ describe('vite.config.ts admin sözleşmesi', () => {
     const wide = groupLine('wide');
     expect(wide, 'wide grubu satırı').not.toBe('');
     expect(wide).toContain('test: isWideModule');
-    for (const name of ['tokens', 'pro', 'icons', 'antd', 'router', 'shared']) expect(priorityOf(wide), `wide > ${name}`).toBeGreaterThan(priorityOf(groupLine(name)));
+    for (const name of ['tokens', 'pro', 'icons', 'babel-runtime', 'antd', 'router', 'shared']) expect(priorityOf(wide), `wide > ${name}`).toBeGreaterThan(priorityOf(groupLine(name)));
     expect(source).toMatch(/const isWideModule = \(id: string\) => !\/\[\\\\\/\]node_modules\[\\\\\/\]\/\.test\(id\) && WIDE_MODULE\.test\(id\);/);
   });
 
@@ -86,6 +100,34 @@ describe('vite.config.ts admin sözleşmesi', () => {
     expect(shared).not.toContain('!WOUTER_BOOT');
   });
 
+  // docs/ADMIN-DEPLOY-PROPOSAL.md §8: @babel/runtime antd grubundayken ana uygulamanın tembel LegacyApp girişi
+  // (@mantine/notifications, react-transition-group yardımcıları) ve antd'siz telefon modülleri yalnız bu yardımcılar
+  // için 735 kB'lık antd parçasını statik çekiyordu. Ayrı küçük grup: antd'den yüksek, pro/icons'tan düşük öncelik.
+  it('babel-runtime grubu @babel/runtime\'ı alır; antd grubu artık @babel/runtime almaz (öncelik antd < babel-runtime < pro/icons)', () => {
+    const babel = groupLine('babel-runtime');
+    expect(babel, 'babel-runtime grubu satırı').not.toBe('');
+    expect(priorityOf(babel)).toBe(11);
+    expect(priorityOf(babel)).toBeGreaterThan(priorityOf(groupLine('antd')));
+    for (const name of ['pro', 'icons']) expect(priorityOf(babel), `babel-runtime < ${name}`).toBeLessThan(priorityOf(groupLine(name)));
+    const runtime = [
+      '/repo/node_modules/@babel/runtime/helpers/esm/extends.js',
+      '/repo/node_modules/.pnpm/@babel+runtime@7.28.4/node_modules/@babel/runtime/helpers/esm/objectSpread2.js',
+      'C:\\repo\\node_modules\\@babel\\runtime\\helpers\\esm\\extends.js',
+    ];
+    const notRuntime = [
+      '/repo/node_modules/@babel/runtime-corejs3/helpers/esm/extends.js', '/repo/node_modules/antd/es/button/index.js',
+      '/repo/node_modules/@rc-component/util/es/index.js', '/repo/src/admin/babel/runtime/x.ts',
+    ];
+    const babelTest = groupPattern('babel-runtime');
+    for (const id of runtime) expect(babelTest.test(id), id).toBe(true);
+    for (const id of notRuntime) expect(babelTest.test(id), id).toBe(false);
+    const antdTest = groupPattern('antd');
+    for (const id of runtime) expect(antdTest.test(id), `antd grubu ${id} almamalı`).toBe(false);
+    for (const id of ['/repo/node_modules/antd/es/button/index.js', '/repo/node_modules/@rc-component/util/es/index.js', '/repo/node_modules/classnames/index.js', '/repo/node_modules/react-is/index.js', '/repo/node_modules/stylis/index.js', '/repo/node_modules/@emotion/hash/dist/x.js']) {
+      expect(antdTest.test(id), `antd grubu ${id} almalı`).toBe(true);
+    }
+  });
+
   it('globIgnores eski 12 glob ve admin globlarını (wide-* dahil) aynen içerir (tek kaynak PRECACHE_IGNORES)', () => {
     const ignores = arrayLiteral('const PRECACHE_IGNORES');
     expect(ignores).toEqual([...LEGACY_IGNORES, ...ADMIN_IGNORES].map((glob) => `**/${glob}`));
@@ -108,11 +150,15 @@ describe('vite.config.ts admin sözleşmesi', () => {
     expect(arrayLiteral('globPatterns')).toEqual(['**/*.{js,css,html,svg,woff2,ttf}']);
   });
 
-  it('navigateFallbackDenylist admin.html yolunu dışarıda bırakır', () => {
-    const match = source.match(/navigateFallbackDenylist:\s*\[([^\]]*)\]/);
-    expect(match).not.toBeNull();
-    const patterns = match![1].split(',').map((s) => s.trim()).filter(Boolean);
-    expect(patterns).toEqual(['/\\/admin\\.html/']);
+  // Workbox NavigationRoute denylist'i `pathname + search` üzerinde dener. GitHub Pages uzantısız `/aile/admin`
+  // adresini de admin.html olarak çözer (docs/ADMIN-DEPLOY-PROPOSAL.md §2); eski desen yalnız `admin.html`'i dışlıyordu
+  // ve SW kurulu tarayıcıda `/aile/admin` ana uygulamayı (index.html) açıyordu.
+  it('navigateFallbackDenylist admin.html ve uzantısız /admin yolunu (sorgulu da) dışarıda bırakır, ana uygulama yollarını değil', () => {
+    const patterns = denylistPatterns();
+    expect(patterns.map(String)).toEqual(['/\\/admin(?:\\.html)?(?:\\?|$)/']);
+    const denied = (pathAndSearch: string) => patterns.some((pattern) => pattern.test(pathAndSearch));
+    for (const url of ['/aile/admin', '/aile/admin.html', '/aile/admin?v=2', '/aile/admin.html?v=2', '/aile/admin.html?']) expect(denied(url), url).toBe(true);
+    for (const url of ['/aile/', '/aile/index.html', '/aile/timeline/', '/aile/administration', '/aile/admin-notes', '/aile/admin.htmlx', '/aile/?admin', '/aile/butce?admin.html=1']) expect(denied(url), url).toBe(false);
     expect(source).toMatch(/navigateFallback:\s*'\/aile\/index\.html'/);
   });
 
@@ -254,14 +300,43 @@ describe('üretim derlemesi PWA ön belleği ve teslim grafiği', () => {
     expect(precache).not.toContain(router[0]);
   });
 
+  // Ölçüm (sentetik derleme VITE_BUDGET_SHEET_ID=synthetic-budget-sheet-2098, 2026-11-02, taban 010c7d8; gzip =
+  // node:zlib seviye 9, dosya başına; manifest `imports` kapanışı):
+  //  - Önce: LegacyApp `imports` listesi `_antd-*`'yı taşıyordu (antd parçası 735.269 B ham / 233.211 B gzip, içinde 28
+  //    @babel/runtime modülü); LegacyApp statik kapanışı 20 dosya, 2.474.295 B ham / 694.820 B gzip.
+  //  - Sonra: LegacyApp yalnız babel-runtime parçasını çeker (28 modül, 4.902 B ham / 1.873 B gzip); kapanış 17 dosya,
+  //    1.502.846 B ham / 404.005 B gzip (−290.815 B gzip). antd parçası 730.548 B ham / 231.709 B gzip.
+  //  - Ön bellek 19 giriş; 898,13 → 898,04 KiB (yalnız ana kabuktaki ön yükleme listesinde antd/icons adları kalktı).
+  //    Yeni parçaya ana kabuktan erişilmez (LegacyApp tembeldir) ve admin grafiğinde olduğu için adminPrecacheScope onu
+  //    dışlar. Sabit giriş sayısı değil, aşağıdaki üyelik iddiaları kilitlenir.
+  //  - check-delivery (admin.html telefon statik kapanışı): 12 → 13 dosya, 413.999 → 414.820 B gzip; ayrı babel-runtime
+  //    dosyası antd'den 1.502 B gzip alıp 1.873 B ekler (+371 B), kalan fark preloadRecovery (giriş parçası). İhlaller
+  //    aynı iki bilinen kimlik; ratchet PASS. Bedel: telefonda antd kalkınca (PHONE_WITHOUT_ANTD) yardımcılar antd'siz gelir.
+  it('@babel/runtime kendi parçasında: antd parçası onu taşımaz, LegacyApp antd parçasını çekmez, parça ön bellekte değil', () => {
+    const babel = Object.values(manifest).filter((chunk) => chunk.name === 'babel-runtime');
+    expect(babel.map((chunk) => chunk.file), 'tek babel-runtime parçası').toEqual([expect.stringMatching(/^assets\/babel-runtime-[^/]+\.js$/)]);
+    const babelChunk = graph.chunks[babel[0].file];
+    expect(Object.keys(babelChunk.groups)).toEqual(['babel-runtime']);
+    expect(Object.keys(babelChunk.packages)).toEqual(['@babel/runtime']);
+    const antd = Object.values(manifest).find((chunk) => chunk.name === 'antd' && /^assets\/antd-/.test(chunk.file))!;
+    expect(graph.chunks[antd.file].packages['@babel/runtime'], 'antd parçasında @babel/runtime modülü').toBeUndefined();
+    const legacy = manifest['src/LegacyApp.tsx'];
+    expect(legacy, 'LegacyApp dinamik girişi').toBeDefined();
+    const legacyImports = (legacy.imports ?? []).map((key) => manifest[key].file);
+    expect(legacyImports.filter((file) => /^assets\/antd-/.test(file)), 'LegacyApp statik antd importu').toEqual([]);
+    expect(legacyImports).toContain(babel[0].file);
+    expect(mainShellFiles().has(babel[0].file), 'babel-runtime ana kabuğa girmemeli').toBe(false);
+    expect(precache).not.toContain(babel[0].file);
+  });
+
   it('bilinen yönetim ve ECharts parça adları ön bellekte görünmez', () => {
-    const forbidden = /^assets\/(?:admin|antd|pro|icons|wide|router|(?:Alimlar|Ayarlar|Butce|Ev|Genel|Hesaplar|Odemeler|Projeler|Raporlar|Sozlukler|Taraflar|Veri)Page|QueryBar|X\.es|views|contracts|core|charts|components|renderers|graphic|createSeriesData|customGraphicKeyframeAnimation|parseGeoJson)-/;
+    const forbidden = /^assets\/(?:admin|antd|babel-runtime|pro|icons|wide|router|(?:Alimlar|Ayarlar|Butce|Ev|Genel|Hesaplar|Odemeler|Projeler|Raporlar|Sozlukler|Taraflar|Veri)Page|QueryBar|X\.es|views|contracts|core|charts|components|renderers|graphic|createSeriesData|customGraphicKeyframeAnimation|parseGeoJson)-/;
     expect(precache.filter((url) => forbidden.test(url)).sort()).toEqual([]);
   });
 
   it('delivery-graph her JS parçasını kapsar, grup üyeliği config testinden gelir, mutlak yol taşımaz', () => {
     expect(graph.schema).toBe(1);
-    expect(graph.groups).toEqual(['wide', 'tokens', 'pro', 'icons', 'antd', 'router', 'shared']);
+    expect(graph.groups).toEqual(['wide', 'tokens', 'pro', 'icons', 'babel-runtime', 'antd', 'router', 'shared']);
     const jsFiles = Object.values(manifest).map((chunk) => chunk.file).filter((file) => file.endsWith('.js'));
     expect(jsFiles.filter((file) => !graph.chunks[file]).sort(), 'graph içinde olmayan manifest parçaları').toEqual([]);
     const antd = Object.values(manifest).find((chunk) => chunk.name === 'antd' && /^assets\/antd-/.test(chunk.file))!;
@@ -281,7 +356,27 @@ describe('üretim derlemesi PWA ön belleği ve teslim grafiği', () => {
     expect(report.status).toBe('pass');
     expect(report.mode).toBe('ratchet');
     expect(report.violations.map((violation: { id: string }) => violation.id).filter((id: string) => !baseline.violations.includes(id))).toEqual([]);
+    // babel-runtime ayrı ve yasak olmayan bir sınıftır: hiçbir ihlal kimliği onu taşımaz, raporda kendi grubu vardır.
+    expect(report.forbidden).not.toContain('babel-runtime');
+    expect(report.groups['babel-runtime']?.files).toBe(1);
+    expect(report.violations.filter((violation: { id: string }) => /babel/.test(violation.id))).toEqual([]);
   }, 60_000);
+
+  it('sw.js gezinme yedeği admin.html ve uzantısız /admin adresini ana uygulamaya düşürmez', () => {
+    const sw = readFileSync(join(outDir, 'sw.js'), 'utf8');
+    expect(sw).toContain('denylist:[/\\/admin(?:\\.html)?(?:\\?|$)/]');
+  });
+
+  it('dist/admin.html başlangıç hata betiğini giriş modülünden önce satır içi taşır; ana kabuk işaretleri yok', () => {
+    const html = readFileSync(join(outDir, 'admin.html'), 'utf8');
+    const inline = html.indexOf('Uygulama yüklenemedi');
+    const entry = html.search(/<script type="module"[^>]*src="\/aile\/assets\/admin-[^"]+\.js"/);
+    expect(inline, 'satır içi hata betiği').toBeGreaterThan(-1);
+    expect(entry, 'giriş modülü').toBeGreaterThan(-1);
+    expect(inline).toBeLessThan(entry);
+    expect(html).not.toContain('<!--admin-startup-->');
+    expect(html).not.toMatch(/app-startup/);
+  });
 });
 
 // Geniş-özel modüller: geçici bir mini projede (iki giriş: index + admin) gerçek vite.config.ts ile derlenir. src/ altında
