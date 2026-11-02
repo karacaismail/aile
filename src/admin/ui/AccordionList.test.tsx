@@ -250,6 +250,64 @@ describe('AccordionList', () => {
     expect(first).toHaveFocus();
   });
 
+  it('Tab ve Shift+Tab satır başlıkları arasında DOM sırasıyla gezer; kapalı gövdenin içi sekme sırasında değildir; Escape durumu değiştirmez', async () => {
+    const user = userEvent.setup();
+    const items: AccordionItem[] = [{ ...alimlar[0], onOpen: () => {} }, { ...alimlar[1], onOpen: () => {} }];
+    render(<AccordionList items={items} />);
+    const first = head('Salon koltuğu');
+    const second = head('Mutfak masası');
+    await user.tab();
+    expect(first).toHaveFocus();
+    // İlk satır açık: gövdesindeki "Ayrıntıyı aç" sırada; ikinci satır kapalı (inert): onun düğmesi atlanır.
+    await user.tab();
+    expect(within(panelOf(first)).getByRole('button', { name: 'Ayrıntıyı aç' })).toHaveFocus();
+    await user.tab();
+    expect(second).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(within(panelOf(first)).getByRole('button', { name: 'Ayrıntıyı aç' })).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(first).toHaveFocus();
+    await user.keyboard('{Escape}');
+    expect(first).toHaveFocus();
+    expect(first).toHaveAttribute('aria-expanded', 'true');
+    expect(second).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('iptal edilen dokunuş (pointercancel: liste kaydırılıyor) satırı açmaz; dokunup bırakma açar', () => {
+    render(<AccordionList items={alimlar} />);
+    const second = head('Mutfak masası');
+    fireEvent.pointerDown(second, { pointerType: 'touch', isPrimary: true });
+    fireEvent.pointerCancel(second, { pointerType: 'touch', isPrimary: true });
+    expect(second).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.pointerDown(second, { pointerType: 'touch', isPrimary: true });
+    fireEvent.pointerUp(second, { pointerType: 'touch', isPrimary: true });
+    fireEvent.click(second);
+    expect(second).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('uzun adlar kelime arasından sarılır: başlıkta ve etiketlerde break-all / anywhere yok; başlık sütunu daralabilir', () => {
+    const css = read('AccordionList.css');
+    expect(css).not.toMatch(/break-all|anywhere/);
+    expect(css).toMatch(/\.aile-acc-title \{[^}]*word-break: keep-all/);
+    expect(css).toMatch(/\.aile-acc-dl dt \{[^}]*word-break: keep-all/);
+    expect(css).toMatch(/\.aile-acc-main \{[^}]*min-width: 0/);
+  });
+
+  it('dar listede (kap sorgusu, rem) ana tutar başlık bloğunun altına iner: başlık ve durum satırın genişliğini alır', () => {
+    const css = read('AccordionList.css');
+    expect(css).toMatch(/\.aile-acc \{[^}]*container: aile-acc \/ inline-size/);
+    const narrow = /@container aile-acc \(max-width: [\d.]+rem\) \{([\s\S]*?)\n\}/.exec(css);
+    expect(narrow).not.toBeNull();
+    expect(narrow![1]).toMatch(/\.aile-acc-head \{[^}]*grid-template-columns: minmax\(0, 1fr\) var\(--aile-bosluk-8\)/);
+    expect(narrow![1]).toMatch(/\.aile-acc-end \{[^}]*grid-column: 1;[^}]*grid-row: 2;/);
+  });
+
+  it('dokunma hedefi: satır başlığı --aile-dokunma-hedefi (44 px, kaba girişte 48 px) ile 64 px tasarım yüksekliğinin büyüğü', () => {
+    const css = read('AccordionList.css');
+    expect(css).toMatch(/\.aile-acc-head \{[^}]*min-height: max\(var\(--aile-dokunma-hedefi\), calc\(2 \* var\(--aile-bosluk-8\)\)\)/);
+    expect(css).not.toMatch(/--aile-hedef-asgari/);
+  });
+
   it('antd Collapse kullanmaz; CSS tokenlardan beslenir; halka/outline yok; renkli kenar şeridi yok; açık hâl tonla gösterilir', () => {
     const tsx = read('AccordionList.tsx');
     expect(tsx).not.toMatch(/import[^;]*\bCollapse\b|<Collapse\b/);
@@ -264,7 +322,7 @@ describe('AccordionList', () => {
     for (const edge of css.match(/border(?:-top|-bottom)?:[^;]+;/g) ?? []) expect(edge).toMatch(/^border(?:-top|-bottom)?: (?:0|1px solid var\(--aile-(cizgi|kenar-kontrol)\));$/);
     expect(css).toMatch(/var\(--aile-sure\)/);
     expect(css).toMatch(/var\(--aile-egri\)/);
-    expect(css).toMatch(/var\(--aile-hedef-asgari\)/);
+    expect(css).toMatch(/var\(--aile-dokunma-hedefi\)/);
     expect(css).toMatch(/prefers-reduced-motion: reduce/);
     // Açık satır: başlık bilgi-yuzey, ok kutusu eylem dolgu; seçili satır secili yüzey.
     expect(css).toMatch(/\[data-open='true'\] > \.aile-acc-head \{[^}]*var\(--aile-bilgi-yuzey\)/);

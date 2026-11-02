@@ -1,8 +1,43 @@
-/* aile Table — antd Table üstünde. Kaynak: tasarim-sistemi/components/Table/README.md.
-   Renk ve boşluk --aile-* değişkenlerinden (tek kaynak src/design/tokens.ts); zemin, hover, seçili yüzey ve çizgi
-   renkleri antd tema token'larından gelir (antdTheme.ts › Table). Tipografi admin.css ölçeğindedir: başlık 14/20, 600;
-   alt sınır 14 px. Odak çizgisini admin.css çizer (tr:focus-visible::after); burada outline/halka yok.
-   Seçiciler antd'nin kendi kurallarından (iki sınıf + iki eleman) daha özgül tutulur; antd iç sınıfı kullanılmaz. */
+/* aile Table — yerel <table>. Kaynak: tasarim-sistemi/components/Table/README.md. Renk, boşluk, köşe ve hareket yalnız
+   --aile-* değişkenlerinden (tek kaynak src/design/tokens.ts); başlık metni admin.css .aile-kucuk (14/20), gövde 16/24.
+   Çevreleyen halka ve gölge yok: satırın odak çizgisini admin.css çizer (tr:focus-visible::after), sıralama
+   düğmesininkini [data-focus-line]; taşan kaydırma kabınınki aşağıda. Kenarlık yalnız işlevsel: satır ayırıcı ve
+   yapışkan ilk sütunun kayan içerikle sınırı. */
+
+/* Konumlu alan: kaydırma kabının odak çizgisi bu alana göre konumlanır, kabın içinde kırpılmaz. */
+.aile-table-alan {
+  position: relative;
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Tablo yalnız kendi kabında kayar; sayfa yatay taşmaz. Kap statik kalır (konumlu değil): odak çizgisinin içerme
+   bloğu .aile-table-alan olur ve kabın taşma kırpmasına girmez. */
+.aile-table-kaydirici {
+  overflow: auto;
+  max-width: 100%;
+  overscroll-behavior-x: contain;
+  background: var(--aile-yuzey);
+  border-radius: var(--aile-kose-kart);
+}
+html[data-keyboard='true'] .aile-table-kaydirici:focus-visible::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(-1 * (var(--aile-odak-aralik) + var(--aile-odak-kalinlik)));
+  height: var(--aile-odak-kalinlik);
+  background: var(--aile-odak);
+  pointer-events: none;
+}
+
+/* Alan genişliği sütunlara paylaşılır; sütunların en küçük genişliği aşılırsa tablo kabın içinde taşar. separate:
+   yapışkan hücreler kendi kenarlarını taşır (collapse'ta kenar kayan içerikte kalırdı). */
+.aile-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
 
 /* Caption tabloyu adlandırır, görsel gizli. */
 .aile-table caption {
@@ -17,31 +52,122 @@
   border: 0;
 }
 
-/* Başlık: 14/600, kelime ortasından bölünmez; sütun en küçük genişliği hücrenin inline min-width'i ile korunur. */
-.aile-table thead > tr > th.aile-table-baslik {
-  font-size: 14px;
-  line-height: 20px;
+.aile-table th,
+.aile-table td {
+  padding: var(--aile-bosluk-3) var(--aile-bosluk-4);
+  border-bottom: 1px solid var(--aile-cizgi);
+  text-align: left;
+}
+
+/* Başlık: 14/600 (.aile-kucuk), kelime ortasından bölünmez; en küçük genişlik hücrenin satır içi min-width'i. */
+.aile-table thead th.aile-table-baslik {
   font-weight: 600;
   vertical-align: bottom;
+  color: var(--aile-metin);
+  background: var(--aile-zemin);
   word-break: keep-all;
   overflow-wrap: normal;
   hyphens: manual;
 }
-
-.aile-table tbody > tr > td.aile-table-hucre {
-  vertical-align: middle;
-  overflow-wrap: normal;
+.aile-table thead th.aile-table-baslik--sirali {
+  padding-block: var(--aile-bosluk-2);
+}
+/* maxHeight verilmiş kap dikey kayar: başlık bu alanda üstte kalır. Dikey kaydırma yoksa başlık hücreleri yapışmaz
+   (yalnız ilk sütun yatayda yapışır). */
+.aile-table-kaydirici[data-dikey-kaydirma] .aile-table thead th.aile-table-baslik {
+  position: sticky;
+  top: 0;
+  z-index: 2;
 }
 
-/* Satır yalnız açılabiliyorsa işaretçi değişir (tabindex yalnız onRowClick varken). */
+/* Gövde: uzun adlar yalnız kelime arasından sarılır (harf düzeyinde kırma yok); zemin opak, yapışkan hücrenin altından
+   kayan içerik görünmez. */
+.aile-table tbody td.aile-table-hucre {
+  vertical-align: middle;
+  overflow-wrap: normal;
+  word-break: normal;
+  background: var(--aile-yuzey);
+  transition: background-color var(--aile-sure) var(--aile-egri);
+}
+.aile-table tbody > tr:last-child > td.aile-table-hucre {
+  border-bottom-color: transparent;
+}
+
+/* Yapışkan ilk sütun: alanın en çok yarısını tutuyorsa (Table.tsx data-sticky-first). Başlık köşesi her iki yönde de
+   üstte. Taşarken kayan içerikle sınırı 1 px çizgi gösterir. */
+.aile-table-kaydirici[data-sticky-first] .aile-table :is(th, td):first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+}
+.aile-table-kaydirici[data-sticky-first] .aile-table thead th:first-child {
+  z-index: 3;
+}
+.aile-table-kaydirici[data-sticky-first][data-overflow] .aile-table :is(th, td):first-child {
+  border-right: 1px solid var(--aile-cizgi);
+}
+
+/* Satır yalnız açılabiliyorsa işaretçi değişir (tabindex yalnız onRowClick varken). Hover yalnız hover katmanında. */
 .aile-table tbody > tr.aile-table-satir[tabindex] {
   cursor: pointer;
 }
+[data-input-hover] .aile-table tbody > tr.aile-table-satir[tabindex]:hover > td.aile-table-hucre {
+  background: var(--aile-bilgi-yuzey);
+}
 
-/* Seçim = secili yüzey (antd rowSelectedBg) + 600 ağırlık; ikincil metin seçili satırda ana renge döner. */
+/* Seçim = secili yüzey + 600 ağırlık; ikincil metin seçili satırda ana renge döner. Seçim odaktan ayrıdır. */
 .aile-table tbody > tr[aria-selected='true'] > td.aile-table-hucre {
   font-weight: 600;
+  background: var(--aile-secili);
 }
 .aile-table tbody > tr[aria-selected='true'] > td.aile-table-hucre .aile-ikincil {
   color: var(--aile-metin);
+}
+
+/* Klavye odak çizgisi (admin.css) yapışkan ilk hücrenin üstünde; yapışkan başlığın altında kalır. */
+html[data-keyboard='true'] .aile-table tbody > tr:focus-visible::after {
+  z-index: 1;
+}
+
+.aile-table-bos {
+  text-align: left;
+}
+
+/* Sıralama düğmesi: başlık metni + yön oku; dokunma hedefi --aile-dokunma-hedefi (44, kaba girişte 48). */
+.aile-table-sirala {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--aile-bosluk-1);
+  min-height: var(--aile-dokunma-hedefi);
+  min-width: var(--aile-dokunma-hedefi);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  text-align: inherit;
+  cursor: pointer;
+  word-break: keep-all;
+  overflow-wrap: normal;
+  transition: color var(--aile-sure) var(--aile-egri);
+}
+[data-input-hover] .aile-table-sirala:hover {
+  color: var(--aile-eylem);
+}
+.aile-table-sirala-ok {
+  flex: none;
+  color: var(--aile-metin-ikincil);
+  transition: transform var(--aile-sure) var(--aile-egri);
+}
+.aile-table th[aria-sort] .aile-table-sirala-ok {
+  color: var(--aile-eylem);
+}
+.aile-table th[aria-sort='ascending'] .aile-table-sirala-ok {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aile-table tbody td.aile-table-hucre, .aile-table-sirala, .aile-table-sirala-ok { transition-duration: 0s; }
 }

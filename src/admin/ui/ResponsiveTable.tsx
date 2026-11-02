@@ -1,9 +1,10 @@
-import { Fragment, isValidElement, useRef, type ReactNode } from 'react';
+import { Fragment, isValidElement, useRef, useState, type ReactNode } from 'react';
 import { designTokens } from '../../design/tokens.ts';
 import { useContainerWidth, useDevice } from '../device';
 import type { AccordionItem, ResponsiveColumn } from '../shell/contracts';
 import { AccordionList } from './AccordionList';
-import { Table } from './Table';
+import { Table, type TableColumn } from './Table';
+import { sortedIndices, type TableSort } from './Table.sort';
 import './ResponsiveTable.css';
 
 // Tasarım: tasarim-sistemi/components/ResponsiveTable/README.md. Tabloyu cihaza ve alana göre çizer:
@@ -13,11 +14,16 @@ import './ResponsiveTable.css';
 // genişliğiyle (ResizeObserver) karşılaştırılır. Sütun rolleri m: title (kapalıyken başlık) | meta (başlık altı,
 // " · " ile) | status (etiket) | lead (sağdaki ana tutar) | body (varsayılan; açılınca etiket–değer) | hide.
 // groupBy telefonda grup başlıkları üretir; geciken grup her zaman üstte, diğerleri ilk görüldükleri sırada.
+// Sıralama (sortable sütun, aria-sort) burada tutulur: tabloda seçilen sıra telefona geçişte korunur ve akordeon da
+// aynı sırayla dizilir (Table.sort; eksik değer sonda). sort verilirse denetimlidir, ResponsiveTable durum tutmaz.
 
 export type MobileMode = 'accordion' | 'list';
 
+/** ResponsiveColumn + tablo payının isteğe bağlı alanları (sortable, sortValue, grow). */
+export type ResponsiveTableColumn<R> = ResponsiveColumn<R> & Pick<TableColumn<R>, 'sortable' | 'sortValue' | 'grow'>;
+
 export interface ResponsiveTableProps<R extends object> {
-  columns: readonly ResponsiveColumn<R>[];
+  columns: readonly ResponsiveTableColumn<R>[];
   rows: readonly R[];
   /** Tablonun adı (görsel gizli caption); telefonda mobileCaption yoksa bu kullanılır. */
   caption?: string;
@@ -38,6 +44,11 @@ export interface ResponsiveTableProps<R extends object> {
   defaultOpenKeys?: readonly string[];
   /** Akordeon gövdesindeki ayrıntı düğmesinin etiketi ("Ayrıntıyı aç"). */
   openLabel?: string;
+  /** Denetimli sıralama; null sıralamasız. Verilmezse ResponsiveTable kendi durumunu tutar (defaultSort ile başlar). */
+  sort?: TableSort | null;
+  defaultSort?: TableSort;
+  /** Tablo başlığından istenen sonraki sıralama. */
+  onSortChange?(sort: TableSort): void;
   className?: string;
 }
 
@@ -83,11 +94,18 @@ function orderByGroup(items: AccordionItem[]): AccordionItem[] {
 }
 
 export function ResponsiveTable<R extends object>({
-  columns, rows, caption, selectedKey, onRowClick, maxHeight, mobileMode, mobileCaption, groupBy, narrow, defaultOpenKeys, openLabel, className,
+  columns, rows, caption, selectedKey, onRowClick, maxHeight, mobileMode, mobileCaption, groupBy, narrow, defaultOpenKeys, openLabel,
+  sort, defaultSort, onSortChange, className,
 }: ResponsiveTableProps<R>) {
   const ref = useRef<HTMLDivElement>(null);
   const width = useContainerWidth(ref);
   const device = useDevice();
+  const [ownSort, setOwnSort] = useState<TableSort | null>(defaultSort ?? null);
+  const activeSort = sort !== undefined ? sort : ownSort;
+  const changeSort = (next: TableSort) => {
+    if (sort === undefined) setOwnSort(next);
+    onSortChange?.(next);
+  };
 
   const tableColumns = columns.filter(column => column.only !== 'mobile');
   // Tablet: ölçüm gelmeden (0) tablo; ölçüm alanın gerekenden dar olduğunu söylerse akordeon.
@@ -97,7 +115,16 @@ export function ResponsiveTable<R extends object>({
   if (!mobile) {
     return (
       <div ref={ref} className={rootClass} data-layout="table">
-        <Table<R> columns={tableColumns} rows={rows} caption={caption} selectedKey={selectedKey} onRowClick={onRowClick} maxHeight={maxHeight} />
+        <Table<R>
+          columns={tableColumns}
+          rows={rows}
+          caption={caption}
+          selectedKey={selectedKey}
+          onRowClick={onRowClick}
+          maxHeight={maxHeight}
+          sort={activeSort}
+          onSortChange={changeSort}
+        />
       </div>
     );
   }
@@ -110,7 +137,8 @@ export function ResponsiveTable<R extends object>({
   const leadColumn = visible.find(column => column.m === 'lead');
   const bodyColumns = visible.filter(column => column !== titleColumn && (column.m === undefined || column.m === 'body'));
 
-  let items: AccordionItem[] = rows.map((row, index) => {
+  let items: AccordionItem[] = sortedIndices(rows, columns, activeSort).map(index => {
+    const row = rows[index]!;
     const key = rowKeyOf(row, index);
     const body = mode === 'list' ? [] : bodyColumns.map((column): [ReactNode, ReactNode] => [column.title, cellOf(column, row)]);
     return {

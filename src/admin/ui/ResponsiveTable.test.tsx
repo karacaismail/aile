@@ -4,7 +4,8 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { ReactNode } from 'react';
 import type { AccordionItem, ResponsiveColumn } from '../shell/contracts';
-import { ResponsiveTable } from './ResponsiveTable';
+import { ResponsiveTable, type ResponsiveTableColumn } from './ResponsiveTable';
+import type { TableSort } from './Table';
 
 // Tasarım › components/ResponsiveTable/README.md: masaüstünde Table (ilk sütun yapışkan); tablette sığıyorsa Table
 // (minWidth toplamı + sütun başına 32 px ≤ alan), sığmıyorsa akordeon; telefonda akordeon (ilk satır açık) ya da
@@ -19,6 +20,9 @@ interface TableMockProps<R> {
   selectedKey?: string;
   onRowClick?: (row: R) => void;
   maxHeight?: number;
+  sort?: TableSort | null;
+  defaultSort?: TableSort;
+  onSortChange?: (sort: TableSort) => void;
 }
 interface AccordionMockProps {
   items: AccordionItem[];
@@ -30,9 +34,24 @@ interface AccordionMockProps {
 
 vi.mock('./Table', () => ({
   Table: <R,>(props: TableMockProps<R>) => (
-    <table aria-label={props.caption} data-max-height={props.maxHeight} data-selected-key={props.selectedKey}>
+    <table
+      aria-label={props.caption}
+      data-max-height={props.maxHeight}
+      data-selected-key={props.selectedKey}
+      data-sort={props.sort === undefined ? 'undefined' : props.sort === null ? 'null' : `${props.sort.key}:${props.sort.direction}`}
+      data-default-sort={props.defaultSort ? `${props.defaultSort.key}:${props.defaultSort.direction}` : undefined}
+    >
       <thead>
-        <tr>{props.columns.map(column => <th key={column.key} scope="col">{column.title}</th>)}</tr>
+        <tr>
+          {props.columns.map(column => (
+            <th key={column.key} scope="col">
+              {column.title}
+              {props.onSortChange && (column as { sortable?: boolean }).sortable ? (
+                <button type="button" onClick={() => props.onSortChange?.({ key: column.key, direction: 'descending' })}>{`Sırala: ${column.title}`}</button>
+              ) : null}
+            </th>
+          ))}
+        </tr>
       </thead>
       <tbody>
         {props.rows.map((row, index) => (
@@ -412,6 +431,130 @@ describe('ResponsiveTable › telefon', () => {
   it('narrow={false} telefonda bile tabloyu zorlar', () => {
     render(<ResponsiveTable caption="Alımlar" columns={fullColumns} rows={rows} narrow={false} />);
     expect(screen.getByRole('table', { name: 'Alımlar' })).toBeInTheDocument();
+  });
+});
+
+describe('ResponsiveTable › sıralama', () => {
+  // Plan'a göre sıralanabilir sütun: sortValue tutarı sayıya çevirir (sayfanın işi); eksik değer sonda.
+  const amount = (text: string) => (/^₺/.test(text) ? Number(text.replace(/[₺.]/g, '').replace(',', '.')) : null);
+  const three: Row[] = [
+    rows[0]!,
+    rows[1]!,
+    { ...rows[0]!, key: 'ALM-0150', ad: 'Mutfak masası', plan: 'Fiyat yok', gercek: 'Henüz yok' },
+  ];
+  const sortable: ResponsiveTableColumn<Row>[] = fullColumns.map(column =>
+    column.key === 'plan' ? { ...column, sortable: true, sortValue: (row: Row) => amount(row.plan) } : column,
+  );
+
+  it('masaüstünde Table denetimli sıralama alır: defaultSort başlangıç, Table bildirince yeni sıralama geçer', async () => {
+    installViewport(DESKTOP);
+    installContainer(1100);
+    const user = userEvent.setup();
+    const onSortChange = vi.fn();
+    render(<ResponsiveTable caption="Alımlar" columns={sortable} rows={three} defaultSort={{ key: 'plan', direction: 'ascending' }} onSortChange={onSortChange} />);
+    const table = screen.getByRole('table', { name: 'Alımlar' });
+    expect(table).toHaveAttribute('data-sort', 'plan:ascending');
+    await user.click(within(table).getByRole('button', { name: 'Sırala: Plan' }));
+    expect(onSortChange).toHaveBeenLastCalledWith({ key: 'plan', direction: 'descending' });
+    expect(table).toHaveAttribute('data-sort', 'plan:descending');
+  });
+
+  it('denetimli sort verilince ResponsiveTable kendi durumunu tutmaz', async () => {
+    installViewport(DESKTOP);
+    installContainer(1100);
+    const user = userEvent.setup();
+    render(<ResponsiveTable caption="Alımlar" columns={sortable} rows={three} sort={null} />);
+    const table = screen.getByRole('table', { name: 'Alımlar' });
+    expect(table).toHaveAttribute('data-sort', 'null');
+    await user.click(within(table).getByRole('button', { name: 'Sırala: Plan' }));
+    expect(table).toHaveAttribute('data-sort', 'null');
+  });
+
+  it('telefonda etkin sıralama akordeon sırasını da belirler (eksik değer sonda)', () => {
+    installViewport(PHONE);
+    installContainer(343);
+    render(<ResponsiveTable caption="Alımlar" columns={sortable} rows={three} defaultSort={{ key: 'plan', direction: 'descending' }} />);
+    expect(items().map(item => item.getAttribute('data-key'))).toEqual(['ALM-0142', 'ALM-0128', 'ALM-0150']);
+  });
+
+  it('tabloda seçilen sıralama telefona geçişte korunur (durum ResponsiveTable\'da)', async () => {
+    const viewport = installViewport(DESKTOP);
+    installContainer(1100);
+    const user = userEvent.setup();
+    render(<ResponsiveTable caption="Alımlar" columns={sortable} rows={three} />);
+    expect(screen.getByRole('table')).toHaveAttribute('data-sort', 'null');
+    await user.click(screen.getByRole('button', { name: 'Sırala: Plan' }));
+    act(() => viewport.resize(PHONE));
+    expect(items().map(item => item.getAttribute('data-key'))).toEqual(['ALM-0142', 'ALM-0128', 'ALM-0150']);
+  });
+
+  it('sıralanabilir olmayan sütun anahtarı sırayı değiştirmez', () => {
+    installViewport(PHONE);
+    installContainer(343);
+    render(<ResponsiveTable caption="Alımlar" columns={fullColumns} rows={three} defaultSort={{ key: 'plan', direction: 'descending' }} />);
+    expect(items().map(item => item.getAttribute('data-key'))).toEqual(['ALM-0128', 'ALM-0142', 'ALM-0150']);
+  });
+});
+
+// Telefon teslimi: bileşenin STATİK içe aktarma kapanışında antd / @ant-design / ui/antd.ts / echarts / *.wide yok.
+// Göreli yollar dosya sisteminde çözülür; `import type` ve dinamik import() sayılmaz (telefonda indirilmez).
+interface ClosureHit { chain: string[]; spec: string }
+function staticClosureHits(entry: string): ClosureHit[] {
+  const uiDir = resolve(__dirname);
+  const srcAdmin = resolve(uiDir, '..');
+  const hits: ClosureHit[] = [];
+  const seen = new Set<string>();
+  const IMPORT = /(?:^|;|\n)\s*(?:import|export)\s+(type\s+)?(?:[^'";]*?\s+from\s+)?['"]([^'"]+)['"]/g;
+  const FORBIDDEN = /^(?:antd(?:\/.*)?|@ant-design\/.*|echarts(?:\/.*)?|zrender(?:\/.*)?)$/;
+  const resolveFile = (from: string, spec: string): string | null => {
+    const base = resolve(from, '..', spec);
+    for (const candidate of [base, `${base}.ts`, `${base}.tsx`, resolve(base, 'index.ts'), resolve(base, 'index.tsx')]) {
+      try {
+        readFileSync(candidate);
+        return candidate;
+      } catch { /* sıradaki aday */ }
+    }
+    return null;
+  };
+  const visit = (file: string, chain: string[]) => {
+    if (seen.has(file)) return;
+    seen.add(file);
+    const source = readFileSync(file, 'utf8');
+    for (const match of source.matchAll(IMPORT)) {
+      const [, typeOnly, spec] = match;
+      if (typeOnly || !spec || spec.endsWith('.css')) continue;
+      const here = [...chain, file.slice(srcAdmin.length + 1)];
+      if (FORBIDDEN.test(spec)) {
+        hits.push({ chain: here, spec });
+        continue;
+      }
+      if (!spec.startsWith('.')) continue;
+      const target = resolveFile(file, spec);
+      if (!target) continue;
+      if (/[\\/]ui[\\/]antd\.ts$|\.wide\.[cm]?[jt]sx?$|[\\/]wide[\\/]/.test(target)) {
+        hits.push({ chain: here, spec });
+        continue;
+      }
+      visit(target, here);
+    }
+  };
+  visit(resolve(uiDir, entry), []);
+  return hits;
+}
+
+describe('ResponsiveTable › telefon teslimi (statik kapanış)', () => {
+  it('kapanış yürütücüsü bilinen ihlali yakalar (öz denetim: ui/antd.ts antd içe aktarır)', () => {
+    expect(staticClosureHits('antd.ts').map(hit => hit.spec)).toContain('antd');
+  });
+
+  it('Table.tsx kapanışında antd, @ant-design, ui/antd.ts, echarts ve geniş-özel modül yok', () => {
+    expect(staticClosureHits('Table.tsx').map(hit => `${hit.chain.join(' > ')} > ${hit.spec}`)).toEqual([]);
+  });
+
+  // Beklenen KIRMIZI (a01-button): AccordionList "Tümünü aç" ve "Ayrıntıyı aç" için tasarım sisteminin Button'ını
+  // kullanır; Button.tsx bugün './antd' içe aktarıyor. a01 Button'ı yerel düğmeye taşıyınca bu test yeşile döner.
+  it('ResponsiveTable.tsx (Table + AccordionList) kapanışında antd, @ant-design, ui/antd.ts, echarts ve geniş-özel modül yok', () => {
+    expect(staticClosureHits('ResponsiveTable.tsx').map(hit => `${hit.chain.join(' > ')} > ${hit.spec}`)).toEqual([]);
   });
 });
 
