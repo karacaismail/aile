@@ -1,6 +1,9 @@
-/* TextField — tasarım components/TextField/README.md. Renk ve ölçüler yalnız --aile-* değişkenlerinden
-   (src/design/tokens.ts › aileCssVars); kutu rengi, hover ve hata durumu antd tema token'larının üstüne
-   tasarımın istediği değerleri koyar. Odak çizgisini admin.css çizer; burada outline/halka/box-shadow yok. */
+/* TextField — tasarım components/TextField/README.md + bundle.css › .ai-field / .ai-control. Yerel <input>/<textarea>,
+   antd yok. Renk, boşluk, köşe ve hareket yalnız --aile-* değişkenlerinden (src/design/tokens.ts › aileCssVars).
+   Odak çizgisini admin.css çizer ([data-focus-line]): kutu yalnız girdiyi taşır, temizle düğmesi kutunun kardeşidir.
+   Burada yalnız tarayıcının kendi halkası kapatılır; forced-colors + klavye modunda tek dar istisna. */
+/* Etkin dokunma hedefi: merkezi --aile-dokunma-hedefi (admin.css / tokens.ts › targetTokens) 44 px; kaba işaretçi
+   katmanında (data-input-coarse, <html> ve AdaptiveRoot'ta; body'ye taşınan katmanlar da alır) 48 px. Yerel hesap yok. */
 .aile-textfield {
   display: flex;
   flex-direction: column;
@@ -25,46 +28,158 @@
   border: 0;
 }
 
-/* Kutu: kenar kenar-kontrol (antd colorBorder), hover'da metin; 44 px hedef antd controlHeight'tan gelir. */
-.aile-textfield :is(.aile-textfield-control, .ant-input-affix-wrapper):not(.ant-input-disabled, .ant-input-affix-wrapper-disabled):hover {
-  border-color: var(--aile-metin);
+/* Kutu ile temizle düğmesi aynı ızgara hücresinde üst üste: düğme kutunun sağ ucundadır ama içinde değildir. */
+.aile-textfield-alan {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
 }
-.aile-textfield .ant-input-affix-wrapper > .ant-input,
-.aile-textfield .ant-input-affix-wrapper > .ant-input:hover,
-.aile-textfield .ant-input-affix-wrapper > .ant-input:focus {
-  background: transparent;
-  box-shadow: none;
-}
-.aile-textfield .ant-input-prefix,
-.aile-textfield-suffix {
-  color: var(--aile-metin-ikincil);
-}
-.aile-textfield .ant-input-prefix svg {
-  display: block;
+.aile-textfield-alan > * {
+  grid-area: 1 / 1;
 }
 
-/* Geçersiz: kenar hata, zemin hata-yuzey; hover ve odakta da aynı kalır (renk tek işaret değil: metin "Hata: …"). */
-.aile-textfield[data-invalid='true'] :is(.aile-textfield-control, .ant-input-affix-wrapper),
-.aile-textfield[data-invalid='true'] :is(.aile-textfield-control, .ant-input-affix-wrapper):hover,
-.aile-textfield[data-invalid='true'] :is(.aile-textfield-control, .ant-input-affix-wrapper):focus,
-.aile-textfield[data-invalid='true'] :is(.aile-textfield-control, .ant-input-affix-wrapper):focus-within {
+/* Kutu: kenar kenar-kontrol, köşe kose-kontrol, zemin yuzey; yükseklik en az hedef. */
+.aile-textfield-kutu {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--aile-bosluk-2);
+  min-width: 0;
+  min-height: var(--aile-dokunma-hedefi);
+  padding: 0 var(--aile-bosluk-3);
+  border: 1px solid var(--aile-kenar-kontrol);
+  border-radius: var(--aile-kose-kontrol);
+  background: var(--aile-yuzey);
+  color: var(--aile-metin);
+  cursor: text;
+  transition: border-color var(--aile-sure) var(--aile-egri), background-color var(--aile-sure) var(--aile-egri);
+}
+.aile-textfield-alan[data-temizle] .aile-textfield-kutu {
+  padding-inline-end: var(--aile-dokunma-hedefi);
+}
+.aile-textfield-kutu > svg {
+  display: block;
+  flex: none;
+  color: var(--aile-metin-ikincil);
+}
+
+/* Girdi kutunun içini doldurur: tıklanabilir yükseklik kutunun tamamıdır. Yazı boyutu kalıtılır (gövde 16 px). */
+.aile-textfield-girdi {
+  flex: 1 1 auto;
+  align-self: stretch;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  -webkit-appearance: none;
+  appearance: none;
+}
+/* iOS yakınlaştırmasını önler: kaba girişte hesaplanmış girdi yazısı en az 16 px (daha büyük bağlam korunur). */
+[data-input-coarse] .aile-textfield-girdi {
+  font-size: max(16px, 1em);
+}
+.aile-textfield-girdi::placeholder {
+  color: var(--aile-metin-ikincil);
+  opacity: 1;
+}
+/* Tarayıcının küçük arama temizleyicisi yerine 44/48 px temizle düğmesi. */
+.aile-textfield-girdi::-webkit-search-cancel-button,
+.aile-textfield-girdi::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
+}
+.aile-textfield-girdi--tutar {
+  font-variant-numeric: tabular-nums;
+}
+textarea.aile-textfield-girdi {
+  padding-block: var(--aile-bosluk-2);
+  resize: vertical;
+}
+.aile-textfield[data-multiline] .aile-textfield-kutu {
+  align-items: flex-start;
+}
+.aile-textfield[data-multiline] .aile-textfield-kutu > :is(svg, .aile-textfield-suffix) {
+  margin-block-start: var(--aile-bosluk-3);
+}
+.aile-textfield-suffix {
+  flex: none;
+  color: var(--aile-metin-ikincil);
+}
+
+/* Tarayıcı halkası yok; görünür klavye odağı admin.css [data-focus-line] çizgisidir. */
+.aile-textfield-girdi:focus,
+.aile-textfield-girdi:focus-visible,
+.aile-textfield-temizle:focus,
+.aile-textfield-temizle:focus-visible {
+  outline: none;
+}
+
+/* Temizle: kutunun sağ ucunda, hedef × kutu yüksekliği; zemin saydam (kutunun kenarı görünür kalır). */
+.aile-textfield-temizle {
+  position: relative;
+  justify-self: end;
+  align-self: stretch;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--aile-dokunma-hedefi);
+  min-height: var(--aile-dokunma-hedefi);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--aile-kose-kontrol);
+  background: transparent;
+  color: var(--aile-metin-ikincil);
+  font: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: color var(--aile-sure) var(--aile-egri);
+}
+.aile-textfield-temizle svg {
+  display: block;
+}
+.aile-textfield-temizle:active {
+  color: var(--aile-metin);
+}
+.aile-textfield[data-multiline] .aile-textfield-temizle {
+  align-self: start;
+}
+
+/* Hover yalnız birincil işaretçi hover destekliyorsa: dokunuştan sonra takılı hover olmaz. */
+@media (hover: hover) {
+  .aile-textfield:not([data-disabled='true'], [data-invalid='true']) .aile-textfield-kutu:hover {
+    border-color: var(--aile-metin);
+  }
+  .aile-textfield-temizle:hover {
+    color: var(--aile-metin);
+  }
+}
+
+/* Geçersiz: kenar hata, zemin hata-yuzey; hover ve odakta da aynı (renk tek işaret değil: metin "Hata: …"). */
+.aile-textfield[data-invalid='true'] .aile-textfield-kutu {
   border-color: var(--aile-hata);
   background: var(--aile-hata-yuzey);
 }
-.aile-textfield[data-invalid='true'] .ant-input-prefix,
-.aile-textfield[data-invalid='true'] .aile-textfield-suffix {
-  color: var(--aile-metin-ikincil);
-}
 
-/* Devre dışı: liste-zemin zemin, cizgi kenar, ikincil metin. */
-.aile-textfield[data-disabled='true'] :is(.aile-textfield-control, .ant-input-affix-wrapper) {
+/* Devre dışı: liste-zemin zemin, cizgi kenar, ikincil metin (Safari soluklaştırmasın). */
+.aile-textfield[data-disabled='true'] .aile-textfield-kutu {
   background: var(--aile-liste-zemin);
   border-color: var(--aile-cizgi);
   color: var(--aile-metin-ikincil);
+  cursor: not-allowed;
+}
+.aile-textfield-girdi:disabled {
+  cursor: not-allowed;
+  opacity: 1;
+  -webkit-text-fill-color: currentColor;
 }
 
-/* Yardım / hata: kutunun altında; üst boşluk odak çizgisine (4 + 3 px) yer bırakır. 14/20 tasarım tip ölçeği
-   (.aile-kucuk ile aynı); metin kesilmez, doğal sarılır. */
+/* Yardım / hata: kutunun altında; üst boşluk odak çizgisine (4 + 3 px) yer bırakır. 14/20 tasarım tip ölçeği; kesilmez. */
 .aile-textfield-note {
   display: flex;
   align-items: flex-start;
@@ -72,9 +187,14 @@
   margin: var(--aile-bosluk-1) 0 0;
   font-size: 14px;
   line-height: 20px;
+  color: var(--aile-metin-ikincil);
   white-space: normal;
   overflow: visible;
   overflow-wrap: break-word;
+}
+/* Metin esnek öğedir: min-width 0 olmadan uzun bölünmez parça (adres örneği) min-content genişliğinde kalır ve taşar. */
+.aile-textfield-note > span {
+  min-width: 0;
 }
 .aile-textfield-note--hata {
   color: var(--aile-hata);
@@ -82,4 +202,17 @@
 .aile-textfield-note-icon {
   flex: none;
   margin-top: 1px;
+}
+
+/* Hareket: durum anında değişir, yalnız geçiş kalkar. */
+@media (prefers-reduced-motion: reduce) {
+  .aile-textfield-kutu,
+  .aile-textfield-temizle {
+    transition-duration: 0s;
+  }
+}
+
+/* Tek dar istisna: zorlanmış renklerde klavye odağı 2 px CanvasText outline (çizginin zemini orada boyanmaz). */
+@media (forced-colors: active) {
+  html[data-keyboard='true'] :is(.aile-textfield-girdi, .aile-textfield-temizle):focus-visible { outline: 2px solid CanvasText; }
 }
