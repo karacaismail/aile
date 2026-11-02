@@ -23,7 +23,7 @@ const KOLEKSIYON = Object.keys(MANIFEST.counts).length;
 const KAYIT = Object.values(MANIFEST.counts).reduce((sum, count) => sum + count, 0);
 const sayi = (n: number) => new Intl.NumberFormat('tr-TR').format(n);
 const NEEDS = (JSON.parse(readFileSync(path.join(GENERATION_DIR, 'data/purchase_needs/household/00000.json'), 'utf8')) as {
-  records: { id: string; source_record_id: string }[];
+  records: { id: string; source_record_id: string; attributes?: { not?: unknown } }[];
 }).records;
 const LAMBADER = NEEDS.find(record => record.source_record_id === 'kalem-027')!;
 
@@ -43,7 +43,8 @@ const SEED_OP = {
   kind: 'note',
   at: '2026-10-28T14:05:00.000Z',
   actor: 'local',
-  before: { note: null },
+  // Önkoşul nesildeki gerçek nottur: değişiklik kümesi bayat önkoşulu çakışma sayıp atlar (d03).
+  before: { note: typeof LAMBADER.attributes?.not === 'string' ? LAMBADER.attributes.not : null },
   after: { note: 'Sentetik not' },
 };
 
