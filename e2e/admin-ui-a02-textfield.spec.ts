@@ -219,9 +219,14 @@ test.describe('TextField: Ayarlar alanları', () => {
     await adres.fill('');
     await expect(adres).not.toHaveAttribute('aria-invalid', 'true');
 
+    // Ayarlar sözleşmesi (c12): kayıtlı anahtar DOM'a hiç yazılmaz, alan boş başlar; boş bırakmak kayıtlı anahtarı korur,
+    // silme ayrı "Anahtarı sil" eylemidir. Yardım metninin tamamı aria-describedby ile bağlıdır.
     const anahtar = page.getByLabel('Uygulama anahtarı');
     await expect(anahtar).toHaveAttribute('type', 'password');
-    await expect(anahtar).toHaveAccessibleDescription(/Boş bırakılırsa anahtar silinir/);
+    await expect(anahtar).toHaveValue('');
+    await expect(anahtar).not.toHaveAttribute('aria-invalid', 'true');
+    await expect(anahtar).toHaveAccessibleDescription(/^Yalnız bu tarayıcıda saklanır; .+ Boş bırakılırsa kayıtlı anahtar korunur\.$/);
+    await expect(fieldOf(anahtar).locator('p', { hasText: 'Boş bırakılırsa kayıtlı anahtar korunur.' })).toBeVisible();
   });
 
   test('sanal klavye: visualViewport küçülünce odaklı alan görünür alana kayar', async ({ page }) => {

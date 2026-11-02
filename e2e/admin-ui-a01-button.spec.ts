@@ -10,7 +10,10 @@ import { ADMIN_MAIN, openAdmin, shiftTabKey, tabKey } from './admin-helpers';
 
 const DUGME = '.aile-dugme';
 
-/** Görünür ilk etkin ortak taban düğmesi (telefon/tablette üst bardaki "Sayfalar", masaüstünde içerikteki ilk düğme). */
+/**
+ * Görünür ilk etkin ortak taban düğmesi (telefon/tablette sorgu çubuğundaki "Filtreler (N)", masaüstünde içerikteki ilk
+ * düğme). Kabuk üst çubuğundaki "Sayfalar" b01'in kendi yerel düğmesidir (.aile-shell-btn), bu bileşen değildir.
+ */
 async function firstEnabledButton(page: Page): Promise<Locator> {
   const buttons = page.locator(`${DUGME}:not([disabled])`);
   const count = await buttons.count();
@@ -29,10 +32,13 @@ async function tag(locator: Locator, name: string) {
 
 /**
  * Etkin dokunma alanı sınaması: düğmenin ortasından her yana `reach(yarı boyut)` px uzaklıktaki dört nokta düğmeye mi
- * isabet ediyor? Dokunuş elementFromPoint ile aynı öğeyi hedefler.
+ * isabet ediyor? Dokunuş elementFromPoint ile aynı öğeyi hedefler. Düğme önce görünüm alanının ortasına getirilir
+ * (telefonda ilk düğme ekranın altında kalabilir): görünüm alanı dışındaki noktada elementFromPoint null döner ve
+ * "ıskalar" sonucu anlamsız olurdu; bu yüzden alan dışındaki bir ölçüm noktası testi düşürür.
  */
 async function hitsFromCenter(button: Locator, reach: { min: number; extra: number }) {
   return button.evaluate((element, { min, extra }) => {
+    element.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' });
     const r = element.getBoundingClientRect();
     const cx = r.left + r.width / 2;
     const cy = r.top + r.height / 2;
@@ -40,6 +46,7 @@ async function hitsFromCenter(button: Locator, reach: { min: number; extra: numb
     const dy = Math.max(r.height / 2, min) + extra;
     const points: Array<[string, number, number]> = [['sol', cx - dx, cy], ['sağ', cx + dx, cy], ['üst', cx, cy - dy], ['alt', cx, cy + dy]];
     return Object.fromEntries(points.map(([side, x, y]) => {
+      if (x < 0 || y < 0 || x >= innerWidth || y >= innerHeight) throw new Error(`ölçüm noktası (${side}: ${x}, ${y}) görünüm alanı dışında`);
       const hit = document.elementFromPoint(x, y);
       return [side, Boolean(hit && (hit === element || element.contains(hit)))];
     }));
@@ -179,43 +186,59 @@ test.describe('a01 Button/IconButton — yerel düğme, gerçek rota', () => {
 });
 
 test.describe('a01 Button — telefon yolculuğu (320 chromium, 390 webkit)', () => {
-  test('dokunma: "Sayfalar" bir dokunuşla gezinmeyi açar; Escape kapatır ve odak düğmeye döner', async ({ page }) => {
-    await openAdmin(page, '/alimlar');
-    const pages = page.getByRole('button', { name: 'Sayfalar' });
-    await expect(pages).toBeVisible();
-    await expect(pages).toHaveAttribute('aria-expanded', 'false');
-    await pages.tap();
-    await expect(pages).toHaveAttribute('aria-expanded', 'true');
-    await expect(page.getByRole('dialog', { name: 'Sayfalar' })).toBeVisible();
-    await page.keyboard.press('Escape');
-    await expect(page.getByRole('dialog', { name: 'Sayfalar' })).toBeHidden();
-    await expect(pages).toHaveAttribute('aria-expanded', 'false');
-    await expect(pages).toBeFocused();
-  });
+  test.describe('"Filtreler (N)" alt sayfa tetiği', () => {
+    // Proje ne olursa olsun telefon profili ve dokunma: chromium 320×568, webkit 390×844 (chromium-desktop'ta da). Geniş
+    // düzende "Filtreler (N)" yoktur (filtre paneli sayfada açıktır); telefon yolculuğu telefon görünüm alanında sınanır.
+    test.use({
+      hasTouch: true,
+      viewport: async ({ browserName }, use) => {
+        await use(browserName === 'webkit' ? { width: 390, height: 844 } : { width: 320, height: 568 });
+      },
+    });
+    /** Sorgu çubuğundaki "Filtreler (N)": bu bileşenin (.aile-dugme) telefon alt sayfası açan gerçek kullanımı. */
+    const filtersButton = (page: Page) => page.getByRole('search', { name: 'Sorgu' }).getByRole('button', { name: /^Filtreler \(\d+\)$/ });
+    const filtersSheet = (page: Page) => page.getByRole('dialog', { name: 'Filtreler' });
 
-  test('pointercancel: dokunuş iptal edilirse (kaydırma başladı) etkinleştirme yok ve basılı ton kalmaz', async ({ page, browserName }) => {
-    await openAdmin(page, '/alimlar');
-    const pages = page.getByRole('button', { name: 'Sayfalar' });
-    const box = (await pages.boundingBox())!;
-    const x = box.x + box.width / 2;
-    const y = box.y + box.height / 2;
-    if (browserName === 'chromium') {
-      // Gerçek dokunma dizisi: touchStart → touchCancel; tarayıcı pointercancel üretir, click üretmez.
-      const cdp = await page.context().newCDPSession(page);
-      const cancelled = page.evaluate(() => new Promise<string>(done => {
-        document.addEventListener('pointercancel', event => done(event.pointerType), { once: true });
-      }));
-      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
-      await cdp.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] });
-      expect(await cancelled).toBe('touch');
-    } else {
-      // WebKit'te Playwright dokunma iptali üretemez; olay sırası sentetik verilir (varsayılan eylem üretmez).
-      await pages.dispatchEvent('pointerdown', { pointerType: 'touch', isPrimary: true, bubbles: true });
-      await pages.dispatchEvent('pointercancel', { pointerType: 'touch', isPrimary: true, bubbles: true });
-    }
-    await expect(pages).toHaveAttribute('aria-expanded', 'false');
-    await expect(page.getByRole('dialog', { name: 'Sayfalar' })).toHaveCount(0);
-    expect(await pages.evaluate(element => element.matches(':active'))).toBe(false);
+    test('dokunma: "Filtreler (N)" bir dokunuşla alt sayfayı açar; Escape kapatır ve odak düğmeye döner', async ({ page }) => {
+      await openAdmin(page, '/alimlar');
+      expect(await page.evaluate(() => document.documentElement.dataset.profile)).toBe('phone');
+      const trigger = filtersButton(page);
+      await expect(trigger).toBeVisible();
+      await expect(trigger).toHaveClass(/\baile-dugme\b/);
+      await expect(trigger).toHaveAttribute('aria-haspopup', 'dialog');
+      await expect(filtersSheet(page)).toHaveCount(0);
+      await trigger.tap();
+      await expect(filtersSheet(page)).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(filtersSheet(page)).toBeHidden();
+      await expect(trigger).toBeFocused();
+    });
+
+    test('pointercancel: dokunuş iptal edilirse (kaydırma başladı) etkinleştirme yok ve basılı ton kalmaz', async ({ page, browserName }) => {
+      await openAdmin(page, '/alimlar');
+      const trigger = filtersButton(page);
+      await expect(trigger).toBeVisible();
+      await trigger.evaluate(element => element.scrollIntoView({ block: 'center', behavior: 'instant' }));
+      const box = (await trigger.boundingBox())!;
+      const x = box.x + box.width / 2;
+      const y = box.y + box.height / 2;
+      if (browserName === 'chromium') {
+        // Gerçek dokunma dizisi: touchStart → touchCancel; tarayıcı pointercancel üretir, click üretmez.
+        const cdp = await page.context().newCDPSession(page);
+        const cancelled = page.evaluate(() => new Promise<string>(done => {
+          document.addEventListener('pointercancel', event => done(event.pointerType), { once: true });
+        }));
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] });
+        expect(await cancelled).toBe('touch');
+      } else {
+        // WebKit'te Playwright dokunma iptali üretemez; olay sırası sentetik verilir (varsayılan eylem üretmez).
+        await trigger.dispatchEvent('pointerdown', { pointerType: 'touch', isPrimary: true, bubbles: true });
+        await trigger.dispatchEvent('pointercancel', { pointerType: 'touch', isPrimary: true, bubbles: true });
+      }
+      await expect(filtersSheet(page)).toHaveCount(0);
+      expect(await trigger.evaluate(element => element.matches(':active'))).toBe(false);
+    });
   });
 
   test('IconButton tabanı gerçek motorda: kare 44 × 44, kaba girişte 48 × 48, odakta tek alt çizgi', async ({ page, browserName }) => {
