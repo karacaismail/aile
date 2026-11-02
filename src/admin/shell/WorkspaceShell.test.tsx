@@ -197,6 +197,55 @@ describe.each([['telefon', PHONE], ['tablet', TABLET]] as const)('WorkspaceShell
   });
 });
 
+// --- Odak üst çubuğun altında kalmaz (WCAG 2.4.11): ölçülen çubuk yüksekliği belge kaydırma payıdır ----------------
+
+describe('WorkspaceShell · üst çubuk kaydırma payı', () => {
+  const VAR = '--aile-shell-ust-olcu';
+  const original = window.ResizeObserver;
+  let resize: (() => void) | undefined;
+  let barHeight = 56;
+  beforeEach(() => {
+    barHeight = 56;
+    class FakeResizeObserver {
+      constructor(callback: ResizeObserverCallback) { resize = () => act(() => callback([], this as unknown as ResizeObserver)); }
+      observe() {}
+      unobserve() {}
+      disconnect() { resize = undefined; }
+    }
+    window.ResizeObserver = FakeResizeObserver as unknown as typeof ResizeObserver;
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function rect(this: HTMLElement) {
+      const height = this.classList.contains('aile-admin-topbar') ? barHeight : 0;
+      return { width: 320, height, top: 0, left: 0, right: 320, bottom: height, x: 0, y: 0, toJSON: () => ({}) } as DOMRect;
+    });
+  });
+  afterEach(() => {
+    window.ResizeObserver = original;
+    vi.restoreAllMocks();
+    document.documentElement.style.removeProperty(VAR);
+  });
+
+  it('phone: writes the measured bar height (wrapped title, safe area) to the root, follows resizes, removes it on unmount', () => {
+    installViewport(PHONE);
+    const view = render(<WorkspaceShell location="/veri"><p>İçerik</p></WorkspaceShell>);
+    expect(document.documentElement.style.getPropertyValue(VAR)).toBe('56px');
+    // Sarılan ad ya da güvenli alan çubuğu büyütür: pay ölçüyle birlikte (yukarı yuvarlanmış) güncellenir.
+    barHeight = 103.2;
+    resize?.();
+    expect(document.documentElement.style.getPropertyValue(VAR)).toBe('104px');
+    view.unmount();
+    expect(document.documentElement.style.getPropertyValue(VAR)).toBe('');
+  });
+
+  it('desktop: once the side navigation replaces the top bar the root carries no top bar padding', async () => {
+    wideGate.release();
+    installViewport(DESKTOP);
+    render(<WorkspaceShell location="/alimlar"><p>İçerik</p></WorkspaceShell>);
+    await sideNav();
+    expect(screen.queryByRole('banner')).toBeNull();
+    expect(document.documentElement.style.getPropertyValue(VAR)).toBe('');
+  });
+});
+
 // --- Profil değişimi: aynı main, aynı içerik durumu, rota ve odak korunur; çift başlatma yok ----------------------
 
 let probeMounts = 0;
@@ -326,6 +375,13 @@ describe('WorkspaceShell · stil sözleşmesi (kaynak)', () => {
     expect(bar).toMatch(/var\(--aile-safe-top\)/);
     // Profil bantları yalnız tokenda: kabuk tablet/masaüstü için ayrı kenar yazmaz.
     expect(source).not.toMatch(/\[data-profile=[^\]]+\][^{]*\.aile-admin-main\s*\{[^}]*padding/);
+  });
+
+  it('the document scroll padding reserves the top bar: measured height, token derivation until measured; main adds no second offset', () => {
+    const source = css('shell.css');
+    const root = block(source, ':root:has(.aile-admin .aile-admin-topbar)') ?? '';
+    expect(root).toMatch(/scroll-padding-top:\s*var\(--aile-shell-ust-olcu,\s*calc\(var\(--aile-hedef-asgari\) \+ var\(--aile-bosluk-3\) \+ var\(--aile-safe-top\)\)\)/);
+    expect(block(source, '.aile-admin .aile-admin-main') ?? '').not.toMatch(/scroll-margin/);
   });
 
   it('touch targets come from the central --aile-dokunma-hedefi token (44, coarse 48)', () => {

@@ -69,6 +69,13 @@
   color: var(--aile-nav-metin);
   line-height: 24px;
 }
+/* Odak üst çubuğun altında kalmaz (WCAG 2.4.11): belge kaydırma payı üst çubuk kadardır; tarayıcı odağa, çapaya ya da
+   scrollIntoView ile kaydırırken bu payı bırakır. Değer WorkspaceShell'in ölçtüğü gerçek yükseklik (sarılan ad, güvenli
+   alan, kaba işaretçi payı; kökte --aile-shell-ust-olcu); ölçüm gelene dek token türetmesi. Masaüstü yan gezinmede üst
+   çubuk yoktur, pay da yoktur. */
+:root:has(.aile-admin .aile-admin-topbar) {
+  scroll-padding-top: var(--aile-shell-ust-olcu, calc(var(--aile-hedef-asgari) + var(--aile-bosluk-3) + var(--aile-safe-top)));
+}
 .aile-admin .aile-admin-topbar-title {
   flex: 1 1 auto;
   min-width: 0;
@@ -132,7 +139,6 @@
     calc(var(--aile-yogunluk-kenar) + var(--aile-safe-left));
   background: var(--aile-zemin);
   color: var(--aile-metin);
-  scroll-margin-block-start: var(--aile-shell-ust-bar);
 }
 .aile-admin .aile-admin-main-inner {
   max-width: var(--aile-icerik-azami);

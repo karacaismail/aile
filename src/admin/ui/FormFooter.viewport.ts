@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type RefObject } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 
 // Sanal klavye ve görsel görünüm alanı (window.visualViewport). iOS Safari ve varsayılan Android Chrome klavye açılınca
 // düzen görünüm alanını küçültmez; yalnız görsel görünüm alanı daralır. position: fixed/sticky ile alta yapışan öğe
@@ -33,13 +33,19 @@ export function visualViewportInsets(win: Window = window): ViewportInsets {
   return top === 0 && bottom === 0 ? NO_INSETS : { top, bottom };
 }
 
-/** Yapışkan konumun sınırı: en yakın kaydırma kabının alt kenarı; kap yoksa düzen görünüm alanının altı. */
-function stickyLimit(element: Element, win: Window): number {
+/** En yakın dikey kaydırma kabı (yapışkan konumun sınırı); belge kaydırıcısına yapışıyorsa null. */
+function scrollContainerOf(element: Element, win: Window): Element | null {
   const { body, documentElement } = win.document;
   for (let node = element.parentElement; node && node !== body && node !== documentElement; node = node.parentElement) {
-    if (/(auto|scroll|overlay|hidden)/.test(win.getComputedStyle(node).overflowY)) return node.getBoundingClientRect().bottom;
+    if (/(auto|scroll|overlay|hidden)/.test(win.getComputedStyle(node).overflowY)) return node;
   }
-  return documentElement.clientHeight;
+  return null;
+}
+
+/** Yapışkan konumun sınırı: en yakın kaydırma kabının alt kenarı; kap yoksa düzen görünüm alanının altı. */
+function stickyLimit(element: Element, win: Window): number {
+  const container = scrollContainerOf(element, win);
+  return container ? container.getBoundingClientRect().bottom : win.document.documentElement.clientHeight;
 }
 
 /** Görsel görünüm alanının (klavyenin) öğenin yapışkan sınırını alttan örttüğü pay. */
@@ -88,4 +94,41 @@ export function useVisualViewportInsets(enabled: boolean): ViewportInsets {
 /** Yapışkan öğenin klavye payı; öğe henüz yoksa 0. */
 export function useKeyboardOverlap(ref: RefObject<Element | null>, enabled: boolean): number {
   return useVisualViewportMeasure(enabled, 0, () => (ref.current ? keyboardOverlap(ref.current) : 0), sameNumber);
+}
+
+// --- Yapışkan altlığın belge kaydırma payı ------------------------------------------------------------------------
+// Belgenin altına yapışan altlık, odağa kaydırılan alanın üstüne binmemeli (WCAG 2.4.11). Her yapışkan altlık ölçülen
+// yüksekliğini kaydeder; kökte en yüksek değer --aile-ff-yukseklik olur ve FormFooter.css bunu (odak çizgisi payıyla)
+// scroll-padding-bottom yapar. Kaydırma kabı içindeki altlık kabına yapışır, belge payı istemez. Altlık kalkınca pay düşer.
+
+const RESERVE_VAR = '--aile-ff-yukseklik';
+const reserved = new Map<Element, number>();
+
+function writeReserve(doc: Document) {
+  const tallest = Math.max(0, ...reserved.values());
+  if (tallest > 0) doc.documentElement.style.setProperty(RESERVE_VAR, `${tallest}px`);
+  else doc.documentElement.style.removeProperty(RESERVE_VAR);
+}
+
+/** Yapışkan altlığın yüksekliğini belge kaydırma payına yazar; etkin değilken ya da kaldırılınca payı geri alır. */
+export function useStickyReserve(ref: RefObject<Element | null>, enabled: boolean): void {
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!enabled || !element) return undefined;
+    const doc = element.ownerDocument;
+    const win = doc.defaultView ?? window;
+    const measure = () => {
+      if (scrollContainerOf(element, win)) reserved.delete(element);
+      else reserved.set(element, Math.ceil(element.getBoundingClientRect().height));
+      writeReserve(doc);
+    };
+    measure();
+    const observer = typeof win.ResizeObserver === 'function' ? new win.ResizeObserver(measure) : null;
+    observer?.observe(element, { box: 'border-box' });
+    return () => {
+      observer?.disconnect();
+      reserved.delete(element);
+      writeReserve(doc);
+    };
+  }, [ref, enabled]);
 }

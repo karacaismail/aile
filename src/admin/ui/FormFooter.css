@@ -24,6 +24,13 @@
   padding-bottom: var(--aile-bosluk-4);
 }
 
+/* Odak yapışkan altlığın altında kalmaz (WCAG 2.4.11): belge kaydırma payı altlığın ölçülen yüksekliği
+   (FormFooter.viewport.ts › useStickyReserve, kökte --aile-ff-yukseklik) artı odak çizgisi payı (kontrolün altındaki
+   çizgi de görünür kalır). Yalnız sayfada yapışkan altlık varken. */
+:root:has(.aile-ff--yapiskan) {
+  scroll-padding-bottom: calc(var(--aile-ff-yukseklik, 0px) + var(--aile-odak-aralik) + var(--aile-odak-kalinlik));
+}
+
 /* Durum metni: küçük metin (14/20, alt sınır), ikincil renk; ton yalnız rengi değiştirir, metin "Hata: " ile başlar.
    Metin kesilmez, kelimeler arasından sarılır. */
 .aile-ff-status {
