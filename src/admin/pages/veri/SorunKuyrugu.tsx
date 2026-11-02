@@ -53,9 +53,11 @@ function Grup({ grup, acik }: { grup: SorunGrubu; acik: boolean }) {
   return (
     <div ref={kok} className="aile-veri-grup" data-kod={grup.kod}>
       <Disclosure title={grup.ad} meta={`${sayi(grup.sorunlar.length)} kayıt`} defaultOpen={acik}>
+        {/* Liste yazısı aynı zamanda listenin bölge adıdır (AccordionList): grup adı olmadan sekiz grup "1 kayıt" adlı
+            sekiz bölge üretir, landmark listesinde ayırt edilemez. Grup adları tekildir (sorunGruplari türe göre). */}
         <ResponsiveTable<Issue>
           caption={grup.ad}
-          mobileCaption={sayfali ? `${aralikMetni(dilim)} kayıt` : `${sayi(grup.sorunlar.length)} kayıt`}
+          mobileCaption={`${grup.ad} · ${sayfali ? aralikMetni(dilim) : sayi(grup.sorunlar.length)} kayıt`}
           columns={SUTUNLAR}
           rows={satirlar}
           mobileMode="list"

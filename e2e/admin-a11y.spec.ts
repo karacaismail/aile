@@ -1,6 +1,6 @@
 import { test, expect, type Locator, type Page, type TestInfo } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import { openAdmin } from './admin-helpers';
+import { ADMIN_MAIN, openAdmin } from './admin-helpers';
 
 // Yönetim paneli erişilebilirlik kapısı (f10-a11y). İki katman:
 //  1. axe-core (@axe-core/playwright) — etiketler wcag2a, wcag2aa, wcag21aa, wcag22aa. Her rota ilk görünümde tüm
@@ -13,12 +13,13 @@ import { openAdmin } from './admin-helpers';
 //     "Sayfalar" düğmesi, tek main; masaüstünde main dışında tek navigation "Sayfalar"; Sayfalar çekmecesinde
 //     navigation "Sayfalar"), tüm içerik landmark/diyalog içinde (atlama bağlantısı hariç), aynı rolden birden çok
 //     landmark ayrı adla, tek h1 ve main içinde, h1'den önce başlık yok, başlık sırası seviye atlamaz, her form alanı ve
-//     etkileşimli öğe adlı, diyalog adlı ve modal (aria-modal="true").
+//     etkileşimli öğe adlı, diyalog adlı; kip sözleşmesi: modal katman aria-modal="true", kipsiz yan panel (masaüstü
+//     ayrıntı, DetailPanel inline) aria-modal taşımaz ve arkasındaki sonuç bölgesi inert/aria-hidden olmaz.
 // Projeler: görev koşusu chromium (320×568, telefon profili) ve webkit (390×844, telefon profili). İlk görünüm axe ve
 // yapı testleri @matrix etiketlidir (entegrasyonda 360/375/320×480/568×320/tablet/masaüstü). Emülasyon gerçek cihaz
 // değildir. Sabit bekleme yok: hazır sinyali openAdmin, katman yerleşmesi animasyon/kutu/opaklık kararlılığı.
 // Öz denetim en altta: bilinçli enjekte edilen ihlaller yakalanmazsa kapı FAIL olur (axe etiketleri, katman kapsamı,
-// yapı dedektörü bilinen belgelerde ve gerçek sayfada).
+// yapı dedektörü bilinen belgelerde ve gerçek sayfada, kip denetimi bilinen belgelerde).
 
 const WCAG_TAGS = ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'];
 
@@ -36,10 +37,12 @@ const PAGE_DIALOGS: Partial<Record<(typeof ROUTES)[number], readonly string[]>> 
 
 /**
  * Sayfaya özgü ayrıntı katmanı: sentetik nesildeki bilinen kayıt (fixtures/generation-synthetic › purchase_needs,
- * "Örnek kase"). Dar ekranda tam sayfa modal, masaüstünde sağ çekmece; ikisi de role="dialog" ve kayıt adıyla adlı.
+ * "Örnek kase"). İkisi de role="dialog" ve kayıt adıyla adlı; kip profile göre (DetailPanel sözleşmesi): telefon ve
+ * tablette tam sayfa modal katman (aria-modal), masaüstünde liste yanında akışta kipsiz yan panel (DetailPanel inline,
+ * alimlar/AlimlarGenis.wide): aria-modal yok, sonuç bölgesi arkada erişilebilir kalır, Escape yine kapatır.
  */
-const PAGE_DETAILS: Partial<Record<(typeof ROUTES)[number], { region: string; row: string }>> = {
-  '/alimlar': { region: 'Sonuçlar', row: 'Örnek kase' },
+const PAGE_DETAILS: Partial<Record<(typeof ROUTES)[number], { region: string; row: string; modal: (profile: Profile) => boolean }>> = {
+  '/alimlar': { region: 'Sonuçlar', row: 'Örnek kase', modal: (profile) => profile !== 'desktop' },
 };
 
 /** Açık katmanlarda en çok bu kadar Select açılır (her biri ayrı alt sayfa/liste). */
@@ -333,9 +336,35 @@ interface ModalAudit {
   trigger?: Locator;
   dialog: Locator;
   expected?: DialogExpectation;
+  /** Beklenen kip; varsayılan modal. false: kipsiz yan panel (aria-modal yok, arka plan erişilebilir). */
+  modal?: boolean;
+  /** Kipsiz katmanda arkada erişilebilir kalması gereken öğe (ör. sonuç bölgesi). */
+  background?: Locator;
 }
 
-/** Modal katmanı açar, yerleşince katman kapsamında axe + yapı + aria-modal denetler, Escape ile kapatır. */
+/**
+ * Kip sözleşmesi (APG dialog). Modal: aria-modal="true" ya da :modal <dialog>. Kipsiz: aria-modal yok, açık modal
+ * <dialog> yok ve verilen arka plan öğesi inert/aria-hidden bir alt ağaçta değil. Boş liste = temiz.
+ */
+async function modalityViolations(dialog: Locator, modal: boolean, background?: Locator): Promise<string[]> {
+  const claimsModal = await dialog.evaluate((el) => el.getAttribute('aria-modal') === 'true'
+    || (el instanceof HTMLDialogElement && el.matches(':modal')));
+  if (modal) return claimsModal ? [] : ['modal katmanda aria-modal="true" yok (APG modal diyalog)'];
+  const out: string[] = [];
+  if (claimsModal) out.push('kipsiz yan panel aria-modal="true" bildiriyor (arka plan erişilebilir kalmalı)');
+  if (background) {
+    const blocked = await background.first().evaluate((el) => {
+      const hidden = el.closest('[inert], [aria-hidden="true"]');
+      if (hidden) return `${hidden.tagName.toLowerCase()}${hidden.hasAttribute('inert') ? '[inert]' : '[aria-hidden="true"]'}`;
+      const top = Array.from(document.querySelectorAll('dialog')).find((d) => d.matches(':modal') && !d.contains(el));
+      return top ? 'açık modal <dialog> arka planı inert yapıyor' : '';
+    });
+    if (blocked) out.push(`kipsiz yan panel açıkken arka plan erişilemez: ${blocked}`);
+  }
+  return out;
+}
+
+/** Katmanı açar, yerleşince katman kapsamında axe + yapı + kip (modal/kipsiz) denetler, Escape ile kapatır. */
 async function auditModal(page: Page, testInfo: TestInfo, audit: ModalAudit) {
   if (audit.trigger) await audit.trigger.click();
   const dialog = audit.dialog.first();
@@ -346,9 +375,7 @@ async function auditModal(page: Page, testInfo: TestInfo, audit: ModalAudit) {
   expect.soft(violations.violations.map(formatViolation), `${audit.state}: axe ihlalleri (katman kapsamı)`).toEqual([]);
 
   const structure = dialogStructureViolations(await ariaTree(dialog), audit.expected);
-  const modal = await dialog.evaluate((el) => el.getAttribute('aria-modal') === 'true'
-    || (el instanceof HTMLDialogElement && el.matches(':modal')));
-  if (!modal) structure.push('modal katmanda aria-modal="true" yok (APG modal diyalog)');
+  structure.push(...await modalityViolations(dialog, audit.modal ?? true, audit.background));
   if (structure.length) await attachAria(testInfo, `${slug(audit.state)}-aria.yaml`, dialog);
   expect.soft(structure, `${audit.state}: yapı (ARIA snapshot)`).toEqual([]);
 
@@ -552,12 +579,17 @@ test.describe('axe: WCAG 2.0/2.1/2.2 A ve AA (otomatik, kısmi kanıt)', () => {
         if ((await row.count()) === 0) {
           testInfo.annotations.push({ type: 'not_run', description: `${route} ayrıntı: "${detail.row}" satırı yok (veri durumu)` });
         } else {
+          const modal = detail.modal(profile);
+          const kind = modal ? 'modal' : 'kipsiz yan panel';
           await auditModal(page, testInfo, {
-            state: `${route} ayrıntı "${detail.row}"`,
+            state: `${route} ayrıntı "${detail.row}" (${kind})`,
             trigger: row,
             dialog: page.getByRole('dialog', { name: detail.row, exact: true }),
+            modal,
+            // includeHidden: arka plan aria-hidden olsa da bulunur ve ihlal olarak yazılır (zaman aşımı değil).
+            background: modal ? undefined : page.locator(ADMIN_MAIN).getByRole('region', { name: detail.region, includeHidden: true }),
           });
-          covered.push(`ayrıntı "${detail.row}"`);
+          covered.push(`ayrıntı "${detail.row}" (${kind})`);
         }
       }
 
@@ -652,6 +684,37 @@ test.describe('öz denetim: dedektörler kör değil', () => {
         expect(found.some((m) => pattern.test(m)), `${c.name}: ${pattern} yakalanmadı; bulunan: ${JSON.stringify(found)}`).toBe(true);
       }
     }
+  });
+
+  test('kip denetimi: modal katmanda aria-modal eksiği, kipsiz yan panelde aria-modal ve erişilemez arka plan yakalanır', async ({ page }) => {
+    const panel = (attrs: string) => `<div role="dialog" aria-label="Örnek kase"${attrs}><h2>Örnek kase</h2><button type="button">Kapat</button></div>`;
+    const results = '<section aria-label="Sonuçlar"><button type="button">Örnek kase</button></section>';
+    const check = async (body: string, modal: boolean, opener?: string) => {
+      await page.setContent(documentFor(body));
+      if (opener) await page.evaluate(opener);
+      // includeHidden: açık modal <dialog> ARIA ağacında diğer öğeleri gizlese de bulunur (bekleme zaman aşımı yok).
+      const background = page.getByRole('region', { name: 'Sonuçlar', includeHidden: true });
+      const dialog = page.getByRole('dialog', { name: 'Örnek kase', includeHidden: true });
+      return modalityViolations(dialog, modal, modal ? undefined : background);
+    };
+    expect(await check(`<main>${results}</main>${panel(' aria-modal="true"')}`, true), 'temiz modal').toEqual([]);
+    expect(await check(`<main>${results}${panel('')}</main>`, false), 'temiz kipsiz yan panel').toEqual([]);
+
+    const run = async (name: string, body: string, modal: boolean, pattern: RegExp, opener?: string) => {
+      const found = await check(body, modal, opener);
+      expect(found.some((m) => pattern.test(m)), `${name}: ${pattern} yakalanmadı; bulunan: ${JSON.stringify(found)}`).toBe(true);
+    };
+    await run('modalda aria-modal yok', `<main>${results}</main>${panel('')}`, true, /modal katmanda aria-modal="true" yok/);
+    await run('kipsiz panel aria-modal diyor', `<main>${results}${panel(' aria-modal="true"')}</main>`, false, /kipsiz yan panel aria-modal="true"/);
+    await run('arka plan inert', `<main><div inert>${results}</div>${panel('')}</main>`, false, /arka plan erişilemez: div\[inert\]/);
+    await run('arka plan aria-hidden', `<main><div aria-hidden="true">${results}</div>${panel('')}</main>`, false, /arka plan erişilemez: div\[aria-hidden="true"\]/);
+    await run(
+      'arka plan modal <dialog> altında',
+      `<main>${results}</main><dialog id="m"><p>Başka katman</p></dialog>${panel('')}`,
+      false,
+      /açık modal <dialog> arka planı inert/,
+      '(document.getElementById("m")).showModal()',
+    );
   });
 
   test('yapı dedektörü gerçek sayfaya enjekte edilen ihlalleri yakalar', async ({ page }) => {
