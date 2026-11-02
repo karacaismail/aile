@@ -1,0 +1,37 @@
+{
+  "schema": 1,
+  "entry": "admin.html",
+  "recorded": "2026-11-02, taban 67382b9 (W1 e01-budgets), VITE_BUDGET_SHEET_ID=synthetic-budget-sheet-2098, Node v24.21.0, Vite 8.3.5",
+  "units": {
+    "kb": 1000,
+    "measure": "gzip",
+    "note": "Bütçe ve tavan değerleri bayttır (istek bütçesi istek sayısı). 1 KB = 1000 B. gzip = node:zlib gzipSync seviye 9, dosya başına. Aktarım = HTML/JS/CSS gzip + font ham bayt. Ayrıntı: docs/ADMIN-BUDGETS.md"
+  },
+  "firstRoute": {
+    "path": "/alimlar",
+    "page": "src/admin/pages/AlimlarPage.tsx",
+    "note": "Varsayılan yönetim rotası (shell/navigation.ts defaultAdminPath) ve routes.tsx sayfa modülü; check-budgets.test.mjs eşleşmeyi doğrular"
+  },
+  "wideStartup": {
+    "sources": ["src/admin/adaptive/WideProviders.tsx"],
+    "classes": ["wide"],
+    "note": "Geniş profilin ilk rotada ek yüklediği dinamik kökler. PHONE_WITHOUT_ANTD=false iken WideProviders statiktir ve wide parçası yoktur: geniş rota telefon rotasına eşittir"
+  },
+  "budgets": [
+    { "id": "phone-html", "profile": "phone", "metric": "html", "max": 50000, "source": "adaptive-qa: Compressed initial HTML 50 KB" },
+    { "id": "phone-js", "profile": "phone", "metric": "js", "max": 120000, "source": "adaptive-qa: Complete phone initial-route JS 120 KB" },
+    { "id": "phone-css", "profile": "phone", "metric": "css", "max": 35000, "source": "adaptive-qa: Phone profile CSS 35 KB (rotanın tüm CSS'i; kritik CSS ayrı ölçülmez)" },
+    { "id": "phone-capability", "profile": "phone", "metric": "capabilityRequests", "max": 0, "source": "adaptive-qa: Unnecessary capability-specific resources, hedef sıfır istek; sınıflar delivery-report forbidden (antd, pro, icons, echarts, wide)" },
+    { "id": "phone-transfer", "profile": "phone", "metric": "transfer", "max": 500000, "source": "adaptive-qa: Initial transfer, excluding user content 500 KB" },
+    { "id": "wide-js", "profile": "wide", "metric": "js", "classes": { "exclude": ["antd"] }, "max": 180000, "source": "adaptive-qa: Complete desktop initial-route JS 180 KB; tablet ve masaüstü aynı geniş kaynak kümesini alır" },
+    { "id": "wide-antd", "profile": "wide", "metric": "js", "classes": { "only": ["antd"] }, "max": 240000, "exception": true, "source": "Ölçülmüş istisna: antd parçası 233210 B gzip (Vite raporunda ~236 kB); wide-js dışında, ayrı tavanla. Aşım entegrasyon sahibinin açık kararı ister" }
+  ],
+  "ratchet": {
+    "policy": "Geçiş ratchet'i: tavan, bütçeyi aşan bugünkü ölçümdür ve yalnız düşer. check-budgets 'daraltılabilir' derse tavanı yeni ölçüme indirin; 'silinebilir' derse kaydı silin. Tavan yükseltmek ya da yeni kayıt eklemek bütçeyi gevşetir: yalnız entegrasyon sahibinin açık kararıyla. Liste boşalınca kapı --strict ile koşar.",
+    "ceilings": {
+      "phone-js": 410050,
+      "phone-capability": 2,
+      "phone-transfer": 520531
+    }
+  }
+}

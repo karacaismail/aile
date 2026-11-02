@@ -93,3 +93,45 @@ const cssValue = (name: string, value: string | number) => typeof value === 'num
 export const aileCssVars: Record<string, string> = Object.fromEntries(
   Object.entries(designTokens).map(([name, value]) => [`--aile-${kebab(name)}`, cssValue(name, value)]),
 );
+
+// Uyarlamalı yoğunluk, dokunma hedefi ve güvenli alan (uygulama kararı; tokens.json'da yok). designTokens/aileCssVars
+// dışında tutulur: App aileCssVars'ı .aile-admin köküne satır içi verir ve satır içi değer admin.css'teki bant ve
+// katman kurallarını ezerdi. Değerler admin.css'e --aile-* olarak yazılır; src/design/tokens.test.ts iki kaynağı eşler.
+export type DensityProfile = 'phone' | 'tablet' | 'desktop';
+/** kenar: sayfa yan boşluğu (gutter) · bosluk: bileşenler ve bölümler arası · yogun: sıkı iç aralık. CSS px. */
+export interface DensityBand { readonly min: number; readonly profile: DensityProfile; readonly kenar: number; readonly bosluk: number; readonly yogun: number }
+const band = (min: number, profile: DensityProfile, kenar: number, bosluk: number, yogun: number): DensityBand =>
+  Object.freeze({ min, profile, kenar, bosluk, yogun });
+/**
+ * Genişlik bantları, artan sırada: 320–359 · 360–374 · 375–389 · 390–599 · 600–1023 · 1024+. Telefon alt bantları
+ * genişlik medya sorgusuyla seçilir; tablet ve masaüstü bantları uyarlamalı profilden (data-profile) gelir. Böylece
+ * kısa kenarı 480'den küçük yatay telefon (568×320, 844×390) telefon profilinde ve telefon bandında kalır.
+ */
+export const densityBands: readonly DensityBand[] = Object.freeze([
+  band(0, 'phone', 12, 8, 4),
+  band(360, 'phone', 14, 10, 6),
+  band(375, 'phone', 16, 12, 6),
+  band(390, 'phone', 16, 12, 8),
+  band(designTokens.kirilimTablet, 'tablet', 20, 16, 10),
+  band(designTokens.kirilimGenis, 'desktop', 24, 20, 12),
+]);
+/** Saf seçim (JS tüketicileri için; CSS aynı kararı admin.css'te verir): geniş profil kendi bandını, telefon genişliğe göre. */
+export function densityFor(width: number, profile: DensityProfile): DensityBand {
+  if (profile !== 'phone') return densityBands.find(b => b.profile === profile)!;
+  return densityBands.filter(b => b.profile === 'phone' && width >= b.min).at(-1) ?? densityBands[0];
+}
+export const densityVarNames = Object.freeze({ kenar: '--aile-yogunluk-kenar', bosluk: '--aile-yogunluk-bosluk', yogun: '--aile-yogunluk-yogun' });
+export const densityCssVars = (b: DensityBand): Record<string, string> => ({
+  [densityVarNames.kenar]: `${b.kenar}px`, [densityVarNames.bosluk]: `${b.bosluk}px`, [densityVarNames.yogun]: `${b.yogun}px`,
+});
+
+/** Dokunma/tıklama hedefi: 44 (hedefAsgari ile aynı); kaba işaretçi katmanında (data-input-coarse) 48. */
+export const targetTokens = Object.freeze({ dokunmaHedefi: designTokens.hedefAsgari, dokunmaHedefiCoarse: 48 });
+export const targetCssVars = (coarse: boolean): Record<string, string> => ({
+  '--aile-dokunma-hedefi': `${coarse ? targetTokens.dokunmaHedefiCoarse : targetTokens.dokunmaHedefi}px`,
+});
+
+/** Güvenli alan kenarları (admin.html viewport-fit=cover); env() yoksa 0px. */
+export const safeAreaCssVars: Readonly<Record<string, string>> = Object.freeze(Object.fromEntries(
+  (['top', 'right', 'bottom', 'left'] as const).map(side => [`--aile-safe-${side}`, `env(safe-area-inset-${side}, 0px)`]),
+));

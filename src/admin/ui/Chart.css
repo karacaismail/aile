@@ -1,13 +1,25 @@
 /* Chart — ECharts sarmalayıcısı; yalnız --aile tokenları (admin.css / aileCssVars). Referans bundle.css .pg-bars /
    .pg-legend: grafik ve değer listesi aynı yuzey alanında, kart/kenarlık yok. Yükseklik --aile-chart-yukseklik
-   (bileşen prop'tan yazar); genişlik kapsayıcıdan, ResizeObserver tuvali izler. Metin 14/20 (alt sınır).
-   Tuvalde odaklanacak kontrol yok; odak çizgisi gerekmez. Hareket yalnız ECharts animasyonu (chartMotion),
-   CSS geçişi yok; reduced-motion'ı bileşen matchMedia ile okur. */
+   (bileşen prop'tan yazar); genişlik kapsayıcıdan, ResizeObserver tuvali izler. Metin en az 14/20.
+   Telefon: "Grafiği göster" ayrıntı düğmesi (ikincil düğme görünümü; kenarlık kontrol sınırıdır, süs değil) ve altında
+   açıklama tablosu. Dokunma hedefi 44 px (hedef-asgari), kaba işaretçide 48 px (+ bosluk-1); katman AdaptiveRoot'un
+   [data-input-coarse] özniteliğinden okunur, genişlik medya sorgusu türetilmez.
+   Odak: çevreleyen halka yok; admin.css [data-focus-line] kuralı yalnız klavye modunda 3 px alt çizgi çizer
+   (forced-colors istisnası orada). Hareket: düğme renk geçişi tek süre/eğri; reduced-motion'da geçiş yok, durum anında.
+   ECharts animasyonu chartMotion ile (reduced-motion'da kapalı). */
 
 .aile-chart {
   display: grid;
   gap: var(--aile-bosluk-3);
   min-width: 0;
+}
+
+.aile-chart-yuva {
+  position: relative;
+  min-width: 0;
+}
+.aile-chart-yuva[hidden] {
+  display: none;
 }
 
 .aile-chart-gorsel,
@@ -37,19 +49,63 @@
   text-align: center;
 }
 
-/* Hata: metin sözcükle söyler ("Hata: …"); hata-yuzey destekler, tek işaret değildir. */
+/* Hata: metin sözcükle söyler ("Hata: …"); hata-yuzey destekler, tek işaret değildir. Eylem aynı yüzeyde. */
 .aile-chart-hata {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: var(--aile-bosluk-3);
   padding: var(--aile-bosluk-3);
   border-radius: var(--aile-kose-kart);
   background: var(--aile-hata-yuzey);
   color: var(--aile-hata);
+  text-align: center;
+}
+.aile-chart-hata-metin {
+  margin: 0;
   font-size: 14px;
   line-height: 20px;
   font-weight: 500;
-  text-align: center;
+  color: var(--aile-hata);
+  overflow-wrap: break-word;
+}
+
+/* Düğmeler (ayrıntı aç/kapa ve hata eylemi): ikincil düğme — yuzey dolgu, eylem kenar ve metin. */
+.aile-chart-dugme {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-block-size: var(--aile-hedef-asgari);
+  min-inline-size: var(--aile-hedef-asgari);
+  margin: 0;
+  padding: 0 var(--aile-bosluk-4);
+  border: 1px solid var(--aile-eylem);
+  border-radius: var(--aile-kose-kontrol);
+  background: var(--aile-yuzey);
+  color: var(--aile-eylem);
+  font-family: var(--aile-font-sans);
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--aile-sure) var(--aile-egri), color var(--aile-sure) var(--aile-egri);
+}
+[data-input-coarse] .aile-chart-dugme {
+  min-block-size: calc(var(--aile-hedef-asgari) + var(--aile-bosluk-1));
+  min-inline-size: calc(var(--aile-hedef-asgari) + var(--aile-bosluk-1));
+}
+/* Yalnız birincil işaretçi hover destekliyorsa: dokunuş sonrası takılı hover olmaz. */
+@media (hover: hover) {
+  .aile-chart-dugme:hover { background: var(--aile-bilgi-yuzey); }
+}
+.aile-chart-dugme:active {
+  background: var(--aile-secili);
+  color: var(--aile-nav);
 }
 
 .aile-chart-aciklama {
@@ -76,4 +132,10 @@
 }
 .aile-chart-aciklama td {
   text-align: right;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aile-chart-dugme {
+    transition-duration: 0s;
+  }
 }

@@ -2,10 +2,13 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { VIEW_MODES, type ViewMode } from '../shell/contracts';
+import { buildTermTree, toRecordRow } from './indexes';
 import type { MediaReference, PartitionEnvelope, PurchaseNeedRecord, Term } from './types';
 import {
   FACETS,
   UNKNOWN,
+  buildQueryIndex,
   createQueryContext,
   evaluate,
   facetCounts,
@@ -229,5 +232,240 @@ describe('toQueryRow (sentetik nesil)', () => {
     const expected = rows.filter(r => r.category !== null && (r.category === mutfak.id || children.has(r.category))).map(r => r.id).sort();
     expect(expected.length).toBeGreaterThan(0);
     expect(ids(evaluate(rows, ast({ facets: { category: [mutfak.id] } }), fixtureCtx))).toEqual(expected);
+  });
+});
+
+describe('Türkçe metin ve sıralama', () => {
+  it('arama İ/ı farkına takılmaz: büyük harfli Latin adlar küçük harfle bulunur', () => {
+    const rows = [row({ id: 'ikea', label: 'IKEA kitaplık' }), row({ id: 'telefon', label: 'iPhone şarj kablosu' }), row({ id: 'isik', label: 'Işıklı ayna' })];
+    expect(ids(evaluate(rows, ast({ text: 'ikea' }), ctx))).toEqual(['ikea']);
+    expect(ids(evaluate(rows, ast({ text: 'IPHONE' }), ctx))).toEqual(['telefon']);
+    // Türkçe büyük/küçük eşlemesi korunur: "IŞIK" ve "ışık" aynı kaydı bulur
+    expect(ids(evaluate(rows, ast({ text: 'IŞIK' }), ctx))).toEqual(['isik']);
+    expect(ids(evaluate(rows, ast({ text: 'ışık' }), ctx))).toEqual(['isik']);
+    // ş ile s ayrı harftir; aksan kaldırma yapılmaz
+    expect(ids(evaluate(rows, ast({ text: 'isik' }), ctx))).toEqual([]);
+  });
+
+  it('ayrışmış (NFD) İ ve i + U+0307 de aynı harf sayılır', () => {
+    const rows = [row({ id: 'nfd', label: 'I\u0307stanbul halısı' }), row({ id: 'nfc', label: 'İzmir kilimi' })];
+    expect(ids(evaluate(rows, ast({ text: 'istanbul' }), ctx))).toEqual(['nfd']);
+    expect(ids(evaluate(rows, ast({ text: 'i\u0307zmir' }), ctx))).toEqual(['nfc']);
+    expect(ids(evaluate(rows, ast({ text: 'İ' }), ctx))).toEqual(['nfc', 'nfd']);
+  });
+
+  it('küçük harf ve İ/ı: ı-sözcükleri i-sözcüklerinden önce, sayılar doğal sırada', () => {
+    const labels = ['ip', 'İnci', 'ılgın', 'Işık', 'iğde', 'ıhlamur', 'Ölçü', 'oda', 'Kalem 10', 'Kalem 2', 'cam', 'Çay'];
+    const rows = labels.map((label, i) => row({ id: `t${i}`, label }));
+    expect(sortRows(rows, { field: 'label', dir: 'asc' }).map(r => r.label)).toEqual(['cam', 'Çay', 'ıhlamur', 'ılgın', 'Işık', 'iğde', 'İnci', 'ip', 'Kalem 2', 'Kalem 10', 'oda', 'Ölçü']);
+    expect(sortRows(rows, { field: 'label', dir: 'desc' }).map(r => r.label)).toEqual(['Ölçü', 'oda', 'Kalem 10', 'Kalem 2', 'ip', 'İnci', 'iğde', 'Işık', 'ılgın', 'ıhlamur', 'Çay', 'cam']);
+  });
+
+  it('kararlı sıralama: eşit anahtarlı kayıtlar her alanda ve iki yönde girdi sırasını korur', () => {
+    const rows = [
+      row({ id: 'k1', label: 'Ilık', planned: { amount: '100.00', currency: 'TRY' }, dates: { planned_on: '2026-11-01' } }),
+      row({ id: 'k2', label: 'ılık', planned: { amount: '100', currency: 'TRY' }, dates: { planned_on: '2026-11-01' } }),
+      row({ id: 'k3', label: 'ILIK', planned: { amount: '100.0', currency: 'TRY' }, dates: { planned_on: '2026-11-01' } }),
+    ];
+    for (const field of ['label', 'planned', 'planned_on'] as const) {
+      for (const dir of ['asc', 'desc'] as const) {
+        expect(sortRows(rows, { field, dir }).map(r => r.id)).toEqual(['k1', 'k2', 'k3']);
+        expect(sortRows([...rows].reverse(), { field, dir }).map(r => r.id)).toEqual(['k3', 'k2', 'k1']);
+      }
+    }
+  });
+
+  it('adı olmayan kayıt etiket sıralamasında yönden bağımsız sondadır', () => {
+    const rows = [row({ id: 'adsiz', label: '' }), row({ id: 'b', label: 'Battaniye' }), row({ id: 'a', label: 'Ayna' })];
+    expect(sortRows(rows, { field: 'label', dir: 'asc' }).map(r => r.id)).toEqual(['a', 'b', 'adsiz']);
+    expect(sortRows(rows, { field: 'label', dir: 'desc' }).map(r => r.id)).toEqual(['b', 'a', 'adsiz']);
+  });
+});
+
+describe('tutar: ondalık metin kesin karşılaştırılır', () => {
+  it('kayan noktada eşit görünen tutarlar doğru sıralanır ve aralığa doğru girer', () => {
+    // Number() ile ikisi de 9007199254740992 olur; ondalık metin ise farklıdır.
+    const rows = [
+      row({ id: 'kucuk', label: 'A', planned: { amount: '9007199254740992.50', currency: 'TRY' } }),
+      row({ id: 'buyuk', label: 'B', planned: { amount: '9007199254740993.00', currency: 'TRY' } }),
+    ];
+    expect(sortRows(rows, { field: 'planned', dir: 'desc' }).map(r => r.id)).toEqual(['buyuk', 'kucuk']);
+    expect(ids(evaluate(rows, ast({ amountRange: { min: '9007199254740993' } }), ctx))).toEqual(['buyuk']);
+    expect(ids(evaluate(rows, ast({ amountRange: { max: '9007199254740992.5' } }), ctx))).toEqual(['kucuk']);
+  });
+
+  it('negatif, sıfır ve sondaki sıfırlar doğru karşılaştırılır', () => {
+    const rows = [
+      row({ id: 'eksi', label: 'A', planned: { amount: '-5.25', currency: 'TRY' } }),
+      row({ id: 'sifir', label: 'B', planned: { amount: '0.00', currency: 'TRY' } }),
+      row({ id: 'kesir', label: 'C', planned: { amount: '0.5', currency: 'TRY' } }),
+      row({ id: 'tam', label: 'D', planned: { amount: '10', currency: 'TRY' } }),
+      row({ id: 'eksi_buyuk', label: 'E', planned: { amount: '-100', currency: 'TRY' } }),
+    ];
+    expect(sortRows(rows, { field: 'planned', dir: 'asc' }).map(r => r.id)).toEqual(['eksi_buyuk', 'eksi', 'sifir', 'kesir', 'tam']);
+    expect(ids(evaluate(rows, ast({ amountRange: { min: '0', max: '0.50' } }), ctx))).toEqual(['kesir', 'sifir']);
+    expect(ids(evaluate(rows, ast({ amountRange: { max: '-5.250' } }), ctx))).toEqual(['eksi', 'eksi_buyuk']);
+  });
+
+  it('boş ya da ondalık olmayan sınır yok sayılır; sıfıra dönmez', () => {
+    expect(ids(evaluate(ROWS, ast({ amountRange: { min: '' } }), ctx))).toEqual(ids(evaluate(ROWS, ast(), ctx)));
+    expect(ids(evaluate(ROWS, ast({ amountRange: { min: 'abc', max: '1,5' } }), ctx))).toEqual(ids(evaluate(ROWS, ast(), ctx)));
+    // geçerli sınır geçersiz olanla birlikte çalışmaya devam eder
+    expect(ids(evaluate(ROWS, ast({ amountRange: { min: 'x', max: '100' } }), ctx))).toEqual(['bilinmez']);
+  });
+});
+
+describe('tarih aralığı sınırları', () => {
+  it('boş ya da ISO gün olmayan sınır yok sayılır; tarihsiz kayıtlar düşmez', () => {
+    const all = ids(evaluate(ROWS, ast(), ctx));
+    expect(ids(evaluate(ROWS, ast({ dateRange: { from: '', to: '' } }), ctx))).toEqual(all);
+    expect(ids(evaluate(ROWS, ast({ dateRange: { to: '28.10.2026' } }), ctx))).toEqual(all);
+    // geçerli sınır geçersiz olanla birlikte çalışmaya devam eder
+    expect(ids(evaluate(ROWS, ast({ dateRange: { from: 'dün', to: '2026-10-01' } }), ctx))).toEqual(['bilinmez', 'perde']);
+  });
+});
+
+describe('kayıt adı: liste görünümüyle aynı ad aranır ve sıralanır', () => {
+  const record = (patch: Partial<PurchaseNeedRecord>): PurchaseNeedRecord => ({
+    id: 'kayit',
+    tenant_id: 'tenant',
+    kind: 'purchase_need',
+    category_term_id: null,
+    phase_term_id: null,
+    context_term_ids: [],
+    state_snapshot: { decision: null, fulfillment: null, inspection: null, payment: null },
+    state_term_ids: { decision: null, fulfillment: null, inspection: null, payment: null },
+    amounts: {},
+    dates: {},
+    room_id: null,
+    ...patch,
+  });
+  const rowCtx = { termsById: new Map(), roomsById: new Map(), mediaByEntity: new Map(), relationsBySource: new Map() };
+
+  it('label yoksa attributes.ad, o da yoksa source_attributes.ad kullanılır (toRecordRow ile aynı)', () => {
+    const fromAttrs = record({ id: 'a', attributes: { ad: 'Çalışma masası' } });
+    const fromSource = record({ id: 'b', source_attributes: { ad: 'Kitaplık' } });
+    for (const rec of [fromAttrs, fromSource]) expect(toQueryRow(rec, ctx).label).toBe(toRecordRow(rec, rowCtx).label);
+    const rows = [fromAttrs, fromSource].map(rec => toQueryRow(rec, ctx));
+    expect(ids(evaluate(rows, ast({ text: 'masa' }), ctx))).toEqual(['a']);
+    expect(sortRows(rows, { field: 'label', dir: 'asc' }).map(r => r.id)).toEqual(['a', 'b']);
+  });
+
+  it('hiç adı olmayan kayıt boş adla kalır (UI "Bilinmiyor" yazar), uydurulmaz', () => {
+    expect(toQueryRow(record({ id: 'c' }), ctx).label).toBe('');
+    expect(toRecordRow(record({ id: 'c' }), rowCtx).label).toBe('Bilinmiyor');
+  });
+});
+
+describe('kategori kapsaması terim ağacıyla aynı kuralı izler', () => {
+  const V = '00000000-0000-4000-8000-0000000000a1';
+  const OTHER = '00000000-0000-4000-8000-0000000000a2';
+  const t = (id: string, parent_id: string | null, vocabulary_id = V): Term => ({ id, tenant_id: 'tenant', vocabulary_id, code: id, label: id, parent_id, legacy: false });
+  const terms: Term[] = [
+    t('cat:a', 'cat:b'), // döngü a ↔ b: buildTermTree girdi sırasıyla döngüyü kapatan b → a bağını keser → b kök, a b'nin altında
+    t('cat:b', 'cat:a'),
+    t('cat:oda', null, OTHER),
+    t('cat:c', 'cat:oda'), // başka sözlükteki üst terim: bağ kurulmaz
+    t('cat:kendi', 'cat:kendi'), // kendi üstü
+    t('cat:yetim', 'cat:yok'), // olmayan üst terim
+    t('cat:kok', null),
+    t('cat:alt', 'cat:kok'),
+    t('cat:torun', 'cat:alt'),
+  ];
+  const tree = buildTermTree(terms);
+  const treeCtx = createQueryContext({ terms });
+  const rows = terms.map(term => row({ id: `r:${term.id}`, label: term.id, category: term.id }));
+
+  it('her (seçim, kayıt) çifti için kapsama TermTree.covers ile aynıdır', () => {
+    for (const selected of terms) {
+      const expected = rows.filter(r => tree.covers(selected.id, r.category!)).map(r => r.id).sort();
+      expect({ selected: selected.id, ids: ids(evaluate(rows, ast({ facets: { category: [selected.id] } }), treeCtx)) }).toEqual({ selected: selected.id, ids: expected });
+    }
+  });
+
+  it('döngüde kesilen bağ ters yönde kapsama üretmez; sayım da ağaçla aynıdır', () => {
+    expect(ids(evaluate(rows, ast({ facets: { category: ['cat:a'] } }), treeCtx))).toEqual(['r:cat:a']);
+    expect(ids(evaluate(rows, ast({ facets: { category: ['cat:b'] } }), treeCtx))).toEqual(['r:cat:a', 'r:cat:b']);
+    const counts = facetCounts(rows, ast(), treeCtx).category;
+    expect(counts['cat:a']).toBe(1);
+    expect(counts['cat:b']).toBe(2);
+    expect(counts['cat:oda']).toBe(1);
+    expect(counts['cat:kok']).toBe(3);
+  });
+});
+
+describe('sorgu indeksi: nesil başına bir kez', () => {
+  it('buildQueryIndex modül işlevleriyle aynı kümeyi, sayımı ve sırayı verir', () => {
+    const index = buildQueryIndex(ROWS, ctx);
+    const asts: QueryAst[] = [
+      ast(),
+      ast({ facets: { room: ['oda:salon', 'oda:yatak'], payment: ['pay:paid'] } }),
+      ast({ text: 'ol', facets: { category: ['cat:mobilya'] }, sort: { field: 'planned', dir: 'desc' } }),
+      ast({ facets: { missing: ['photo'] }, dateRange: { from: '2026-10-01' }, sort: { field: 'planned_on', dir: 'asc' } }),
+    ];
+    for (const q of asts) {
+      expect(ids(index.evaluate(q))).toEqual(ids(evaluate(ROWS, q, ctx)));
+      expect(index.facetCounts(q)).toEqual(facetCounts(ROWS, q, ctx));
+      expect(index.run(q).map(r => r.id)).toEqual(runQuery(ROWS, q, ctx).map(r => r.id));
+    }
+    expect(index.rows).toBe(ROWS);
+    expect(index.ctx).toBe(ctx);
+  });
+
+  it('aynı satır dizisi ve bağlamla yinelenen sorgular satır alanlarını yeniden taramaz', () => {
+    let reads = 0;
+    const watched = ROWS.map(r => new Proxy(r, { get(target, key, receiver) { reads += 1; return Reflect.get(target, key, receiver); } }));
+    evaluate(watched, ast({ facets: { room: ['oda:salon'] } }), ctx); // ilk çağrı indeksi kurar
+    reads = 0;
+    evaluate(watched, ast({ text: 'koltuk', facets: { category: ['cat:mobilya'], payment: ['pay:paid', 'pay:planned'] } }), ctx);
+    facetCounts(watched, ast({ facets: { room: ['oda:salon'] }, amountRange: { min: '100' } }), ctx);
+    runQuery(watched, ast({ facets: { phase: ['faz:once'] }, sort: { field: 'label', dir: 'asc' } }), ctx);
+    runQuery(watched, ast({ dateRange: { from: '2026-10-01' }, sort: { field: 'planned', dir: 'desc' } }), ctx);
+    expect(reads).toBe(0);
+  });
+
+  it('dizi değişirse (uzunluk) indeks yeniden kurulur', () => {
+    const rows = [...ROWS];
+    expect(evaluate(rows, ast(), ctx).size).toBe(5);
+    rows.push(row({ id: 'yeni', label: 'Yeni', room: 'oda:salon' }));
+    expect(ids(evaluate(rows, ast({ facets: { room: ['oda:salon'] } }), ctx))).toContain('yeni');
+  });
+});
+
+describe('aynı sorgu, altı görünüm modu', () => {
+  // Modların sıralama alanı view_definitions sort_fields'ten: liste/tablo/kanban etiket, zaman çizelgesi ve Gantt
+  // dates.planned_on; pivotta alımlar için sıralama alanı yok. Mod yalnız sunumu değiştirir, kümeyi değil.
+  const MODE_SORT: Record<ViewMode, QueryAst['sort']> = {
+    listing: { field: 'label', dir: 'asc' },
+    table: { field: 'label', dir: 'asc' },
+    timeline: { field: 'planned_on', dir: 'asc' },
+    kanban: { field: 'label', dir: 'asc' },
+    gantt_chart: { field: 'end_on', dir: 'asc' },
+    pivot: undefined,
+  };
+  const asts: QueryAst[] = [
+    ast(),
+    ast({ facets: { category: ['cat:mobilya'] } }),
+    ast({ facets: { room: [UNKNOWN, 'oda:yatak'], context: ['ctx:bebek'] } }),
+    ast({ text: 'i', amountRange: { min: '100' } }),
+    ast({ dateRange: { to: '2026-10-28' } }),
+  ];
+
+  it('her modda aynı ID kümesi; tarihsiz ve tutarsız kayıtlar sıralamada düşmez', () => {
+    for (const q of asts) {
+      const expected = ids(evaluate(ROWS, q, ctx));
+      for (const mode of VIEW_MODES) {
+        const got = runQuery(ROWS, { ...q, sort: MODE_SORT[mode] }, ctx).map(r => r.id);
+        expect({ mode, ids: [...got].sort() }).toEqual({ mode, ids: expected });
+        expect(new Set(got).size).toBe(got.length);
+      }
+    }
+  });
+
+  it("'Bebek' bağlamı ile proje aşaması bağımsız filtrelenir", () => {
+    expect(ids(evaluate(ROWS, ast({ facets: { context: ['ctx:bebek'] } }), ctx))).toEqual(['dolap', 'koltuk']);
+    expect(ids(evaluate(ROWS, ast({ facets: { phase: ['faz:once'] } }), ctx))).toEqual(['dolap', 'koltuk', 'perde']);
+    expect(ids(evaluate(ROWS, ast({ facets: { context: ['ctx:bebek'], phase: ['faz:sonra'] } }), ctx))).toEqual([]);
+    expect(ids(evaluate(ROWS, ast({ facets: { context: [UNKNOWN], phase: ['faz:once'] } }), ctx))).toEqual(['perde']);
   });
 });

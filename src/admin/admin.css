@@ -56,6 +56,43 @@
   --aile-egri: cubic-bezier(.65,0,.35,1);
 }
 
+/* Uyarlamalı tokenlar — tek kaynak src/design/tokens.ts (densityBands, targetTokens, safeAreaCssVars). Bu bloklar
+   src/design/tokens.test.ts ile o kaynağa ve görev bant tablosuna karşı doğrulanır; elle farklı değer yazma.
+   Yoğunluk: --aile-yogunluk-kenar (sayfa yan boşluğu), --aile-yogunluk-bosluk (bileşenler ve bölümler arası),
+   --aile-yogunluk-yogun (sıkı iç aralık). Telefon alt bantları genişlik medya sorgusuyla (360 / 375 / 390); tablet ve
+   masaüstü bantları AdaptiveRoot'un <html> öğesine ve köke yazdığı data-profile ile gelir, bu yüzden yatay telefon
+   (kısa kenar 480'den küçük) telefon bandında kalır. Bu değişkenler satır içi aileCssVars'a girmez: satır içi değer
+   bu kuralları ezerdi.
+   Dokunma hedefi: --aile-dokunma-hedefi 44 px, kaba işaretçi katmanında (data-input-coarse) 48 px. Tasarım tokenı
+   --aile-hedef-asgari sabit 44 px kalır.
+   Güvenli alan: --aile-safe-top / -right / -bottom / -left = env(safe-area-inset-*, 0px); admin.html viewport-fit=cover. */
+:root {
+  --aile-yogunluk-kenar: 12px;
+  --aile-yogunluk-bosluk: 8px;
+  --aile-yogunluk-yogun: 4px;
+  --aile-dokunma-hedefi: 44px;
+  --aile-safe-top: env(safe-area-inset-top, 0px);
+  --aile-safe-right: env(safe-area-inset-right, 0px);
+  --aile-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --aile-safe-left: env(safe-area-inset-left, 0px);
+}
+@media (min-width: 360px) {
+  :root { --aile-yogunluk-kenar: 14px; --aile-yogunluk-bosluk: 10px; --aile-yogunluk-yogun: 6px; }
+}
+@media (min-width: 375px) {
+  :root { --aile-yogunluk-kenar: 16px; --aile-yogunluk-bosluk: 12px; --aile-yogunluk-yogun: 6px; }
+}
+@media (min-width: 390px) {
+  :root { --aile-yogunluk-kenar: 16px; --aile-yogunluk-bosluk: 12px; --aile-yogunluk-yogun: 8px; }
+}
+:root[data-profile='tablet'], .aile-admin[data-profile='tablet'] {
+  --aile-yogunluk-kenar: 20px; --aile-yogunluk-bosluk: 16px; --aile-yogunluk-yogun: 10px;
+}
+:root[data-profile='desktop'], .aile-admin[data-profile='desktop'] {
+  --aile-yogunluk-kenar: 24px; --aile-yogunluk-bosluk: 20px; --aile-yogunluk-yogun: 12px;
+}
+:root[data-input-coarse], .aile-admin[data-input-coarse] { --aile-dokunma-hedefi: 48px; }
+
 body { margin: 0; }
 .aile-admin, .aile-admin *, .aile-admin *::before, .aile-admin *::after { box-sizing: border-box; }
 
@@ -89,29 +126,45 @@ body { margin: 0; }
    outline ve box-shadow hiçbir giriş yönteminde yok; çizgi yalnız klavye modunda (html[data-keyboard='true'],
    installKeyboardMode: Tab açar, pointer kapatır) ve :focus-visible ile görünür. Antd popup kökleri body'ye
    portallanır; aynı kuralları alırlar. antd 6 Select'te .ant-select-selector yoktur: çerçeveli kök .ant-select'tir,
-   odakta .ant-select-focused alır; çizgi bu kökün ::after'ıdır (combobox girdisi kökün içindedir). */
-:is(.aile-admin, .ant-drawer, .ant-modal, .ant-modal-root, .ant-dropdown, .ant-select-dropdown, .ant-popover, .ant-tooltip, .ant-picker-dropdown) :focus,
-:is(.aile-admin, .ant-drawer, .ant-modal, .ant-modal-root, .ant-dropdown, .ant-select-dropdown, .ant-popover, .ant-tooltip, .ant-picker-dropdown) :focus-visible,
+   odakta .ant-select-focused alır; çizgi bu kökün ::after'ıdır (combobox girdisi kökün içindedir).
+   YEREL BİLEŞEN SÖZLEŞMESİ (antd'siz telefon sunumu):
+   - Kapsam: .aile-admin ve body'ye portallanan yerel katman kökleri: [data-aile-katman], dialog, [role=dialog],
+     [role=alertdialog], [role=menu], [role=listbox]. Kökün kendisi odak alırsa halka yok.
+   - Taşıyıcı: [data-focus-line] (yerel bileşenin tek işareti) ve a, summary, [role=tab], [role=menuitem],
+     [role=menuitemradio], [role=menuitemcheckbox], [role=option]. ::after alamayan input/textarea için çizgiyi saran
+     [data-focus-line] öğesi çizer (:has(:focus-visible)).
+   - ::after odak çizgisine ayrılmıştır; süs için ::before kullan. Taşıyıcı konumlanır ve taşmayı gösterir; kaydırma
+     kabının kendisine çizgi koyma (kabın içinde kırpılır), saran öğeye koy.
+   - nav zemininde çizgi odak-nav: .aile-admin-nav, .admin-sidebar, .ant-layout-sider, .ant-menu-dark ya da yerel
+     [data-odak-zemin='nav'] yüzeyi; seçili öğede (aria-current='page' / aria-selected='true') odak.
+   - forced-colors: active iken tek istisna: klavye modu + :focus-visible öğede outline 2px solid CanvasText. */
+:is(.aile-admin, .ant-drawer, .ant-modal, .ant-modal-root, .ant-dropdown, .ant-select-dropdown, .ant-popover, .ant-tooltip, .ant-picker-dropdown,
+    [data-aile-katman], dialog, [role=dialog], [role=alertdialog], [role=menu], [role=listbox]) :focus,
+:is(.aile-admin, .ant-drawer, .ant-modal, .ant-modal-root, .ant-dropdown, .ant-select-dropdown, .ant-popover, .ant-tooltip, .ant-picker-dropdown,
+    [data-aile-katman], dialog, [role=dialog], [role=alertdialog], [role=menu], [role=listbox]) :focus-visible,
 :is(.aile-admin, .ant-drawer, .ant-modal, .ant-modal-root, .ant-dropdown, .ant-select-dropdown, .ant-popover, .ant-picker-dropdown) .ant-select-focused,
 :is(.aile-admin, .ant-drawer, .ant-modal, .ant-modal-root, .ant-dropdown, .ant-select-dropdown, .ant-popover, .ant-picker-dropdown)
   :is(.ant-input-affix-wrapper-focused, .ant-input-number-focused, .ant-picker-focused, .ant-input-outlined:focus, .ant-input-outlined:focus-within),
-.ant-drawer-content-wrapper:focus, .ant-modal-content:focus {
+.ant-drawer-content-wrapper:focus, .ant-modal-content:focus,
+:is([data-aile-katman], dialog, [role=dialog], [role=alertdialog], [role=menu], [role=listbox]):focus {
   outline: none;
   box-shadow: none;
 }
 
 /* Çizginin taşıyıcıları: konumlanır ve taşmayı göstermeye izin verir. */
-:is(.aile-admin, .ant-drawer, .ant-modal, .ant-dropdown, .ant-select-dropdown, .ant-popover)
-  :is(.ant-btn, a, [role=tab], [role=menuitem], .ant-menu-item, .ant-segmented-item, .ant-checkbox-wrapper, .ant-radio-wrapper, .ant-collapse-header, [data-focus-line],
+:is(.aile-admin, .ant-drawer, .ant-modal, .ant-dropdown, .ant-select-dropdown, .ant-popover, [data-aile-katman], dialog, [role=dialog], [role=alertdialog], [role=menu], [role=listbox])
+  :is(.ant-btn, a, summary, [role=tab], [role=menuitem], [role=menuitemradio], [role=menuitemcheckbox], [role=option], .ant-menu-item, .ant-segmented-item,
+      .ant-checkbox-wrapper, .ant-radio-wrapper, .ant-collapse-header, [data-focus-line],
       .ant-select, .ant-input-affix-wrapper, .ant-input-number, .ant-picker) {
   position: relative;
   overflow: visible;
 }
 .aile-admin :has(> .ant-input:focus) { position: relative; }
 
-html[data-keyboard='true'] :is(.aile-admin, .ant-drawer, .ant-modal, .ant-dropdown, .ant-select-dropdown, .ant-popover)
-  :is(.ant-btn, a, [role=tab], [role=menuitem], .ant-menu-item, .ant-segmented-item, .ant-checkbox-wrapper, .ant-radio-wrapper, .ant-collapse-header, [data-focus-line]):focus-visible::after,
-html[data-keyboard='true'] :is(.aile-admin, .ant-drawer, .ant-modal, .ant-dropdown, .ant-select-dropdown, .ant-popover)
+html[data-keyboard='true'] :is(.aile-admin, .ant-drawer, .ant-modal, .ant-dropdown, .ant-select-dropdown, .ant-popover, [data-aile-katman], dialog, [role=dialog], [role=alertdialog], [role=menu], [role=listbox])
+  :is(.ant-btn, a, summary, [role=tab], [role=menuitem], [role=menuitemradio], [role=menuitemcheckbox], [role=option], .ant-menu-item, .ant-segmented-item,
+      .ant-checkbox-wrapper, .ant-radio-wrapper, .ant-collapse-header, [data-focus-line]):focus-visible::after,
+html[data-keyboard='true'] :is(.aile-admin, .ant-drawer, .ant-modal, .ant-dropdown, .ant-select-dropdown, .ant-popover, [data-aile-katman], dialog, [role=dialog], [role=alertdialog], [role=menu], [role=listbox])
   :is(.ant-checkbox-wrapper, .ant-radio-wrapper, .ant-collapse-header, [data-focus-line]):has(:focus-visible)::after,
 html[data-keyboard='true'] :is(.aile-admin, .ant-drawer, .ant-modal, .ant-dropdown, .ant-select-dropdown, .ant-popover) .ant-select.ant-select-focused::after,
 html[data-keyboard='true'] :is(.aile-admin, .ant-drawer, .ant-modal, .ant-dropdown, .ant-select-dropdown, .ant-popover)
@@ -128,15 +181,15 @@ html[data-keyboard='true'] .aile-admin :has(> .ant-input:focus)::after {
   pointer-events: none;
 }
 /* nav üzerinde çizgi acik-mavi (odak-nav); seçili nav öğesinde odak rengine döner. */
-html[data-keyboard='true'] .aile-admin :is(.admin-sidebar, .ant-layout-sider, .aile-admin-nav, .ant-menu-dark)
+html[data-keyboard='true'] :is(.aile-admin, [data-aile-katman], dialog, [role=dialog], [role=alertdialog], [role=menu], [role=listbox]) :is(.admin-sidebar, .ant-layout-sider, .aile-admin-nav, .ant-menu-dark, [data-odak-zemin='nav'])
   :is(.ant-btn, a, [role=menuitem], .ant-menu-item, [data-focus-line]):focus-visible::after { background: var(--aile-odak-nav); }
-html[data-keyboard='true'] .aile-admin :is(.admin-sidebar, .ant-layout-sider, .aile-admin-nav, .ant-menu-dark)
+html[data-keyboard='true'] :is(.aile-admin, [data-aile-katman], dialog, [role=dialog], [role=alertdialog], [role=menu], [role=listbox]) :is(.admin-sidebar, .ant-layout-sider, .aile-admin-nav, .ant-menu-dark, [data-odak-zemin='nav'])
   :is(.ant-menu-item-selected, [aria-current='page'], [aria-selected='true']):focus-visible::after,
-html[data-keyboard='true'] .aile-admin :is(.admin-sidebar, .ant-layout-sider, .aile-admin-nav, .ant-menu-dark)
+html[data-keyboard='true'] :is(.aile-admin, [data-aile-katman], dialog, [role=dialog], [role=alertdialog], [role=menu], [role=listbox]) :is(.admin-sidebar, .ant-layout-sider, .aile-admin-nav, .ant-menu-dark, [data-odak-zemin='nav'])
   .ant-menu-item-selected :is(a, [role=menuitem]):focus-visible::after { background: var(--aile-odak); }
 /* Liste ve tablo satırında çizgi satırın alt kenarındadır. */
-html[data-keyboard='true'] .aile-admin :is(tr, [role=row], .ant-list-item):focus-visible { position: relative; }
-html[data-keyboard='true'] .aile-admin :is(tr, [role=row], .ant-list-item):focus-visible::after {
+html[data-keyboard='true'] :is(.aile-admin, [data-aile-katman], dialog, [role=dialog], [role=alertdialog], [role=menu], [role=listbox]) :is(tr, [role=row], .ant-list-item):focus-visible { position: relative; }
+html[data-keyboard='true'] :is(.aile-admin, [data-aile-katman], dialog, [role=dialog], [role=alertdialog], [role=menu], [role=listbox]) :is(tr, [role=row], .ant-list-item):focus-visible::after {
   content: "";
   position: absolute;
   left: 0;
@@ -147,16 +200,22 @@ html[data-keyboard='true'] .aile-admin :is(tr, [role=row], .ant-list-item):focus
   pointer-events: none;
 }
 @media (forced-colors: active) {
-  html[data-keyboard='true'] :is(.aile-admin, .ant-drawer, .ant-modal, .ant-modal-root, .ant-dropdown, .ant-select-dropdown, .ant-popover, .ant-tooltip, .ant-picker-dropdown) :focus-visible { outline: 2px solid CanvasText; }
+  html[data-keyboard='true'] :is(.aile-admin, .ant-drawer, .ant-modal, .ant-modal-root, .ant-dropdown, .ant-select-dropdown, .ant-popover, .ant-tooltip, .ant-picker-dropdown,
+    [data-aile-katman], dialog, [role=dialog], [role=alertdialog], [role=menu], [role=listbox]) :focus-visible { outline: 2px solid CanvasText; }
 }
 
-/* Hareket: tek süre ve tek eğri antd tema token'ından gelir; reduced-motion'da kabuk ve popup katmanları anlık. */
+/* Hareket: tek süre ve tek eğri antd tema token'ından gelir; reduced-motion'da kabuk, antd popup katmanları ve yerel
+   katmanlar anlık (durum değişimi yine hemen uygulanır). */
 @media (prefers-reduced-motion: reduce) {
   .aile-admin, .aile-admin *, .aile-admin *::before, .aile-admin *::after,
-  :is(.ant-drawer, .ant-modal, .ant-modal-root, .ant-dropdown, .ant-select-dropdown, .ant-popover, .ant-tooltip, .ant-picker-dropdown, .ant-message, .ant-notification),
-  :is(.ant-drawer, .ant-modal, .ant-modal-root, .ant-dropdown, .ant-select-dropdown, .ant-popover, .ant-tooltip, .ant-picker-dropdown, .ant-message, .ant-notification) *,
-  :is(.ant-drawer, .ant-modal, .ant-modal-root, .ant-dropdown, .ant-select-dropdown, .ant-popover, .ant-tooltip, .ant-picker-dropdown, .ant-message, .ant-notification) *::before,
-  :is(.ant-drawer, .ant-modal, .ant-modal-root, .ant-dropdown, .ant-select-dropdown, .ant-popover, .ant-tooltip, .ant-picker-dropdown, .ant-message, .ant-notification) *::after {
+  :is(.ant-drawer, .ant-modal, .ant-modal-root, .ant-dropdown, .ant-select-dropdown, .ant-popover, .ant-tooltip, .ant-picker-dropdown, .ant-message, .ant-notification,
+     [data-aile-katman], dialog, [role=dialog], [role=alertdialog], [role=menu], [role=listbox]),
+  :is(.ant-drawer, .ant-modal, .ant-modal-root, .ant-dropdown, .ant-select-dropdown, .ant-popover, .ant-tooltip, .ant-picker-dropdown, .ant-message, .ant-notification,
+     [data-aile-katman], dialog, [role=dialog], [role=alertdialog], [role=menu], [role=listbox]) *,
+  :is(.ant-drawer, .ant-modal, .ant-modal-root, .ant-dropdown, .ant-select-dropdown, .ant-popover, .ant-tooltip, .ant-picker-dropdown, .ant-message, .ant-notification,
+     [data-aile-katman], dialog, [role=dialog], [role=alertdialog], [role=menu], [role=listbox]) *::before,
+  :is(.ant-drawer, .ant-modal, .ant-modal-root, .ant-dropdown, .ant-select-dropdown, .ant-popover, .ant-tooltip, .ant-picker-dropdown, .ant-message, .ant-notification,
+     [data-aile-katman], dialog, [role=dialog], [role=alertdialog], [role=menu], [role=listbox]) *::after {
     transition-duration: 0s !important;
     animation: none !important;
   }
