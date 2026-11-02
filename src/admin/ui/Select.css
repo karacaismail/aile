@@ -1,45 +1,286 @@
-/* Select — yerleşim; renk, boşluk, köşe ve hareket değerleri --aile-* tokenlarından (src/design/tokens.ts).
-   Tetik ve açılır liste antd Select'tir (tema: theme/antdTheme.ts › Select); odak çizgisini admin.css çizer.
-   Telefon listesi BottomSheet içinde kendi işaretlemesiyle (.aile-select-liste). */
-.aile-select { display: flex; flex-direction: column; gap: var(--aile-bosluk-1); min-width: 0; }
+/* Select — yerel combobox + listbox (antd yok; ui/Select.tsx). Renk, boşluk, köşe, gölge ve hareket yalnız --aile-*
+   tokenlarından (src/design/tokens.ts; admin.css :root yedekleri). Odak göstergesi admin.css [data-focus-line] alt
+   çizgisidir (yalnız klavye modu); burada halka yazılmaz. Kenarlık yalnız işlevsel: alan sınırı (kenar-kontrol) ve
+   sayfa başlığı ayırıcısı (cizgi). Dokunma hedefi merkezi --aile-dokunma-hedefi: 44 px, coarse girişte 48 px (admin.css,
+   data-input-coarse; AdaptiveRoot <html>'e yansıtır, top layer katmanları da alır).
+   Popover ve diyalog top layer'da çizilir ama DOM'da alanın içindedir: miras (font, tokenlar) ve odak kuralları ulaşır. */
+.aile-select {
+  --aile-select-aralik: calc(var(--aile-odak-aralik) + var(--aile-odak-kalinlik) + var(--aile-bosluk-1));
+  --aile-select-liste-azami: calc(6 * var(--aile-dokunma-hedefi) + 7 * var(--aile-bosluk-2));
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-1);
+  min-width: 0;
+}
 .aile-select-etiket { font-weight: 500; color: var(--aile-metin); }
-.aile-select-etiket--gizli { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-.aile-select-kontrol { width: 100%; }
-.aile-select-yardim { margin: 0; font-size: 14px; line-height: 20px; color: var(--aile-metin-ikincil); }
-.aile-select-hata { margin: 0; display: flex; gap: var(--aile-bosluk-2); align-items: flex-start; font-size: 14px; line-height: 20px; color: var(--aile-hata); }
-.aile-select-hata svg { flex: none; margin-top: 0; }
+.aile-select-etiket--gizli { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
 
-/* Hatalı tetik: kenar hata (antd status) + hata yüzeyi (tasarım .is-invalid). */
-.aile-select .ant-select-status-error:not(.ant-select-disabled) .ant-select-selector { background: var(--aile-hata-yuzey); }
-
-/* Seçenek içeriği (açılır liste ve telefon listesi ortak): etiket solda, not 14 px ikincil. */
-.aile-select-secenek { display: flex; align-items: center; gap: var(--aile-bosluk-2); min-width: 0; }
-.aile-select-secenek-etiket { flex: 1; min-width: 0; }
-.aile-select-secenek-not { font-size: 14px; line-height: 20px; color: var(--aile-metin-ikincil); }
-.ant-select-item-option-selected .aile-select-secenek-not,
-.aile-select-liste-secenek.is-secili .aile-select-secenek-not { color: var(--aile-metin); }
-.aile-select-bos { display: flex; align-items: center; min-height: var(--aile-hedef-asgari); padding: 0 var(--aile-bosluk-3); color: var(--aile-metin-ikincil); }
-
-/* Telefon: BottomSheet içinde liste. Tek yüzey, kart/kenar yok; ayrım boşlukla. */
-.aile-select-sayfa { display: flex; flex-direction: column; gap: var(--aile-bosluk-3); }
-.aile-select-liste { margin: 0; padding: 0; list-style: none; }
-.aile-select-liste-secenek {
+/* Tetik: 44 px alan, sağda ok. Değer kesilmez; uzun etiket kelimeler arasından sarılır ve tetik büyür. */
+.aile-select-tetik {
   position: relative;
   display: flex;
   align-items: center;
   gap: var(--aile-bosluk-2);
-  min-height: var(--aile-hedef-asgari);
-  padding: 0 var(--aile-bosluk-3);
+  box-sizing: border-box;
+  width: 100%;
+  min-height: var(--aile-dokunma-hedefi);
+  padding: var(--aile-bosluk-2) var(--aile-bosluk-3);
+  border: 1px solid var(--aile-kenar-kontrol);
+  border-radius: var(--aile-kose-kontrol);
+  background: var(--aile-yuzey);
+  color: var(--aile-metin);
+  font: inherit;
+  font-size: 16px;
+  line-height: 24px;
+  text-align: start;
+  cursor: pointer;
+  user-select: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color var(--aile-sure) var(--aile-egri), background-color var(--aile-sure) var(--aile-egri);
+}
+.aile-select-tetik:focus { outline: none; }
+@media (hover: hover) {
+  .aile-select-tetik:not(.is-devre-disi):hover { border-color: var(--aile-metin); }
+}
+.aile-select-tetik.is-acik { border-color: var(--aile-metin); background: var(--aile-bilgi-yuzey); }
+.aile-select-tetik.is-hatali { border-color: var(--aile-hata); background: var(--aile-hata-yuzey); }
+.aile-select-tetik.is-devre-disi { border-color: var(--aile-cizgi); background: var(--aile-liste-zemin); color: var(--aile-metin-ikincil); cursor: not-allowed; }
+.aile-select-tetik svg { flex: none; }
+.aile-select-on-simge { color: var(--aile-metin-ikincil); }
+.aile-select-deger { flex: 1 1 auto; min-width: 0; }
+.aile-select-deger.is-yer-tutucu { color: var(--aile-metin-ikincil); }
+.aile-select-ok { color: var(--aile-metin-ikincil); transition: transform var(--aile-sure) var(--aile-egri); }
+.aile-select-tetik.is-acik .aile-select-ok { transform: rotate(180deg); }
+
+/* Yardım ve hata: odak çizgisi tetiğin 7 px altına iner; not ondan sonra başlar. */
+.aile-select-yardim,
+.aile-select-hata { margin: var(--aile-bosluk-1) 0 0; font-size: 14px; line-height: 20px; }
+.aile-select-yardim { color: var(--aile-metin-ikincil); }
+.aile-select-hata { display: flex; gap: var(--aile-bosluk-2); align-items: flex-start; color: var(--aile-hata); }
+.aile-select-hata svg { flex: none; }
+
+/* Liste ve seçenek (popover ve alt sayfa ortak). Seçenekler arası boşluk odak çizgisine (4 + 3 px) yer açar. */
+.aile-select-liste { display: flex; flex-direction: column; gap: var(--aile-bosluk-2); margin: 0; padding: 0; list-style: none; }
+.aile-select-secenek {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--aile-bosluk-2);
+  box-sizing: border-box;
+  min-height: var(--aile-dokunma-hedefi);
+  padding: var(--aile-bosluk-2) var(--aile-bosluk-3);
   border-radius: var(--aile-kose-kontrol);
   color: var(--aile-metin);
+  font-size: 16px;
+  line-height: 24px;
   cursor: pointer;
+  user-select: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
   transition: background-color var(--aile-sure) var(--aile-egri);
 }
-.aile-select-liste-secenek:hover { background: var(--aile-bilgi-yuzey); }
-.aile-select-liste-secenek:active { background: var(--aile-secili); }
-.aile-select-liste-secenek.is-secili { background: var(--aile-secili); font-weight: 600; }
-.aile-select-liste-secenek.is-devre-disi { color: var(--aile-metin-ikincil); cursor: not-allowed; background: transparent; }
-.aile-select-liste-secenek svg { flex: none; }
+.aile-select-secenek:focus { outline: none; }
+@media (hover: hover) {
+  .aile-select-secenek:hover { background: var(--aile-bilgi-yuzey); }
+}
+.aile-select-secenek.is-basili { background: var(--aile-bilgi-yuzey); }
+.aile-select-secenek.is-secili { background: var(--aile-secili); font-weight: 600; }
+.aile-select-secenek.is-devre-disi { background: transparent; color: var(--aile-metin-ikincil); cursor: not-allowed; }
+.aile-select-secenek-metin { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
+.aile-select-secenek-not { font-size: 14px; line-height: 20px; font-weight: 400; color: var(--aile-metin-ikincil); }
+.aile-select-secenek.is-secili .aile-select-secenek-not { color: var(--aile-metin); }
+.aile-select-secenek-onay { flex: none; }
+.aile-select-bos { display: flex; align-items: center; min-height: var(--aile-hedef-asgari); margin: 0; padding: 0 var(--aile-bosluk-3); color: var(--aile-metin-ikincil); }
+
+/* Geniş: etkin seçenek (aria-activedescendant) yalnız klavye modunda, tetik :focus-visible iken alt çizgi taşır. */
+html[data-keyboard='true'] .aile-select-tetik:focus-visible ~ .aile-select-acilir .aile-select-secenek.is-etkin::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(-1 * (var(--aile-odak-aralik) + var(--aile-odak-kalinlik)));
+  height: var(--aile-odak-kalinlik);
+  border-radius: var(--aile-odak-kalinlik);
+  background: var(--aile-odak);
+  pointer-events: none;
+}
+
+/* Geniş: popover liste. Konum (top/left/bottom, en az genişlik, --aile-select-alan) Select.tsx'te görünüm alanından. */
+.aile-select-acilir {
+  position: fixed;
+  inset: auto;
+  box-sizing: border-box;
+  max-width: calc(100vw - 2 * var(--aile-bosluk-4));
+  max-height: min(var(--aile-select-liste-azami), calc(var(--aile-select-alan, 100vh) - var(--aile-select-aralik) - var(--aile-bosluk-4)));
+  margin: var(--aile-select-aralik) 0 0;
+  padding: var(--aile-bosluk-2);
+  border: 0;
+  border-radius: var(--aile-kose-kart);
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: var(--aile-yuzey);
+  color: var(--aile-metin);
+  font: inherit;
+  box-shadow: var(--aile-golge-yukseltilmis);
+  opacity: 0;
+  transform: translateY(calc(-1 * var(--aile-bosluk-1)));
+  transition: opacity var(--aile-sure) var(--aile-egri), transform var(--aile-sure) var(--aile-egri);
+}
+.aile-select-acilir[data-yon='ust'] { margin: 0 0 var(--aile-select-aralik); transform: translateY(var(--aile-bosluk-1)); }
+.aile-select-acilir[data-state='acik'] { opacity: 1; transform: none; }
+.aile-select-acilir[data-state='cikis'] { pointer-events: none; }
+
+/* Telefon: modal <dialog> tüm görünüm alanı; örtü + alttan panel. UA dialog/popover stilleri burada ezilir. */
+.aile-select-sayfa {
+  position: fixed;
+  inset: 0;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  background: transparent;
+  color: var(--aile-metin);
+  font: inherit;
+}
+.aile-select-sayfa::backdrop { background: transparent; }
+.aile-select-sayfa[data-state='cikis'] { pointer-events: none; }
+.aile-select-sayfa-ortu {
+  position: absolute;
+  inset: 0;
+  background: var(--aile-ortu);
+  opacity: 0;
+  transition: opacity var(--aile-sure) var(--aile-egri);
+}
+.aile-select-sayfa[data-state='acik'] .aile-select-sayfa-ortu { opacity: 1; }
+.aile-select-sayfa-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 85vh;
+  max-height: 85dvh;
+  padding-bottom: var(--aile-safe-bottom);
+  border-radius: var(--aile-kose-panel) var(--aile-kose-panel) 0 0;
+  background: var(--aile-yuzey);
+  box-shadow: var(--aile-golge-yukseltilmis);
+  transform: translateY(100%);
+  transition: transform var(--aile-sure) var(--aile-egri);
+}
+.aile-select-sayfa[data-state='acik'] .aile-select-sayfa-panel { transform: none; }
+
+/* Başlık: tutamaç (süsleyici) üstte ortada; h2 + Kapat; altta tek cizgi ayırıcı. */
+.aile-select-sayfa-ust {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--aile-bosluk-3);
+  padding: var(--aile-bosluk-4) var(--aile-bosluk-2) var(--aile-bosluk-1) var(--aile-bosluk-4);
+  border-bottom: 1px solid var(--aile-cizgi);
+}
+.aile-select-sayfa-tutamac {
+  position: absolute;
+  top: var(--aile-bosluk-2);
+  left: 50%;
+  width: calc(var(--aile-bosluk-8) + var(--aile-bosluk-2));
+  height: var(--aile-bosluk-1);
+  border-radius: var(--aile-bosluk-1);
+  background: var(--aile-acik-mavi);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.aile-select .aile-select-sayfa-baslik {
+  margin: 0;
+  font-size: 18px;
+  line-height: 26px;
+  font-weight: 600;
+  color: var(--aile-metin);
+}
+.aile-select-kapat {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--aile-bosluk-2);
+  min-height: var(--aile-dokunma-hedefi);
+  padding: 0 var(--aile-bosluk-3);
+  border: 0;
+  border-radius: var(--aile-kose-kontrol);
+  background: transparent;
+  color: var(--aile-eylem);
+  font: inherit;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 500;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--aile-sure) var(--aile-egri);
+}
+.aile-select-kapat:focus { outline: none; }
+@media (hover: hover) {
+  .aile-select-kapat:hover { background: var(--aile-bilgi-yuzey); }
+}
+.aile-select-kapat:active { background: var(--aile-bilgi-yuzey); }
+
+/* Gövde kendi içinde kayar (sayfa kaymaz); son seçeneğin odak çizgisi için alt boşluk. */
+.aile-select-sayfa-govde {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--aile-bosluk-3);
+  min-height: 0;
+  padding: var(--aile-bosluk-3) var(--aile-bosluk-4) var(--aile-bosluk-4);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+/* Süzme alanı: işlevsel alan sınırı; odak çizgisi sarmalayıcıda ([data-focus-line]:has(:focus-visible)). */
+.aile-select-ara {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--aile-bosluk-2);
+  padding: 0 var(--aile-bosluk-3);
+  border: 1px solid var(--aile-kenar-kontrol);
+  border-radius: var(--aile-kose-kontrol);
+  background: var(--aile-yuzey);
+  color: var(--aile-metin-ikincil);
+}
+.aile-select-ara svg { flex: none; }
+.aile-select-ara-girdi {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: var(--aile-dokunma-hedefi);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--aile-metin);
+  font: inherit;
+  font-size: 16px;
+  line-height: 24px;
+  outline: none;
+}
+.aile-select-ara-girdi::placeholder { color: var(--aile-metin-ikincil); opacity: 1; }
+
+/* Zorunlu renk modu: etkin seçenek çizgisi sistem rengiyle görünür kalır; seçim onay simgesiyle de okunur. */
+@media (forced-colors: active) {
+  html[data-keyboard='true'] .aile-select-tetik:focus-visible ~ .aile-select-acilir .aile-select-secenek.is-etkin::after { background: CanvasText; forced-color-adjust: none; }
+}
+
+/* reduced-motion: geçiş yok; durum (açık/kapalı, seçim, odak) yine anında. */
 @media (prefers-reduced-motion: reduce) {
-  .aile-select-liste-secenek { transition-duration: 0s; }
+  .aile-select-tetik, .aile-select-ok, .aile-select-secenek, .aile-select-kapat,
+  .aile-select-acilir, .aile-select-sayfa-panel, .aile-select-sayfa-ortu { transition-duration: 0s; }
 }
