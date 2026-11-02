@@ -45,6 +45,18 @@ async function klavyeTaklidi(page: Page) {
 }
 const klavyeAc = (page: Page, px: number) => page.evaluate(n => (window as unknown as { __aileKlavye: { ac(n: number): void } }).__aileKlavye.ac(n), px);
 const klavyeKapat = (page: Page) => page.evaluate(() => (window as unknown as { __aileKlavye: { kapat(): void } }).__aileKlavye.kapat());
+/**
+ * Hedefin yerleşim yüksekliği (border-box, CSS px). Alt sayfa 240 ms içinde translateY ile kayarak açılır; ara karede
+ * getBoundingClientRect yüksekliği WebKit'te dönüşüm matrisinin float hassasiyetiyle 48 yerine 47.99994 çıkabiliyor
+ * (gözlem: aile-sheet-sarmal matrix(1,0,0,1,0,438.186)). Saf öteleme hedef boyutunu değiştirmez; ölçü dönüşümden
+ * bağımsız yerleşimden okunur, eşik aynı kalır.
+ */
+const yerlesimYuksekligi = (locator: Locator) => locator.evaluate(element => {
+  const cs = getComputedStyle(element);
+  const height = parseFloat(cs.height);
+  if (cs.boxSizing === 'border-box') return height;
+  return height + parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom) + parseFloat(cs.borderTopWidth) + parseFloat(cs.borderBottomWidth);
+});
 const gorunurAlt = (page: Page) => page.evaluate(() => window.visualViewport!.offsetTop + window.visualViewport!.height);
 
 // --- ListRow ---------------------------------------------------------------------------------------------------------
@@ -251,8 +263,7 @@ test('Disclosure: düğme + aria-expanded + aria-controls; Enter/Space açar-kap
   expect(controls).toBeTruthy();
   const bolge = page.locator(`[id="${controls}"]`);
   await expect(bolge).toHaveCount(1);
-  const yukseklik = (await disc.boundingBox())!.height;
-  expect(yukseklik).toBeGreaterThanOrEqual((await kaba(page)) ? 48 : 44);
+  expect(await yerlesimYuksekligi(disc)).toBeGreaterThanOrEqual((await kaba(page)) ? 48 : 44);
 
   await enterKeyboardMode(page, browserName);
   await disc.focus();
@@ -280,14 +291,31 @@ test('Disclosure: düğme + aria-expanded + aria-controls; Enter/Space açar-kap
 });
 
 // --- FormFooter ------------------------------------------------------------------------------------------------------
-test('FormFooter: telefonda yapışkan; sanal klavye açıkken görünür alanın altında (klavyenin üstünde) kalır', async ({ page }) => {
+// /ayarlar'daki dar altlık. Yapışkanlık sayfanın kararıdır (FormFooter sticky; AyarlarPage bugün sticky={false}: iki
+// alanlık formda altlık alanların hemen altındadır, yapışkan ≈160 px altlık kısa ekranda odaklı alanı örtüyordu). Test iki
+// sözleşmeyi de gerçek tarayıcıda ölçer: yapışkansa sanal klavye açıkken görünür alanın altında (klavyenin üstünde) kalır;
+// akıştaysa klavye payı almaz, konumu akıştır ve odaklı alanı örtmez. Hangisinin çizildiği data-sticky'den okunur.
+test('FormFooter: telefonda dar altlık (birincil üstte, tam genişlik); yapışkansa sanal klavyenin üstünde kalır, akıştaysa klavye payı almaz ve odaklı alanı örtmez', async ({ page }) => {
   await klavyeTaklidi(page);
   await openAdmin(page, '/ayarlar');
-  test.skip((await profil(page)) !== 'phone', 'Yapışkan altlık telefonda.');
+  test.skip((await profil(page)) !== 'phone', 'Dar altlık telefonda.');
   const alan = page.getByRole('textbox', { name: 'Apps Script adresi' });
   const kaydet = page.getByRole('button', { name: 'Kaydet' });
   const altlik = page.locator('.aile-ff', { has: kaydet });
-  await expect(altlik).toHaveAttribute('data-sticky', 'true');
+  const vazgec = altlik.getByRole('button', { name: 'Vazgeç' });
+  await expect(altlik).toHaveAttribute('data-narrow', 'true');
+
+  // Dar: birincil üstte, iki düğme altlığın içerik genişliğinde (DOM sırası görsel sırayla aynı).
+  const [k, v] = [(await kaydet.boundingBox())!, (await vazgec.boundingBox())!];
+  expect(k.y + k.height, 'birincil üstte').toBeLessThanOrEqual(v.y + 0.5);
+  expect(Math.abs(k.width - v.width), 'iki düğme aynı (tam) genişlikte').toBeLessThanOrEqual(1);
+  const icGenislik = await altlik.evaluate(element => {
+    const cs = getComputedStyle(element);
+    return element.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  });
+  expect(Math.abs(k.width - icGenislik), 'birincil tam genişlik').toBeLessThanOrEqual(1);
+
+  const yapiskan = (await altlik.getAttribute('data-sticky')) === 'true';
   await alan.focus();
   await alan.evaluate(element => element.scrollIntoView({ block: 'start' }));
 
@@ -300,13 +328,55 @@ test('FormFooter: telefonda yapışkan; sanal klavye açıkken görünür alanı
   expect(kapali.y + kapali.height, 'ön koşul: klavye altlığı örtmeli').toBeGreaterThan(acikGorunurAlt);
 
   await klavyeAc(page, KLAVYE);
-  await expect(altlik).toHaveAttribute('data-klavye', 'true');
-  await expect.poll(async () => {
-    const kutu = (await altlik.boundingBox())!;
-    return kutu.y + kutu.height - (await gorunurAlt(page));
-  }, { message: 'altlık görünür alanın altında kalmalı' }).toBeLessThanOrEqual(0.5);
-  await expect(kaydet).toBeInViewport();
+  if (yapiskan) {
+    await expect(altlik).toHaveAttribute('data-klavye', 'true');
+    await expect.poll(async () => {
+      const kutu = (await altlik.boundingBox())!;
+      return kutu.y + kutu.height - (await gorunurAlt(page));
+    }, { message: 'altlık görünür alanın altında kalmalı' }).toBeLessThanOrEqual(0.5);
+    await expect(kaydet).toBeInViewport();
+  } else {
+    // Akıştaki altlık klavyeyi kovalamaz (pay yalnız yapışkana) ve odaklı alanın üstüne binmez.
+    expect(await altlik.evaluate(element => getComputedStyle(element).position), 'akışta').toBe('static');
+    await expect(altlik).not.toHaveAttribute('data-klavye');
+    await expect(alan).toBeFocused();
+    const alanKutu = (await alan.boundingBox())!;
+    expect(alanKutu.y + alanKutu.height, 'odaklı alan klavyenin üstünde').toBeLessThanOrEqual(await gorunurAlt(page));
+    const altlikKutu = (await altlik.boundingBox())!;
+    expect(altlikKutu.y, 'altlık odaklı alanı örtmez').toBeGreaterThanOrEqual(alanKutu.y + alanKutu.height - 0.5);
+  }
 
   await klavyeKapat(page);
   await expect(altlik).not.toHaveAttribute('data-klavye');
+});
+
+// DetailPanel'in telefon katmanı aynı görünür alan ölçümünü (FormFooter.viewport) kullanır: sanal klavye açıkken katman
+// görsel görünüm alanına sığar, altlığı (sayfanın bildirim yuvası) klavyenin üstünde kalır; kapanınca ekranı yine kaplar.
+test('DetailPanel: telefonda sanal klavye açıkken katman görünür alana sığar, altlık klavyenin üstünde; kapanınca tam ekran', async ({ page }, testInfo) => {
+  await klavyeTaklidi(page);
+  await openAdmin(page, '/alimlar');
+  test.skip((await profil(page)) === 'desktop', 'Masaüstünde yan panel; klavye payı telefon/tablet katmanında.');
+  const row = satir(page, KASE);
+  if (testInfo.project.use.hasTouch) await row.tap();
+  else await row.click();
+  const dialog = ayrinti(page, KASE);
+  await expect(dialog).toBeVisible();
+  const altlik = dialog.locator('.aile-detail-altlik');
+  await expect(altlik).toHaveCount(1);
+  const viewport = page.viewportSize()!;
+  const KLAVYE = Math.round(viewport.height * 0.45);
+
+  await klavyeAc(page, KLAVYE);
+  await expect.poll(async () => {
+    const kutu = (await dialog.boundingBox())!;
+    return Math.abs(kutu.y + kutu.height - (await gorunurAlt(page)));
+  }, { message: 'katmanın alt kenarı görünür alanın altında (klavyenin üstünde)' }).toBeLessThanOrEqual(0.5);
+  expect(Math.abs((await dialog.boundingBox())!.y), 'katman üstten başlar').toBeLessThanOrEqual(1);
+  const altlikKutu = (await altlik.boundingBox())!;
+  expect(altlikKutu.y + altlikKutu.height, 'altlık klavyenin üstünde').toBeLessThanOrEqual((await gorunurAlt(page)) + 0.5);
+  await expect(dialog.getByRole('button', { name: 'Listeye dön' })).toBeInViewport();
+
+  await klavyeKapat(page);
+  await expect.poll(async () => Math.abs((await dialog.boundingBox())!.height - viewport.height), { message: 'klavye kapanınca katman ekranı kaplar' })
+    .toBeLessThanOrEqual(1);
 });

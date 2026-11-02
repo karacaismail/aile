@@ -1,4 +1,4 @@
-import { test, expect, type Locator, type Page, type Route } from '@playwright/test';
+import { test, expect, type Locator, type Page, type Route, type TestInfo } from '@playwright/test';
 import { enterKeyboardMode, gotoAdmin, horizontalOverflow, openAdmin } from './admin-helpers';
 import { focusRing, motion, smallText } from './admin-detectors';
 
@@ -12,6 +12,15 @@ const isManifest = (url: URL) => url.pathname.endsWith('/__aile/generation/manif
 /** Başlıktaki tek tazelik satırı (DataStatus): role="status" + data-state. */
 const dataStatus = (page: Page) => page.locator('[role="status"][data-state]');
 const TONES = ['notr', 'bilgi', 'olumlu', 'uyari', 'hata'];
+
+/**
+ * İşaretçiyle etkinleştirme: dokunmatik projede (hasTouch) gerçek dokunma, dokunmasız masaüstü projesinde fare tıklaması.
+ * Dokunmasız bağlamda Playwright tap() çalışmaz ("The page does not support tap"); orada işaretçi faredir.
+ */
+async function press(locator: Locator, testInfo: TestInfo) {
+  if (testInfo.project.use.hasTouch) await locator.tap();
+  else await locator.click();
+}
 
 /** Konumlayıcıya geçici bir seçici verir; dedektörler string kök/hedef alır. */
 async function mark(locator: Locator, id: string): Promise<string> {
@@ -47,6 +56,9 @@ async function holdManifest(page: Page) {
   });
   return release;
 }
+
+/** Kelime arası olmayan uzun yol (ör. parça yolu): ErrorState metni bunu kabın genişliğinde sarmalı, belgeyi taşırmamalı. */
+const UZUN_YOL = '(data/forecast_months/budget/00000.json/sentetik-uzun-yol)';
 
 const frames = (page: Page) => page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
 
@@ -87,6 +99,28 @@ test('DataStatus: "Son okuma · Nesil · Yenile" tek durum satırı; doğal sar�
   if (testInfo.project.name.startsWith('chromium')) expect(await horizontalOverflow(page), 'belge düzeyinde yatay taşma').toEqual([]);
 });
 
+test('DataStatus: metin genişliği değişince (yedek fonttan Outfit\'e geçiş) satır yüksekliği, parçaların satırı ve eylemin dikey yeri sabit kalır', { tag: '@matrix' }, async ({ page }) => {
+  // Outfit gelmeden metin yedek fontla çizilir; 14 px'te yedek dize birkaç yüzde geniştir. Dar ekranda bu fark "Yenile"yi ya
+  // da "Nesil …" parçasını başka satıra itip içeriği kaydırmamalı (e2e/admin-typography geç font kayması). Yedeğin geniş
+  // dizgesi, yalnız parça metinlerine harf aralığı verilerek taklit edilir (%8 ≈ SF Pro Text 14 px / Outfit).
+  await openAdmin(page, '/alimlar');
+  const status = dataStatus(page);
+  await expect(status).toHaveAttribute('data-state', 'fresh');
+  const olc = () => status.evaluate(root => {
+    const row = root.getBoundingClientRect();
+    const button = root.querySelector('button')!.getBoundingClientRect();
+    const satirlar = Array.from(root.querySelectorAll('.aile-ds__metin')).map(el => Math.round(el.getBoundingClientRect().top - row.top));
+    return { yukseklik: Math.round(row.height * 100) / 100, dugmeUst: Math.round((button.top - row.top) * 100) / 100, satirlar };
+  });
+  const outfit = await olc();
+  for (const genislik of ['0.04em', '0.08em']) {
+    await status.evaluate((root, value) => root.querySelectorAll<HTMLElement>('.aile-ds__metin').forEach(el => { el.style.letterSpacing = value; }), genislik);
+    expect(await olc(), `metin ${genislik} harf aralığıyla genişleyince`).toEqual(outfit);
+  }
+  await status.evaluate(root => root.querySelectorAll<HTMLElement>('.aile-ds__metin').forEach(el => { el.style.letterSpacing = ''; }));
+  expect(await olc()).toEqual(outfit);
+});
+
 test('DataStatus: Tab + Enter yeniler; okurken Yenile devre dışı, bitince odak aynı düğmeye döner; odak tek alt çizgi', async ({ page, browserName }) => {
   await openAdmin(page, '/alimlar');
   const status = dataStatus(page);
@@ -107,7 +141,7 @@ test('DataStatus: Tab + Enter yeniler; okurken Yenile devre dışı, bitince oda
   expect(await focusRing(page, { target, keyboard: true }), 'dönen odak görünür tek çizgi').toEqual([]);
 });
 
-test('DataStatus: dokunma Yenile’yi bir kez çalıştırır; kaydırmaya dönen dokunma (pointercancel) çalıştırmaz', async ({ page, browserName }) => {
+test('DataStatus: dokunma Yenile’yi bir kez çalıştırır; kaydırmaya dönen dokunma (pointercancel) çalıştırmaz', async ({ page, browserName }, testInfo) => {
   await openAdmin(page, '/alimlar');
   const hits = countManifest(page);
   const status = dataStatus(page);
@@ -144,7 +178,7 @@ test('DataStatus: dokunma Yenile’yi bir kez çalıştırır; kaydırmaya döne
   }
 
   const before = hits.n;
-  await refresh.tap();
+  await press(refresh, testInfo);
   await expect.poll(() => hits.n, { message: 'dokunma manifesti yeniden ister' }).toBeGreaterThan(before);
   expect((await counts()).click).toBe(1);
   await expect(status).toHaveAttribute('data-state', 'fresh');
@@ -152,12 +186,14 @@ test('DataStatus: dokunma Yenile’yi bir kez çalıştırır; kaydırmaya döne
 
 // --- ErrorState -------------------------------------------------------------------------------------------------
 test('ErrorState: manifest okunamazsa "Hata: …", tutar yok; "Yeniden dene" 44/48 px, Enter ve dokunmayla yeniden ister', { tag: '@matrix' }, async ({ page, browserName }, testInfo) => {
-  await page.route(isManifest, route => route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: 'nesil bulunamadı' }) }));
+  // Neden metni sunucunun hata gövdesinden gelir; içindeki uzun yol tek kelimedir ve dar alana sığmalıdır (taşma ölçülür).
+  await page.route(isManifest, route => route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: `nesil bulunamadı ${UZUN_YOL}` }) }));
   const hits = countManifest(page);
   await gotoAdmin(page, '/alimlar');
   const alert = page.getByRole('alert').filter({ has: page.getByRole('heading', { name: /^Hata: / }) });
   await expect(alert).toBeVisible();
   await expect(alert.getByRole('heading', { level: 2 })).toHaveText(/^Hata: /);
+  await expect(alert, 'neden metni uzun yolu taşır (taşma ölçümü gerçek girdiyle)').toContainText(UZUN_YOL);
   await expect(page.getByRole('main')).not.toContainText(/₺\d/);
   const retry = alert.getByRole('button', { name: 'Yeniden dene' });
   await expectTarget(retry, await minTarget(page));
@@ -175,7 +211,7 @@ test('ErrorState: manifest okunamazsa "Hata: …", tutar yok; "Yeniden dene" 44/
   await expect(alert).toBeVisible();
 
   before = hits.n;
-  await alert.getByRole('button', { name: 'Yeniden dene' }).tap();
+  await press(alert.getByRole('button', { name: 'Yeniden dene' }), testInfo);
   await expect.poll(() => hits.n, { message: 'dokunma manifesti yeniden ister' }).toBeGreaterThan(before);
   await expect(alert).toBeVisible();
 });
@@ -251,6 +287,10 @@ test('LoadingShell: iskelet + aria-busy, tek şerit; bloklar parıldamaz; dar ka
   const release = await holdManifest(page);
   await gotoAdmin(page, '/ayarlar');
   const shells = page.locator('[role="status"][aria-busy="true"]').filter({ has: page.locator('[data-part="strip"]') });
+  // Önce rota yedeği (sayfa parçası inerken PageHeader + LoadingShell), sonra sayfanın kendi iskeletleri çizilir. Ölçüm,
+  // yedek iskelet ayrılırken yapılırsa öğe bulunamaz ya da ayrılan öğenin hesaplanmış stili boş okunur (WebKit: '' ≠ 'none').
+  // Sayfa bölümü göründüğünde iskeletler manifest bırakılana dek kalıcıdır.
+  await expect(page.getByRole('heading', { level: 2, name: 'Aile', exact: true })).toBeVisible();
   await expect(shells.first()).toBeVisible();
 
   const inspect = () => shells.evaluateAll(roots => roots.map(root => {

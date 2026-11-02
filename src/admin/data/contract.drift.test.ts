@@ -49,6 +49,9 @@ function producerGate(directory: string): { valid: boolean; allowed: string[] } 
 const MANIFEST_RAW = readJson(GENERATION_DIR, 'manifest.json') as JsonObject & { files: { kind: string; path: string; collection?: string }[] };
 const PANEL_COLLECTIONS = Object.keys(collectionSchemas) as CollectionName[];
 const firstRecord = (collection: string): JsonObject => {
+  // Sentetik nesilde usta (providers) satırı yok; normalize.mjs usta satırını alımlarla aynı app_kalemler gövdesiyle, yalnız
+  // kind 'provider' olarak yazar. Kayma taraması bu gövdeyle yapılır (eşleme kontrolü kind = 'provider' ayrıca uygulanır).
+  if (collection === 'providers') return { ...firstRecord('purchase_needs'), kind: 'provider' };
   const file = MANIFEST_RAW.files.find((f) => f.kind === 'partition' && f.collection === collection);
   if (!file) throw new Error(`Sentetik nesilde koleksiyon yok: ${collection}`);
   return structuredClone((readJson(GENERATION_DIR, file.path) as { records: JsonObject[] }).records[0]!);
@@ -495,7 +498,7 @@ describe('kayma: üretici kapısı ve koleksiyon listesi', () => {
   });
 
   it('üreticinin koleksiyonları = panelin şemaları + bilerek indirilmeyenler', () => {
-    const NOT_DOWNLOADED = ['payments', 'providers', 'source_cells', 'source_rows', 'unclassified_items'];
+    const NOT_DOWNLOADED = ['payments', 'source_cells', 'source_rows', 'unclassified_items'];
     const producer = [...gate.allowed].sort();
     expect(producer).toEqual([...PANEL_COLLECTIONS, ...NOT_DOWNLOADED].sort());
     expect(MAPPING.collections.map((c) => c.collection).sort()).toEqual(producer);

@@ -10,7 +10,11 @@ import './DataStatus.css';
 // devre dışıdır ve nedeni ("Okunuyor…") yanında yazar. Metinler README'den; eksik bilgi adıyla yazılır ("bilinmiyor", "henüz yok").
 // Saat tr-TR / Europe/Istanbul "14:32"; başka güne ait okuma tarihiyle "27.10.2026 14:32" (contracts: "28.10.2026 14:05").
 // Yerel HTML, antd yok: tek uygulama tüm profillere hizmet eder. Satır doğal sarılır; ayırıcı "·" önündeki parçaya bağlıdır,
-// böylece sarılan satır hiçbir zaman "·" ile başlamaz. Eylem yerel <button>: 44 px, coarse girişte 48 px.
+// böylece sarılan satır hiçbir zaman "·" ile başlamaz. Parça metni kendi öğesindedir (aile-ds__metin): satırdan uzun bir
+// parça (ör. hata nedenindeki dosya yolu) kendi içinde sarılır, belgeyi taşırmaz. Parçalar tek metin kutusundadır
+// (aile-ds__parcalar); eylem onun yanında kalacak yer varsa metin kutunun içinde sarılır, düğme satırda kalır: yedek fonttan
+// Outfit'e geçişteki birkaç piksellik genişlik farkı düğmeyi alt satıra itip sayfayı kaydırmaz (DataStatus.css).
+// Eylem yerel <button>: 44 px, coarse girişte 48 px.
 // Odak dönüşü: okuma başlarken devre dışı kalan odaklı düğme odağı belgeye bırakır (tarayıcı odak düzeltmesi); okuma
 // bitince odak, kullanıcı bu arada başka yere geçmediyse aynı düğmeye ("Yenile" ya da "Yeniden dene") geri verilir.
 export type { DataStatusProps, DataStatusState };
@@ -123,22 +127,21 @@ export function DataStatus(props: DataStatusProps) {
 
   return (
     <div role="status" aria-live="polite" className={`aile-ds aile-ds--${state} aile-kucuk`} data-state={state} data-tone={tone}>
-      {parts.map((part, index) => {
-        const last = index === parts.length - 1;
-        return (
-          <span
-            key={part.key}
-            className={part.icon ? 'aile-ds__parca aile-ds__msg' : 'aile-ds__parca'}
-            data-generation-id={part.key === 'nesil' && generationId ? generationId : undefined}
-          >
-            {part.icon ? <Icon name="alert" className="aile-ds__icon" /> : null}
-            {part.text}
-            {!last || action ? (
-              <span className={last ? 'aile-ds__sep aile-ds__sep--eylem' : 'aile-ds__sep'} aria-hidden="true">{AYIRICI}</span>
-            ) : null}
-          </span>
-        );
-      })}
+      <span className="aile-ds__parcalar">
+        {parts.map((part, index) => {
+          const last = index === parts.length - 1;
+          return (
+            <span key={part.key} className={part.icon ? 'aile-ds__parca aile-ds__msg' : 'aile-ds__parca'}>
+              {part.icon ? <Icon name="alert" className="aile-ds__icon" /> : null}
+              {/* Tam nesil kimliği metni taşıyan öğededir ("Nesil a1b2c3" metniyle bulunan öğe kimliği de taşır). */}
+              <span className="aile-ds__metin" data-generation-id={part.key === 'nesil' && generationId ? generationId : undefined}>{part.text}</span>
+              {!last || action ? (
+                <span className={last ? 'aile-ds__sep aile-ds__sep--eylem' : 'aile-ds__sep'} aria-hidden="true">{AYIRICI}</span>
+              ) : null}
+            </span>
+          );
+        })}
+      </span>
       {action}
     </div>
   );

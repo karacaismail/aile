@@ -95,6 +95,26 @@ describe('contract: sentetik nesil', () => {
   });
 });
 
+describe('contract: providers (e-tablodaki usta satırları)', () => {
+  // data-platform/normalize.mjs: "usta" satırı kind 'provider' ile 'providers' koleksiyonuna, alımlarla aynı app_kalemler
+  // gövdesiyle yazılır; postgres-mapping providers: kind = 'provider'. Taraflar sayfası bu koleksiyonu okur. Sentetik
+  // nesilde usta satırı yok: kayıt alım gövdesinden yalnız tür değiştirilerek türetilir.
+  const usta = () => ({ ...purchaseNeedFixture(), kind: 'provider', label: 'Usta Ali' });
+  const zarf = (records: unknown[]) => ({ schemaVersion: 1, collection: 'providers', records });
+
+  it('panel sözleşmesi providers koleksiyonunu tanır; usta satırı kayıpsız ayrışır', () => {
+    expect(collectionSchemas).toHaveProperty('providers');
+    const kayit = usta();
+    expect(parsePartition('providers' as CollectionName, zarf([kayit])).records).toEqual([kayit]);
+  });
+
+  it('providers yalnız kind = provider taşır; alım ya da boş tür reddedilir', () => {
+    for (const kind of ['purchase_need', 'unclassified_item', '']) {
+      expect(() => parsePartition('providers' as CollectionName, zarf([{ ...usta(), kind }])), kind).toThrow(ZodError);
+    }
+  });
+});
+
 describe('contract: para', () => {
   it('ondalık metin kabul edilir; sayıya çevrilmez', () => {
     expect(Money.parse({ amount: '8500.00', currency: 'TRY' })).toEqual({ amount: '8500.00', currency: 'TRY' });
@@ -240,6 +260,8 @@ describe('contract: kayıt şemaları', () => {
 
 // --- Sözleşme sertleştirmesi: data-platform ile hizalı kurallar -------------------------------------------------
 const firstOf = (collection: CollectionName): Record<string, unknown> => {
+  // Sentetik nesilde usta satırı yok; normalize.mjs onu alım gövdesiyle, yalnız kind 'provider' olarak yazar.
+  if ((collection as string) === 'providers') return { ...firstOf('purchase_needs'), kind: 'provider' };
   const file = partitions.find((p) => p.collection === collection);
   if (!file) throw new Error(`Sentetik nesilde koleksiyon yok: ${collection}`);
   return structuredClone((readJson(file.path) as { records: Record<string, unknown>[] }).records[0]!);

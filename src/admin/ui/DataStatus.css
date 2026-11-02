@@ -11,12 +11,39 @@
   margin: 0;
   color: var(--aile-metin-ikincil);
 }
+/* Metin kutusu: parçalar kendi içinde doğal sarılır. Esas genişliği 12em: eylem düğmesi en az bu kadar metin alanı
+   bırakıyorsa aynı satırda kalır, metin gerekirse kutunun içinde ikinci satıra iner. Böylece düğmenin satırı metnin birkaç
+   piksellik genişlik farkına (yedek font → Outfit) bağlı değildir; satır yüksekliği düğme hedefinde sabit kalır. Kutu
+   içeriğinden geniş büyümez (max-content): yer varken düğme metnin hemen ardındadır. */
+.aile-ds__parcalar {
+  display: flex;
+  flex: 1 1 12em;
+  flex-wrap: wrap;
+  align-items: center;
+  min-width: 0;
+  max-width: max-content;
+}
+/* Telefon profili: parçalar alt alta (her biri kendi satırında), eylem yanlarında. Kırılım metin genişliğine değil profile
+   bağlıdır: yedek fonttan Outfit'e geçişte hiçbir parça satır değiştirmez (320 px'te tek satır sığma payı birkaç pikseldi).
+   İki kısa satır (2 × 20) dokunma hedefinden (44/48) alçaktır; satır yüksekliği tek satırdakiyle aynıdır. */
+[data-profile='phone'] .aile-ds__parcalar {
+  flex-direction: column;
+  align-items: flex-start;
+}
 .aile-ds__parca {
   display: inline-flex;
   align-items: center;
   min-width: 0;
+  max-width: 100%;
+}
+/* Parça metni esnek öğedir: min-width 0 ile satırdan uzun metin (boşluksuz dosya yolu dahil) parçanın içinde sarılır;
+   kelimeler arası doğal sarım korunur, kelime yalnız sığmadığında bölünür. Sarılırsa ayırıcı son satırın taban çizgisinde
+   kalır (last baseline); tek satırda ortalamayla aynı yerdedir. */
+.aile-ds__metin {
+  min-width: 0;
   overflow-wrap: break-word;
 }
+.aile-ds__parca > .aile-ds__sep { align-self: last baseline; }
 /* Ayırıcı iki yanında bosluk-2; eylemden önceki ayırıcının sağ boşluğunu düğmenin iç boşluğu verir. */
 .aile-ds__sep {
   flex: none;
@@ -48,6 +75,7 @@
   color: var(--aile-eylem);
   font: inherit;
   font-weight: 500;
+  white-space: nowrap;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition: background-color var(--aile-sure) var(--aile-egri), color var(--aile-sure) var(--aile-egri);

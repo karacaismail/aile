@@ -336,7 +336,12 @@ export function partitionEnvelope<R extends z.ZodType>(records: R) {
 /** Koleksiyondan bağımsız zarf (yalnız çekirdek alanlar). */
 export const PartitionEnvelope = partitionEnvelope(BaseRecord);
 
-/** Panelin indirdiği her koleksiyonun kayıt şeması. payments / providers / unclassified_items ve ağır kaynak hücreleri yok. */
+/**
+ * Panelin indirdiği her koleksiyonun kayıt şeması. payments / unclassified_items ve ağır kaynak hücreleri yok.
+ * providers: e-tablodaki usta satırları (normalize.mjs: kind 'provider', alımlarla aynı app_kalemler gövdesi;
+ * postgres-mapping providers kind = 'provider'); yalnız Taraflar sayfası ister. 'providers' henüz CollectionName'de
+ * olmadığından (types.ts, d05-contract) denetim türüne ayrıca eklenir; CollectionName'e girince fazlalık zararsızdır.
+ */
 export const collectionSchemas = {
   purchase_needs: itemRecord('purchase_need'),
   lighting_specs: itemRecord('lighting_spec'),
@@ -345,6 +350,7 @@ export const collectionSchemas = {
   inspections: itemRecord('inspection'),
   automation_scenes: itemRecord('automation_scene'),
   milestones: itemRecord('milestone'),
+  providers: itemRecord('provider'),
   rooms: Room,
   settings: Setting,
   relations: Relation,
@@ -362,7 +368,7 @@ export const collectionSchemas = {
   sources: SourceRecord,
   sheets: SheetRecord,
   supplements: Supplement,
-} satisfies Record<CollectionName, z.ZodType>;
+} satisfies Record<CollectionName | 'providers', z.ZodType>;
 
 export type ParsedManifest = z.infer<typeof Manifest>;
 export type ParsedRecord<K extends CollectionName> = z.infer<(typeof collectionSchemas)[K]>;

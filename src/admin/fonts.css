@@ -15,7 +15,19 @@
    unicode-range: Temel Latin ve Latin-1 (Ç ç Ö ö Ü ü Â â Î î Û û, ·), Türkçe Ğ ğ İ ı Ş ş, birleşik işaretler (i̇ = i +
    U+0307), genel noktalama (– — ‘ ’ “ ” • …), €, ™, oklar ve eksi işareti. ₺ (U+20BA) bilinçli olarak dışarıda: Outfit'te
    ₺ glifi yok. Tarayıcı ₺ için Outfit'i hiç denemez ve --aile-font-sans yığınındaki sistem yedeğine (system-ui: SF Pro,
-   Segoe UI, Roboto) düşer; tutar rakamları Outfit'in tabular-nums glifleriyle kalır, sütun hizası bozulmaz. */
+   Segoe UI, Roboto) düşer; tutar rakamları Outfit'in tabular-nums glifleriyle kalır, sütun hizası bozulmaz.
+
+   Ölçü eşlemeli yedek ("Outfit Yedek"): Outfit inerken (swap dönemi) ya da inemezse metin bu yerel yüzlerle çizilir. Kaynak
+   yalnız local(): Arial ve ölçü uyumlu eşleri (Arimo, Liberation Sans); ağ isteği yok, hiçbiri yoksa yüz atlanır ve yığın
+   system-ui'ye düşer. Her ağırlık aralığı Outfit'inkiyle aynıdır ve kapsamı (unicode-range, ₺ hariç) üç parçaya bölünür;
+   her parçanın size-adjust'ı Outfit'in o glif sınıfındaki genişliğini tutturur (panelin 634 Türkçe arayüz dizgesinden
+   ölçüldü): harf ve noktalama (400: 1,0082; 700/Bold: 0,9804), boşluk (Outfit 0,208/0,190 em, Arial 0,278 em) ve rakam
+   (Outfit tabular 0,590 em, Arial 0,556 em; tutarlar tabular-nums). ascent/descent/line-gap-override, Outfit'in dikey
+   ölçüsünü (yükselen 1,00 em, inen 0,26 em, satır aralığı 0) size-adjust'a bölerek verir; parçalar karışık satırda aynı
+   satır kutusunu kurar. Dizgelerde ortanca genişlik farkı %1,4'tür (sistem yedeği SF Pro Text 14 px'te ≈ %7 geniş);
+   font geldiğinde satır kırılımları ve satır kutuları neredeyse hiç değişmez.
+   Yüzler yalnız --aile-font-sans yığınında Outfit'ten hemen sonra adıyla geçtiğinde kullanılır (src/design/tokens.ts
+   fontSans ve admin.css :root yedeği: Outfit, 'Outfit Yedek', system-ui, sans-serif). */
 
 @font-face {
   font-family: Outfit;
@@ -33,4 +45,82 @@
   font-weight: 600 700;
   font-display: swap;
   unicode-range: U+0000-00FF, U+011E-011F, U+0130-0131, U+015E-015F, U+0300-0308, U+2000-206F, U+20AC, U+2122, U+2190-2193, U+2212;
+}
+
+/* Yedek 400–500, harf ve noktalama: Outfit 400 / Arial harf genişliği 1,0082. */
+@font-face {
+  font-family: 'Outfit Yedek';
+  src: local('Arial'), local('ArialMT'), local('Arimo'), local('Liberation Sans'), local('LiberationSans');
+  font-style: normal;
+  font-weight: 400 500;
+  size-adjust: 100.82%;
+  ascent-override: 99.19%;
+  descent-override: 25.79%;
+  line-gap-override: 0%;
+  unicode-range: U+0000-001F, U+0021-002F, U+003A-009F, U+00A1-00FF, U+011E-011F, U+0130-0131, U+015E-015F, U+0300-0308, U+2000-206F, U+20AC, U+2122, U+2190-2193, U+2212;
+}
+
+/* Yedek 400–500, boşluk: Outfit 0,208 em / Arial 0,278 em. */
+@font-face {
+  font-family: 'Outfit Yedek';
+  src: local('Arial'), local('ArialMT'), local('Arimo'), local('Liberation Sans'), local('LiberationSans');
+  font-style: normal;
+  font-weight: 400 500;
+  size-adjust: 74.86%;
+  ascent-override: 133.58%;
+  descent-override: 34.73%;
+  line-gap-override: 0%;
+  unicode-range: U+0020, U+00A0;
+}
+
+/* Yedek 400–500, rakam: Outfit tabular 0,590 em / Arial 0,556 em (tutarlar tabular-nums). */
+@font-face {
+  font-family: 'Outfit Yedek';
+  src: local('Arial'), local('ArialMT'), local('Arimo'), local('Liberation Sans'), local('LiberationSans');
+  font-style: normal;
+  font-weight: 400 500;
+  size-adjust: 106.09%;
+  ascent-override: 94.26%;
+  descent-override: 24.51%;
+  line-gap-override: 0%;
+  unicode-range: U+0030-0039;
+}
+
+/* Yedek 600–700, harf ve noktalama: Outfit 700 / Arial Bold harf genişliği 0,9804. */
+@font-face {
+  font-family: 'Outfit Yedek';
+  src: local('Arial Bold'), local('Arial-BoldMT'), local('Arimo Bold'), local('Arimo-Bold'), local('Liberation Sans Bold'), local('LiberationSans-Bold');
+  font-style: normal;
+  font-weight: 600 700;
+  size-adjust: 98.04%;
+  ascent-override: 102.00%;
+  descent-override: 26.52%;
+  line-gap-override: 0%;
+  unicode-range: U+0000-001F, U+0021-002F, U+003A-009F, U+00A1-00FF, U+011E-011F, U+0130-0131, U+015E-015F, U+0300-0308, U+2000-206F, U+20AC, U+2122, U+2190-2193, U+2212;
+}
+
+/* Yedek 600–700, boşluk: Outfit 0,190 em / Arial Bold 0,278 em. */
+@font-face {
+  font-family: 'Outfit Yedek';
+  src: local('Arial Bold'), local('Arial-BoldMT'), local('Arimo Bold'), local('Arimo-Bold'), local('Liberation Sans Bold'), local('LiberationSans-Bold');
+  font-style: normal;
+  font-weight: 600 700;
+  size-adjust: 68.39%;
+  ascent-override: 146.22%;
+  descent-override: 38.02%;
+  line-gap-override: 0%;
+  unicode-range: U+0020, U+00A0;
+}
+
+/* Yedek 600–700, rakam: Outfit tabular 0,590 em / Arial Bold 0,556 em. */
+@font-face {
+  font-family: 'Outfit Yedek';
+  src: local('Arial Bold'), local('Arial-BoldMT'), local('Arimo Bold'), local('Arimo-Bold'), local('Liberation Sans Bold'), local('LiberationSans-Bold');
+  font-style: normal;
+  font-weight: 600 700;
+  size-adjust: 106.09%;
+  ascent-override: 94.26%;
+  descent-override: 24.51%;
+  line-gap-override: 0%;
+  unicode-range: U+0030-0039;
 }

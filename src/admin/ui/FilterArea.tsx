@@ -21,7 +21,7 @@ import './FilterArea.css';
 // zemini (siderBg) ve admin.css'in nav odak rengi (.ant-layout-sider → odak-nav) beyaz filtre paneline uymaz.
 // Panel bölgesi kapalıyken DOM'da kalır (hidden + inert): FilterPanel durumu korunur, iki düğme de aynı bölgeyi
 // aria-controls ile gösterir. Geçişte odak kaybolmaz: şerit → "Paneli gizle", "Paneli gizle" → şerit.
-// Odak çizgisini admin.css çizer (Button .ant-btn, şerit [data-focus-line]); burada outline/halka yok.
+// Odak çizgisini admin.css çizer ([data-focus-line]: yerel Button ve şerit); burada outline/halka yok.
 export interface FilterAreaProps {
   /** Filtre paneli içeriği (FilterPanel bare); yalnız masaüstünde çizilir. */
   panel: ReactNode;

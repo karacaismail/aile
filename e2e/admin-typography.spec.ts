@@ -39,7 +39,11 @@ interface Findings { count: number; issues: string[] }
 interface TurkishReport extends Findings { chars: string }
 interface MoneyReport { values: string[]; issues: string[] }
 /** Belgedeki bir @font-face kuralı (CSSOM tanımlayıcıları olduğu gibi). */
-interface FaceRule { owner: string; weight: string; style: string; display: string; unicodeRange: string; src: string }
+interface FaceRule {
+  owner: string; weight: string; style: string; display: string; unicodeRange: string; src: string;
+  /** Ölçü eşleme tanımlayıcıları (yerel yedek yüz); tanımsızsa boş. */
+  sizeAdjust: string; ascentOverride: string; descentOverride: string; lineGapOverride: string;
+}
 /** Bir tutar font yığını: her aile ₺ çiziyor mu, web fontu mu; DOM'daki ₺ genişliği ile ilk ₺ çizen ailenin tuval ölçümü. */
 interface LiraStack {
   stack: string;
@@ -79,6 +83,12 @@ function typographyDetectors(): TypographyDetectors {
   const GENERIC = new Set(['serif', 'sans-serif', 'monospace', 'cursive', 'fantasy', 'system-ui', 'ui-serif', 'ui-sans-serif', 'ui-monospace', 'ui-rounded', 'math', 'emoji', 'fangsong', '-apple-system']);
   /** Layout Instability API eşiği: başlangıç noktası 3 CSS px'ten az oynayan öğe kaymış sayılmaz. */
   const SHIFT_THRESHOLD = 3;
+  const LIRA_CODE = 0x20ba;
+  /** unicode-range tanımı (boşsa tümü) kod noktasını kapsıyor mu: "U+0000-00FF, U+20AC". */
+  const rangeCovers = (range: string, code: number) => !range.trim() || range.split(',').some(part => {
+    const [from, to] = part.trim().replace(/^U\+/i, '').split('-').map(hex => parseInt(hex, 16));
+    return from !== undefined && code >= from && code <= (to ?? from);
+  });
 
   const describe = (el: Element) => {
     const text = (el.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 48);
@@ -324,6 +334,10 @@ function typographyDetectors(): TypographyDetectors {
             display: style.getPropertyValue('font-display').trim(),
             unicodeRange: style.getPropertyValue('unicode-range').trim(),
             src: style.getPropertyValue('src').trim(),
+            sizeAdjust: style.getPropertyValue('size-adjust').trim(),
+            ascentOverride: style.getPropertyValue('ascent-override').trim(),
+            descentOverride: style.getPropertyValue('descent-override').trim(),
+            lineGapOverride: style.getPropertyValue('line-gap-override').trim(),
           });
         } else if (rule instanceof CSSImportRule) {
           if (rule.styleSheet) visit(rule.styleSheet.cssRules, rule.href);
@@ -402,7 +416,11 @@ function typographyDetectors(): TypographyDetectors {
         const own = measure(quote(family));
         const mono = Math.abs(measure(`${quote(family)}, monospace`).width - measure('monospace').width) < 0.01;
         const serif = Math.abs(measure(`${quote(family)}, serif`).width - measure('serif').width) < 0.01;
-        return { family, hasLira: !(mono && serif), webFont: webFonts.has(family.toLowerCase()), canvas: own.accepted };
+        // Web fontu ailesinin hiçbir yüzü unicode-range'iyle ₺'yi kapsamıyorsa DOM o aileyle ₺ çizmez. WebKit tuvali yerel
+        // (local()) yüzde unicode-range'i uygulamıyor; tuval ölçümü burada yanıltır, kural belirleyicidir.
+        const rules = faceRules(family);
+        const excluded = rules.length > 0 && !rules.some(rule => rangeCovers(rule.unicodeRange, LIRA_CODE));
+        return { family, hasLira: !excluded && !(mono && serif), webFont: webFonts.has(family.toLowerCase()), canvas: own.accepted };
       });
       const fallback = families.find(family => family.hasLira);
       stacks.push({
@@ -616,6 +634,54 @@ function fontFaceProblems(rules: FaceRule[]): string[] {
   return problems;
 }
 
+/** Kod noktası kümesi (aralık listesi) → sıralı, birleşik aralıklar; iki kümeyi karşılaştırmak için. */
+function mergeRanges(ranges: [number, number][]): [number, number][] {
+  const sorted = [...ranges].sort((a, b) => a[0] - b[0]);
+  const out: [number, number][] = [];
+  for (const [from, to] of sorted) {
+    const last = out[out.length - 1];
+    if (last && from <= last[1] + 1) last[1] = Math.max(last[1], to);
+    else out.push([from, to]);
+  }
+  return out;
+}
+
+/**
+ * Ölçü eşlemeli yedek ("Outfit Yedek") sözleşmesi: yalnız yerel kaynak (ağ isteği yok); her yüzde size-adjust ve dikey ölçü
+ * tanımlayıcıları; her ağırlık aralığı Outfit'in aralıklarından biriyle aynı; aynı ağırlıkta yüzlerin unicode-range'leri
+ * çakışmadan Outfit yüzünün kapsamını tam karşılar (₺ yine dışarıda kalır). tanimlayicilar: motorun CSSOM'da tanıdığı ölçü
+ * tanımlayıcıları (tanımadığını boş döndürür; boş dönen tanımlayıcı denetlenmez, size-adjust her motorda zorunludur).
+ */
+function fallbackFaceProblems(rules: FaceRule[], outfit: FaceRule[], tanimlayicilar: readonly ('ascentOverride' | 'descentOverride' | 'lineGapOverride')[]): string[] {
+  if (rules.length === 0) return ['Outfit Yedek @font-face tanımı yok'];
+  const problems: string[] = [];
+  const label = (rule: FaceRule) => `${rule.weight} ${rule.unicodeRange}`;
+  for (const rule of rules) {
+    if (!/^(local\([^)]*\)\s*,?\s*)+$/.test(rule.src)) problems.push(`${label(rule)}: kaynak yalnız local() olmalı (${rule.src})`);
+    if (!/^\d+(\.\d+)?%$/.test(rule.sizeAdjust)) problems.push(`${label(rule)}: size-adjust yüzde değil (${rule.sizeAdjust || 'yok'})`);
+    for (const key of tanimlayicilar) if (!/^\d+(\.\d+)?%$/.test(rule[key])) problems.push(`${label(rule)}: ${key} yüzde değil (${rule[key] || 'yok'})`);
+    if (parseUnicodeRange(rule.unicodeRange).some(([a, b]) => LIRA >= a && LIRA <= b)) problems.push(`${label(rule)}: unicode-range ₺ içeriyor`);
+  }
+  for (const face of outfit) {
+    const same = rules.filter(rule => rule.weight === face.weight);
+    if (same.length === 0) {
+      problems.push(`Outfit ${face.weight} için yedek yüz yok`);
+      continue;
+    }
+    const parts = same.map(rule => mergeRanges(parseUnicodeRange(rule.unicodeRange)));
+    const total = parts.reduce((sum, list) => sum + list.reduce((n, [a, b]) => n + b - a + 1, 0), 0);
+    const union = mergeRanges(parts.flat());
+    const unionSize = union.reduce((n, [a, b]) => n + b - a + 1, 0);
+    if (unionSize !== total) problems.push(`${face.weight}: yedek yüzlerin unicode-range'leri çakışıyor`);
+    if (JSON.stringify(union) !== JSON.stringify(mergeRanges(parseUnicodeRange(face.unicodeRange)))) {
+      problems.push(`${face.weight}: yedek yüzlerin kapsamı Outfit'inkine eşit değil (${same.map(rule => rule.unicodeRange).join(' | ')})`);
+    }
+  }
+  const extra = rules.filter(rule => !outfit.some(face => face.weight === rule.weight));
+  if (extra.length) problems.push(`Outfit'te olmayan ağırlık: ${extra.map(rule => rule.weight).join(', ')}`);
+  return problems;
+}
+
 /** fonts.css dışındaki tanımlar (ör. admin.css'te kalan eski kopya): tek kaynak ilkesi ihlali, kaynak dosyasıyla. */
 function foreignFaces(rules: FaceRule[], owner: RegExp): string[] {
   return rules.filter(rule => !owner.test(rule.owner)).map(rule => `${weightLabel(rule)}: ${rule.owner} içinde tanımlı (yalnız src/admin/fonts.css)`);
@@ -761,7 +827,7 @@ async function holdOutfit(page: Page): Promise<() => void> {
 /** Outfit yüzlerinin durumları ('loading' | 'loaded' | 'unloaded' | 'error'). */
 const outfitStatus = (page: Page) => page.evaluate(() => {
   const states: string[] = [];
-  document.fonts.forEach(face => { if (/outfit/i.test(face.family)) states.push(`${face.weight}:${face.status}`); });
+  document.fonts.forEach(face => { if (face.family.replace(/["']/g, '').trim().toLowerCase() === 'outfit') states.push(`${face.weight}:${face.status}`); });
   return states;
 });
 
@@ -790,6 +856,12 @@ interface SwapProbe {
   loadedWhenReady: boolean | null;
   /** Değişimden hemen önceki kare ile değişim karesi (ve bir sonraki) arasındaki kayma; en büyüğü. */
   shift: ShiftReport | null;
+  /**
+   * Ölçülen aralıkta DOM da değişti mi (MutationObserver). Değiştiyse kare farkı fonta yüklenemez (ör. masaüstünde geniş
+   * kabuk aynı karede gelir); kayma o anki DOM'da yalnız fontla ölçülür (yüklenen yüzlerin metni yedek yığına çevrilip geri
+   * alınarak, çizim olmadan).
+   */
+  isolated: boolean;
 }
 
 declare global {
@@ -801,13 +873,48 @@ declare global {
  * öğelerin yerleşimini kaydeder, yüklendiği karede ve bir sonrakinde kaymayı ölçer. notReady: adminNotReadyReasons.
  */
 function fontSwapProbe(notReady: () => string[]) {
-  const probe: SwapProbe = { frames: 0, fallbackFrames: 0, swapFrame: -1, readyAtSwap: null, loadedWhenReady: null, shift: null };
+  const probe: SwapProbe = { frames: 0, fallbackFrames: 0, swapFrame: -1, readyAtSwap: null, loadedWhenReady: null, shift: null, isolated: false };
   window.__aileFontSwap = probe;
   let snapshotTaken = false;
+  // Anlık görüntüden bu yana DOM değişti mi; değişmediyse kare farkı yalnız fontun etkisidir.
+  let mutated = false;
+  const observer = new MutationObserver(() => { mutated = true; });
+  observer.observe(document, { subtree: true, childList: true, attributes: true, characterData: true });
+  /** Anlık görüntüde yedekle çizilen (henüz yüklenmemiş) Outfit yüzlerinin ağırlık aralıkları. */
+  let pending: [number, number][] = [];
+  const weightRange = (weight: string): [number, number] => {
+    const [from, to] = weight.trim().split(/\s+/).map(Number);
+    return [from ?? 400, to ?? from ?? 400];
+  };
+  /**
+   * Yalnız fontun kayması, şimdiki DOM'da: yedekle çizilmiş ağırlıktaki her Outfit öğesinin yığını Outfit'siz yığına çevrilir,
+   * yerleşim kaydedilir, öğeler geri alınır ve kayma ölçülür. Tümü aynı görevde olur; tarayıcı bu ara durumu hiç çizmez.
+   */
+  const isolatedShift = (detectors: TypographyDetectors): ShiftReport => {
+    const targets: { el: HTMLElement; family: string; value: string; priority: string }[] = [];
+    for (const el of Array.from(document.body.querySelectorAll<HTMLElement>('*'))) {
+      if (!el.style) continue;
+      const cs = getComputedStyle(el);
+      const list = cs.fontFamily.split(',').map(family => family.trim()).filter(Boolean);
+      if ((list[0] ?? '').replace(/["']/g, '').toLowerCase() !== 'outfit') continue;
+      const weight = parseFloat(cs.fontWeight);
+      const swapped = pending.some(([from, to]) => weight >= from && weight <= to);
+      targets.push({ el, family: swapped ? list.slice(1).join(', ') : cs.fontFamily, value: el.style.getPropertyValue('font-family'), priority: el.style.getPropertyPriority('font-family') });
+    }
+    for (const { el, family } of targets) el.style.setProperty('font-family', family, 'important');
+    detectors.layoutSnapshot();
+    for (const { el, value, priority } of targets) {
+      if (value) el.style.setProperty('font-family', value, priority);
+      else el.style.removeProperty('font-family');
+    }
+    const report = detectors.layoutShift();
+    observer.takeRecords();
+    return report;
+  };
   const tick = () => {
     probe.frames += 1;
     const faces: FontFace[] = [];
-    document.fonts.forEach(face => { if (/outfit/i.test(face.family)) faces.push(face); });
+    document.fonts.forEach(face => { if (face.family.replace(/["']/g, '').trim().toLowerCase() === 'outfit') faces.push(face); });
     const detectors = window.__aileTypography;
     const hasText = !!document.body && (document.body.innerText ?? '').trim().length > 0;
     if (detectors && hasText && faces.length > 0) {
@@ -816,21 +923,31 @@ function fontSwapProbe(notReady: () => string[]) {
       const loaded = !faces.some(face => face.status === 'loading' || face.status === 'error') && faces.some(face => face.status === 'loaded');
       const ready = notReady().length === 0;
       if (ready && probe.loadedWhenReady === null) probe.loadedWhenReady = loaded;
+      // Değişimi ölç: aralıkta DOM değişmediyse kare farkı (gerçek geçiş), değiştiyse aynı DOM'da yalnız fontun etkisi.
+      const measure = () => {
+        if (!mutated) return detectors.layoutShift();
+        probe.isolated = true;
+        return isolatedShift(detectors);
+      };
       if (!loaded && probe.swapFrame < 0) {
         probe.fallbackFrames += 1;
         detectors.layoutSnapshot();
         snapshotTaken = true;
+        observer.takeRecords();
+        mutated = false;
+        pending = faces.filter(face => face.status === 'loading' || face.status === 'error').map(face => weightRange(face.weight));
       } else if (loaded && probe.swapFrame < 0 && snapshotTaken) {
         probe.swapFrame = probe.frames;
         probe.readyAtSwap = ready;
-        probe.shift = detectors.layoutShift();
+        probe.shift = measure();
       } else if (probe.swapFrame > 0 && probe.frames === probe.swapFrame + 1) {
-        const next = detectors.layoutShift();
+        const next = measure();
         if (next.score > (probe.shift?.score ?? 0)) probe.shift = next;
       }
     }
     const done = probe.loadedWhenReady !== null && (probe.swapFrame < 0 ? probe.loadedWhenReady : probe.frames > probe.swapFrame + 1);
     if (!done && probe.frames < 5000) requestAnimationFrame(tick);
+    else observer.disconnect();
   };
   requestAnimationFrame(tick);
 }
@@ -853,10 +970,11 @@ const THOUSANDS = /^-?₺\d{1,3}(?:\.\d{3})+,\d{2}$/;
 const FONTS_CSS = /[\\/]src[\\/]admin[\\/]fonts\.css$/;
 /**
  * En kötü durum bütçesi (font, içerik hazır olduktan sonra gelir): kayma puanı ≤ 0,005, yani "iyi" CLS sınırı 0,1'in
- * %5'i. swap ile sistem yedeğinden Outfit'e geçiş metin genişliğini değiştirir; metnin ardından akan satır içi öğeler
- * (ayraç, sayım, düğme) birkaç piksel oynar. Ölçü uyumlu yerel yedek (size-adjust) bunu sıfırlamaz: Arial/Helvetica Neue
- * ile Outfit arasındaki dize genişliği farkı en iyi size-adjust ile bile 16 px'te 9–11 px'e çıkar. Normal yüklemede ise
- * değişim içerik hazır olmadan biter ve sıfır kayma beklenir (ayrı test).
+ * %5'i. swap ile yedekten Outfit'e geçiş metin genişliğini değiştirir; metnin ardından akan satır içi öğeler (ayraç, sayım,
+ * düğme) birkaç piksel oynar, bir paragraf satır sayısını değiştirirse altındaki her şey 20 px kayar. 14 px'te sistem
+ * yedeği (SF Pro Text) Outfit'ten ≈ %7 geniştir. fonts.css'teki ölçü eşlemeli yedek (Outfit Yedek: harf, boşluk ve rakam
+ * için ayrı size-adjust; Türkçe arayüz dizgelerinde ortanca fark %1,4) yığında Outfit'ten sonra yer aldığında ölçülen
+ * puanlar 0,0001–0,0008 idi. Normal yüklemede ise değişim içerik hazır olmadan biter ve sıfır kayma beklenir (ayrı test).
  */
 const FONT_SWAP_BUDGET = 0.005;
 
@@ -942,6 +1060,21 @@ test.describe('yönetim tipografisi', () => {
     expect(fontFaceProblems(rules), JSON.stringify(rules, null, 1)).toEqual([]);
   });
 
+  test('ölçü eşlemeli yedek (Outfit Yedek): yalnız yerel kaynak, size-adjust ve dikey ölçüler, ağırlık ve unicode-range Outfit ile aynı, ₺ hariç', async ({ page, browserName }) => {
+    await page.setViewportSize(DESKTOP);
+    await openAdmin(page, '/alimlar');
+    await installDetectors(page);
+    const outfit = (await detect.faceRules(page, 'Outfit')).filter(rule => FONTS_CSS.test(rule.owner));
+    const all = await detect.faceRules(page, 'Outfit Yedek');
+    expect(foreignFaces(all, FONTS_CSS), 'yedek yüzler yalnız fonts.css').toEqual([]);
+    // Chromium üç dikey ölçü tanımlayıcısını da tanır, zorunludur. WebKit CSSOM tanımadığını boş döndürür; orada yalnız
+    // tanıdıkları denetlenir (size-adjust her motorda zorunlu).
+    const OLCULER = ['ascentOverride', 'descentOverride', 'lineGapOverride'] as const;
+    const tanimlayicilar = browserName === 'chromium' ? OLCULER : OLCULER.filter(key => all.some(rule => rule[key] !== ''));
+    expect(fallbackFaceProblems(all, outfit, tanimlayicilar), JSON.stringify(all, null, 1)).toEqual([]);
+    // Yerel yüzler ağ isteği üretmez: ilk ekranın indirdiği font dosyaları yalnız iki Outfit dosyasıdır (ayrı test).
+  });
+
   test('Outfit @font-face tek kaynakta: fonts.css dışında (admin.css vb.) tanım yok', async ({ page }) => {
     await page.setViewportSize(DESKTOP);
     await openAdmin(page, '/alimlar');
@@ -1018,7 +1151,7 @@ test.describe('yönetim tipografisi', () => {
     }, undefined, { polling: 'raf' });
     const probe = (await page.evaluate(() => window.__aileFontSwap))!;
     const evidence = JSON.stringify(probe, null, 1);
-    test.info().annotations.push({ type: 'font değişimi', description: `yedek fontla ${probe.fallbackFrames} kare, değişim karesi ${probe.swapFrame}, hazırken yüklü ${probe.loadedWhenReady}, kayma ${probe.shift?.score} (${probe.shift?.elements} öğe)` });
+    test.info().annotations.push({ type: 'font değişimi', description: `yedek fontla ${probe.fallbackFrames} kare, değişim karesi ${probe.swapFrame}, hazırken yüklü ${probe.loadedWhenReady}, kayma ${probe.shift?.score} (${probe.shift?.elements} öğe${probe.isolated ? ', aralıkta DOM değişti: yalnız font ölçüldü' : ''})` });
     expect(probe.swapFrame, `yedek fonttan Outfit'e geçiş gözlendi: ${evidence}`).toBeGreaterThan(0);
     expect(probe.readyAtSwap, `geçiş anında içerik hazırdı: ${evidence}`).toBe(false);
     expect(probe.loadedWhenReady, `içerik hazır olduğunda Outfit yüklü: ${evidence}`).toBe(true);
