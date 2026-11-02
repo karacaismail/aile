@@ -18,7 +18,7 @@ const PHONE = { width: 320, height: 568 };
 const PHONE_WEBKIT = { width: 390, height: 844 };
 const DESKTOP = { width: 1440, height: 900 };
 const PAGE_LINKS = [
-  'Genel durum', 'Bütçe ve nakit', 'Ödemeler', 'Hesaplar ve borçlar', 'Alımlar ve eşyalar', 'Ev ve odalar',
+  'Genel durum', 'Bütçe ve nakit', 'Ödemeler', 'Hesaplar ve borçlar', 'Emeklilik planı', 'Alımlar ve eşyalar', 'Ev ve odalar',
   'Projeler ve görevler', 'Taraflar ve teklifler', 'Raporlar', 'Sözlükler ve iş akışları', 'Veri kalitesi ve içe aktarma',
 ];
 

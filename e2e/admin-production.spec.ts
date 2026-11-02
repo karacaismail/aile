@@ -459,6 +459,8 @@ const documentLoads = (page: Page) => page.evaluate(key => Number(window.session
 /** Manifest anahtarının dist dosyaları (JS + css[]). */
 const chunkFiles = (manifest: ViteManifest, key: string) => [manifest[key].file, ...(manifest[key].css ?? [])];
 const ROUTE_PAGE = /^src\/admin\/pages\/[^/]+Page\.tsx$/;
+/** Geniş-özel kaynak modülü (lazyWide hedefi): `*.wide.tsx` adı ya da `wide/` klasörü (vite.config.ts WIDE_MODULE). */
+const WIDE_SOURCE = /^src\/(?:[^?]*\/)?(?:wide\/[^?]+|[^/?]+\.wide\.[cm]?[jt]sx?)$/;
 /** Yayından sonra silinmiş parça: GitHub Pages gibi HTML 404 (önbelleğe alınmaz). */
 const deletedChunk = { status: 404, contentType: 'text/html; charset=utf-8', headers: { 'cache-control': 'no-store' }, body: '<!doctype html><title>404</title>' };
 
@@ -1190,9 +1192,11 @@ test.describe('geniş 1440×900', () => {
     const base = baseOf(testInfo);
     const net = await prepareAdminContext(context, testInfo);
     await countDocumentLoads(context);
-    // Genel sayfasının tembel wide parçaları (lazyWide hedefleri) yayından sonra silinmiş gibi 404 döner.
+    // Genel sayfasının tembel wide parçaları (lazyWide hedefleri) yayından sonra silinmiş gibi 404 döner. Hedef kaynak
+    // modülünden seçilir (*.wide.tsx): yalnız geniş sunumun kullandığı işaretsiz bir modül (ör. ui/Overview) dinamik giriş
+    // parçasına girdiğinde parçanın sınıfı 'page' olur, ama lazyWide yine o dosyayı ister.
     const genel = build.manifest['src/admin/pages/GenelPage.tsx'];
-    const wideFiles = new Set((genel.dynamicImports ?? []).map(key => build.manifest[key].file).filter(file => index.get(file)?.classes.includes('wide')));
+    const wideFiles = new Set((genel.dynamicImports ?? []).filter(key => WIDE_SOURCE.test(key)).map(key => build.manifest[key].file));
     expect(wideFiles.size, 'Genel sayfası tembel wide parçası').toBeGreaterThan(0);
     await context.route(url => wideFiles.has(distPath(url.href, base) ?? ''), route => route.fulfill(deletedChunk));
     await openAdmin(page, '/veri');
