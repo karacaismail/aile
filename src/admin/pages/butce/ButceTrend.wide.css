@@ -1,0 +1,22 @@
+/* ButceTrend (geniş-özel) — seçili kalemin aylık eğilimi: h2 (admin.css ölçeği) + Chart; açıklama tablosu Chart'ın içinde,
+   yanında. Üstte yalnız çizgi ayırıcı (1 px), kart yok. Tokenlar yalnız --aile-*; sabit renk/px yok (1 px ayırıcı hariç).
+   Bu dosya *.wide.css: teslim grafiğinde wide grubuna düşer, telefon kapanışına girmez. */
+.aile-butce-grafik {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-3);
+  padding-top: var(--aile-bosluk-4);
+  border-top: 1px solid var(--aile-cizgi);
+  min-width: 0;
+}
+.aile-butce-baslik { margin: 0; }
+.aile-butce-egilim { border-collapse: collapse; width: 100%; max-width: var(--aile-ayrinti-genislik); }
+.aile-butce-egilim caption { text-align: left; font-weight: 600; padding-bottom: var(--aile-bosluk-2); }
+.aile-butce-egilim th, .aile-butce-egilim td {
+  padding: var(--aile-bosluk-2) var(--aile-bosluk-3);
+  text-align: left;
+  border-bottom: 1px solid var(--aile-cizgi);
+  vertical-align: baseline;
+}
+.aile-butce-egilim th[scope="row"] { font-weight: 400; }
+.aile-butce-egilim .aile-butce-sag { text-align: right; }
