@@ -1,176 +1,158 @@
-import { useId } from 'react';
-import { designTokens } from '../../design/tokens.ts';
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type FocusEvent, type KeyboardEvent, type RefObject } from 'react';
+import { lazyWide } from '../adaptive';
 import { useDevice } from '../device';
-import type { Money, RecordRow, StatusLabel } from '../shell/contracts';
+import type { RecordRow, StatusLabel } from '../shell/contracts';
+import { BottomSheet } from './BottomSheet';
+import { Button } from './Button';
 import { Icon } from './icons';
-import { BILINMIYOR, FIYAT_YOK, HENUZ_YOK, formatMoney } from './Money';
-import { Tag } from './Tag';
+import { BOS_SUTUN, KANBAN_ETIKET, KanbanCard, KanbanColumnHeader, buildColumns, rememberFocusedCard, type KanbanBoardProps } from './Kanban.parts';
 import './Kanban.css';
 
 // Tasarım: aile-tasarim/tasarim-sistemi/components/Kanban/README.md + index.d.ts KanbanProps; referans davranış
-// bundle.js Kanban/KanbanCard (KOLONLAR, para, Tutar, Photo). Kayıtları tedarik durumuna göre sütunlara dizer.
-//  - Sütun: durum etiketi (Tag, tonuyla) + "N kayıt" + sütunun planlanan toplamı; fiyatsız kayıt sayısı ayrıca yazılır
-//    ("Planlanan ₺26.500,00 · 1 fiyatsız"); hiç fiyat yoksa "Planlanan: fiyat yok". Gerçekleşen toplama girmez: plan ve
-//    gerçek asla tek sayıda birleşmez. Toplam kuruş tam sayısıyla, para birimine göre ayrı hesaplanır.
-//  - Kart: 56 px fotoğraf yalnız verified ise (başka ürünün resmi asla), değilse yuva + "Fotoğraf yok"; ad; kod · oda
-//    (oda yoksa "Bilinmiyor"); Planlanan ("Fiyat yok") ve Gerçekleşen ("Henüz yok") ayrı; ödeme etiketi ("Ödeme: …").
-//    Kart yerel <button>: tıklama ve Enter/Space onOpen(kayıt); içeriği yalnız phrasing öğeleri (geçerli HTML).
-//    Seçili kart (selectedKey = id) aria-current="true": secili yüzey + 600 ağırlık (Kanban.css). Seçim odaktan ayrıdır.
-//  - Pano role="region", sekme sırasında (yatay kaydırma klavyeyle de yapılabilsin); kendi içinde yatay kayar, sayfa
-//    kaymaz. Telefonda (useDevice 'phone' ya da narrow) 264 px sütun + scroll-snap; geniş ekranda 248 px.
-//  - Sürükleme yok: durumu değiştirme ayrıntıdaki "Durumu değiştir" eyleminin işidir (README).
-// Görsel kurallar Kanban.css (yalnız --aile tokenları); odak çizgisini admin.css çizer ([data-focus-line]).
-// Para biçimi tek kaynaktan: ui/Money formatMoney (tr-TR, 2 ondalık, ₺ önde, bozuk tutar "Bilinmiyor"). Kanban yalnız
-// sütun toplamını hesaplar (kuruş tam sayısı, para birimine göre ayrı) ve biçimlemeyi Money'ye bırakır.
+// bundle.js Kanban/KanbanCard. Kayıtları tedarik durumuna göre gruplar. Uyarlamalı teslim (W0 sözleşmesi):
+//  - Telefon (useDevice 'phone' ya da narrow): duruma göre gruplu DİKEY liste; her grup adıyla bir bölge (h3: durum
+//    etiketi + "N kayıt" + planlanan toplam). Yatay kaydırma ve sürükleme yok. onChangeStatus verilirse her kartın
+//    yanında klavyeli "Durumu değiştir" düğmesi: alt sayfada (BottomSheet) APG menü düzeni, menuitemradio (şu anki
+//    durum aria-checked), dolaşan tabindex, oklar sarmalı, Home/End, Enter/Space seçer, Escape kapatır. Kayıt yeni
+//    gruba taşınsa da odak o kaydın "Durumu değiştir" düğmesine döner.
+//  - Geniş (tablet/masaüstü): yatay pano ızgarası ui/wide/Kanban.wide.tsx'tedir ve yalnız lazyWide ile iner; beklerken
+//    ve yükleme hatasında aynı rol/adlarla liste yedektir (telefonda hiç indirilmez). Adlı bölge (role="region") bu
+//    dosyada ve tek düğümdür: liste ↔ pano geçişinde yerinde kalır (bölgeye tutunan odak/sorgu kopmaz); genişte
+//    kendi içinde yatay kayan, sekme sırasındaki kaydırma alanıdır. Panoda kart içi durum eylemi yoktur: README'ye
+//    göre ayrıntıdaki "Durumu değiştir" aynı işi yapar.
+// Ortak grup/kart parçaları Kanban.parts.tsx'te (telefon-güvenli). Bu dosya ve statik içe aktardıkları antd çekmez.
+
+export { KANBAN_ETIKET } from './Kanban.parts';
 
 export interface KanbanProps {
   items: readonly RecordRow[];
-  /** Sütun sırası (tedarik durumu sözlüğü). Verilmezse kayıtların durumundan ilk görülme sırasıyla türetilir;
-   *  boş sütun yalnız burada verilince çizilir ("Bu durumda kayıt yok."). */
+  /** Grup sırası (tedarik durumu sözlüğü). Verilmezse kayıtların durumundan ilk görülme sırasıyla türetilir;
+   *  boş grup yalnız burada verilince çizilir ("Bu durumda kayıt yok."). */
   columns?: readonly StatusLabel[];
   /** Seçili (ayrıntısı açık) kaydın id'si. */
   selectedKey?: string;
   /** Kart tıklaması ya da Enter/Space. */
   onOpen?(row: RecordRow): void;
-  /** Dar biçimi zorlar (264 px sütun, scroll-snap); verilmezse useDevice() === 'phone'. */
+  /** Telefon listesini zorlar (geniş pano yüklenmez); verilmezse useDevice() === 'phone'. */
   narrow?: boolean;
   /** Panonun erişilebilir adı. */
   label?: string;
   className?: string;
+  /** Telefonda kart yanındaki "Durumu değiştir"; verilmezse eylem çizilmez. Yazma üst bileşenin işidir. */
+  onChangeStatus?(row: RecordRow, next: StatusLabel): void;
+  /** "Durumu değiştir" seçenekleri (iş akışı); verilmezse columns, o da yoksa görülen durumlar. */
+  statusOptions?: readonly StatusLabel[];
 }
 
-export const KANBAN_ETIKET = 'Tedarik durumuna göre alımlar';
-const FOTOGRAF_YOK = 'Fotoğraf yok';
-const BOS_SUTUN = 'Bu durumda kayıt yok.';
-const PLANLANAN = 'Planlanan';
-const GERCEKLESEN = 'Gerçekleşen';
-const ODEME = 'Ödeme';
+const DURUMU_DEGISTIR = 'Durumu değiştir';
+const YENI_DURUM = 'Yeni durum';
 
-// --- Toplam -----------------------------------------------------------------------------------------
-/** Ondalık metni kuruşa (tam sayı) çevirir; sayı değilse null. Toplam kayan noktada değil kuruşta tutulur. */
-function toMinor(amount: string): number | null {
-  const value = Number(amount);
-  return Number.isFinite(value) ? Math.round(value * 100) : null;
-}
+const KanbanBoard = lazyWide('ui-kanban-pano', () => import('./wide/Kanban.wide'));
 
-/** Kuruş toplamını platform ondalık metnine çevirir ("2650000" → "26500.00"); biçimlemeyi Money yapar. */
-const minorToMoney = (minor: number, currency: string): Money => ({ amount: (minor / 100).toFixed(2), currency });
-
-/** Sütun başlığının toplam satırı: yalnız planlanan, para birimine göre ayrı; fiyatsızlar (ve sayı olmayan tutarlar) sayıyla. */
-function plannedTotal(rows: readonly RecordRow[]): string {
-  const perCurrency = new Map<string, number>();
-  let unpriced = 0;
-  for (const row of rows) {
-    const minor = row.planned === null ? null : toMinor(row.planned.amount);
-    if (row.planned === null || minor === null) { unpriced += 1; continue; }
-    perCurrency.set(row.planned.currency, (perCurrency.get(row.planned.currency) ?? 0) + minor);
-  }
-  if (perCurrency.size === 0) return `${PLANLANAN}: fiyat yok`;
-  const parts = [...perCurrency.entries()].map(([currency, minor]) => formatMoney(minorToMoney(minor, currency)));
-  const unpricedPart = unpriced > 0 ? ` · ${unpriced} fiyatsız` : '';
-  return `${PLANLANAN} ${parts.join(' · ')}${unpricedPart}`;
-}
-
-// --- Sütunlar ---------------------------------------------------------------------------------------
-interface Column extends StatusLabel { rows: RecordRow[] }
-
-function buildColumns(items: readonly RecordRow[], columns?: readonly StatusLabel[]): Column[] {
-  const byLabel = new Map<string, Column>();
-  const order: Column[] = [];
-  const add = (status: StatusLabel) => {
-    const column: Column = { label: status.label, tone: status.tone, rows: [] };
-    byLabel.set(status.label, column);
-    order.push(column);
-    return column;
-  };
-  for (const status of columns ?? []) if (!byLabel.has(status.label)) add(status);
-  for (const row of items) {
-    const column = byLabel.get(row.status.label) ?? add(row.status);
-    column.rows.push(row);
-  }
-  return order;
-}
-
-// --- Kart -------------------------------------------------------------------------------------------
-function Photo({ photo }: { photo: RecordRow['photo'] }) {
-  // Doğrulanmamış görsel çizilmez; yuva süsleyicidir, "Fotoğraf yok" metni kartta ayrıca yazılır.
-  if (photo && photo.verified) {
-    return <img className="aile-kanban-foto" src={photo.url} alt="" width={designTokens.fotografListe} height={designTokens.fotografListe} />;
-  }
-  return (
-    <span className="aile-kanban-foto aile-kanban-foto--yok" aria-hidden="true">
-      <Icon name="imageOff" />
-    </span>
-  );
-}
-
-function Amount({ caption, money, missing }: { caption: string; money: Money | null; missing: string }) {
-  return (
-    <span className="aile-kanban-tutar">
-      <span className="aile-kanban-tutar-etiket">{caption}</span>
-      {money ? <span className="aile-kanban-tutar-deger">{formatMoney(money, missing)}</span> : <span className="aile-kanban-eksik">{missing}</span>}
-    </span>
-  );
-}
-
-function KanbanCard({ row, selected, onOpen }: { row: RecordRow; selected: boolean; onOpen?: (row: RecordRow) => void }) {
-  const hasPhoto = !!row.photo?.verified;
-  const payment = row.payment ?? { label: BILINMIYOR, tone: 'notr' as const };
-  return (
-    <button
-      type="button"
-      className="aile-kanban-kart"
-      data-focus-line=""
-      aria-current={selected ? 'true' : undefined}
-      onClick={onOpen ? () => onOpen(row) : undefined}
-    >
-      <span className="aile-kanban-kart-ust">
-        <Photo photo={row.photo} />
-        <span className="aile-kanban-kart-ana">
-          <span className="aile-kanban-kart-ad">{row.label}</span>
-          <span className="aile-kanban-kart-meta">{row.code} · {row.room ?? BILINMIYOR}</span>
-          {!hasPhoto && <span className="aile-kanban-kart-fotoyok">{FOTOGRAF_YOK}</span>}
-        </span>
-      </span>
-      <span className="aile-kanban-kart-tutarlar">
-        <Amount caption={PLANLANAN} money={row.planned} missing={FIYAT_YOK} />
-        <Amount caption={GERCEKLESEN} money={row.actual} missing={HENUZ_YOK} />
-      </span>
-      <span className="aile-kanban-kart-etiketler">
-        <Tag tone={payment.tone}>{`${ODEME}: ${payment.label}`}</Tag>
-      </span>
-    </button>
-  );
-}
-
-// --- Pano -------------------------------------------------------------------------------------------
-export function Kanban({ items, columns, selectedKey, onOpen, narrow, label = KANBAN_ETIKET, className }: KanbanProps) {
+export function Kanban({ items, columns, selectedKey, onOpen, narrow, label = KANBAN_ETIKET, className, onChangeStatus, statusOptions }: KanbanProps) {
   const device = useDevice();
-  const dar = narrow ?? device === 'phone';
+  const wide = !(narrow ?? device === 'phone');
+  const list = (
+    <KanbanList items={items} columns={columns} selectedKey={selectedKey} onOpen={onOpen} onChangeStatus={onChangeStatus} statusOptions={statusOptions} />
+  );
+  // Kap kaydırmaz ve konumlanır: genişte bölgenin (kaydırma alanı) ::after odak çizgisi ona göre çizilir, kırpılmaz (Kanban.css).
+  return (
+    <div className="aile-kanban-kap">
+      <div
+        className={['aile-kanban', wide ? 'aile-kanban--pano' : 'aile-kanban--liste', className].filter(Boolean).join(' ')}
+        role="region"
+        aria-label={label}
+        data-device={device}
+        data-gorunum={wide ? 'pano' : 'liste'}
+        tabIndex={wide ? 0 : undefined}
+        onFocusCapture={event => rememberFocusedCard(event.currentTarget, event.target)}
+      >
+        {wide ? <KanbanBoard items={items} columns={columns} selectedKey={selectedKey} onOpen={onOpen} wideFallback={list} /> : list}
+      </div>
+    </div>
+  );
+}
+
+// --- Telefon listesi (genişte pano yüklenene dek yedek) ---------------------------------------------------
+interface KanbanListProps extends KanbanBoardProps {
+  onChangeStatus?(row: RecordRow, next: StatusLabel): void;
+  statusOptions?: readonly StatusLabel[];
+}
+
+function KanbanList({ items, columns, selectedKey, onOpen, onChangeStatus, statusOptions }: KanbanListProps) {
   const baseId = useId();
-  const board = buildColumns(items, columns);
-  const classes = ['aile-kanban', dar && 'aile-kanban--dar', className].filter(Boolean).join(' ');
+  const groups = buildColumns(items, columns);
+  const options = statusOptions ?? columns ?? groups.map(({ label: text, tone }) => ({ label: text, tone }));
+  const rootRef = useRef<HTMLDivElement>(null);
+  // "Durumu değiştir" düğmeleri kayıt id'sine göre. Kayıt başka gruba taşınınca düğme yeniden bağlanır; harita en son
+  // bağlanan öğeyi tutar, okuma isConnected ile doğrular.
+  const triggers = useRef(new Map<string, HTMLButtonElement>());
+  const [openId, setOpenId] = useState<string | null>(null);
+  // Odağın izlediği kayıt: alt sayfa kapanınca ve kayıt (üst bileşen yazınca, belki sonra) yeni gruba taşınınca odak
+  // o kaydın düğmesine döner. Kullanıcı başka yere odaklanınca bırakılır.
+  const follow = useRef<string | null>(null);
+  const triggerFor = (id: string | null) => {
+    const element = id ? triggers.current.get(id) : undefined;
+    return element?.isConnected ? element : null;
+  };
+  // BottomSheet dönüşü okuma anında çözülür: taşınan kaydın yeni düğmesi.
+  const returnFocusTo = useMemo<RefObject<HTMLElement | null>>(() => ({
+    get current() { return triggerFor(follow.current); },
+  }), []);
+
+  useLayoutEffect(() => {
+    if (openId || !follow.current) return;
+    const active = document.activeElement;
+    if (active && active !== document.body) return;
+    triggerFor(follow.current)?.focus({ preventScroll: true });
+  });
+
+  const onFocusCapture = (event: FocusEvent<HTMLDivElement>) => {
+    // Portal (alt sayfa) olayları da React ağacından kabarır; yalnız listenin kendi DOM'undaki odak sayılır.
+    const target: Node = event.target;
+    if (openId || !rootRef.current?.contains(target)) return;
+    if (follow.current && target !== triggerFor(follow.current)) follow.current = null;
+  };
+
+  const openRow = openId ? items.find(row => row.id === openId) ?? null : null;
+  const close = () => setOpenId(null);
+  const pick = (row: RecordRow, next: StatusLabel) => {
+    setOpenId(null);
+    if (next.label !== row.status.label) onChangeStatus?.(row, next);
+  };
 
   return (
-    <div className={classes} role="region" aria-label={label} data-device={device} tabIndex={0}>
-      {board.map((column, index) => {
-        const headingId = `${baseId}-sutun-${index}`;
+    <div ref={rootRef} className="aile-kanban-liste" onFocusCapture={onFocusCapture}>
+      {groups.map((group, index) => {
+        const headingId = `${baseId}-grup-${index}`;
         return (
-          <section key={column.label} className="aile-kanban-sutun" aria-label={column.label}>
-            <header className="aile-kanban-sutun-baslik">
-              <h3 id={headingId} className="aile-kanban-sutun-ad">
-                <Tag tone={column.tone}>{column.label}</Tag>
-                <span className="aile-kanban-sutun-sayi">{column.rows.length} kayıt</span>
-              </h3>
-              <span className="aile-kanban-sutun-toplam">{plannedTotal(column.rows)}</span>
-            </header>
-            {column.rows.length > 0 ? (
+          <section key={group.label} className="aile-kanban-sutun" aria-label={group.label}>
+            <KanbanColumnHeader column={group} headingId={headingId} />
+            {group.rows.length > 0 ? (
               <ul className="aile-kanban-kartlar" aria-labelledby={headingId}>
-                {column.rows.map(row => (
-                  <li key={row.id}>
-                    <KanbanCard row={row} selected={selectedKey !== undefined && row.id === selectedKey} onOpen={onOpen} />
-                  </li>
-                ))}
+                {group.rows.map(row => {
+                  const titleId = `${baseId}-kayit-${row.id}`;
+                  return (
+                    <li key={row.id} className="aile-kanban-oge">
+                      <KanbanCard row={row} selected={selectedKey !== undefined && row.id === selectedKey} onOpen={onOpen} titleId={titleId} />
+                      {onChangeStatus ? (
+                        <span className="aile-kanban-eylem">
+                          <Button
+                            variant="quiet"
+                            className="aile-kanban-degistir"
+                            aria-haspopup="dialog"
+                            aria-expanded={openId === row.id}
+                            aria-describedby={titleId}
+                            ref={(element: HTMLButtonElement | null) => { if (element) triggers.current.set(row.id, element); }}
+                            onClick={() => { follow.current = row.id; setOpenId(row.id); }}
+                          >
+                            {DURUMU_DEGISTIR}
+                          </Button>
+                        </span>
+                      ) : null}
+                    </li>
+                  );
+                })}
               </ul>
             ) : (
               <p className="aile-kanban-bos">{BOS_SUTUN}</p>
@@ -178,6 +160,82 @@ export function Kanban({ items, columns, selectedKey, onOpen, narrow, label = KA
           </section>
         );
       })}
+      {onChangeStatus ? (
+        <BottomSheet title={DURUMU_DEGISTIR} open={openRow !== null} onClose={close} returnFocusTo={returnFocusTo}>
+          {openRow ? <StatusMenu row={openRow} options={options} onPick={next => pick(openRow, next)} /> : null}
+        </BottomSheet>
+      ) : null}
+    </div>
+  );
+}
+
+// --- Durum menüsü (alt sayfa içeriği) ------------------------------------------------------------------
+const nextFrame = (callback: () => void): (() => void) => {
+  if (typeof window.requestAnimationFrame === 'function') {
+    const frame = window.requestAnimationFrame(callback);
+    return () => window.cancelAnimationFrame(frame);
+  }
+  const timer = window.setTimeout(callback, 0);
+  return () => window.clearTimeout(timer);
+};
+
+function StatusMenu({ row, options, onPick }: { row: RecordRow; options: readonly StatusLabel[]; onPick(next: StatusLabel): void }) {
+  const current = Math.max(0, options.findIndex(option => option.label === row.status.label));
+  const [active, setActive] = useState(current);
+  const menuRef = useRef<HTMLUListElement>(null);
+  const items = () => Array.from(menuRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]') ?? []);
+
+  // Açılışta odak şu anki duruma: alt sayfanın kendi panel odağından sonra (bir sonraki kare), içerik odağı alınca
+  // BottomSheet onu çalmaz.
+  useEffect(() => nextFrame(() => { items()[current]?.focus({ preventScroll: true }); }), [current]);
+
+  const onKeyDown = (event: KeyboardEvent<HTMLUListElement>) => {
+    const list = items();
+    const count = list.length;
+    if (count === 0) return;
+    const at = list.indexOf(document.activeElement as HTMLButtonElement);
+    let next: number;
+    switch (event.key) {
+      case 'ArrowDown': next = at < 0 ? 0 : (at + 1) % count; break;
+      case 'ArrowUp': next = at < 0 ? count - 1 : (at - 1 + count) % count; break;
+      case 'Home': next = 0; break;
+      case 'End': next = count - 1; break;
+      default: return;
+    }
+    event.preventDefault();
+    setActive(next);
+    list[next]?.focus();
+  };
+
+  return (
+    <div className="aile-kanban-durum">
+      <p className="aile-kanban-durum-kayit">
+        <span className="aile-kanban-durum-ad">{row.label}</span>
+        {' · '}
+        <span className="aile-kanban-durum-simdi">{`Şu an: ${row.status.label}`}</span>
+      </p>
+      <ul ref={menuRef} role="menu" aria-label={YENI_DURUM} className="aile-kanban-durum-liste" onKeyDown={onKeyDown}>
+        {options.map((option, index) => {
+          const checked = index === current && option.label === row.status.label;
+          return (
+            <li key={option.label} role="none">
+              <button
+                type="button"
+                role="menuitemradio"
+                aria-checked={checked}
+                tabIndex={index === active ? 0 : -1}
+                className="aile-kanban-durum-secenek"
+                data-focus-line=""
+                onFocus={() => setActive(index)}
+                onClick={() => onPick(option)}
+              >
+                <span className="aile-kanban-durum-isaret" aria-hidden="true">{checked ? <Icon name="check" /> : null}</span>
+                <span className="aile-kanban-durum-etiket">{option.label}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }

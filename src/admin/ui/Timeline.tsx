@@ -1,6 +1,7 @@
 import { useId } from 'react';
 import { useDevice } from '../device';
 import type { RecordRow } from '../shell/contracts';
+import { PRESS_HANDLERS } from './Kanban.press';
 import { FIYAT_YOK, Money } from './Money';
 import { Tag } from './Tag';
 import './Timeline.css';
@@ -16,6 +17,11 @@ import './Timeline.css';
 // Seçili kayıt aria-current + secili yüzey (başlık zaten 600). Odak çizgisini admin.css çizer ([data-focus-line]).
 // Dar biçim: narrow ya da cihaz 'phone' (useDevice); gövde tek sütuna iner, tutar sola yaslanır.
 // Para biçimi ui/Money'nin işidir (₺8.500,00; eksik "Fiyat yok"; bozuk tutar "Bilinmiyor"); burada yerel biçimleyici yok.
+// Tarih okuma: "YYYY-MM-DD" takvim günü olarak alınır (Date'e çevrilmez, saat dilimi kayması yok) ve takvimde olmalıdır
+// (31 Şubat okunamadı sayılır). Saatli değer Z ya da ±hh:mm ofset taşıyorsa anı Europe/Istanbul takvim gününe çevrilir
+// (bütçe saat dilimi, data/actuals BUDGET_TIME_ZONE); ofsetsiz saat yerel duvar saatidir, günü olduğu gibi okunur.
+// Tek sütunlu dar biçim dahil tüm profillerde aynı yerel uygulama (antd gerekmez; geniş dosya yok). Dokunma: Pointer
+// Events ile basılı durum (Kanban.press), pointercancel kaydırmada basılı durumu siler ve kaydı açmaz.
 
 export type TimelineDateField = keyof NonNullable<RecordRow['dates']>;
 
@@ -43,22 +49,42 @@ const TARIH_OKUNAMADI = 'Tarih okunamadı';
 const BILINMIYOR = 'Bilinmiyor';
 const HENUZ_KAYIT_YOK = 'Henüz kayıt yok';
 const AYLAR = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'] as const;
-const ISO_GUN = /^(\d{4})-(\d{2})-(\d{2})/;
+const ISO_GUN = /^(\d{4})-(\d{2})-(\d{2})(?:$|[T\s])/;
+const ISO_AN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})$/i;
+const ZAMAN_DILIMI = 'Europe/Istanbul';
 
 interface ParsedDate { year: number; month: number; day: number }
 interface Entry { row: RecordRow; date: ParsedDate | null; raw: string | undefined }
 interface MonthGroup { key: string; title: string; monthShort: string; entries: Entry[] }
 
-/** Veri platformu ISO gün ("2026-11-15" ya da ISO zaman). Saat dilimi kaymasına girmemek için Date kullanılmaz. */
+const daysInMonth = (year: number, month: number) => new Date(Date.UTC(year, month, 0)).getUTCDate();
+
+let istanbulDay: Intl.DateTimeFormat | null = null;
+/** Anın Europe/Istanbul takvim günü; çözülemezse null. */
+function zonedDay(value: string): ParsedDate | null {
+  const instant = new Date(value);
+  if (Number.isNaN(instant.getTime())) return null;
+  istanbulDay ??= new Intl.DateTimeFormat('en-CA', { timeZone: ZAMAN_DILIMI, year: 'numeric', month: '2-digit', day: '2-digit' });
+  const parts = Object.fromEntries(istanbulDay.formatToParts(instant).map(part => [part.type, part.value]));
+  const year = Number(parts.year);
+  const month = Number(parts.month);
+  const day = Number(parts.day);
+  return Number.isInteger(year) && Number.isInteger(month) && Number.isInteger(day) ? { year, month, day } : null;
+}
+
+/** Veri platformu ISO gün ("2026-11-15") ya da ISO zaman. Gün takvimde olmalı; ofsetli an İstanbul gününe çevrilir. */
 function parseIsoDay(value: string | undefined): ParsedDate | null {
   if (!value) return null;
-  const match = ISO_GUN.exec(value.trim());
+  const text = value.trim();
+  const match = ISO_GUN.exec(text);
   if (!match) return null;
   const [, y, m, d] = match;
+  const year = Number(y);
   const month = Number(m);
   const day = Number(d);
-  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
-  return { year: Number(y), month, day };
+  if (month < 1 || month > 12 || day < 1 || day > daysInMonth(year, month)) return null;
+  if (ISO_AN.test(text) && /(?:Z|[+-]\d{2}:?\d{2})$/i.test(text)) return zonedDay(text);
+  return { year, month, day };
 }
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
@@ -121,6 +147,7 @@ export function Timeline({ items, dateField, selectedKey, onOpen, narrow, classN
           data-selected={selected ? 'true' : 'false'}
           aria-current={selected ? 'true' : undefined}
           onClick={onOpen ? () => onOpen(row) : undefined}
+          {...PRESS_HANDLERS}
         >
           <span className="aile-tl-main">
             <span className="aile-tl-title">{row.label}</span>
