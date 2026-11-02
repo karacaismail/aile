@@ -228,7 +228,9 @@ describe('VeriPage › başlık', () => {
     expect(screen.getByText('Yapı')).toBeInTheDocument();
     expect(screen.getByText('E-tablodan gelen veriyi içe aktarın, eşleşmeyen satırları ve çakışmaları çözün.')).toBeInTheDocument();
 
-    await waitForFresh();
+    // Durulana dek: manifest taze olduktan hemen sonra koleksiyon dalgası durumu yeniden "checking" yapar; yalnız
+    // "fresh"i beklemek yük altında o kısa pencerede durur ve satır metni değişmiş olur.
+    await waitForSettled();
     const durum = veriDurumu();
     expect(durum).toHaveTextContent(`Nesil ${GENERATION_ID.slice(0, 6)}`);
 
