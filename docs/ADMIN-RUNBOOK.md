@@ -48,6 +48,8 @@ Kullanılan anahtarlar ana kopyanın `.env.local` dosyasındadır (Git dışınd
 | `AILE_GENERATION_DIR` | Yalnız dev middleware `/__aile/generation/*` (`src/admin/devServer/privateData.ts`), yalnız süreç ortamından | data-platform ile üretilmiş özel nesil kökü (`/PRIVATE/data` gibi; `generations/<sha256>/manifest.json` taşır) |
 | `AILE_EMEKLILIK_PROFILE` (isteğe bağlı) | Yalnız dev middleware `/__aile/emeklilik/profil.json` (aynı dosya), yalnız süreç ortamından | Git dışındaki kişisel emeklilik profili (`/PRIVATE/emeklilik/profil.json` gibi; tek `.json` dosyası, sözleşmesi `src/admin/emeklilik/contract.ts` `EmeklilikProfili`) |
 
+Emeklilik profili `AILE_EMEKLILIK_PROFILE` değişkeninin gösterdiği Git dışı tek `.json` dosyasıdır; değer ve dosya hiçbir belgeye, commit'e, teste veya kanıta girmez. Geliştirmede ara katman onu yalnız okur. Üretimde (Pages) varsayılan profil kaynağı yoktur ve istek yapılmaz: kullanıcı dosyayı Emeklilik planı sayfasından içe aktarır ve profil yalnız sekmenin belleğinde tutulur; tarayıcı depolamasına yazılmaz (9. bölüm).
+
 Vite `.env.local` içinden yalnız `VITE_` önekli anahtarları alır; `AILE_GENERATION_DIR` ve `AILE_EMEKLILIK_PROFILE`'ı süreç ortamına koymaz. Ara katman da `.env` / `.env.local` dosyalarını okumaz (birim testi `privateData.test.ts` bunu denetler). Bu yüzden düz `pnpm dev` gerçek nesli ve kişisel profili göremez ve sunucu Node'un `--env-file=.env.local` seçeneğiyle açık komutla başlatılır. Kabukta aynı adlı bir değişken varsa hem Node hem Vite onu dosyaya tercih eder; `env -u` bu yüzden üçünü de temizler.
 
 1. Değer yazdırmadan anahtarların tanımlı olduğunu denetleyin:
@@ -70,13 +72,13 @@ Vite `.env.local` içinden yalnız `VITE_` önekli anahtarları alır; `AILE_GEN
 4. `http://127.0.0.1:<P>/aile/admin.html#/genel` adresini açın. Tazelik satırında yüklenen nesil kısa kimliğiyle görünmelidir.
 5. İş bitince sunucuyu kapatın.
 
-Yerel klasör içe aktarma (File System Access API, `showDirectoryPicker`) yalnız Chromium ailesinde vardır; Safari'de klasör seçici yoktur ve sayfa bunu açıkça söylemelidir.
+Yerel klasör içe aktarma Chromium ailesinde File System Access API (`showDirectoryPicker`), Safari/WebKit'te `<input webkitdirectory>` yedeğiyle yapılır; Veri sayfası yolu özellik algılamayla seçer. Üretim build'i varsayılan olarak hiçbir nesil isteği yapmaz ve klasör içe aktarma durumunda açılır; `VITE_AILE_GENERATION_URL` yalnız açık seçimle HTTP kaynağı verir (yalnız yerel önizleme için).
 
 Gerçek veriyle yapılan önizleme kanıt üretmez: ekran görüntüsü, trace, `dist/` veya rapor Git'e ya da paylaşılan kanıta girmez. Kanıta yalnız "gerçek nesil yüklendi: evet/hayır" gibi değer içermeyen metin yazılır. Kapılar her zaman sentetik veriyle koşar; gerçek değerlerle yapılmış bir build kapı girdisi olamaz.
 
 ## 5. Kapıları koşma
 
-Paralel koşularda her ağır komut koşu kilidinden geçer: `node <koşu klasörü>/ops/slot.mjs <unit|build|e2e> -- <komut>`. Kilit Git dışındadır; kapasite unit 8, build 3, e2e 3. Kilidi beklemek normaldir; komut arka plana atılmaz.
+Paralel koşularda her ağır komut koşu kilidinden geçer: `node <koşu klasörü>/ops/slot.mjs <unit|build|e2e> -- <komut>`. Kilit Git dışındadır; kapasite unit 6, build 2, e2e 4 ve kilit vitest komutuna `--maxWorkers=2` ekler (sınırsız işçiyle eşzamanlı koşular makineyi kilitliyordu). Kilidi beklemek normaldir; komut arka plana atılmaz.
 
 | # | Kapı | Komut | Geçme ölçütü |
 |---|---|---|---|
@@ -84,22 +86,25 @@ Paralel koşularda her ağır komut koşu kilidinden geçer: `node <koşu klasö
 | 2 | Birim testleri | Görevde `pnpm exec vitest run <dosyalar>`; entegrasyonda `pnpm test` | Hepsi geçer; atlanan test yok |
 | 3 | Sentetik nesil | `node scripts/synthetic-generation.mjs <boş geçici klasör>` ve `diff -r <boş geçici klasör> fixtures/generation-synthetic` | `diff` çıktısı boş (nesil deterministik) |
 | 4 | Build | `VITE_BUDGET_SHEET_ID=synthetic-budget-sheet-2098 pnpm build` | Çıkış 0; `dist/.vite/manifest.json` ve `dist/.vite/delivery-graph.json` var |
-| 5 | Gizlilik | `node scripts/check-dist-privacy.mjs dist` | "dist-privacy: 0 bulgu, dist tarandı." |
-| 6 | Teslim | Görevde `node scripts/check-delivery.mjs dist`; entegrasyon sonunda `node scripts/check-delivery.mjs dist --strict` | "sonuç: PASS"; rapor `dist/delivery-report.json` |
-| 7 | Bütçe | `node scripts/check-budgets.mjs` | Ölçülmüş bütçe seti aşılmaz; eşikler ve ölçüm koşulları `docs/ADMIN-BUDGETS.md` |
+| 5 | Gizlilik | `pnpm check:privacy` (`node scripts/check-dist-privacy.mjs dist`), 4. adımın sentetik build'inden sonra | "dist-privacy: 0 bulgu, dist tarandı." |
+| 6 | Teslim | `pnpm check:delivery` (`node scripts/check-delivery.mjs dist --strict`); görevde ve entegrasyonda aynı, tek mod `--strict` | "sonuç: PASS (strict: ihlal yok)"; rapor `dist/delivery-report.json`; telefon kümesi `admin.html` ve her rota sayfasının statik kapanışıdır. `src/admin/vite-config.test.ts` aynı denetimi gerçek build'de koşar |
+| 7 | Bütçe | `pnpm check:budgets` (`node scripts/check-budgets.mjs dist`); aynı build'de 6. adımdan sonra, çünkü `dist/delivery-report.json`'ı okur | Ölçülmüş bütçe seti aşılmaz. Tavanlar ölçüme eşittir, `scripts/check-budgets.test.mjs` `CEILING_LOCK` ile kilitlidir ve yalnız düşer; `src/admin/vite-config.test.ts` kapıyı gerçek build'de koşar. Eşikler ve ölçüm koşulları `docs/ADMIN-BUDGETS.md` |
 | 8 | E2E (dev) | Görevde `AILE_PORT=<P> pnpm exec playwright test --config playwright.admin.config.ts --project chromium --project webkit <spec>` | Hepsi geçer |
 | 9 | Üretim ağ yalıtımı | `AILE_PORT=<P> pnpm exec playwright test --config playwright.admin-production.config.ts` (4. adımın `dist` çıktısıyla; port P+1) | Hepsi geçer |
 
 Notlar:
 
 - Build kabukta sentetik Sheet kimliğiyle koşar. Kabuk değeri `.env.local`'daki değeri ezer; aksi halde gerçek kimlik `dist/` içine gömülür ve kapı girdisi geçersiz olur.
+- Gizlilik kapısı yalnız sentetik build içindir: yayın build'i gerçek Sheet kimliğini ve Apps Script adresini bilerek gömer ve bu kapıdan geçmez. Kurallar Git dışı çalışma klasörü ve mutlak kullanıcı yolu, `AILE_GENERATION_DIR` değeri, Sheet kimliği, Apps Script adresi ve dağıtım kimliği, e-posta, nesil kimliği yolu, nesil manifesti, kayıt parçaları ve partition zarfı, source map içeriği ve emeklilik profilidir. Bulgu değeri yazdırılmaz.
 - Gizlilik kapısı `dist` yoksa "taranacak çıktı yok, kapı atlandı" der ve 0 ile çıkar. Bu geçme kanıtı değildir; kapı her zaman 4. adımdan sonra koşar.
 - Gizlilik kapısı emeklilik profilini de arar: değeriyle birlikte geçen profil alanı (`dogumTarihi`, `ilkSigortaGirisi`, `sgkReferansAylik.tl`, `kayitliGun.gun`, `kazanc.sonPekTl`) `retirement-profile`, `AILE_EMEKLILIK_PROFILE` değeri (yol) `retirement-profile-path` bulgusudur. Yalnız `fixtures/emeklilik/profil-sentetik.json` (`sentetik: true`) değerleri muaftır. Kapı koşarken `AILE_EMEKLILIK_PROFILE` tanımlıysa o dosyadaki doğum tarihi dist'in her yerinde aranır; değer ve yol hiçbir zaman yazdırılmaz.
-- Teslim kapısı çıkış kodları: 0 PASS, 1 FAIL, 2 girdi hatası (build yok, eski grafik, hatalı argüman). Ratchet modunda `[YENİ]` etiketli ihlal FAIL'dir, `[baseline]` etiketli ihlal biliniyor demektir. "baseline daraltılabilir" uyarısı bir ihlalin kalktığını söyler; `scripts/delivery-baseline.json` yalnız daralır ve dosyayı entegrasyon sahibi düzenler. Telefon yolundan antd'yi çıkaran görev bunu rapordaki `yol: admin.html > …` satırının artık kendi bileşeninden geçmediğiyle gösterir.
+- Teslim kapısı çıkış kodları: 0 PASS, 1 FAIL, 2 girdi hatası (build yok, eski grafik, hatalı argüman). Tek mod `--strict`'tir: tek ihlal FAIL'dir ve `scripts/delivery-baseline.json` boş kalır. Ratchet modu (`--strict`'siz) yalnız geçiş dönemi içindi; baseline'a kimlik eklemek kuralı gevşetir ve yalnız entegrasyon sahibinin açık kararıdır. İhlal `<sınıf> <- <içe aktaran>` ve `yol: admin.html > <sayfa> > …` satırıyla yazılır; düzelten görev yolun artık kendi bileşeninden geçmediğini raporla gösterir. Kapı yasak sınıfları (antd, pro, icons, echarts, wide) yakalar; yasak olmayan ama gereksiz modül (ör. ui barrel'ı üzerinden Chart) ağ isteği testiyle aranır.
+- Bütçe kapısı 9b16c43'te FAIL'dir: phone-js kilitli tavanı aşıyor. Tavanı yükseltmek kilidi değiştirir ve entegrasyon sahibinin açık kararıdır (`docs/ADMIN-PANEL-PARALLEL-PLAN.md` §10).
+- Üretim ağ yalıtımı (9. kapı) taze bir sentetik `dist` ister: önce 4. adım, sonra `AILE_PORT=<P> pnpm exec playwright test --config playwright.admin-production.config.ts --project chromium --project webkit e2e/admin-production.spec.ts`. Spec `playwright.admin.config.ts` altında kendini atlar; orada geçmiş görünmesi kanıt değildir. Her senaryo aktarılan ve çözülmüş baytları ayrı yazan `ag-*.json` eki bırakır.
 - Entegrasyonda E2E sırası: önce telefon projeleri (`--project chromium --project webkit`), sonra `@matrix` projeleri (`--project chromium-360 --project chromium-375 --project chromium-short --project chromium-landscape --project webkit-tablet --project webkit-desktop`), sonra geniş proje (`--project chromium-desktop`). Tam liste tek seferde `pnpm e2e:admin` ile de koşar.
 - Port: `AILE_PORT` çift sayıdır; dev kapısı P, üretim kapısı P+1 kullanır. Verilmezse 5174 ve 5178. Çıktılar `test-results/admin-<P>`, `playwright-report/admin-<P>` ve `test-results/admin-production-<P+1>` klasörlerine yazılır.
 - Koşu bitince `lsof -nP -iTCP:<P> -sTCP:LISTEN` ve P+1 için aynı komut boş dönmelidir; açık sunucu bırakılmaz.
-- Firefox hiçbir kapıda çalıştırılmaz. CI ve Pages iş akışları (`.github/workflows/ci.yml`, `.github/workflows/deploy.yml`) yönetim kapılarını koşmaz; bu kapılar yereldir. CI'ya ekleme önerisi `docs/ADMIN-DEPLOY-PROPOSAL.md` içindedir ve ayrı karardır; eklenirse bu bölüm ve 7.2 güncellenir.
+- Firefox hiçbir kapıda çalıştırılmaz. CI ve Pages iş akışları (`.github/workflows/ci.yml`, `.github/workflows/deploy.yml`) yönetim kapılarını koşmaz; bu kapılar yereldir. CI'ya ekleme önerisi `docs/ADMIN-DEPLOY-PROPOSAL.md` §4.5–4.6 içindedir; workflow değişikliği Codex'e, CI'nin teknik kurulumu Hüseyin Cengiz'e aittir. Eklenirse bu bölüm, 7.2 ve `AGENTS.md` kapı satırı güncellenir.
 
 ## 6. Kanıt biçimi
 
@@ -218,6 +223,8 @@ Panel tarayıcıda yalnız aşağıdakileri saklar. Hepsi yalnız o tarayıcıda
 Kalıcı saklama `VITE_AILE_PARTITION_CACHE` ile seçilir (`src/admin/data/store.ts` `persistentCacheAllowed`). Boş değer geliştirmede açık, üretim derlemesinde kapalıdır (fail-closed). Üretimde yalnız `idb` ya da `on` açar; `off`, `memory` ve tanınmayan değerler kapalıdır. Pages kökeni başka projelerle paylaşıldığı için yayında kalıcı önbellek ancak kullanıcının açık kararıyla açılır (`docs/ADMIN-DEPLOY-PROPOSAL.md` Ö6).
 
 Ortak cihaz: Ayarlar › "Cihazdaki panel verisi" › "Bu cihazdaki tüm panel verisini sil" onay ister ve bekleyen değişiklik sayısını gösterir. Onaylanınca nesil önbelleğini, `aile:admin:` önekli bütün anahtarları (değişiklik kümesi, canlı bütçe son okuması) ve sekme belleğindeki canlı bütçe kopyasını siler. Ardından sayfa yeniden yüklenir; böylece bellekteki kopyalar ve seçilen klasör de gider. Adres ve anahtar ayrı bir seçenektir ve varsayılan olarak korunur. Ana uygulamanın aynı depodaki verisine (`aile:data:v1`, `aile:outbox:v1`) dokunulmaz. Başka sekmede açık bir panel varsa önce o kapatılır. Açık kalırsa o sekmede yapılan yeni bir değişiklik, bellekteki değişiklik kümesini yeniden yazar. "Önbelleği temizle" yalnız parça önbelleğini siler.
+
+Canlı bütçe okuması (`src/admin/data/live.ts`) yalnız okur. Deneme başına zaman aşımı 10 sn'dir. Yalnız ağ hatası, zaman aşımı ve HTTP 408/425/429/5xx yeniden denenir: toplam en çok 3 deneme, üstel ve eşit jitter'lı bekleme (400 ms, sonra 800 ms; bekleme en çok 3 sn). Hata sınıfları karışmaz: ağ "Sheets'e ulaşılamadı", boş kaynak "Veri yok", bütünlük "Biçim değişti", ayrıca yapılandırma ve iptal. Eşzamanlı çağrılar tek okumayı paylaşır. Hata sonucu son iyi okumayı okuma zamanıyla "eski" olarak taşır, taze göstermez.
 
 Emeklilik profili bu tabloda yoktur, çünkü hiçbir yerde saklanmaz: yalnız sekmenin belleğinde durur (`src/admin/emeklilik/data` profil deposu). Geliştirmede ara katmandan okunur. Üretimde (GitHub Pages) varsayılan kaynak yoktur ve hiçbir ağ isteği yapılmaz; kullanıcı profil dosyasını Emeklilik planı sayfasından içe aktarır. Dosya en çok 256 KB olabilir, JSON olarak ayrıştırılır ve sözleşme şemasıyla (Zod, `surum: 1`) doğrulanır; bilinmeyen alanlar yok sayılır, geçersiz dosya alan yoluyla ve değer yazılmadan reddedilir. Sekme kapanınca ya da profil temizlenince profil gider; tarayıcı depolaması ya da önbellek kullanılmaz (kaynak kapısı `src/admin/emeklilik/data/profilKaynagi.test.ts`).
 
