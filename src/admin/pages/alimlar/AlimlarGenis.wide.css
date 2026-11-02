@@ -4,15 +4,6 @@
 
 .aile-alimlar-yerlesim { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--aile-bosluk-6); align-items: start; min-width: 0; }
 .aile-alimlar-yerlesim[data-ayrinti='acik'] { grid-template-columns: minmax(0, 1fr) var(--aile-ayrinti-genislik); }
+/* Ayrıntı burada yerinde (DetailPanel inline, akışta) çizilir: liste görünür ve kullanılabilir kalır, örtü yok. Panel
+   yüksekliği görünüm alanını aşmaz, gövdesi kendi içinde kayar (ui/DetailPanel.css › .aile-detail--yerinde). */
 .aile-alimlar-ayrinti { position: sticky; top: var(--aile-bosluk-6); min-width: 0; }
-
-/* Ayrıntı çekmecesi burada yerinde çizilir (DetailPanel inline): antd'nin yerinde çekmecesi üst öğeyi mutlak konumla
-   kaplar ve akışta yer tutmaz (kap yüksekliği 0 → panel görünmez). Sağ sütunda akışa alınır; liste görünür ve
-   kullanılabilir kaldığı için örtü çizilmez; kenardan kayma (translateX 100%) sayfayı yatay taşırdığından yerinde
-   belirir. Panel görünüm alanı yüksekliğini aşmaz, gövdesi kendi içinde kayar. */
-.aile-alimlar-ayrinti .aile-drawer.aile-detail--genis { position: relative; inset: auto; z-index: auto; }
-.aile-alimlar-ayrinti .aile-drawer.aile-detail--genis .aile-drawer-mask { display: none; }
-.aile-alimlar-ayrinti .aile-drawer.aile-detail--genis .aile-drawer-wrapper {
-  position: static; inset: auto; transform: none; max-height: calc(100dvh - 2 * var(--aile-bosluk-6)); display: flex; flex-direction: column;
-}
-.aile-alimlar-ayrinti .aile-drawer.aile-detail--genis .aile-drawer-section { flex: 1 1 auto; min-height: 0; border-radius: var(--aile-kose-panel); }
