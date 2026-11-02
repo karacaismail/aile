@@ -255,6 +255,117 @@ describe('focusRingViolations', () => {
   });
 });
 
+/**
+ * Tek satır modeli: li (ya da role=listitem) içindeki tek odaklanabilir öğe olan ve satırın içerik genişliğini dolduran
+ * A/BUTTON satırdır. Çizgi bağlantının/düğmenin ya da li'nin ::after'ıdır; çizilen alt kenarı (taşıyıcının dolgu kutusu
+ * altı − bottom) li'nin alt kenarına 1 px içinde oturuyorsa kabul. Kontrol kalıbı (4 px altta) eskisi gibi geçerlidir.
+ * Ayrıca açık satır işareti [data-focus-line='row'] taşıyıcısı tr / role=row gibi bottom 0 bekler.
+ */
+describe('focusRingViolations › tek satır modeli', () => {
+  const ROW: Rect = { left: 0, top: 100, width: 320, height: 56 };
+  const ROW_LINE: Css = { ...LINE, width: '320px', bottom: '0px' };
+  const RELATIVE: Css = { position: 'relative' };
+
+  /** ul > li > (a|button): satır ve kontrol aynı kutuda; li'nin ek alt boşluğu `padBottom`. */
+  function row(control: 'a' | 'button', opts: { padBottom?: number; extra?: string; controlWidth?: number; nav?: boolean } = {}) {
+    const tag = control === 'a' ? '<a id="h" href="#/alimlar">Alımlar ve eşyalar</a>' : '<button id="h" type="button">Koltuk takımı</button>';
+    const list = `<ul><li id="li">${tag}${opts.extra ?? ''}</li><li><a href="#/ev">Ev ve odalar</a></li></ul>`;
+    mount(opts.nav ? `<nav aria-label="Sayfalar" data-odak-zemin="nav">${list}</nav>` : list);
+    const kit = makeEnv();
+    const pad = opts.padBottom ?? 0;
+    kit.box($('#li'), { ...ROW, height: ROW.height + pad });
+    kit.css($('#li'), { ...RELATIVE, ...(pad ? { 'padding-bottom': `${pad}px` } : {}) });
+    kit.box($('#h'), { ...ROW, width: opts.controlWidth ?? ROW.width });
+    kit.css($('#h'), RELATIVE);
+    return kit;
+  }
+
+  it('temiz: li\'yi dolduran bağlantının ::after\'ı bottom 0 ve li alt kenarında (gezinme satırı dahil)', () => {
+    const { env, css } = row('a');
+    css($('#h'), ROW_LINE, '::after');
+    expect(focusRingViolations({ target: '#h', keyboard: true, env })).toEqual([]);
+    // Lacivert gezinme yüzeyindeki aynı satır (Sayfalar çekmecesi / yan gezinme bağlantısı) da satırdır.
+    const nav = row('a', { nav: true });
+    nav.css($('#h'), ROW_LINE, '::after');
+    expect(focusRingViolations({ target: '#h', keyboard: true, env: nav.env })).toEqual([]);
+  });
+
+  it('temiz: çizgi li\'nin ::after\'ında (düğme satırı); temiz: kontrol kalıbı (4 px altta) satırda da geçerli', () => {
+    const li = row('button');
+    li.css($('#li'), ROW_LINE, '::after');
+    expect(focusRingViolations({ target: '#h', keyboard: true, env: li.env })).toEqual([]);
+    // Satırın alt boşluğu li'de (GenelPage): kontrol çizgisi -7 px; eskisi gibi kabul.
+    const below = row('a', { padBottom: 7 });
+    below.css($('#h'), { ...LINE, width: '320px' }, '::after');
+    expect(focusRingViolations({ target: '#h', keyboard: true, env: below.env })).toEqual([]);
+  });
+
+  it('ihlal: satır alt kenarında olmayan bottom 0 çizgisi (li\'de alt boşluk: çizgi satırın içinde kalır)', () => {
+    const { env, css } = row('a', { padBottom: 12 });
+    css($('#h'), ROW_LINE, '::after');
+    const out = focusRingViolations({ target: '#h', keyboard: true, env });
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatch(/konum bottom 0px \(beklenen -7px/);
+    expect(out[0]).toMatch(/satır alt 168px/);
+  });
+
+  it('ihlal: satır değil — li\'de ikinci odaklanabilir var ya da hedef satırı doldurmuyor; bottom 0 kontrol konumu değildir', () => {
+    const iki = row('a', { extra: '<button type="button">Diğer</button>' });
+    iki.css($('#h'), ROW_LINE, '::after');
+    expect(focusRingViolations({ target: '#h', keyboard: true, env: iki.env }).join()).toMatch(/konum bottom 0px \(beklenen -7px\)/);
+    const dar = row('button', { controlWidth: 120 });
+    dar.css($('#h'), { ...LINE, bottom: '0px' }, '::after');
+    expect(focusRingViolations({ target: '#h', keyboard: true, env: dar.env }).join()).toMatch(/konum bottom 0px \(beklenen -7px\)/);
+    // Düğme/bağlantı olmayan odak (li içinde tek girdi) satır modeline girmez.
+    mount('<ul><li id="li"><input id="h" aria-label="Ara"></li></ul>');
+    const girdi = makeEnv();
+    girdi.box($('#li'), ROW);
+    girdi.css($('#li'), RELATIVE);
+    girdi.box($('#h'), ROW);
+    girdi.css($('#h'), RELATIVE);
+    girdi.css($('#li'), ROW_LINE, '::after');
+    expect(focusRingViolations({ target: '#h', keyboard: true, env: girdi.env }).join()).toMatch(/konum bottom 0px \(beklenen -7px\)/);
+  });
+
+  it('ihlal: konumlanmamış li\'nin ::after\'ı li\'ye bağlı değildir (bottom başka kaba göredir)', () => {
+    const { env, css } = row('button');
+    css($('#li'), { position: 'static' });
+    css($('#li'), ROW_LINE, '::after');
+    expect(focusRingViolations({ target: '#h', keyboard: true, env }).join()).toMatch(/konum bottom 0px/);
+  });
+
+  it('li taşıyıcı derinliğinin ötesinde olsa da çizgi taşıyıcısıdır; işaretçi modunda görünürse yakalanır', () => {
+    mount('<ul><li id="li"><div><div><div><a id="h" href="#/x">Ayrıntı</a></div></div></div></li></ul>');
+    const { env, css, box } = makeEnv();
+    box($('#li'), ROW);
+    css($('#li'), RELATIVE);
+    box($('#h'), ROW);
+    css($('#h'), RELATIVE);
+    css($('#li'), ROW_LINE, '::after');
+    expect(focusRingViolations({ target: '#h', keyboard: true, env })).toEqual([]);
+    expect(focusRingViolations({ target: '#h', keyboard: false, env }).join()).toMatch(/klavye modu dışında/);
+  });
+
+  it('halka yasağı satır modelinde de geçerli: li\'de çevreleyen box-shadow yakalanır', () => {
+    const { env, css } = row('a');
+    css($('#h'), ROW_LINE, '::after');
+    css($('#li'), { 'box-shadow': 'rgb(50, 107, 148) 0px 0px 0px 2px' });
+    expect(focusRingViolations({ target: '#h', keyboard: true, env }).join()).toMatch(/box-shadow halkası/);
+  });
+
+  it("açık satır işareti [data-focus-line='row']: satırı saran etiketin ::after'ı bottom 0 kabul; -7 px satır konumu değil", () => {
+    mount('<ul><li><label id="sat" data-focus-line="row"><input id="k" type="checkbox"> Örnek iş</label></li></ul>');
+    const { env, css, box } = makeEnv();
+    box($('#sat'), ROW);
+    css($('#sat'), RELATIVE);
+    box($('#k'), { left: 16, top: 116, width: 24, height: 24 });
+    css($('#sat'), ROW_LINE, '::after');
+    expect(focusRingViolations({ target: '#k', keyboard: true, env })).toEqual([]);
+    css($('#sat'), { ...ROW_LINE, bottom: '-7px' }, '::after');
+    expect(focusRingViolations({ target: '#k', keyboard: true, env }).join()).toMatch(/konum bottom -7px \(beklenen 0px\)/);
+  });
+});
+
 describe('smallTextViolations', () => {
   it('14 px altındaki görünür metni yakalar, 14 px temizdir', () => {
     mount('<p id="k">Fiyat yok</p><p id="t">Henüz yok</p>');

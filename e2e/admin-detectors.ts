@@ -3,8 +3,11 @@
  *
  * Her dedektör ihlalleri okunur Türkçe metin listesi olarak döndürür; boş liste = temiz. Kurallar:
  *  - focusRingViolations: çevreleyen odak halkası yasak (outline, halka box-shadow, sözde öğe çerçevesi); klavye modunda
- *    kontrolün 4 px altında, kontrol genişliğinde tek 3 px ::after çizgisi zorunlu (satırda alt kenar); işaretçi modunda
- *    gösterge görünmez. Tek istisna forced-colors + klavye modunda 2px solid outline.
+ *    kontrolün 4 px altında, kontrol genişliğinde tek 3 px ::after çizgisi zorunlu; işaretçi modunda gösterge görünmez.
+ *    Satırda çizgi satırın alt kenarındadır: tr / role=row / .ant-list-item / [data-focus-line='row'] taşıyıcısında
+ *    bottom 0; tek satır modelinde (li ya da role=listitem içindeki tek odaklanabilir, satırın içerik genişliğini
+ *    dolduran A/BUTTON; gezinme bağlantısı satırı dahil) bağlantının/düğmenin ya da li'nin ::after'ı, çizilen alt kenarı
+ *    li'nin alt kenarına 1 px içinde oturuyorsa kabul. Tek istisna forced-colors + klavye modunda 2px solid outline.
  *  - smallTextViolations: görünür metin (metin düğümü, form değeri, sözde öğe metni) en az 14 CSS px.
  *  - accentEdgeViolations: radiuslu kutuda, değdiği köşelerden en az biri radiuslu tek kenar şeridi yasak
  *    (kenarlık, inset box-shadow, sözde öğe).
@@ -185,11 +188,27 @@ export function focusRingViolations(opts: FocusRingOptions = {}): string[] {
     }
   }
 
+  // Tek satır modeli: li (ya da role=listitem) içindeki tek odaklanabilir öğe olan ve satırın içerik genişliğini dolduran
+  // A/BUTTON hedef bir liste satırıdır (gezinme bağlantısı satırı dahil). Çizgisi bağlantının/düğmenin ya da li'nin
+  // ::after'ıdır; li taşıyıcı derinliğinin ötesindeyse de çizgi taşıyıcısı sayılır.
+  let rowItem: Element | null = null;
+  if (/^(A|BUTTON)$/.test(target.tagName)) {
+    const item = target.closest('li, [role=listitem]');
+    const inside = item ? Array.from(item.querySelectorAll(FOCUSABLE)) : [];
+    if (item && inside.length === 1 && inside[0] === target) {
+      const is = env.style(item);
+      const content = env.rect(item).width - px(is.getPropertyValue('padding-left')) - px(is.getPropertyValue('padding-right'))
+        - px(is.getPropertyValue('border-left-width')) - px(is.getPropertyValue('border-right-width'));
+      if (content > 0 && env.rect(target).width >= content - 1) rowItem = item;
+    }
+  }
+  const lineHosts = rowItem && !carriers.includes(rowItem) ? [...carriers, rowItem] : carriers;
+
   // Gösterge: taşıyıcılardan birinde kalınlıkta, saydam olmayan ::after çizgisi.
   let found: Element | null = null;
   let anyLine = false;
   let problem = '';
-  for (const c of carriers) {
+  for (const c of lineHosts) {
     const ps = env.style(c, '::after');
     if (!hasContent(ps.getPropertyValue('content'))) continue;
     if (ps.getPropertyValue('display') === 'none' || ps.getPropertyValue('visibility') === 'hidden') continue;
@@ -201,7 +220,8 @@ export function focusRingViolations(opts: FocusRingOptions = {}): string[] {
     const inner = r.width - px(s.getPropertyValue('border-left-width')) - px(s.getPropertyValue('border-right-width'));
     const wRaw = ps.getPropertyValue('width');
     const w = /px$/.test(wRaw) ? px(wRaw) : px(ps.getPropertyValue('left')) === 0 && px(ps.getPropertyValue('right')) === 0 ? inner : NaN;
-    const row = c.tagName === 'TR' || c.getAttribute('role') === 'row' || c.classList.contains('ant-list-item');
+    // Satır taşıyıcısı (tr, role=row, .ant-list-item ya da açık işaret [data-focus-line='row']): çizgi alt kenarda.
+    const row = c.tagName === 'TR' || c.getAttribute('role') === 'row' || c.classList.contains('ant-list-item') || c.getAttribute('data-focus-line') === 'row';
     const expectedBottom = row ? 0 : -(gap + thickness);
     const bRaw = ps.getPropertyValue('bottom');
     if (!(Math.abs(w - r.width) <= 1 || Math.abs(w - inner) <= 1)) {
@@ -209,7 +229,17 @@ export function focusRingViolations(opts: FocusRingOptions = {}): string[] {
       continue;
     }
     if (!/px$/.test(bRaw) || Math.abs(px(bRaw) - expectedBottom) > 0.5) {
-      problem = `${label(c)}::after konum bottom ${bRaw || 'yok'} (beklenen ${expectedBottom}px)`;
+      // Tek satır modeli: mutlak ::after konumlanmış taşıyıcısına göre çizilir; çizilen alt kenar (dolgu kutusu altı −
+      // bottom) li'nin alt kenarına 1 px içinde oturuyorsa çizgi satırın alt kenarındadır.
+      const anchored = ps.getPropertyValue('position') === 'absolute' && !/^(static|)$/.test(s.getPropertyValue('position'));
+      const drawn = r.bottom - px(s.getPropertyValue('border-bottom-width')) - px(bRaw);
+      const rowBottom = rowItem ? env.rect(rowItem).bottom : NaN;
+      if (rowItem && /px$/.test(bRaw) && anchored && Math.abs(drawn - rowBottom) <= 1) {
+        found = c;
+        break;
+      }
+      const rowNote = rowItem ? `; satır alt ${Math.round(rowBottom * 10) / 10}px, çizgi alt ${anchored ? Math.round(drawn * 10) / 10 + 'px' : 'bağsız'}` : '';
+      problem = `${label(c)}::after konum bottom ${bRaw || 'yok'} (beklenen ${expectedBottom}px${rowNote})`;
       continue;
     }
     found = c;
@@ -1281,7 +1311,10 @@ export async function emulateSafeArea(page: Page, insets: SafeAreaInsets): Promi
  * kullanılmaz), her dedektörü bu parçaya karşı çalıştırır, parçayı kaldırır ve ihlali YAKALAMAYAN dedektörlerin
  * adlarını döndürür. Boş liste = dedektörler bu tarayıcı motorunda çalışıyor. Enjekte edilenler: küçük metin, kavisli
  * şerit, odak halkası, yanlış hareket, taşan öğe, 20×20 hedef, örtüşen iki hedef, alt güvenli banda giren sabit metin,
- * klavye bandının altında kalan sabit alan, kırpılan metin.
+ * klavye bandının altında kalan sabit alan, kırpılan metin. Odak dedektörünün tek satır modeli gerçek yerleşimle iki
+ * yönde sınanır: li'yi dolduran bağlantının bottom 0 çizgisi li alt kenarındayken yanlış alarm yok
+ * ('focusRingViolations:satır yanlış alarm'), li'de alt boşluk varken (çizgi satırın içinde) ihlal yakalanır
+ * ('focusRingViolations:satır'). Sözde öğe stili yapılandırılmış stil sayfasıyla (CSSOM) verilir ve geri alınır.
  */
 export function selfCheckScript(): string {
   return `(() => {
@@ -1305,6 +1338,34 @@ export function selfCheckScript(): string {
     const field = add('input', 'position:fixed;right:0;bottom:0;width:120px;height:48px;font-size:16px', '');
     field.setAttribute('aria-label', 'öz denetim alanı');
     add('div', 'position:absolute;left:0;top:300px;width:60px;overflow:hidden;white-space:nowrap;font-size:16px', 'kesilen uzun metin örneği burada');
+    // Tek satır modeli: ul > li > a (bağlantı li'yi doldurur), çizgi bağlantının ::after'ı, bottom 0.
+    const list = add('ul', 'position:absolute;left:0;top:360px;width:200px;margin:0;padding:0;list-style:none;font-size:16px', '');
+    const rowLink = (pad) => {
+      const li = document.createElement('li');
+      li.setAttribute('data-detector-row', '');
+      li.style.cssText = 'position:relative;display:block;margin:0;padding:0 0 ' + pad + 'px 0;';
+      const a = document.createElement('a');
+      a.href = '#oz-denetim';
+      a.textContent = 'satır';
+      a.style.cssText = 'position:relative;display:block;height:48px;line-height:48px;margin:0;padding:0;font-size:16px';
+      li.appendChild(a);
+      list.appendChild(li);
+      return a;
+    };
+    const rowFlush = rowLink(0);
+    const rowInset = rowLink(12);
+    const rowCss = '[data-detector-selfcheck] [data-detector-row] > a::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgb(50, 107, 148); }';
+    let rowSheet = null;
+    try {
+      rowSheet = new CSSStyleSheet();
+      rowSheet.replaceSync(rowCss);
+      document.adoptedStyleSheets = [...document.adoptedStyleSheets, rowSheet];
+    } catch {
+      rowSheet = null;
+      const style = document.createElement('style');
+      style.textContent = rowCss;
+      host.appendChild(style);
+    }
     document.body.appendChild(host);
     button.focus();
     const root = '[data-detector-selfcheck]';
@@ -1313,6 +1374,8 @@ export function selfCheckScript(): string {
       if (!d.small({ root }).length) missed.push('smallTextViolations');
       if (!d.accent({ root }).length) missed.push('accentEdgeViolations');
       if (!d.focus({ target: button, keyboard: true }).some((m) => /outline/.test(m))) missed.push('focusRingViolations');
+      if (d.focus({ target: rowFlush, keyboard: true }).length) missed.push('focusRingViolations:satır yanlış alarm');
+      if (!d.focus({ target: rowInset, keyboard: true }).some((m) => /satır alt/.test(m))) missed.push('focusRingViolations:satır');
       if (!d.motion('cubic-bezier(.65,0,.35,1)', 240, { root }).length) missed.push('motionViolations');
       if (!d.overflow({ root, truncation: false }).length) missed.push('overflowViolations');
       const touch = d.touch({ root, coarse: false, occlusion: false });
@@ -1324,6 +1387,7 @@ export function selfCheckScript(): string {
       if (!d.clipped({ root }).some((m) => /kesilen uzun metin/.test(m))) missed.push('clippedTextViolations');
     } finally {
       host.remove();
+      if (rowSheet) document.adoptedStyleSheets = document.adoptedStyleSheets.filter((sheet) => sheet !== rowSheet);
       // Odak ve kaydırma eski hâline döner: öz denetim sonraki ölçümleri (güvenli alan, klavye) etkilemez. Odaktaki
       // parça host ile kalktığından önceden odak yoksa odak kendiliğinden body'ye döner.
       if (before.focus && before.focus !== document.body && before.focus.isConnected && typeof before.focus.focus === 'function') before.focus.focus({ preventScroll: true });
