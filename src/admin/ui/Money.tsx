@@ -1,22 +1,39 @@
+import { MIXED_CURRENCY_TEXT, type MoneyTotal } from '../data/actuals';
 import type { Money as MoneyValue } from '../shell/contracts';
 import './Money.css';
 
 // Para tutarı: biçimleyici + <span class="aile-tutar">. Tasarım README › İçerik ilkeleri: "Para: ₺8.500,00 (tr-TR,
 // iki ondalık), tutar stiliyle, tablo ve satırda sağa hizalı." Tipografi `tutar` 16/24/500, tabular-nums; biçim
-// admin.css'teki .aile-tutar'dan gelir, Money.css yalnız eksik değeri boyar (tasarım .ai-missing: ikincil renk, 400).
+// admin.css'teki .aile-tutar'dan gelir, Money.css tabular-nums'u kendisi de taşır (portallanan katmanlar) ve eksik
+// değeri boyar (tasarım .ai-missing: ikincil renk, 400). Telefon sunumu antd'siz: yalnız yerel HTML + --aile-* tokenları.
 // Eksik bilgi saklanmaz, adıyla yazılır: plan için "Fiyat yok", gerçek için "Henüz yok"; ₺0,00 asla eksiğin yerine
 // geçmez (PivotStack ile aynı karar). Bozuk bir tutar "yok" diye sunulmaz: "Bilinmiyor".
 // Veri platformu tutarı metin ondalık taşır ("8500.00", Decimal: ^-?[0-9]+(\.[0-9]+)?$); Intl.NumberFormat'a metin
-// verilir (ES2023), sayıya çevrilip yuvarlanmaz. Giriş tarafında ondalık virgül, binlik noktadır (README hata örneği:
-// "Hata: Tutar yalnız rakam ve virgül içerebilir."); belirsiz girdi ("8.5", "8500.50") tahmin edilmez, null döner.
+// verilir (ES2023), sayıya çevrilip yuvarlanmaz. Sıfırın yönü yoktur: "-0.00" de "₺0,00" yazılır (signDisplay).
+// Toplamlar data/actuals.ts sumMoney ile kesin hesaplanır (MoneyTotal); farklı para birimleri toplanmaz: Money onları
+// "Birden çok para birimi" diye adlandırır (eksik değil, birleşik değil).
+// İşaretli gösterim (sign): ton (hata/olumlu) yalnız destekler; yön her zaman metindedir ("-₺420,00", "+₺420,00").
+// Giriş tarafında ondalık virgül, binlik noktadır (README hata örneği: "Hata: Tutar yalnız rakam ve virgül
+// içerebilir."); belirsiz girdi ("8.5", "8500.50") tahmin edilmez, null döner.
 // Para birimi tek kaynaklıdır (ISO 4217); kod bozuksa fırlatmaz, sayı + kod yazar. Tasarım tesliminde ayrı bir Money
 // bileşeni yok (index.d.ts / bundle.js); referans davranış bundle.js içindeki `para` kullanımı ve `.ai-num`/`.ai-missing`.
 
+/** Tek tutar ya da actuals.sumMoney toplamı. */
+export type MoneyInput = MoneyValue | MoneyTotal | null | undefined;
+
+/**
+ * İşaretli tutar (fark, kalan, nakit değişimi): 'negative' yalnız eksi tutarı hata tonunda gösterir (kalan aşımı);
+ * 'both' artıyı da "+" ile yazar ve olumlu tonda gösterir. Sıfır, eksik ve bozuk değer tonlanmaz.
+ */
+export type MoneySign = 'negative' | 'both';
+
 export interface MoneyProps {
-  /** Veri platformu para zarfı; null ya da undefined = bilgi yok. */
-  value: MoneyValue | null | undefined;
+  /** Veri platformu para zarfı ya da MoneyTotal; null ya da undefined = bilgi yok. */
+  value: MoneyInput;
   /** Eksik değerin adı (README: eksik bilgi adıyla). Plan için "Fiyat yok" (varsayılan), gerçek için "Henüz yok". */
   label?: string;
+  /** İşaret ve ton; verilmezse düz metin, ton yok. */
+  sign?: MoneySign;
   className?: string;
   id?: string;
 }
@@ -28,36 +45,63 @@ export const BILINMIYOR = 'Bilinmiyor';
 const LOCALE = 'tr-TR';
 const DECIMAL = /^-?[0-9]+(\.[0-9]+)?$/;
 const CURRENCY_CODE = /^[A-Z]{3}$/;
+type SignDisplay = 'negative' | 'exceptZero';
 const FRACTION = { minimumFractionDigits: 2, maximumFractionDigits: 2 } as const;
 
-const plainFormat = new Intl.NumberFormat(LOCALE, FRACTION);
+const plainFormats = new Map<SignDisplay, Intl.NumberFormat>();
 const currencyFormats = new Map<string, Intl.NumberFormat>();
 
-function currencyFormat(currency: string): Intl.NumberFormat | null {
-  const code = currency.trim().toUpperCase();
-  if (!CURRENCY_CODE.test(code)) return null;
-  let format = currencyFormats.get(code);
+function plainFormat(signDisplay: SignDisplay): Intl.NumberFormat {
+  let format = plainFormats.get(signDisplay);
   if (!format) {
-    format = new Intl.NumberFormat(LOCALE, { style: 'currency', currency: code, ...FRACTION });
-    currencyFormats.set(code, format);
+    format = new Intl.NumberFormat(LOCALE, { ...FRACTION, signDisplay });
+    plainFormats.set(signDisplay, format);
   }
   return format;
 }
 
-interface MoneyText { text: string; known: boolean }
-
-function describeMoney(value: MoneyValue | null | undefined, missing: string): MoneyText {
-  if (value == null) return { text: missing, known: false };
-  const amount = value.amount.trim();
-  if (!DECIMAL.test(amount)) return { text: BILINMIYOR, known: false };
-  const literal = amount as `${number}`;
-  const format = currencyFormat(value.currency);
-  if (format) return { text: format.format(literal), known: true };
-  return { text: `${plainFormat.format(literal)} ${value.currency.trim()}`.trim(), known: true };
+function currencyFormat(currency: string, signDisplay: SignDisplay): Intl.NumberFormat | null {
+  const code = currency.trim().toUpperCase();
+  if (!CURRENCY_CODE.test(code)) return null;
+  const key = `${code}:${signDisplay}`;
+  let format = currencyFormats.get(key);
+  if (!format) {
+    format = new Intl.NumberFormat(LOCALE, { style: 'currency', currency: code, ...FRACTION, signDisplay });
+    currencyFormats.set(key, format);
+  }
+  return format;
 }
 
-/** "₺8.500,00" (tr-TR, iki ondalık, para birimi koduna göre simge); null/undefined → `missing` ("Fiyat yok"). */
-export function formatMoney(value: MoneyValue | null | undefined, missing: string = FIYAT_YOK): string {
+const isTotal = (value: MoneyInput): value is MoneyTotal =>
+  typeof value === 'object' && value !== null && 'counted' in value && 'currencies' in value;
+
+type MoneyState = 'known' | 'missing' | 'mixed';
+interface MoneyText { text: string; state: MoneyState; tone?: 'hata' | 'olumlu' }
+
+function describeMoney(value: MoneyInput, missing: string, sign?: MoneySign): MoneyText {
+  if (isTotal(value)) {
+    if (value.money) return describeMoney(value.money, missing, sign);
+    return value.currencies.length > 1 ? { text: MIXED_CURRENCY_TEXT, state: 'mixed' } : { text: missing, state: 'missing' };
+  }
+  if (value == null) return { text: missing, state: 'missing' };
+  const amount = value.amount.trim();
+  if (!DECIMAL.test(amount)) return { text: BILINMIYOR, state: 'missing' };
+  const literal = amount as `${number}`;
+  const signDisplay: SignDisplay = sign === 'both' ? 'exceptZero' : 'negative';
+  const format = currencyFormat(value.currency, signDisplay);
+  // Yön Intl'in kendi parçalarından okunur: metinle aynı yuvarlama, sıfır (eksi sıfır dahil) işaretsiz.
+  const parts = (format ?? plainFormat(signDisplay)).formatToParts(literal);
+  const number = parts.map(part => part.value).join('');
+  const text = format ? number : `${number} ${value.currency.trim()}`.trim();
+  const tone = !sign ? undefined : parts.some(part => part.type === 'minusSign') ? 'hata' : parts.some(part => part.type === 'plusSign') ? 'olumlu' : undefined;
+  return { text, state: 'known', tone };
+}
+
+/**
+ * "₺8.500,00" (tr-TR, iki ondalık, para birimi koduna göre simge); null/undefined → `missing` ("Fiyat yok").
+ * MoneyTotal: tek birimde toplam yazılır, birden çok birim "Birden çok para birimi", boş toplam `missing`.
+ */
+export function formatMoney(value: MoneyInput, missing: string = FIYAT_YOK): string {
   return describeMoney(value, missing).text;
 }
 
@@ -80,11 +124,17 @@ export function parseMoneyInput(input: string): string | null {
   return `${sign}${magnitude}`;
 }
 
-export function Money({ value, label = FIYAT_YOK, className, id }: MoneyProps) {
-  const { text, known } = describeMoney(value, label);
-  const classes = ['aile-tutar', !known && 'aile-tutar--eksik', className].filter(Boolean).join(' ');
+export function Money({ value, label = FIYAT_YOK, sign, className, id }: MoneyProps) {
+  const { text, state, tone } = describeMoney(value, label, sign);
+  const classes = ['aile-tutar', state !== 'known' && 'aile-tutar--eksik', className].filter(Boolean).join(' ');
   return (
-    <span id={id} className={classes} data-missing={known ? undefined : 'true'}>
+    <span
+      id={id}
+      className={classes}
+      data-missing={state === 'missing' ? 'true' : undefined}
+      data-mixed={state === 'mixed' ? 'true' : undefined}
+      data-tone={tone}
+    >
       {text}
     </span>
   );
