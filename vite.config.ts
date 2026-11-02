@@ -56,6 +56,34 @@ function adminPrecacheScope(ignores: readonly string[]) {
 
 const precacheScope = adminPrecacheScope(PRECACHE_IGNORES);
 
+// Giriş parçası (index-*, admin-*) her sayfada <script type="module"> ile zaten yüklenir. Tembel bir parça (sayfa, wide)
+// giriş parçasını statik import edince Vite onu dinamik importun ön yükleme listesine (__vite__mapDeps) koyar; ön
+// yükleme yardımcısı yinelemeyi yalnız link[href] ile denetler, giriş ise <script>'tir: <link rel="modulepreload">
+// eklenir ve WebKit giriş parçasını ikinci kez ister. Bu eklenti son paket grafiğinden giriş parçalarını toplar
+// (Vite'ın ön yükleme yazımından önce: order 'pre'); resolveDependencies onları listeden çıkarır. Yalnız ön yükleme
+// ipucu değişir: import grafiği, parçalar ve giriş dışı ön yüklemeler aynı kalır (vite-config.test.ts).
+function entryPreloadFilter() {
+  let entries: Set<string> | undefined;
+  const plugin: Plugin = {
+    name: 'aile-entry-preload-filter',
+    apply: 'build',
+    generateBundle: {
+      order: 'pre',
+      handler(_options, bundle) {
+        entries = new Set(Object.values(bundle).flatMap((output) => (output.type === 'chunk' && output.isEntry ? [output.fileName] : [])));
+      },
+    },
+  };
+  const resolveDependencies = (_file: string, deps: string[]) => {
+    if (!entries) throw new Error('aile-entry-preload-filter: paket grafiği hesaplanmadan ön yükleme listesi istendi');
+    const known = entries;
+    return deps.filter((dep) => !known.has(dep));
+  };
+  return { plugin, resolveDependencies };
+}
+
+const entryPreload = entryPreloadFilter();
+
 // The main shell only needs wouter's hash-location hook (src/dashboard/Dashboard.tsx). wouter's router core
 // (index/use-browser-location/paths + regexparam) belongs to the lazy LegacyApp and to admin, so it stays out of the
 // precached `shared` chunk; the `router` group below keeps it out of the shell and away from an `index-*` name.
@@ -224,6 +252,7 @@ export default defineConfig({
     // apply:'serve' olduğu için build çıktısına hiçbir şey eklemez.
     privateDataPlugin(),
     precacheScope.plugin,
+    entryPreload.plugin,
     deliveryGraph(CHUNK_GROUPS),
     VitePWA({
       registerType: 'autoUpdate',
@@ -266,6 +295,8 @@ export default defineConfig({
   build: {
     sourcemap: false,
     manifest: true, // dist/.vite/manifest.json: parça grafiği (check-delivery, vite-config.test); json, ön belleğe girmez
+    // Dinamik import ön yükleme listeleri giriş parçasını taşımaz (entryPreloadFilter; WebKit'te çift istek).
+    modulePreload: { resolveDependencies: entryPreload.resolveDependencies },
     // Vite 8 bundles with rolldown; `rollupOptions`/`manualChunks` are deprecated aliases. The input key
     // `index` keeps the main entry's `index-*.js` basename.
     rolldownOptions: {

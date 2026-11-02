@@ -86,8 +86,20 @@ describe('aileTema (Ant Design 6 eşlemesi)', () => {
     expect(t.motionEaseOut).toBe('cubic-bezier(.65,0,.35,1)');
     expect(t.zIndexBase).toBe(20);
     expect(t.zIndexPopupBase).toBe(300);
-    expect(themeFor(true).token?.motion).toBe(false);
-    expect(themeFor(false).token?.motion).toBe(true);
+  });
+
+  // Azaltılmış hareket süre tokenlarıyla ifade edilir; token.motion hep açık. antd ConfigProvider'ın MotionWrapper'ı
+  // motion ilk kez false olunca alt ağacı MotionProvider ile sarar ve tüm uygulamayı yeniden kurar (odak/durum kaybı).
+  it('keeps antd motion on and expresses reduced motion with zero durations (the curve is unchanged)', () => {
+    for (const reduced of [false, true]) {
+      const t = themeFor(reduced).token ?? {};
+      expect(t.motion, `reduced=${reduced}`).toBe(true);
+      const sure = reduced ? '0s' : `${designTokens.sure / 1000}s`;
+      expect([t.motionDurationFast, t.motionDurationMid, t.motionDurationSlow], `reduced=${reduced}`).toEqual([sure, sure, sure]);
+      expect(t.motionEaseInOut).toBe(designTokens.egri);
+    }
+    expect(themeFor(false).components).toBe(aileTema.components);
+    expect(themeFor(true).components).toBe(aileTema.components);
   });
 
   it('maps Layout and Menu to the nav palette without an active bar', () => {
@@ -144,7 +156,11 @@ describe('aileTema (Ant Design 6 eşlemesi)', () => {
     const durations = Object.entries(derived).filter(([key]) => /^motionDuration/.test(key));
     expect(durations.length).toBeGreaterThan(0);
     for (const [key, value] of durations) expect(value, key).toBe(`${designTokens.sure / 1000}s`);
-    expect(theme.getDesignToken(themeFor(true)).motion).toBe(false);
+    const reduced = theme.getDesignToken(themeFor(true)) as unknown as Record<string, unknown>;
+    expect(reduced.motion).toBe(true);
+    const reducedDurations = Object.entries(reduced).filter(([key]) => /^motionDuration/.test(key));
+    expect(reducedDurations.length).toBeGreaterThan(0);
+    for (const [key, value] of reducedDurations) expect(value, key).toBe('0s');
   });
 
   it('is consumed only by adaptive/WideProviders at runtime and imports antd only as a type', () => {
