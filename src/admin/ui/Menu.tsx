@@ -17,7 +17,8 @@ import './Menu.css';
 //  2. Menü düğmesi (`trigger` verilince): APG "Menu Button". Düğme aria-haspopup + aria-expanded; tıklama, Enter, Space
 //     ve ArrowDown ilk öğeye, ArrowUp son öğeye odakla açar; Escape kapatır ve odağı düğmeye döndürür; Tab kapatır ve
 //     odağı doğal sıraya bırakır; seçim kapatır, odağı düğmeye döndürür, sonra onSelect çağırır. Telefon profilinde liste
-//     alttan açılan sayfadır (BottomSheet, aria-haspopup="dialog"); tablet ve masaüstünde düğmenin altında açılır panel
+//     alttan açılan sayfadır (BottomSheet, aria-haspopup="dialog"; modal diyalogda menü tek sekme durağıdır, Tab Kapat ile
+//     menü arasında döner); tablet ve masaüstünde düğmenin altında açılır panel
 //     (Popover API varsa üst katman: taşma kırpmaz; konum görünüm alanına sığdırılır, sığmazsa yukarı açılır).
 // Seçili durum vurgu kenarıyla değil yüzey tonu (secili) + 600 ağırlıkla; odak seçimden ayrıdır. Tehlikeli öğeler
 // (danger) listenin sonunda ayırıcıdan sonra kendi grubundadır. Dokunma: Pointer Events ile basılı yüzey (data-pressed);
@@ -435,9 +436,12 @@ function MenuButton({
     }
   };
 
+  // Açılır panelde (APG Menu Button) öğeler sekme sırasında değildir: Tab menüyü kapatır. Alt sayfa ise modal diyalogdur
+  // ve Tab ile kapanmaz: menü orada tek sekme durağıdır (roving tabindex; durak odaklanan son öğe), yoksa Kapat'tan
+  // sonra menüye Tab ile dönülemezdi.
   const list = (
     <MenuList
-      mode="popup"
+      mode={phone ? 'list' : 'popup'}
       listRef={listRef}
       id={menuId}
       items={items}

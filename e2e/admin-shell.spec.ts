@@ -1,6 +1,6 @@
 import { test, expect, type Locator, type Page } from '@playwright/test';
 import { accentEdges, focusRing, smallText } from './admin-detectors';
-import { enterKeyboardMode, horizontalOverflow, openAdmin, shiftTabKey, tabKey } from './admin-helpers';
+import { adminNotReadyReasons, enterKeyboardMode, horizontalOverflow, openAdmin, shiftTabKey, tabKey } from './admin-helpers';
 
 // Yönetim kabuğu (b01-shell): shell/WorkspaceShell.tsx (telefon temeli, yerel HTML), shell/MobileNavDrawer.tsx (Sayfalar
 // alt sayfası, ARIA APG modal diyalog), shell/wide/WorkspaceNav.wide.tsx (masaüstü 272 px yan gezinme, lazyWide).
@@ -27,6 +27,21 @@ const navDialog = (page: Page) => page.getByRole('dialog', { name: 'Sayfalar' })
 const topBar = (page: Page) => page.locator('.aile-admin-shell > header').filter({ has: pagesButton(page) });
 const sideNav = (page: Page) => page.getByRole('complementary').filter({ has: page.getByRole('navigation', { name: 'Sayfalar' }) });
 const main = (page: Page) => page.locator('main#admin-content');
+
+/** Dokunmatik projede gerçek dokunuş (touch → pointer), diğerlerinde (chromium-desktop) fare tıklaması. */
+const press = (target: Locator, touch: boolean | undefined) => (touch ? target.tap() : target.click());
+
+/**
+ * Profil değişiminden sonra kabuk yerine oturdu: <html data-profile> beklenen profil ve openAdmin'in hazır sinyali
+ * (main görünür, dolu h1, aria-busy yok) iki ardışık karede. Geniş profilde tembel sağlayıcı/gezinme yüklenirken kök
+ * aria-busy taşır (AdaptiveRoot); bu bitmeden ölçmek, sonradan gelen yeniden kurulumu gözden kaçırır.
+ */
+async function profileSettled(page: Page, profile: 'phone' | 'tablet' | 'desktop') {
+  await expect(page.locator('html')).toHaveAttribute('data-profile', profile);
+  await page.evaluate(() => { (window as unknown as { __kabukHazir?: number }).__kabukHazir = 0; });
+  await page.waitForFunction(`(() => { const w = window; const ready = (${adminNotReadyReasons.toString()})().length === 0;
+    w.__kabukHazir = ready ? (w.__kabukHazir ?? 0) + 1 : 0; return w.__kabukHazir >= 2; })()`, undefined, { polling: 'raf', timeout: 20_000 });
+}
 
 async function activeInside(locator: Locator): Promise<boolean> {
   return locator.evaluate(el => !!document.activeElement && el.contains(document.activeElement));
@@ -153,7 +168,8 @@ async function antdInShell(page: Page): Promise<string[]> {
 
 // --- 1. 320×568 telefon yolculuğu: üst çubuk, İçeriğe geç, Sayfalar alt sayfası (klavye + dokunma) --------------------
 
-test('320×568 telefon: 56 px yapışkan üst çubuk, İçeriğe geç ve Sayfalar alt sayfasıyla sayfa değiştirme', async ({ page, browserName }) => {
+test('320×568 telefon: 56 px yapışkan üst çubuk, İçeriğe geç ve Sayfalar alt sayfasıyla sayfa değiştirme', async ({ page, browserName }, testInfo) => {
+  const touch = testInfo.project.use.hasTouch;
   await page.setViewportSize(PHONE);
   await openAdmin(page, '/genel');
   await expect(page.locator('html')).toHaveAttribute('data-profile', 'phone');
@@ -228,10 +244,11 @@ test('320×568 telefon: 56 px yapışkan üst çubuk, İçeriğe geç ve Sayfala
   await expect(pagesButton(page)).toHaveAttribute('aria-expanded', 'false');
   await expect(main(page)).not.toHaveAttribute('inert', '');
 
-  // Dokunma: Sayfalar → Ödemeler; alt sayfa kapanır, rota değişir, odak main'e geçer.
-  await pagesButton(page).tap();
+  // İşaretçi (dokunmatik projede dokunuş, chromium-desktop'ta fare): Sayfalar → Ödemeler; alt sayfa kapanır, rota
+  // değişir, odak main'e geçer.
+  await press(pagesButton(page), touch);
   await expect(dialog).toBeVisible();
-  await dialog.getByRole('link', { name: 'Ödemeler' }).tap();
+  await press(dialog.getByRole('link', { name: 'Ödemeler' }), touch);
   await expect(page).toHaveURL(/#\/odemeler$/);
   await expect(dialog).toBeHidden();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Ödemeler');
@@ -402,8 +419,8 @@ test('profil değişimi telefon ↔ masaüstü: rota, main, kaydırma ve odak ko
   await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
 
   await page.setViewportSize(DESKTOP);
+  await profileSettled(page, 'desktop');
   await expect(sideNav(page)).toBeVisible();
-  await expect(page.locator('html')).toHaveAttribute('data-profile', 'desktop');
   expect(await sameMain(), 'main yeniden bağlandı').toBe(true);
   await expect(page.locator('main')).toHaveCount(1);
   await expect(page.locator('#kabuk-sinama-dugme')).toBeFocused();
@@ -411,6 +428,7 @@ test('profil değişimi telefon ↔ masaüstü: rota, main, kaydırma ve odak ko
   expect(Math.abs((await probeTop()) - 300), 'masaüstünde kaydırma konumu').toBeLessThanOrEqual(2);
 
   await page.setViewportSize(phone);
+  await profileSettled(page, 'phone');
   await expect(topBar(page)).toBeVisible();
   await expect(sideNav(page)).toHaveCount(0);
   expect(await sameMain(), 'main yeniden bağlandı').toBe(true);
@@ -433,12 +451,14 @@ test('profil değişimi: gezinmedeki odak karşılığına taşınır (Sayfalar 
   await expect(pagesButton(page)).toBeFocused();
 
   await page.setViewportSize(DESKTOP);
+  await profileSettled(page, 'desktop');
   const current = sideNav(page).getByRole('link', { name: 'Ev ve odalar' });
   await expect(current).toBeFocused();
   await expect(current).toHaveAttribute('aria-current', 'page');
   expect(await focusRing(page)).toEqual([]);
 
   await page.setViewportSize(phone);
+  await profileSettled(page, 'phone');
   await expect(pagesButton(page)).toBeFocused();
   expect(await focusRing(page)).toEqual([]);
 });

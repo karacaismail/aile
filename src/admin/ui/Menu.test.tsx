@@ -352,11 +352,13 @@ describe('Menu › görsel sözleşme (Menu.css)', () => {
     expect(source).not.toMatch(/::before/);
   });
 
-  it('targets are 44 px and 48 px on coarse input; every font-size is at least 14 px', () => {
+  it('targets come from the central touch token (44 px, 48 px on coarse input, admin.css); every font-size is at least 14 px', () => {
     const source = css();
-    expect(rule(source, /^\.aile-menu-item$/)).toMatch(/min-height:\s*var\(--aile-hedef-asgari\)/);
-    expect(rule(source, /\[data-input-coarse\]\s+\.aile-menu-item$/))
-      .toMatch(/min-height:\s*calc\(var\(--aile-hedef-asgari\)\s*\+\s*var\(--aile-bosluk-1\)\)/);
+    // Tek kaynak: --aile-dokunma-hedefi (admin.css: 44, :root/.aile-admin[data-input-coarse] 48). Bileşen 48'i yerelde
+    // yeniden türetmez; portallanan alt sayfa da :root üzerinden aynı değeri alır.
+    expect(rule(source, /^\.aile-menu-item$/)).toMatch(/min-height:\s*var\(--aile-dokunma-hedefi\)/);
+    expect(source).not.toMatch(/\[data-input-coarse\]/);
+    expect(source).not.toMatch(/--aile-hedef-asgari/);
     const sizes = [...source.matchAll(/font-size:\s*([\d.]+)px/g)].map(match => Number(match[1]));
     expect(sizes.length).toBeGreaterThan(0);
     for (const size of sizes) expect(size).toBeGreaterThanOrEqual(14);
@@ -684,6 +686,26 @@ describe('Menu › menü düğmesi, telefon profili: alt sayfa', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(button).toHaveAttribute('aria-expanded', 'false');
     expect(button).toHaveFocus();
+  });
+
+  // Alt sayfa modal diyalogdur ve Tab ile kapanmaz (açılır panelden farkı): menü içinde tek sekme durağıdır (APG
+  // composite widget, roving tabindex). Durak odaklanan son öğedir; Tab menüden Kapat'a, oradan yine aynı öğeye döner.
+  it('in the sheet the menu is one Tab stop (roving tabindex): the focused item is the stop and Tab can come back to it', async () => {
+    const user = userEvent.setup();
+    render(<Menu trigger="Sırala" items={typeahead} />, { wrapper });
+    await user.click(screen.getByRole('button', { name: 'Sırala' }));
+    const sheet = screen.getByRole('dialog', { name: 'Sırala' });
+    const item = (name: string) => within(sheet).getByRole('menuitem', { name });
+    await waitFor(() => expect(item('Düzenle')).toHaveFocus());
+    const stops = () => Array.from(sheet.querySelectorAll<HTMLElement>('[role="menu"] [tabindex="0"]'));
+    expect(stops()).toEqual([item('Düzenle')]);
+    await user.keyboard('{ArrowDown}');
+    expect(item('Dışa aktar')).toHaveFocus();
+    expect(stops()).toEqual([item('Dışa aktar')]);
+    await user.tab({ shift: true });
+    expect(within(sheet).getByRole('button', { name: 'Kapat' })).toHaveFocus();
+    await user.tab();
+    expect(item('Dışa aktar')).toHaveFocus();
   });
 
   it('Escape (the sheet onClose) closes and returns focus to the button', async () => {

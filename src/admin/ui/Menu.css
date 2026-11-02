@@ -25,12 +25,13 @@
 .aile-menu[data-variant='nav'] { color: var(--aile-nav-metin); }
 .aile-menu-grup-kap { display: block; }
 
-/* Öğe: en az 44 px (coarse girişte 48), etiket kesilmez; gerekirse sarılır. */
+/* Öğe: tek merkezi dokunma hedefi --aile-dokunma-hedefi (admin.css: 44 px; kaba işaretçi katmanında, :root ve
+   .aile-admin [data-input-coarse], 48 px); etiket kesilmez, gerekirse sarılır. */
 .aile-menu-item {
   position: relative;
   display: flex;
   align-items: stretch;
-  min-height: var(--aile-hedef-asgari);
+  min-height: var(--aile-dokunma-hedefi);
   border-radius: var(--aile-kose-kontrol);
   background: transparent;
   color: inherit;
@@ -41,7 +42,6 @@
   -webkit-tap-highlight-color: transparent;
   transition: background-color var(--aile-sure) var(--aile-egri), color var(--aile-sure) var(--aile-egri);
 }
-[data-input-coarse] .aile-menu-item { min-height: calc(var(--aile-hedef-asgari) + var(--aile-bosluk-1)); }
 
 .aile-menu .aile-menu-link {
   display: flex;

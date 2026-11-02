@@ -49,6 +49,19 @@ describe('MobileNavDrawer', () => {
     expect(view.container.querySelector('.aile-mobile-nav')).toContainElement(dialog);
   });
 
+  // WAI-ARIA APG: site gezinmesi menü değildir (role="menu" uygulama komutları içindir). Tasarım paketindeki Menu
+  // variant="nav" de düz bağlantı listesidir; her bağlantı doğal Tab sırasındadır (roving tabindex yok). Masaüstü yan
+  // gezinmesi aynı ShellNavList'i kullanır; e2e/admin-ui-a06-menu.spec.ts gerçek tarayıcıda aynı sözleşmeyi ölçer.
+  it('is a plain link list (APG site navigation): no menu roles, every link is a Tab stop, one aria-current', async () => {
+    render(<MobileNavDrawer open onClose={() => {}} location="/alimlar" />);
+    const nav = within(await screen.findByRole('dialog', { name: 'Sayfalar' })).getByRole('navigation', { name: 'Sayfalar' });
+    expect(within(nav).queryAllByRole('menu')).toHaveLength(0);
+    expect(within(nav).queryAllByRole('menuitem')).toHaveLength(0);
+    const links = within(nav).getAllByRole('link');
+    expect(links.filter(link => link.tabIndex < 0).map(link => link.textContent)).toEqual([]);
+    expect(nav.querySelectorAll('[aria-current]')).toHaveLength(1);
+  });
+
   // b04 odak sözleşmesi: yerel nav yüzeyi data-odak-zemin="nav" ile işaretlenir (çizgi odak-nav, seçili öğede odak);
   // eski iskelet sınıfı .aile-admin-nav (admin.css'te hover koşulsuz, dolgu farklı) yerel alt sayfaya taşınmaz.
   it('marks the drawer panel as a nav focus surface (data-odak-zemin="nav") without the legacy skeleton class', async () => {
