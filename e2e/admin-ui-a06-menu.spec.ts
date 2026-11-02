@@ -1,6 +1,6 @@
 import { test, expect, type Locator, type Page } from '@playwright/test';
 import { accentEdges, focusRing, motion, smallText } from './admin-detectors';
-import { enterKeyboardMode, openAdmin, tabKey } from './admin-helpers';
+import { enterKeyboardMode, openAdmin, shiftTabKey, tabKey } from './admin-helpers';
 
 // a06 Menu + OverflowActions (src/admin/ui/Menu.tsx, OverflowActions.tsx) gerçek tarayıcıda.
 // Kaynaklar: tasarim-sistemi/components/Menu, OverflowActions README; WAI-ARIA APG Menu ve Menu Button; CLAUDE.md
@@ -9,11 +9,13 @@ import { enterKeyboardMode, openAdmin, tabKey } from './admin-helpers';
 //
 // Gerçek rotalar (telefon profili, projeler chromium 320×568 ve webkit 390×844 dokunmatik):
 //  - #/butce ve #/hesaplar: PageHeader telefonda ikincil eylemleri "Diğer" (OverflowActions → alt sayfa) altına alır.
-//  - Sayfalar çekmecesi: gezinme Menu'sü (variant nav; roving tabindex, oklar, Home/End, typeahead).
-// Açılır panel (geniş profil) hiçbir rotada görünmez (PageHeader genişte ikincil düğme çizer); bu yüzden aynı dev
-// sunucusunun kaynak modülleri (Menu.tsx, OverflowActions.tsx) admin.html üzerinde, gerçek admin.css ve <html>
-// data-profile/data-input-* öznitelikleriyle bir yalıtık köke bağlanır (bkz. mountHarness). Emülasyon gerçek cihaz
-// değildir. @matrix etiketli testler entegrasyonda 360/375/320×480/568×320 telefon projelerinde de koşar.
+//  - Sayfalar çekmecesi: kabuğun gezinmesi bir bağlantı listesidir (APG: site gezinmesi menü değildir); Menu README
+//    görsel kuralları (44/48 px, seçili secili + 600, şerit yok, nav üzerinde odak çizgisi) orada doğrulanır.
+// Menu variant="nav" ve açılır panel (geniş profil) hiçbir rotada görünmez (PageHeader genişte ikincil düğme çizer);
+// bu yüzden aynı dev sunucusunun kaynak modülleri (Menu.tsx, OverflowActions.tsx) admin.html üzerinde, gerçek admin.css
+// ve <html> data-profile/data-input-* öznitelikleriyle bir yalıtık köke bağlanır (bkz. mountNavHarness: bu projenin
+// görünümü; mountHarness: 1280 masaüstü). Emülasyon gerçek cihaz değildir. @matrix etiketli testler entegrasyonda
+// 360/375/320×480/568×320 telefon, 820×1180 tablet ve 1440 masaüstü projelerinde de koşar.
 
 const MATRIX = { tag: '@matrix' };
 /** Menu.tsx TYPEAHEAD_RESET_MS ile aynı (APG typeahead dizesinin sıfırlanma süresi). */
@@ -91,7 +93,7 @@ test('telefon #/butce: "Diğer" alt sayfası — menü rolleri, odak ilk öğede
   await expect(trigger).toBeFocused();
 });
 
-test('telefon #/butce: klavye — Enter açar, odak ilk öğede tek alt çizgiyle, oklar/Home/End yerinde, Escape düğmeye döner', MATRIX, async ({ page, browserName }) => {
+test('telefon #/butce: klavye — Enter açar, odak ilk öğede tek alt çizgiyle, oklar/Home/End yerinde, menü tek sekme durağı (Tab Kapat ↔ öğe), Escape düğmeye döner', MATRIX, async ({ page, browserName }) => {
   await openAdmin(page, '/butce');
   test.skip(await profileOf(page) !== 'phone', 'Diğer yalnız telefon profilinde');
   const trigger = page.locator('main#admin-content').getByRole('button', { name: 'Diğer', exact: true });
@@ -106,6 +108,13 @@ test('telefon #/butce: klavye — Enter açar, odak ilk öğede tek alt çizgiyl
     await page.keyboard.press(key);
     await expect(item, key).toBeFocused();
   }
+  // Modal alt sayfada menü tek sekme durağıdır: Shift+Tab Kapat'a, Tab yeniden menüdeki öğeye (odak alt sayfada kalır).
+  await expect(item).toHaveAttribute('tabindex', '0');
+  await page.keyboard.press(shiftTabKey(browserName));
+  await expect(sheet.getByRole('button', { name: 'Kapat' })).toBeFocused();
+  await page.keyboard.press(tabKey(browserName));
+  await expect(item).toBeFocused();
+  expect(await focusRing(page)).toEqual([]);
   await page.keyboard.press('Escape');
   await expect(sheet).toBeHidden();
   await expect(trigger).toBeFocused();
@@ -126,7 +135,13 @@ test('telefon #/hesaplar: "Diğer" › "Borç ekle" seçimi alt sayfayı kapatı
   await expect(page.getByRole('dialog', { name: 'Borç ekle' })).toBeVisible();
 });
 
-// --- 2. Sayfalar çekmecesindeki gezinme menüsü (telefon, tablet) ----------------------------------------------------
+// --- 2. Sayfalar çekmecesi (telefon, tablet): gezinme bir bağlantı listesidir, menü değil ---------------------------
+// Kabuk (shell/MobileNavDrawer.tsx ShellNavList; masaüstü yan gezinmesiyle ortak) sayfa gezinmesini yerel <ul>/<a>
+// listesiyle çizer. WAI-ARIA APG: site gezinmesi role="menu" değildir (menu uygulama komutları içindir); tasarım
+// paketindeki Menu variant="nav" de düz bir bağlantı listesidir (bundle.js Menu: <ul> > <li> > <a aria-current>).
+// Her bağlantı doğal Tab sırasındadır; ok/typeahead yoktur. Tasarımın Menu README görsel kuralları (44/48 px öğe, seçili
+// secili + 600, şerit yok, nav üzerinde odak çizgisi) bu listede doğrulanır. Menu'nün kendi nav varyantı (roving
+// tabindex, oklar, Home/End, typeahead, pointercancel) bölüm 3'te bu projenin görünümünde yalıtık kökte sınanır.
 
 async function openPagesDrawer(page: Page, route = '/alimlar') {
   await openAdmin(page, route);
@@ -134,16 +149,203 @@ async function openPagesDrawer(page: Page, route = '/alimlar') {
   await page.getByRole('button', { name: 'Sayfalar', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Sayfalar' });
   await expect(dialog).toBeVisible();
-  return dialog.getByRole('navigation', { name: 'Sayfalar' }).getByRole('menu');
+  return dialog.getByRole('navigation', { name: 'Sayfalar' });
 }
 
-test('Sayfalar menüsü: tek sekme durağı seçili sayfa; seçili durum secili yüzey + 600, vurgu kenarı yok; 44/48 px; ≥14 px', MATRIX, async ({ page }) => {
-  const menu = await openPagesDrawer(page);
+/** Odaklı öğenin odak çizgisinin rengi (admin.css: taşıyıcının ::after'ı). */
+const lineColor = (target: Locator) => target.evaluate(element => getComputedStyle(element, '::after').backgroundColor);
+
+/**
+ * Odak çizgisinin (::after) rengi ile çizginin üzerine çizildiği zeminin kontrast oranı (WCAG göreli parlaklık). Zemin,
+ * çizginin ortasındaki noktadaki en üst öğeden köke doğru katmanlanan arka planlardır; çizginin geometrisinden (kontrolün
+ * altında ya da içinde) bağımsız olarak gerçekte bitiştiği yüzeyi ölçer.
+ */
+function focusLineContrast(target: Locator) {
+  return target.evaluate(element => {
+    type Rgba = [number, number, number, number];
+    const parse = (value: string): Rgba | null => {
+      const match = value.match(/rgba?\(([^)]+)\)/);
+      if (!match) return null;
+      const parts = match[1]!.split(/[\s,/]+/).filter(Boolean).map(Number);
+      return [parts[0]!, parts[1]!, parts[2]!, parts[3] ?? 1];
+    };
+    // Çizgi görünüm alanında olsun (kısa yükseklikte seçili öğe kenarda kalabilir; dışarıdaki noktada isabet olmaz).
+    element.scrollIntoView({ block: 'center', inline: 'nearest' });
+    const after = getComputedStyle(element, '::after');
+    const line = parse(after.backgroundColor);
+    const box = element.getBoundingClientRect();
+    const bottom = box.bottom - Number.parseFloat(after.bottom);
+    const y = bottom - Number.parseFloat(after.height) / 2;
+    const x = box.left + box.width / 2;
+    if (y < 0 || y >= window.innerHeight || x < 0 || x >= window.innerWidth) return { line: after.backgroundColor, under: 'görünüm dışı', ratio: 0 };
+    // Noktadaki en üst öğe: çizgi kontrolün içindeyse (satır/etiket çizgisi) kontrolün kendi yüzeyi, dışındaysa altındaki
+    // yüzey (sözde öğe pointer-events: none, isabet almaz).
+    const under = document.elementsFromPoint(x, y)[0] ?? document.body;
+    const layers: Rgba[] = [];
+    for (let node: Element | null = under; node; node = node.parentElement) {
+      const color = parse(getComputedStyle(node).backgroundColor);
+      if (color && color[3] > 0) layers.push(color);
+      if (color && color[3] >= 1) break;
+    }
+    let base: [number, number, number] = [255, 255, 255];
+    for (const [r, g, b, a] of layers.reverse()) base = [r * a + base[0] * (1 - a), g * a + base[1] * (1 - a), b * a + base[2] * (1 - a)];
+    const luminance = ([r, g, b]: readonly number[]) => {
+      const channel = (value: number) => { const c = value / 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
+      return 0.2126 * channel(r!) + 0.7152 * channel(g!) + 0.0722 * channel(b!);
+    };
+    if (!line) return { line: after.backgroundColor, under: base.map(Math.round).join(','), ratio: 0 };
+    const [l1, l2] = [luminance(line), luminance(base)].sort((a, b) => b - a);
+    return { line: after.backgroundColor, under: `rgb(${base.map(Math.round).join(', ')})`, ratio: Math.round(((l1! + 0.05) / (l2! + 0.05)) * 100) / 100 };
+  });
+}
+
+/** Klavye modunda Tab ile (en çok `limit` adım) hedefe gelir; programatik odak :focus-visible vermeyebilir. */
+async function tabTo(page: Page, browserName: string, target: Locator, limit = 16) {
+  for (let step = 0; step < limit && !(await target.evaluate(element => element === document.activeElement)); step += 1) {
+    await page.keyboard.press(tabKey(browserName));
+  }
+  await expect(target).toBeFocused();
+}
+
+test('Sayfalar gezinmesi: bağlantı listesi (menü rolü yok), her bağlantı Tab sırasında; seçili sayfa secili yüzey + 600, vurgu kenarı yok; 44/48 px; ≥14 px', MATRIX, async ({ page }) => {
+  const nav = await openPagesDrawer(page);
+  await expect(nav.getByRole('menu')).toHaveCount(0);
+  await expect(nav.getByRole('menuitem')).toHaveCount(0);
+  const links = nav.getByRole('link');
+  expect(await links.count()).toBeGreaterThan(0);
+  expect(await links.evaluateAll(elements => elements.filter(element => (element as HTMLElement).tabIndex < 0).map(element => element.textContent)),
+    'Tab sırasından çıkarılmış bağlantı').toEqual([]);
+  const selected = nav.getByRole('link', { name: 'Alımlar ve eşyalar' });
+  await expect(selected).toHaveAttribute('aria-current', 'page');
+  await expect(nav.locator('[aria-current]')).toHaveCount(1);
+
+  const look = await selected.evaluate(element => {
+    const style = getComputedStyle(element);
+    return {
+      background: style.backgroundColor, weight: style.fontWeight, shadow: style.boxShadow,
+      borders: ['Top', 'Right', 'Bottom', 'Left'].map(side => style.getPropertyValue(`border-${side.toLowerCase()}-width`)),
+    };
+  });
+  expect(look.background).toBe(await tokenColor(page, '--aile-secili'));
+  expect(Number(look.weight)).toBe(600);
+  expect(look.shadow).toBe('none');
+  expect(look.borders).toEqual(['0px', '0px', '0px', '0px']);
+  expect(await accentEdges(page, { root: '[role="dialog"] nav' })).toEqual([]);
+  expect(await smallText(page, { root: '[role="dialog"] nav' })).toEqual([]);
+  await expectTargets(page, links);
+});
+
+test('Sayfalar gezinmesi: Tab/Shift+Tab bağlantılar arasında doğal sırada; tek alt çizgi, nav zemininde odak-nav; Enter gezinir, çekmece kapanır, odak main\'e', MATRIX, async ({ page, browserName }) => {
+  const nav = await openPagesDrawer(page);
+  await enterKeyboardMode(page, browserName);
+  const link = (name: string) => nav.getByRole('link', { name, exact: true });
+  const selected = link('Alımlar ve eşyalar');
+  await tabTo(page, browserName, selected);
+  expect(await focusRing(page)).toEqual([]);
+
+  await page.keyboard.press(tabKey(browserName));
+  await expect(link('Ev ve odalar')).toBeFocused();
+  expect(await focusRing(page)).toEqual([]);
+  expect(await lineColor(link('Ev ve odalar'))).toBe(await tokenColor(page, '--aile-odak-nav'));
+  await page.keyboard.press(shiftTabKey(browserName));
+  await expect(selected).toBeFocused();
+  await page.keyboard.press(tabKey(browserName));
+  await expect(link('Ev ve odalar')).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/#\/ev$/);
+  await expect(page.getByRole('dialog', { name: 'Sayfalar' })).toBeHidden();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Ev ve odalar');
+  await expect(page.locator('main#admin-content')).toBeFocused();
+});
+
+test('Sayfalar gezinmesi: odak çizgisi lacivert zeminde en az 3:1 kontrastlı (WCAG 1.4.11), seçili sayfada da', MATRIX, async ({ page, browserName }) => {
+  const nav = await openPagesDrawer(page);
+  await enterKeyboardMode(page, browserName);
+  const problems: string[] = [];
+  for (const name of ['Alımlar ve eşyalar', 'Ev ve odalar']) {
+    const target = nav.getByRole('link', { name, exact: true });
+    await tabTo(page, browserName, target);
+    const contrast = await focusLineContrast(target);
+    if (contrast.ratio < 3) problems.push(`${name}: çizgi ${contrast.line}, zemin ${contrast.under}, oran ${contrast.ratio}`);
+  }
+  expect(problems).toEqual([]);
+});
+
+test('Sayfalar gezinmesi: pointercancel (kaydırmaya dönen dokunuş) gezinmez; dokunuş/tıklama gezinir ve çekmeceyi kapatır', MATRIX, async ({ page }, testInfo) => {
+  const touch = testInfo.project.use.hasTouch;
+  const nav = await openPagesDrawer(page);
+  const dialog = page.getByRole('dialog', { name: 'Sayfalar' });
+  const target = nav.getByRole('link', { name: 'Ev ve odalar', exact: true });
+  await target.dispatchEvent('pointerdown', { pointerType: 'touch', pointerId: 3, isPrimary: true, button: 0 });
+  await target.dispatchEvent('pointercancel', { pointerType: 'touch', pointerId: 3, isPrimary: true });
+  await expect(page).toHaveURL(/#\/alimlar$/);
+  await expect(dialog).toBeVisible();
+  await press(target, touch);
+  await expect(page).toHaveURL(/#\/ev$/);
+  await expect(dialog).toBeHidden();
+});
+
+// --- 3. Menu variant="nav" bu projenin görünümünde (yalıtık kök; telefon 320/390, @matrix) ---------------------------
+
+interface NavHarnessWindow { __a06nav: { selected: string[] } }
+
+/**
+ * Bu projenin görünümünde (telefon profili dahil) admin.html'i açar, uygulama kökünü gizler ve dev sunucusunun aynı React
+ * örneğiyle Menu variant="nav"ı lacivert bir <nav data-odak-zemin="nav"> içine bağlar (gerçek admin.css + Menu.css;
+ * profil ve giriş katmanları <html>'den). Öğeler kabuğun gerçek gezinme verisidir (shell/navigation.ts). Sağlayıcı
+ * (WideProviders) yoktur: Menu yerel bileşendir; telefon profili antd istemez.
+ */
+async function mountNavHarness(page: Page) {
+  await openAdmin(page, '/genel');
+  await page.evaluate(async () => {
+    const main = await (await fetch('/aile/src/admin/main.tsx')).text();
+    const dep = (name: string) => {
+      const found = main.match(new RegExp(`["'](/aile/node_modules/\\.vite/deps/${name}\\.js\\?v=[^"']+)["']`));
+      if (!found) throw new Error(`dev bağımlılık adresi bulunamadı: ${name}`);
+      return found[1]!;
+    };
+    type ReactLike = { createElement: (...args: unknown[]) => unknown };
+    type Root = { render(node: unknown): void };
+    type NavLink = { path: string; label: string };
+    const load = (url: string) => import(url) as Promise<Record<string, unknown>>;
+    const react = (await load(dep('react'))).default as ReactLike;
+    const client = (await load(dep('react-dom_client'))).default as { createRoot(element: Element): Root };
+    const { Menu } = await load('/aile/src/admin/ui/Menu.tsx');
+    const navigation = await load('/aile/src/admin/shell/navigation.ts');
+    const pages = navigation.adminPages as readonly NavLink[];
+    const settings = navigation.settingsLink as NavLink;
+    const items = [
+      ...pages.map(item => ({ key: item.path.slice(1), label: item.label, href: `#${item.path}` })),
+      { key: 'ayirici', label: '', divider: true },
+      { key: settings.path.slice(1), label: settings.label, href: `#${settings.path}` },
+    ];
+    const h = react.createElement;
+    const selected: string[] = [];
+    (document.getElementById('admin-root') as HTMLElement).style.display = 'none';
+    const host = document.createElement('div');
+    host.className = 'aile-admin';
+    host.id = 'a06-nav-harness';
+    host.style.cssText = 'position:fixed;inset:0;overflow:auto;background:var(--aile-nav);';
+    document.body.append(host);
+    client.createRoot(host).render(
+      h('nav', { 'aria-label': 'Sınama gezinmesi', 'data-odak-zemin': 'nav', style: { padding: 'var(--aile-bosluk-3)', color: 'var(--aile-nav-metin)' } },
+        h(Menu, { variant: 'nav', items, selectedKey: 'alimlar', onSelect: (key: string) => selected.push(key) })));
+    (window as unknown as NavHarnessWindow).__a06nav = { selected };
+  });
+  const menu = page.locator('#a06-nav-harness').getByRole('navigation', { name: 'Sınama gezinmesi' }).getByRole('menu');
+  await expect(menu).toBeVisible();
+  return menu;
+}
+const navSelections = (page: Page) => page.evaluate(() => (window as unknown as NavHarnessWindow).__a06nav.selected.slice());
+
+test('Menu variant="nav" (bu görünüm): tek sekme durağı seçili sayfa; seçili secili yüzey + 600, vurgu kenarı yok; 44/48 px; ≥14 px', MATRIX, async ({ page }) => {
+  const menu = await mountNavHarness(page);
   const stops = menu.locator('[tabindex="0"]');
   await expect(stops).toHaveCount(1);
   const selected = menu.getByRole('link', { name: 'Alımlar ve eşyalar' });
   await expect(selected).toHaveAttribute('aria-current', 'page');
   await expect(stops.first()).toHaveAttribute('aria-current', 'page');
+  await expect(menu).toHaveAttribute('data-variant', 'nav');
 
   const look = await menuItemOf(selected).evaluate(element => {
     const style = getComputedStyle(element);
@@ -156,27 +358,29 @@ test('Sayfalar menüsü: tek sekme durağı seçili sayfa; seçili durum secili 
   expect(Number(look.weight)).toBe(600);
   expect(look.shadow).toBe('none');
   expect(look.borders).toEqual(['0px', '0px', '0px', '0px']);
-  expect(await accentEdges(page, { root: '[role="dialog"] [role="menu"]' })).toEqual([]);
-  expect(await smallText(page, { root: '[role="dialog"] [role="menu"]' })).toEqual([]);
+  const color = await menuItemOf(menu.getByRole('link', { name: 'Ev ve odalar' })).evaluate(element => getComputedStyle(element).color);
+  expect(color, 'nav varyantında öğe metni nav-metin').toBe(await tokenColor(page, '--aile-nav-metin'));
+  expect(await accentEdges(page, { root: '#a06-nav-harness [role="menu"]' })).toEqual([]);
+  expect(await smallText(page, { root: '#a06-nav-harness [role="menu"]' })).toEqual([]);
   await expectTargets(page, menu.getByRole('menuitem'));
 });
 
-test('Sayfalar menüsü: oklar sarmalı, Home/End, typeahead (tr-TR); odak çizgisi tek alt çizgi ve nav üzerinde odak-nav; Enter gezinir', MATRIX, async ({ page, browserName }) => {
-  const menu = await openPagesDrawer(page);
+test('Menu variant="nav" (bu görünüm): oklar sarmalı, Home/End, typeahead (tr-TR); odak çizgisi tek alt çizgi, nav üzerinde odak-nav; Enter bağlantıyı izler', MATRIX, async ({ page, browserName }) => {
+  const menu = await mountNavHarness(page);
   await enterKeyboardMode(page, browserName);
-  const selected = menu.getByRole('link', { name: 'Alımlar ve eşyalar' });
-  for (let step = 0; step < 6 && !(await selected.evaluate(element => element === document.activeElement)); step += 1) {
-    await page.keyboard.press(tabKey(browserName));
-  }
-  await expect(selected).toBeFocused();
-  expect(await focusRing(page)).toEqual([]);
-  const lineColor = await selected.evaluate(element => getComputedStyle(element, '::after').backgroundColor);
-  expect(lineColor).toBe(await tokenColor(page, '--aile-odak-nav'));
-
   const link = (name: string) => menu.getByRole('link', { name, exact: true });
+  const selected = link('Alımlar ve eşyalar');
+  // Tek sekme durağı: uygulama kökü gizli olduğundan ilk Tab doğrudan menünün durağına (seçili sayfa) gelir.
+  await tabTo(page, browserName, selected, 2);
+  expect(await focusRing(page)).toEqual([]);
+  // Seçili öğede de çizgi lacivert zemine düşer: odak-nav, en az 3:1 (Menu.css nav kuralı).
+  expect(await lineColor(selected)).toBe(await tokenColor(page, '--aile-odak-nav'));
+  expect((await focusLineContrast(selected)).ratio).toBeGreaterThanOrEqual(3);
+
   await page.keyboard.press('ArrowDown');
   await expect(link('Ev ve odalar')).toBeFocused();
   expect(await focusRing(page)).toEqual([]);
+  expect(await lineColor(link('Ev ve odalar'))).toBe(await tokenColor(page, '--aile-odak-nav'));
   await expect(link('Ev ve odalar')).toHaveAttribute('tabindex', '0');
   await expect(selected).toHaveAttribute('tabindex', '-1');
   await page.keyboard.press('End');
@@ -197,25 +401,26 @@ test('Sayfalar menüsü: oklar sarmalı, Home/End, typeahead (tr-TR); odak çizg
   await expect(link('Ödemeler')).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/#\/odemeler$/);
-  await expect(page.getByRole('dialog', { name: 'Sayfalar' })).toBeHidden();
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Ödemeler');
+  expect(await navSelections(page)).toEqual(['odemeler']);
 });
 
-test('Sayfalar menüsü: pointercancel basılı yüzeyi kaldırır ve gezinmez; dokunuş gezinir', MATRIX, async ({ page }, testInfo) => {
+test('Menu variant="nav" (bu görünüm): pointercancel basılı yüzeyi kaldırır ve seçmez; dokunuş/tıklama bağlantıyı izler', MATRIX, async ({ page }, testInfo) => {
   const touch = testInfo.project.use.hasTouch;
-  const menu = await openPagesDrawer(page);
+  const menu = await mountNavHarness(page);
   const target = menuItemOf(menu.getByRole('link', { name: 'Ev ve odalar', exact: true }));
   await target.dispatchEvent('pointerdown', { pointerType: 'touch', pointerId: 3, isPrimary: true, button: 0 });
   await expect(target).toHaveAttribute('data-pressed', '');
   await target.dispatchEvent('pointercancel', { pointerType: 'touch', pointerId: 3, isPrimary: true });
   await expect(target).not.toHaveAttribute('data-pressed');
-  await expect(page).toHaveURL(/#\/alimlar$/);
+  await expect(page).toHaveURL(/#\/genel$/);
+  expect(await navSelections(page)).toEqual([]);
   await press(menu.getByRole('link', { name: 'Ev ve odalar', exact: true }), touch);
   await expect(page).toHaveURL(/#\/ev$/);
-  await expect(page.getByRole('dialog', { name: 'Sayfalar' })).toBeHidden();
+  expect(await navSelections(page)).toEqual(['ev']);
+  await expect(target).not.toHaveAttribute('data-pressed');
 });
 
-// --- 3. Açılır panel ve collapse="auto" (geniş profil; kaynak modül yalıtık kökte) ----------------------------------
+// --- 4. Açılır panel ve collapse="auto" (geniş profil; kaynak modül yalıtık kökte) ----------------------------------
 
 interface HarnessWindow { __a06: { selected: string[]; setRowWidth(width: number): void } }
 
