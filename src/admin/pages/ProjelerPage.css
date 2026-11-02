@@ -1,6 +1,8 @@
-/* Projeler ve görevler — yalnız --aile tokenları. Kaynak: bundle.css › .pg-gantt* (ad sütunu 280 / telefonda 148 px,
-   hafta 64 / 56 px, çubuk 28 px, "Bu hafta" bilgi yüzeyi; yatay kaydırma yalnız çizelgenin içinde, sayfa kaymaz).
-   Kart/kenarlık yağmuru yok: liste ve çizelge tek yüzey alanı, ayırıcı yalnız cizgi. Odak çizgisini admin.css çizer. */
+/* Projeler ve görevler — yalnız --aile tokenları (src/design/tokens.ts). Mobil önce: 320 px telefon yolculuğu (proje
+   listesi → proje ayrıntısı → görevler) temel sunumdur; geniş çalışma alanının (Gantt dahil) stilleri yalnız geniş
+   parçada (projeler/wide/Gantt.css). Kart/kenarlık yağmuru yok: proje listesi tek yüzey, satırlar yalnız cizgi ile
+   ayrılır (AccordionList ile aynı yüzey). Renkli kenar şeridi yok. Odak: tek 3 px alt çizgi, yalnız klavye modunda;
+   satırda satırın alt kenarında. Hareket tek süre/eğri, reduced-motion'da anlık. Genişlik medya sorgusu türetilmez. */
 
 .aile-projeler { display: flex; flex-direction: column; gap: var(--aile-bosluk-6); min-width: 0; }
 
@@ -11,99 +13,116 @@
 
 .aile-projeler-not { margin: 0; font-size: 14px; line-height: 20px; }
 
-/* Bölümler (kontroller, şablonlar) */
+/* Bölümler (projeler, kontroller, şablonlar) */
 .aile-projeler-bolum { display: flex; flex-direction: column; gap: var(--aile-bosluk-4); min-width: 0; }
 .aile-projeler-bolum__bas { display: flex; flex-direction: column; gap: var(--aile-bosluk-1); }
 .aile-projeler-bolum__lead { margin: 0; font-size: 16px; line-height: 24px; max-width: 72ch; }
+.aile-projeler-sayim-satiri { margin: 0; font-variant-numeric: tabular-nums; }
 
 /* Kontrol sonuç sayımları: kutusuz tek satır */
 .aile-projeler-sayimlar { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--aile-bosluk-3) var(--aile-bosluk-6); }
 .aile-projeler-sayim { display: flex; flex-direction: column; min-width: 0; }
 .aile-projeler-sayim__deger { font-size: 24px; line-height: 32px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--aile-metin); }
 
-/* Şablon listesi: tek yüzey, satırlar cizgi ile ayrılır */
-.aile-projeler-sablonlar { list-style: none; margin: 0; padding: 0; background: var(--aile-yuzey); border-radius: var(--aile-kose-kart); }
-.aile-projeler-sablon { display: flex; flex-direction: column; gap: var(--aile-bosluk-1); padding: var(--aile-bosluk-3) var(--aile-bosluk-4); min-width: 0; }
-.aile-projeler-sablon + .aile-projeler-sablon { border-top: 1px solid var(--aile-cizgi); }
-.aile-projeler-sablon__baslik { font-weight: 600; color: var(--aile-metin); }
-.aile-projeler-sablon__kosul { font-size: 16px; line-height: 24px; }
+/* Tutar: tabular-nums; eksik bilgi ("Fiyat yok", "Henüz yok") ikincil renkle, sözcükle. */
+.aile-projeler-tutar { font-variant-numeric: tabular-nums; font-weight: 500; color: var(--aile-metin); white-space: nowrap; }
+.aile-projeler-tutar[data-eksik='true'] { font-weight: 400; color: var(--aile-metin-ikincil); }
+.aile-projeler-tarih { font-variant-numeric: tabular-nums; }
 
-/* Gantt alanı: çizelge + yanda "Tarihsiz" (masaüstünde sağda, dar ekranda altta) */
-.aile-projeler-gantt-alan {
-  --aile-projeler-gantt-ad: 280px;
-  --aile-projeler-gantt-hafta: 64px;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--aile-bosluk-4);
-  min-width: 0;
-}
-.aile-projeler-gantt-alan[data-narrow='true'] { --aile-projeler-gantt-ad: 148px; --aile-projeler-gantt-hafta: 56px; }
-@media (min-width: 1024px) {
-  .aile-projeler-gantt-alan[data-narrow='false'] { grid-template-columns: minmax(0, 1fr) var(--aile-filtre-genislik); align-items: start; }
-  .aile-projeler-gantt-alan[data-narrow='false'] > .aile-projeler-not { grid-column: 1 / -1; }
-}
-
-.aile-projeler-gantt { overflow-x: auto; min-width: 0; background: var(--aile-yuzey); border-radius: var(--aile-kose-kart); }
-.aile-projeler-gantt[data-narrow='true'] { margin: 0 calc(-1 * var(--aile-bosluk-4)); border-radius: 0; }
-
-.aile-projeler-gantt__tablo {
-  border-collapse: separate; border-spacing: 0; table-layout: fixed;
-  width: calc(var(--aile-projeler-gantt-ad) + var(--aile-projeler-hafta-sayisi, 1) * var(--aile-projeler-gantt-hafta));
-}
-.aile-projeler-gantt__ad {
-  position: sticky; left: 0; z-index: 1;
-  width: var(--aile-projeler-gantt-ad); min-width: var(--aile-projeler-gantt-ad);
-  padding: var(--aile-bosluk-2) var(--aile-bosluk-4);
-  text-align: left; vertical-align: middle; font-weight: 500; color: var(--aile-metin);
+/* --- Proje listesi (telefon temel sunumu) ------------------------------------------------------------ */
+.aile-projeler-liste {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   background: var(--aile-yuzey);
-  border-bottom: 1px solid var(--aile-cizgi);
-  box-shadow: inset -1px 0 0 var(--aile-cizgi);
-  overflow-wrap: break-word;
+  border: 1px solid var(--aile-cizgi);
+  border-radius: var(--aile-kose-kart);
+  overflow: hidden;
 }
-.aile-projeler-gantt[data-narrow='true'] .aile-projeler-gantt__ad { padding: var(--aile-bosluk-2) var(--aile-bosluk-3); font-size: 14px; line-height: 20px; }
-.aile-projeler-gantt__baslik { z-index: 2; background: var(--aile-zemin); font-weight: 600; }
-.aile-projeler-gantt__etiket, .aile-projeler-gantt__meta { display: block; }
-.aile-projeler-gantt__hafta {
-  width: var(--aile-projeler-gantt-hafta);
-  padding: var(--aile-bosluk-2);
-  text-align: left; vertical-align: top;
-  font-size: 14px; line-height: 20px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--aile-metin);
-  background: var(--aile-zemin);
-  border-bottom: 1px solid var(--aile-cizgi);
-  border-left: 1px solid var(--aile-cizgi);
-}
-.aile-projeler-gantt__hafta[data-current='true'] { background: var(--aile-bilgi-yuzey); }
-.aile-projeler-gantt__hafta > span { display: block; }
-.aile-projeler-gantt__simdi { font-weight: 500; color: var(--aile-eylem); }
+.aile-projeler-liste__oge + .aile-projeler-liste__oge { border-top: 1px solid var(--aile-cizgi); }
 
-.aile-projeler-gantt__iz { padding: 0; vertical-align: middle; border-bottom: 1px solid var(--aile-cizgi); }
-.aile-projeler-gantt__izgara {
+/* Satır düğmesi: tarayıcı görünümü sıfırlanır; içerik solda, ok sağda; asgari hedef --aile-dokunma-hedefi (44 px,
+   kaba işaretçi katmanında 48 px; admin.css). */
+.aile-projeler-proje {
+  position: relative;
   display: grid;
-  grid-template-columns: repeat(var(--aile-projeler-hafta-sayisi, 1), var(--aile-projeler-gantt-hafta));
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  min-height: 56px;
-  background: linear-gradient(90deg, transparent 0, transparent 0) var(--aile-yuzey);
-}
-.aile-projeler-gantt__cubuk {
-  display: flex; align-items: center;
-  height: 28px; margin: 0 var(--aile-bosluk-1); padding: 0 var(--aile-bosluk-2);
-  border-radius: var(--aile-kose-kontrol);
-  background: var(--aile-secili); color: var(--aile-metin);
-  font-size: 14px; line-height: 20px; white-space: nowrap; font-variant-numeric: tabular-nums;
+  gap: var(--aile-bosluk-3);
+  width: 100%;
+  min-height: var(--aile-dokunma-hedefi);
+  margin: 0;
+  padding: var(--aile-bosluk-3) var(--aile-bosluk-4);
+  border: 0;
+  border-radius: 0;
+  background: var(--aile-yuzey);
+  color: var(--aile-metin);
+  font: inherit;
+  font-size: 16px;
+  line-height: 24px;
+  text-align: left;
+  cursor: pointer;
+  appearance: none;
   transition: background-color var(--aile-sure) var(--aile-egri);
 }
-.aile-projeler-gantt__cubuk[data-tone='bilgi'] { background: var(--aile-eylem); color: var(--aile-yuzey); font-weight: 500; }
-.aile-projeler-gantt__cubuk[data-tone='olumlu'] { background: var(--aile-olumlu-yuzey); color: var(--aile-olumlu); }
-.aile-projeler-gantt__cubuk[data-tone='uyari'] { background: var(--aile-uyari-yuzey); color: var(--aile-uyari); }
-.aile-projeler-gantt__cubuk[data-tone='hata'], .aile-projeler-gantt__cubuk[data-late='true'] {
-  background: var(--aile-hata-yuzey); color: var(--aile-hata); border: 1px solid var(--aile-hata); font-weight: 500;
+.aile-projeler-proje:hover { background: var(--aile-bilgi-yuzey); }
+.aile-projeler-proje:active { background: var(--aile-secili); }
+/* Odak çizgisi: klavye modunda, satırın alt kenarında, satır genişliğinde (admin.css tr/[role=row] kuralıyla aynı). */
+html[data-keyboard='true'] .aile-projeler-proje:focus-visible::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--aile-odak-kalinlik);
+  background: var(--aile-odak);
+  pointer-events: none;
 }
-@media (prefers-reduced-motion: reduce) { .aile-projeler-gantt__cubuk { transition: none; } }
+.aile-projeler-proje__ana { display: flex; flex-direction: column; gap: var(--aile-bosluk-1); min-width: 0; }
+.aile-projeler-proje__ad { font-weight: 600; overflow-wrap: break-word; }
+.aile-projeler-proje__meta { display: block; }
+.aile-projeler-proje__tutarlar { display: flex; flex-wrap: wrap; gap: var(--aile-bosluk-2) var(--aile-bosluk-6); padding-top: var(--aile-bosluk-1); }
+.aile-projeler-olcu { display: flex; flex-direction: column; min-width: 0; }
+.aile-projeler-proje__ok { color: var(--aile-metin-ikincil); flex: none; }
 
-/* Tarihsiz kayıtlar: çizelgenin yanında adıyla */
-.aile-projeler-tarihsiz { display: flex; flex-direction: column; gap: var(--aile-bosluk-2); padding: var(--aile-bosluk-4); background: var(--aile-yuzey); border-radius: var(--aile-kose-kart); min-width: 0; }
-.aile-projeler-tarihsiz__baslik { font-size: 18px; line-height: 26px; }
-.aile-projeler-tarihsiz__liste { list-style: none; margin: 0; padding: 0; }
-.aile-projeler-tarihsiz__liste > li { display: flex; flex-direction: column; gap: var(--aile-bosluk-1); padding: var(--aile-bosluk-2) 0; }
-.aile-projeler-tarihsiz__liste > li + li { border-top: 1px solid var(--aile-cizgi); }
-.aile-projeler-tarihsiz__ad { font-weight: 500; color: var(--aile-metin); }
+/* --- Proje ayrıntısı (telefonda tam sayfa) ------------------------------------------------------------ */
+.aile-projeler-ayrinti { display: flex; flex-direction: column; gap: var(--aile-bosluk-4); min-width: 0; }
+.aile-projeler-ayrinti__geri { display: flex; }
+.aile-projeler-ayrinti__kimlik { display: flex; flex-direction: column; gap: var(--aile-bosluk-1); min-width: 0; }
+.aile-projeler-ayrinti__ust, .aile-projeler-ayrinti__meta { margin: 0; }
+.aile-projeler-ayrinti__baslik { overflow-wrap: break-word; }
+.aile-projeler-ayrinti__baslik:focus { outline: none; }
+
+/* Plan | Gerçek: iki ayrı sütun, tek sayıya birleşmez. */
+.aile-projeler-tutarlar {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--aile-bosluk-4);
+  margin: 0;
+}
+.aile-projeler-tutarlar__sutun { display: flex; flex-direction: column; gap: var(--aile-bosluk-1); min-width: 0; }
+.aile-projeler-tutarlar dd { display: flex; flex-direction: column; margin: 0; }
+.aile-projeler-tutarlar dd > .aile-projeler-tutar { font-size: 18px; line-height: 26px; white-space: normal; overflow-wrap: break-word; }
+
+.aile-projeler-ayrinti__gorevler { display: flex; flex-direction: column; gap: var(--aile-bosluk-3); min-width: 0; }
+.aile-projeler-ayrinti__gorev-bas { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--aile-bosluk-3); }
+.aile-projeler-ayrinti__h3 { margin: 0; }
+.aile-projeler-goster { flex: 1 1 200px; max-width: 320px; min-width: 0; }
+
+/* Şablon ayrıntısı: madde listeleri ve teknik anahtar (eş aralıklı, 14 px; uzun anahtar satırı taşırmadan kırılır). */
+.aile-projeler-madde { margin: 0; padding-left: var(--aile-bosluk-4); }
+.aile-projeler-madde > li + li { margin-top: var(--aile-bosluk-1); }
+.aile-projeler-anahtar {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--aile-metin);
+  overflow-wrap: anywhere;
+}
+
+/* --- Geniş çalışma alanı kabı (içerik geniş parçadan gelir) ------------------------------------------- */
+.aile-projeler-genis { display: flex; flex-direction: column; gap: var(--aile-bosluk-4); min-width: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .aile-projeler-proje { transition: none; }
+}
