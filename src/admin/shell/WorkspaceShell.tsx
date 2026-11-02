@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type RefObject } from 'react';
-import { WideNotice, lazyResource, lazyWide, useProfile, useWideLoading, useWideModule } from '../adaptive';
+import { useCallback, useEffect, useLayoutEffect, useRef, type MouseEvent, type RefObject } from 'react';
+import { WideNotice, lazyResource, lazyWide, useIntentLoad, useProfile, useWideLoading, useWideModule } from '../adaptive';
 import { reloadPage } from '../adaptive/reload';
 import type { WorkspaceShellProps } from './contracts';
 import { currentAdminLink } from './navigation';
@@ -27,15 +27,18 @@ const NAV_REGION = '[data-shell-region="nav"]';
 /** Masaüstü yan gezinmesi (geniş-özel). */
 const WideNav = lazyWide('shell-nav', () => import('./wide/WorkspaceNav.wide'));
 
-// Sayfalar çekmecesi (MobileNavDrawer) kapalıyken hiçbir şey çizmez; telefon ilk boyaması onu gerektirmez. Modülü ilk
-// niyette istenir: Sayfalar düğmesine işaretçi basınca, düğme odak alınca ya da düğme seçilince; üst çubuk ve düğme
-// statiktir. Yüklenirken düğme aria-expanded="true" + aria-busy taşır; çekmece hazır olunca açılır (aria-controls ve inert
-// arka plan o karede). Çekmece örtüdür: düzen kaymaz. İndirilemezse bir kez kendiliğinden yeniden denenir (lazyResource:
-// rota ve geniş parçalarla aynı bekleme); yine olmazsa içerik alanının başında kurtarma bildirimi: çevrim içiyken parça
-// hatası "Yeni sürüm var · Yenile" (sayfa yenilenir), diğerleri "Sayfalar yüklenemedi · Yeniden dene".
+// Sayfalar çekmecesi (MobileNavDrawer) kapalıyken hiçbir şey çizmez; telefon ilk boyaması onu gerektirmez. Niyet/istek
+// ayrımı adaptive/intent.ts useIntentLoad ile: düğmeye işaretçi basma ya da odak modülü YALNIZ önyükler (düşmüş yüklemeyi
+// yeniden kurmaz, hiçbir şey açmaz; WCAG 3.2.1); düğmeyi seçmek açılışı ister. Yüklenirken düğme aria-expanded="true" +
+// aria-busy, üst çubukta tek ince şerit (shell.css, data-bekliyor) ve kibar "Sayfalar yükleniyor…" duyurusu; Escape ya da
+// başka yerde etkileşim bekleyen açılışı iptal eder, geç gelen modül hiçbir şeyi açmaz. Hazır olunca çekmece açılır
+// (aria-controls ve inert arka plan o karede); örtüdür, düzen kaymaz. İndirilemezse bir kez kendiliğinden yeniden denenir
+// (lazyResource: rota ve geniş parçalarla aynı bekleme); yine olmazsa istek kapanır ve içerik alanının başında kurtarma
+// bildirimi çıkar: çevrim içiyken parça hatası "Yeni sürüm var · Yenile" (sayfa yenilenir), diğerleri "Sayfalar
+// yüklenemedi · Yeniden dene" (odak Sayfalar düğmesine geçer: bildirim sökülünce odak kaybolmaz).
 const DrawerModule = lazyResource('shell-sayfalar', () => import('./MobileNavDrawer'));
 const DRAWER_FAILED = 'Sayfalar yüklenemedi.';
-const requestDrawer = () => { DrawerModule.retry().catch(() => {}); };
+const DRAWER_LOADING = 'Sayfalar yükleniyor…';
 
 /** Odak kayboldu mu: belge/gövde, sökülmüş öğe ya da inert alt ağaç (kapanan alt sayfa, inert arka plan). */
 function focusLost(): boolean {
@@ -49,7 +52,7 @@ interface TopBarProps {
   open: boolean;
   /** Çekmece açık ve modal: aria-controls onu gösterir. */
   controls: boolean;
-  /** Çekmece modülü yükleniyor. */
+  /** Açılış istendi, çekmece modülü yükleniyor: aria-busy, şerit (data-bekliyor) ve kibar duyuru. */
   busy: boolean;
   inert: boolean;
   onOpen(): void;
@@ -61,7 +64,7 @@ interface TopBarProps {
 
 function TopBar({ label, open, controls, busy, inert, onOpen, onIntent, buttonRef, barRef }: TopBarProps) {
   return (
-    <header ref={barRef} className="aile-admin-topbar" data-shell-region="nav" data-odak-zemin="nav" inert={inert}>
+    <header ref={barRef} className="aile-admin-topbar" data-shell-region="nav" data-odak-zemin="nav" data-bekliyor={busy ? '' : undefined} inert={inert}>
       <p className="aile-admin-topbar-title">
         <span className="aile-admin-brand">aile</span>
         <span className="aile-admin-topbar-sep" aria-hidden="true">·</span>
@@ -83,6 +86,8 @@ function TopBar({ label, open, controls, busy, inert, onOpen, onIntent, buttonRe
         <ShellIcon name="menu" />
         <span>Sayfalar</span>
       </button>
+      {/* Canlı bölge hep yerinde (rolsüz, kibar): yalnız bekleme sırasında metin taşır. */}
+      <p className="aile-shell-sr" aria-live="polite">{busy ? DRAWER_LOADING : ''}</p>
     </header>
   );
 }
@@ -240,12 +245,13 @@ export function WorkspaceShell({ location, children }: WorkspaceShellProps) {
   const main = useRef<HTMLElement | null>(null);
   const pagesButton = useRef<HTMLButtonElement | null>(null);
   const topBar = useRef<HTMLElement | null>(null);
-  const [navOpen, setNavOpen] = useState(false);
-  const drawer = useWideModule(DrawerModule, false);
+  const nav = useIntentLoad(DrawerModule, pagesButton);
+  const drawer = nav.state;
   const Drawer = drawer.status === 'ready' ? drawer.module.MobileNavDrawer : null;
-  const navRequested = navOpen && !side;
+  const navRequested = nav.phase === 'requested' && !side;
   const drawerOpen = navRequested && Drawer !== null;
-  const drawerFailure = navRequested && (drawer.status === 'error' || drawer.status === 'stale-build') ? drawer.status : null;
+  const drawerFailure = nav.phase === 'failed' && !side && (drawer.status === 'error' || drawer.status === 'stale-build') ? drawer.status : null;
+  const { cancel: closeNav, request: openNav } = nav;
   const layout = `${profile}:${side ? 'yan' : 'ust'}`;
 
   useEffect(() => { document.title = `${current.label} · aile`; }, [current.label]);
@@ -256,7 +262,7 @@ export function WorkspaceShell({ location, children }: WorkspaceShellProps) {
   }, [profile]);
 
   // Yan gezinme gelince açık alt sayfa kapanır (telefona dönünce kendiliğinden yeniden açılmaz).
-  useEffect(() => { if (side) setNavOpen(false); }, [side]);
+  useEffect(() => { if (side) closeNav(); }, [side, closeNav]);
 
   // Son odak gezinme bölgesinde miydi (üst çubuk, alt sayfa, yan gezinme)? Profil değişiminde karşılığa taşımak için.
   const navFocused = useRef(false);
@@ -295,8 +301,8 @@ export function WorkspaceShell({ location, children }: WorkspaceShellProps) {
     if (fromNav.current && pageChanged && window.scrollY > 0) window.scrollTo(0, 0);
     fromNav.current = false;
     focusMain.current = pageChanged || focusLost();
-    setNavOpen(false);
-  }, [location]);
+    closeNav();
+  }, [location, closeNav]);
   useLayoutEffect(() => {
     if (!focusMain.current || drawerOpen) return;
     focusMain.current = false;
@@ -304,11 +310,11 @@ export function WorkspaceShell({ location, children }: WorkspaceShellProps) {
   }, [location, drawerOpen]);
 
   const markNavigation = useCallback(() => { fromNav.current = true; }, []);
-  const openNav = useCallback(() => {
-    setNavOpen(true);
-    requestDrawer();
-  }, []);
-  const closeNav = useCallback(() => setNavOpen(false), []);
+  // Bildirimin "Yeniden dene"si: bildirim yeniden deneme boyunca kalkar; odak açana (Sayfalar) geçer, kaybolmaz.
+  const retryNav = useCallback(() => {
+    openNav();
+    pagesButton.current?.focus();
+  }, [openNav]);
 
   // Skip link: hash yönlendirme "#admin-content"i rota sayardı; bağlantı yalnız odağı taşır.
   const skipToContent = (event: MouseEvent<HTMLAnchorElement>) => {
@@ -322,12 +328,12 @@ export function WorkspaceShell({ location, children }: WorkspaceShellProps) {
       {!side && (
         <TopBar
           label={current.label}
-          open={navRequested && drawerFailure === null}
+          open={navRequested}
           controls={drawerOpen}
           busy={navRequested && drawer.status === 'loading'}
           inert={drawerOpen}
           onOpen={openNav}
-          onIntent={requestDrawer}
+          onIntent={nav.preload}
           buttonRef={pagesButton}
           barRef={topBar}
         />
@@ -335,7 +341,7 @@ export function WorkspaceShell({ location, children }: WorkspaceShellProps) {
       {desktop && <WideNav location={location} onNavigate={markNavigation} />}
       <main ref={main} id={MAIN_ID} tabIndex={-1} className="aile-admin-main" inert={drawerOpen}>
         <div className="aile-admin-main-inner">
-          {drawerFailure === 'error' ? <WideNotice kind="error" message={DRAWER_FAILED} onAction={requestDrawer} /> : null}
+          {drawerFailure === 'error' ? <WideNotice kind="error" message={DRAWER_FAILED} onAction={retryNav} /> : null}
           {drawerFailure === 'stale-build' ? <WideNotice kind="stale-build" onAction={reloadPage} /> : null}
           {children}
         </div>

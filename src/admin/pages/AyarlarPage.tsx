@@ -2,7 +2,9 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNod
 import { sheetId as envBudgetSheetId } from '../../dashboard/data';
 import { getApiUrl, getAppKey, setApiUrl, setAppKey } from '../../sync/config';
 import { BUDGET_TIME_ZONE, lastGoodBudget, persistentCacheAllowed, useChangeSet, useCollection, useGeneration, type BatchConversion, type GenerationState, type OverlayRecord, type SettingRecord } from '../data';
+import { WideNotice } from '../adaptive';
 import { reloadPage as tarayiciyiYenile } from '../adaptive/reload';
+import { isStaleBuildMessage, loadContract } from '../data/store';
 import { useDevice } from '../device';
 import type { DataStatusProps, DataStatusState, PageHeaderSummary, Tone } from '../shell/contracts';
 import { settingsLink } from '../shell/navigation';
@@ -172,7 +174,7 @@ type AyarDurumu =
   | { durum: 'hata'; title: string; message: string }
   | { durum: 'tamam'; rows: readonly SettingRecord[] };
 
-interface AyarSatirlariProps { durum: AyarDurumu; phone: boolean; onRetry(): void }
+interface AyarSatirlariProps { durum: AyarDurumu; phone: boolean; onRetry?: () => void }
 
 /** İki satır tek durumdan çizilir: okunuyor → iskelet; hata → tek ErrorState (Aile), Biçimler'de "Bilinmiyor". */
 function AyarSatirlari({ durum, phone, onRetry }: AyarSatirlariProps) {
@@ -610,6 +612,9 @@ export function AyarlarPage({
     ? 'Hata: 1 alan düzeltilmeli · Kaydedilmemiş değişiklik var'
     : dirty ? 'Kaydedilmemiş değişiklik var' : 'Değişiklik yok';
 
+  // Doğrulama parçası eski sürümse yeniden deneme başaramaz: tek kurtarma Nesil kaynağındaki "Yeni sürüm var · Yenile";
+  // tazelik satırı ve ayar satırları "Yeniden dene" vermez.
+  const eskiSurum = generation.state === 'error' && isStaleBuildMessage(generation.message);
   // Nesil tazelik satırı (başlıkta ve Nesil kaynağı satırında aynı).
   const status: DataStatusProps = {
     state: DURUM[generation.state],
@@ -617,7 +622,7 @@ export function AyarlarPage({
     lastGoodAt: generation.lastGoodAt ?? undefined,
     generationId: generation.generationId ?? undefined,
     message: generation.message ?? undefined,
-    onRefresh: () => void generation.refresh(),
+    onRefresh: eskiSurum ? undefined : () => void generation.refresh(),
   };
 
   const nesilOkunuyor = generation.state === 'idle' || generation.state === 'checking';
@@ -634,6 +639,11 @@ export function AyarlarPage({
   ];
 
   const yenile = () => void generation.refresh();
+  // İçe aktarma eylemi doğrulama modülünü önden ister (sayfa yükleyicisi de ister; düştüyse bu ikinci şanstır).
+  const klasorSec = () => {
+    loadContract().catch(() => {});
+    void generation.pickDirectory();
+  };
   // Ayar koleksiyonu yalnız manifest varken istenir; yoksa nesil durumu (okunuyor / hata) iki satırı çizer.
   const nesilAyarDurumu: AyarDurumu = generation.state === 'error' || generation.state === 'stale'
     ? { durum: 'hata', title: 'Nesil okunamadı', message: generation.message ?? NESIL_OKUNAMADI }
@@ -655,7 +665,7 @@ export function AyarlarPage({
       <div className={`aile-ayarlar${narrow ? ' aile-ayarlar--dar' : ''}`} data-narrow={narrow}>
         {generation.manifest
           ? <AyarKoleksiyonu phone={phone} onRetry={yenile} />
-          : <AyarSatirlari durum={nesilAyarDurumu} phone={phone} onRetry={yenile} />}
+          : <AyarSatirlari durum={nesilAyarDurumu} phone={phone} onRetry={eskiSurum ? undefined : yenile} />}
 
         <Row title="Nesil kaynağı" busy={nesilOkunuyor} help="Panel doğrulanmış JSON neslini okur; her okuma yeni bir nesil oluşturur. E-tabloya yazmaz.">
           <dl className="aile-ayarlar__liste">
@@ -669,9 +679,10 @@ export function AyarlarPage({
               {generation.state === 'stale' ? <StatusText tone="uyari" label={ESKI_VERI} /> : null}
             </div>
           </div>
+          {eskiSurum ? <WideNotice kind="stale-build" onAction={reloadPage} /> : null}
           {generation.sourceMessage ? <p className="aile-ayarlar__hata">{generation.sourceMessage}</p> : null}
           {generation.canPickDirectory ? (
-            <div className="aile-ayarlar__eylem"><Button variant="secondary" onClick={() => void generation.pickDirectory()}>Klasör seç</Button></div>
+            <div className="aile-ayarlar__eylem"><Button variant="secondary" onClick={klasorSec}>Klasör seç</Button></div>
           ) : (
             <p className="aile-kucuk aile-ikincil">Bu tarayıcı klasör seçmeyi desteklemiyor; nesil geliştirme sunucusundan okunur.</p>
           )}

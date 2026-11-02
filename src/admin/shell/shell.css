@@ -25,6 +25,11 @@
   --aile-shell-odak-payi: calc(var(--aile-odak-aralik) + var(--aile-odak-kalinlik) - 1px);
   --aile-shell-alt-pay: max(var(--aile-shell-dikey-pay), var(--aile-shell-odak-payi));
   --aile-shell-ust-pay: calc(var(--aile-shell-ust-bar) - var(--aile-dokunma-hedefi) - var(--aile-shell-alt-pay));
+  /* Bekleme şeridi: tasarım Loading ince şeridi (bundle.css .ai-progress: 3 px, parça 32 %, durağan 40 %, döngü 1200 ms =
+     5 × sure-hareket). Kalınlık ve parça oranları için token yok; tek yerde adlı özellik (LoadingShell ile aynı ölçü). */
+  --aile-shell-serit: 3px;
+  --aile-shell-serit-parca: 32%;
+  --aile-shell-serit-duragan: 40%;
   display: block;
   position: relative;
   min-height: 100dvh;
@@ -103,6 +108,24 @@
 }
 .aile-admin .aile-admin-topbar-sep { margin: 0 var(--aile-bosluk-2); color: var(--aile-acik-mavi); }
 
+/* Sayfalar yüklenirken (düğme aria-busy, çubuk data-bekliyor): çubuğun hemen altında, açık zeminde tek ince belirsiz
+   ilerleme şeridi; döner simge ve halka yok, odak çizgisiyle karışmaz (çizgi çubuğun içinde kalır). Örtüdür (mutlak; yapışkan
+   çubuk kapsayıcı blok): düzen kaymaz, tıklamayı almaz. Parça arka plan konumuyla kayar (yatay taşma yok); -47 % / 147 %
+   parçayı (genişliğin 32 %'si) tam dışarıdan tam dışarıya taşır. Hareket kapalıyken şerit durağandır (aşağıda). */
+.aile-admin .aile-admin-topbar[data-bekliyor]::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  inset-block-start: 100%;
+  height: var(--aile-shell-serit);
+  background: linear-gradient(var(--aile-eylem), var(--aile-eylem)) -47% 0 / var(--aile-shell-serit-parca) 100% no-repeat, var(--aile-liste-zemin);
+  animation: aile-shell-serit calc(var(--aile-sure) * 5) var(--aile-egri) infinite;
+  pointer-events: none;
+}
+@keyframes aile-shell-serit {
+  to { background-position: 147% 0; }
+}
+
 /* --- Kabuk düğmesi (Sayfalar, Kapat): lacivert zemin üstünde ikincil (acik-mavi kenar) ya da sessiz ------------- */
 .aile-admin .aile-shell-btn {
   flex: none;
@@ -134,6 +157,7 @@
   .aile-admin .aile-shell-btn:hover { background: var(--aile-nav-hover); }
 }
 .aile-admin .aile-shell-btn:active { background: var(--aile-nav-basili); }
+.aile-admin .aile-shell-btn[aria-busy='true'] { cursor: progress; }
 
 .aile-admin .aile-shell-icon { flex: none; }
 .aile-admin .aile-shell-sr {
@@ -290,5 +314,11 @@ html[data-shell-kilit] { overflow: hidden; }
   .aile-admin .aile-shell-btn,
   .aile-admin .aile-shell-link {
     transition: none;
+  }
+  /* Bekleme durumu anında görünür; şerit durağan, daha uzun parça (tasarım). */
+  .aile-admin .aile-admin-topbar[data-bekliyor]::after {
+    animation: none;
+    background-position: 0 0;
+    background-size: var(--aile-shell-serit-duragan) 100%;
   }
 }

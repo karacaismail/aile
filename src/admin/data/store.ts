@@ -18,20 +18,41 @@
 // tek bekleyen ise okuma da kesilir. Parça okumaları manifestin generation_id'siyle sabitlenir (HTTP: ?generation=).
 // Yayını değiştiren iş (ilk manifest, yenileme) tektir ve yayındaki nesilden süren okumaların bitmesini bekler.
 import { createStore, del, get, keys, set, type UseStore } from 'idb-keyval';
+import { chunkFailureStatus } from '../adaptive/chunkError';
 import { UnselectedGenerationSource, abortError, defaultGenerationSource, isAbortError, type ReadTextOptions } from './sources';
 import type { BaseRecord, CollectionName, GenerationState, Manifest, ManifestFile, PartitionEnvelope } from './types';
 
 // Sözleşme doğrulaması (contract.ts + zod) ayrı parçadır ve yalnız bir nesil okunurken iner: depo modülünü (dolayısıyla
 // telefon girişini) zod'a statik bağlamaz. Kaynak seçilmemişken (üretim varsayılanı) hiç istenmez; manifest metni
-// okununca bir kez yüklenir ve aynı modül tüm parçaları doğrular; doğrulama sıkılığı aynıdır (aynı şemalar). İndirme
-// başarısız olursa ad verilen bir hatayla okuma reddedilir (durum error/stale, "Yeniden dene" yeniden ister).
+// okununca bir kez yüklenir ve aynı modül tüm parçaları doğrular; doğrulama sıkılığı aynıdır (aynı şemalar). Veri ve
+// Ayarlar sayfa yükleyicileri ile içe aktarma eylemi onu önden ister (routes.tsx, sayfalar). İndirme başarısız olursa
+// ContractLoadError ile okuma reddedilir; doğrulanmamış veri hiçbir koşulda yayınlanmaz (kapalı başarısızlık). Çevrim
+// içiyken parça yükleme hatası eski sürümdür (yayından sonra parça adı değişti): ileti CONTRACT_STALE_BUILD, sayfa
+// "Yeni sürüm var · Yenile" verir (isStaleBuildMessage); çevrim dışı ya da başka hata CONTRACT_LOAD_FAILED, "Yeniden dene"
+// modülü yeniden ister.
 type ContractModule = typeof import('./contract');
 let contractModule: Promise<ContractModule> | null = null;
 /** Yüklenmiş modül: sonraki manifest ve parça doğrulamaları ek bekleme olmadan (eşzamanlı) çalışır. */
 let contractLoaded: ContractModule | null = null;
 
-/** Doğrulama parçası indirilemedi (bağlantı ya da yeni sürüm); okuma reddedilir, yenileme yeniden dener. */
+/** Doğrulama parçası indirilemedi (bağlantı ya da parça dışı hata); okuma reddedilir, yenileme yeniden dener. */
 export const CONTRACT_LOAD_FAILED = 'Doğrulama modülü yüklenemedi. Bağlantıyı denetleyip yeniden deneyin; sürüm yenilendiyse sayfayı yenileyin.';
+/** Doğrulama parçası bu sürümde yok (çevrim içi parça hatası): yeniden deneme başaramaz, sayfa yenilenmelidir. */
+export const CONTRACT_STALE_BUILD = 'Yeni sürüm var: doğrulama modülü bu sürümde yok. Sayfayı yenileyip nesli yeniden içe aktarın.';
+
+/** Doğrulama modülü indirilemedi; staleBuild: çevrim içi parça hatası (eski sürüm). cause asıl hatadır. */
+export class ContractLoadError extends Error {
+  override readonly name = 'ContractLoadError';
+  readonly staleBuild: boolean;
+  constructor(cause: unknown) {
+    const staleBuild = chunkFailureStatus(cause) === 'stale-build';
+    super(staleBuild ? CONTRACT_STALE_BUILD : CONTRACT_LOAD_FAILED, { cause });
+    this.staleBuild = staleBuild;
+  }
+}
+
+/** Depo iletisi (StoreStatus.message) doğrulama parçasının eski sürüm hatası mı: sayfa "Yeni sürüm var · Yenile" verir. */
+export const isStaleBuildMessage = (message: string | null | undefined): boolean => message === `Hata: ${CONTRACT_STALE_BUILD}`;
 
 /** contract.ts'i (zod) bir kez yükler; başarısız yükleme önbelleğe alınmaz, sonraki okuma yeniden ister. */
 export function loadContract(): Promise<ContractModule> {
@@ -39,7 +60,7 @@ export function loadContract(): Promise<ContractModule> {
     (module) => (contractLoaded = module),
     (error: unknown) => {
       contractModule = null;
-      throw new Error(CONTRACT_LOAD_FAILED, { cause: error });
+      throw new ContractLoadError(error);
     },
   );
   return contractModule;
@@ -760,13 +781,12 @@ export class GenerationStore {
 
   private async readManifest(): Promise<Snapshot> {
     const reading = this.source.readText('manifest.json');
-    // Doğrulama modülü manifest okumasıyla paralel istenir ve metinden önce beklenir: metin gelince doğrulama ve yayın
-    // eşzamanlı çalışır. Seçilmemiş kaynak hiçbir şey okumaz; modülü de istemez (üretim varsayılanı, telefon ilk rotası).
-    if (!contractLoaded && !(this.source instanceof UnselectedGenerationSource)) {
-      // Modül beklenirken okuma reddedilirse işlenmemiş ret sayılmasın; hata aşağıdaki await ile yine fırlar.
-      reading.catch(() => {});
-      await loadContract();
-    }
+    // Doğrulama modülü manifest okumasıyla paralel istenir. Önce manifest sonucu değerlendirilir: ikisi birden düşerse
+    // (ör. bağlantı yok) kaynak hatası adıyla görünür, sözleşme hatasının arkasında kalmaz. Seçilmemiş kaynak hiçbir şey
+    // okumaz; modülü de istemez (üretim varsayılanı, telefon ilk rotası).
+    const contract = contractLoaded || this.source instanceof UnselectedGenerationSource ? null : loadContract();
+    // Okuma reddedilirse modülün reddi işlenmemiş sayılmasın; modül hatası aşağıdaki await ile yine fırlar.
+    contract?.catch(() => {});
     const text = await reading;
     let raw: unknown;
     try {
@@ -774,7 +794,7 @@ export class GenerationStore {
     } catch (error) {
       throw new ContractError('manifest.json', errorMessage(error));
     }
-    const { parseManifest } = contractLoaded ?? (await loadContract());
+    const { parseManifest } = contractLoaded ?? (await (contract ?? loadContract()));
     let manifest: Manifest;
     try {
       manifest = parseManifest(raw) as Manifest;

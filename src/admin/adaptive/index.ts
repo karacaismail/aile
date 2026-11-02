@@ -11,6 +11,9 @@ export {
   wideResource,
 } from './loader';
 export type { AdaptiveProps, LazyWideOptions, WideComponent, WideOptions, WideProps, WideResource, WideState, WideStatus } from './loader';
+export { useIntentLoad } from './intent';
+export { CHUNK_RETRY_DELAY_MS, chunkFailureStatus, retryOnRecovery } from './chunkError';
+export type { IntentLoad, IntentPhase } from './intent';
 export { AdaptiveRoot } from './AdaptiveRoot';
 export type { AdaptiveRootProps, ProvidersComponent, ProvidersSource } from './AdaptiveRoot';
 export { PHONE_WITHOUT_ANTD } from './flags';

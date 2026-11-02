@@ -62,6 +62,37 @@ describe('Phosphor regular-only derleme eklentisi', () => {
     expect(() => regularWeight('import * as a from "react"; const l = new Map([["regular", a.createElement("path", { d: "M0" })')).toThrow(/kapanmıyor/);
   });
 
+  it('kapanmayan yorum sonsuz döngü değil, açık hatadır (p-fix n3)', () => {
+    const unclosed = 'import * as a from "react"; const l = new Map([["regular", a.createElement("path") /* açık kalan yorum';
+    expect(() => regularWeight(unclosed)).toThrow(/kapanmayan yorum/);
+    // Kapanan yorum içindeki parantez/tırnak sayılmaz.
+    const commented = 'import * as a from "react"; const l = new Map([["regular", /* ] ) " */ a.createElement("path")]]);';
+    expect(regularWeight(commented).expression).toBe('/* ] ) " */ a.createElement("path")');
+  });
+
+  it('kapsamdaki csr importu beklenmeyen yola çözülürse derleme durur; tam pakete sessizce düşmez (p-fix m4)', async () => {
+    const plugin = phosphorRegularOnly();
+    const resolveId = plugin.resolveId as unknown as (this: object, source: string, importer: string | undefined, options: object) => Promise<string | null>;
+    const errors: string[] = [];
+    const contextFor = (resolved: { id: string; external?: boolean } | null) => ({
+      resolve: async () => resolved,
+      error(message: string): never {
+        errors.push(message);
+        throw new Error(message);
+      },
+    });
+    const icons = '/depo/src/admin/ui/icons.extra.tsx';
+    const specifier = '@phosphor-icons/react/dist/csr/Gear';
+    await expect(resolveId.call(contextFor({ id: join(DIST, 'csr', 'Gear.mjs') }), specifier, icons, {})).rejects.toThrow(/beklenmeyen/);
+    await expect(resolveId.call(contextFor({ id: join(DIST, 'csr', 'Gear.es.js'), external: true }), specifier, icons, {})).rejects.toThrow(/beklenmeyen/);
+    await expect(resolveId.call(contextFor(null), specifier, icons, {})).rejects.toThrow(/çözülemedi/);
+    expect(errors).toHaveLength(3);
+    for (const message of errors) expect(message).toContain(specifier);
+    // Kapsam dışı importer ya da belirteç hâlâ dokunulmaz (hata yok).
+    expect(await resolveId.call(contextFor({ id: join(DIST, 'csr', 'Gear.mjs') }), specifier, '/depo/src/app/shell/Fab.tsx', {})).toBeNull();
+    expect(errors).toHaveLength(3);
+  });
+
   it('yalnız derlemede ve yalnız ui/icons(.extra).tsx içindeki dist/csr importlarına dokunur', async () => {
     const plugin = phosphorRegularOnly();
     expect(plugin.apply).toBe('build');
