@@ -8,6 +8,7 @@ const GEN = 'd062d4882617b40bffe4d2b0b603125a949c8795992611af1be08f6ef6b7ed10';
 const BATCH: BatchConversion = {
   ops: [{ op: 'upsert', table: 'kalemler', id: 'kalem-027', opId: 'OP001', patch: { not: 'Sentetik not' } }],
   skipped: [{ opId: 'OP002', recordId: 'r-2', reason: 'Kaynak sütunu yok: payment' }],
+  covers: { OP001: ['OP001'] },
 };
 
 describe('changeSetExportText', () => {
@@ -19,10 +20,12 @@ describe('changeSetExportText', () => {
     expect(parsed).toMatchObject({ schemaVersion: 1, kind: CHANGE_SET_EXPORT_KIND, generation_id: GEN, pending: 2 });
     expect(parsed.ops).toEqual(BATCH.ops);
     expect(parsed.skipped).toEqual(BATCH.skipped);
+    // covers (upsert → kapsadığı yerel oplar) yerel izdir; dosya biçimi değişmez, alan dışa aktarılmaz.
+    expect(parsed).not.toHaveProperty('covers');
   });
 
   it('dosya: exported_at ISO olarak nesil kimliğinden sonra gelir; nesil yoksa null', () => {
-    const parsed = JSON.parse(changeSetExportText({ generationId: null, pending: 0, batch: { ops: [], skipped: [] }, exportedAt: new Date('2026-10-28T21:30:00.000Z') })) as Record<string, unknown>;
+    const parsed = JSON.parse(changeSetExportText({ generationId: null, pending: 0, batch: { ops: [], skipped: [], covers: {} }, exportedAt: new Date('2026-10-28T21:30:00.000Z') })) as Record<string, unknown>;
     expect(Object.keys(parsed)).toEqual(['schemaVersion', 'kind', 'generation_id', 'exported_at', 'pending', 'ops', 'skipped']);
     expect(parsed.generation_id).toBeNull();
     expect(parsed.exported_at).toBe('2026-10-28T21:30:00.000Z');

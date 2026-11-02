@@ -41,6 +41,14 @@ const FILES: Record<string, string> = Object.fromEntries(
 const MANIFEST = JSON.parse(FILES['manifest.json']!) as Manifest;
 const NEEDS = (JSON.parse(FILES['data/purchase_needs/household/00000.json']!) as { records: PurchaseNeedRecord[] }).records;
 const LAMBADER = NEEDS.find((record) => record.source_record_id === 'kalem-027')!;
+/**
+ * Not opunun önkoşulu (before) nesildeki güncel nottur: değişiklik kümesi (d03) önkoşulu nesil değeriyle karşılaştırır;
+ * tutmazsa op çakışmadır, uygulanmaz ve dışa aktarılmaz ("kaynak sessizce ezilmez"). Sentetik nesilde kalem-027'nin bir
+ * notu var; değer fixture'dan okunur (elle null yazmak bayat önkoşul olur).
+ */
+const LAMBADER_NOTU = typeof LAMBADER.attributes?.not === 'string' ? LAMBADER.attributes.not : null;
+const notOpu = (before: string | null = LAMBADER_NOTU) =>
+  ({ recordId: LAMBADER.id, kind: 'note', before: { note: before }, after: { note: 'Sentetik not' } }) as const;
 
 function fixtureSource(overrides: Record<string, string | null> = {}): FixtureGenerationSource {
   const files = { ...FILES };
@@ -436,7 +444,7 @@ describe('AyarlarPage › Değişiklik kümesi', () => {
   it('bekleyen op sayısı ve dışa aktarma önizlemesi (toBatch JSON; gönderme yok)', async () => {
     const user = userEvent.setup();
     const changeSet = await ChangeSet.load({ storage: createMemoryStorage(), now: () => '2026-10-28T14:05:00.000Z', newId: () => 'OP001' });
-    await changeSet.add({ recordId: LAMBADER.id, kind: 'note', before: { note: null }, after: { note: 'Sentetik not' } });
+    await changeSet.add(notOpu());
     renderPage({ changeSet: () => Promise.resolve(changeSet) });
     await waitReady();
     const kume = screen.getByRole('region', { name: 'Değişiklik kümesi' });
@@ -454,12 +462,36 @@ describe('AyarlarPage › Değişiklik kümesi', () => {
     expect(within(kume).getByText(/1 işlem gönderilebilir · 0 atlandı · gönderme yok/)).toBeInTheDocument();
     expect(within(kume).queryByRole('button', { name: /Gönder/ })).not.toBeInTheDocument();
   });
+
+  it('bayat önkoşul: nesildeki not farklıysa op çakışma olarak atlanır, nedeni yazılı; dosyada gönderilebilir işlem yok', async () => {
+    expect(LAMBADER_NOTU, 'sentetik nesilde kalem-027 notu var').not.toBeNull();
+    const user = userEvent.setup();
+    const changeSet = await ChangeSet.load({ storage: createMemoryStorage(), now: () => '2026-10-28T14:05:00.000Z', newId: () => 'OP001' });
+    await changeSet.add(notOpu(null));
+    const saveFile = vi.fn();
+    renderPage({ changeSet: () => Promise.resolve(changeSet), saveFile, now: () => new Date('2026-10-28T21:30:00.000Z') });
+    await waitReady();
+    const kume = screen.getByRole('region', { name: 'Değişiklik kümesi' });
+    // Çakışan op bekleyen sayılır (kullanıcının değişikliği kaybolmaz) ama gönderilebilir işlem olmaz.
+    await waitFor(() => expect(within(kume).getByText('1 bekleyen değişiklik')).toBeInTheDocument());
+    await user.click(within(kume).getByRole('button', { name: /Dışa aktarma önizlemesi/ }));
+    const json = await within(kume).findByLabelText('Dışa aktarma JSON', {}, { timeout: READY_BUDGET_MS });
+    expect(within(kume).getByText(/0 işlem gönderilebilir · 1 atlandı · gönderme yok/)).toBeInTheDocument();
+    expect(json).toHaveTextContent('"reason": "Çakışma: kaynak değeri farklı"');
+    expect(json).not.toHaveTextContent('"op": "upsert"');
+    await user.click(within(kume).getByRole('button', { name: 'Değişiklik kümesini indir' }));
+    expect(saveFile).toHaveBeenCalledTimes(1);
+    const parsed = JSON.parse((saveFile.mock.calls[0] as [string, string])[1]) as { pending: number; ops: unknown[]; skipped: unknown[] };
+    expect(parsed.pending).toBe(1);
+    expect(parsed.ops).toEqual([]);
+    expect(parsed.skipped).toEqual([{ opId: 'OP001', recordId: LAMBADER.id, reason: 'Çakışma: kaynak değeri farklı' }]);
+  });
 });
 
 describe('AyarlarPage › Değişiklik kümesini dışa aktarma (gizli değer yok)', () => {
   async function bekleyenKume() {
     const changeSet = await ChangeSet.load({ storage: createMemoryStorage(), now: () => '2026-10-28T14:05:00.000Z', newId: () => 'OP001' });
-    await changeSet.add({ recordId: LAMBADER.id, kind: 'note', before: { note: null }, after: { note: 'Sentetik not' } });
+    await changeSet.add(notOpu());
     return changeSet;
   }
 
@@ -528,7 +560,7 @@ describe('AyarlarPage › Önbellek (onaylı temizleme)', () => {
     const user = userEvent.setup();
     const cache = fakeCache(4);
     const changeSet = await ChangeSet.load({ storage: createMemoryStorage(), now: () => '2026-10-28T14:05:00.000Z', newId: () => 'OP001' });
-    await changeSet.add({ recordId: LAMBADER.id, kind: 'note', before: { note: null }, after: { note: 'Sentetik not' } });
+    await changeSet.add(notOpu());
     renderPage({ cacheControl: cache.control, changeSet: () => Promise.resolve(changeSet) });
     await waitReady();
     const onbellek = screen.getByRole('region', { name: 'Önbellek' });
@@ -574,7 +606,7 @@ describe('AyarlarPage › Önbellek (onaylı temizleme)', () => {
     expect(within(onbellek).queryByRole('button', { name: 'Önbelleği temizle' })).not.toBeInTheDocument();
   });
 
-  it('telefonda onay alttan sayfa (dialog) olarak açılır ve aynı eylemleri taşır', async () => {
+  it('telefonda onay alttan sayfa (alertdialog) olarak açılır ve aynı eylemleri taşır', async () => {
     const user = userEvent.setup();
     const cache = fakeCache(2);
     renderPage({ device: 'phone', cacheControl: cache.control });
@@ -582,7 +614,12 @@ describe('AyarlarPage › Önbellek (onaylı temizleme)', () => {
     const onbellek = screen.getByRole('region', { name: 'Önbellek' });
     await waitFor(() => expect(within(onbellek).getByText('2 parça', { exact: true })).toBeInTheDocument());
     await user.click(within(onbellek).getByRole('button', { name: 'Önbelleği temizle' }));
-    const sayfa = await screen.findByRole('dialog', { name: 'Önbellek temizlensin mi?' });
+    // Yerel Dialog (a04): geri alınamaz onay her profilde role="alertdialog" (APG Alert Dialog, aria-describedby gövde);
+    // telefonda sunum alt sayfadır. Eylemler masaüstüyle aynı: Vazgeç ve Önbelleği temizle.
+    const sayfa = await screen.findByRole('alertdialog', { name: 'Önbellek temizlensin mi?' });
+    expect(sayfa.closest('.aile-dialog')).toHaveClass('aile-dialog--sheet');
+    expect(sayfa).toHaveAccessibleDescription(/2 parça silinir/);
+    expect(within(sayfa).getByRole('button', { name: 'Vazgeç' })).toBeInTheDocument();
     await user.click(within(sayfa).getByRole('button', { name: 'Önbelleği temizle' }));
     expect(cache.clear).toHaveBeenCalledTimes(1);
     expect(await within(onbellek).findByText(/^Önbellek temizlendi: 2 parça silindi\./)).toBeInTheDocument();
