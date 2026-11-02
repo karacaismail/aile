@@ -1,18 +1,22 @@
-// Ödemeler sayfası: payments koleksiyonu nesilde yok → üstte dürüst not; forecast_events "tahmini ödeme" olarak
-// gruplu tablo (Gecikenler · Bu hafta · Sonra · Ödenenler, geciken üstte) ve Zaman çizelgesi modu; plan ve gerçek ayrı
-// sütun; tarih ve tutar filtresi. Sentetik fixture + FixtureGenerationSource; seçiciler role/label ile.
-import { render, screen, waitFor, within } from '@testing-library/react';
+// Ödemeler sayfası (RTL, sentetik nesil). Nesilde `payments` koleksiyonu yok: sayfa "Kaynakta ödeme kaydı yok" der ve
+// bütçe tahmin olaylarını (forecast_events) "tahmini ödeme" olarak listeler; tahmin olayı ödeme gibi görünmez ("Ödendi",
+// "Gecikti" yok; gerçekleşen "Ödeme kaydı yok"). Telefon: tarih gruplu akordeon, ilk 10 satır + "daha fazla göster".
+// Geniş: tablo ve zaman çizelgesi pages/odemeler/OdemelerGenis.wide.tsx (lazyWide) içinden gelir; telefon onu yüklemez.
+// Profil DeviceContext (=ProfileContext) ile zorlanır; seçiciler role/label.
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ReactNode } from 'react';
-import { FixtureGenerationSource, GenerationProvider } from '../data';
+import { wideManifest } from '../adaptive';
+import { FixtureGenerationSource, GenerationProvider, type GenerationSource } from '../data';
 import { DeviceContext } from '../device';
 import type { Device } from '../shell/contracts';
-import { OdemelerPage } from './OdemelerPage';
+import { OdemelerPage, sumMoney } from './OdemelerPage';
 
-// --- Sentetik nesil → bellek -------------------------------------------------------------------------
+// --- Sentetik nesil → bellek ---------------------------------------------------------------------------------
 const here = dirname(fileURLToPath(import.meta.url));
 const FIXTURE_ROOT = join(here, '../../../fixtures/generation-synthetic');
 const GENERATION_ID = readdirSync(FIXTURE_ROOT).find((name) => statSync(join(FIXTURE_ROOT, name)).isDirectory())!;
@@ -34,14 +38,28 @@ const FILES: Record<string, string> = Object.fromEntries(
     .map((rel) => [rel, readFileSync(join(GENERATION_DIR, rel), 'utf8')]),
 );
 
-interface ManifestShape { files: { path: string; collection?: string }[]; counts: Record<string, number> }
+interface ManifestFile { path: string; kind: string; sha256: string; bytes: number; collection?: string; count?: number }
+interface ManifestShape { files: ManifestFile[]; counts: Record<string, number> }
+const sha256 = (text: string) => createHash('sha256').update(text).digest('hex');
+const ILK_PARCA = 'data/forecast_events/budget/2026-11/00000.json';
 
-/** forecast_events dosyaları manifestten düşürülür: koleksiyon nesilde yok → sayfa "Kaynakta … kaydı yok" der. */
-function manifestWithoutForecastEvents(): string {
+function manifestile(degistir: (manifest: ManifestShape) => void): string {
   const manifest = JSON.parse(FILES['manifest.json']!) as ManifestShape;
-  manifest.files = manifest.files.filter((file) => file.collection !== 'forecast_events');
-  manifest.counts = { ...manifest.counts, forecast_events: 0 };
+  degistir(manifest);
   return JSON.stringify(manifest);
+}
+
+/** Bir parçanın içeriğini değiştirir ve manifestteki sha256/bytes'ı günceller (bütünlük doğrulaması geçer). */
+function parcaDegistir(yol: string, degistir: (records: Record<string, unknown>[]) => void): Record<string, string> {
+  const envelope = JSON.parse(FILES[yol]!) as { records: Record<string, unknown>[] };
+  degistir(envelope.records);
+  const text = JSON.stringify(envelope);
+  const manifest = manifestile((m) => {
+    const file = m.files.find((f) => f.path === yol)!;
+    file.sha256 = sha256(text);
+    file.bytes = Buffer.byteLength(text);
+  });
+  return { [yol]: text, 'manifest.json': manifest };
 }
 
 function fixtureSource(overrides: Record<string, string | null> = {}): FixtureGenerationSource {
@@ -53,17 +71,29 @@ function fixtureSource(overrides: Record<string, string | null> = {}): FixtureGe
   return new FixtureGenerationSource(files, 'sentetik');
 }
 
-// Fixture: ilk olay 01.11.2026 (₺16.600,00), ikincisi 08.12.2026 (₺15.400,00), sonrası 2027–2028.
-const BUGUN = () => new Date(2026, 10, 2, 10, 0, 0);
-const ARALIK_BASI = () => new Date(2026, 11, 5, 10, 0, 0);
+/** İlk okumadan sonra manifest okunamaz hâle getirilebilen kaynak (eski veri durumu). */
+class KesilenKaynak implements GenerationSource {
+  readonly kind = 'fixture' as const;
+  readonly label = 'sentetik-kesilen';
+  kesik = false;
+  private readonly ic = fixtureSource();
+  async readText(path: string): Promise<string> {
+    if (this.kesik) throw new Error('Sentetik kesinti');
+    return this.ic.readText(path);
+  }
+}
 
-interface RenderOptions { device?: Device; now?: () => Date; overrides?: Record<string, string | null> }
+// Fixture: ilk olay 01.11.2026 (₺16.600,00), ikincisi 08.12.2026 (₺15.400,00), sonrası 2027–2028 (ayda bir).
+const BUGUN = () => new Date('2026-11-02T10:00:00+03:00');
+const ARALIK_BASI = () => new Date('2026-12-05T10:00:00+03:00');
 
-function renderPage({ device = 'desktop', now = BUGUN, overrides }: RenderOptions = {}) {
-  const source = fixtureSource(overrides);
+interface RenderOptions { device?: Device; now?: () => Date; overrides?: Record<string, string | null>; source?: GenerationSource }
+
+function renderPage({ device = 'phone', now = BUGUN, overrides, source }: RenderOptions = {}) {
+  const kaynak = source ?? fixtureSource(overrides);
   const Wrapper = ({ children }: { children: ReactNode }) => (
     <DeviceContext.Provider value={device}>
-      <GenerationProvider source={source} cache={null} changeSet={null}>
+      <GenerationProvider source={kaynak} cache={null} changeSet={null}>
         {children}
       </GenerationProvider>
     </DeviceContext.Provider>
@@ -71,145 +101,174 @@ function renderPage({ device = 'desktop', now = BUGUN, overrides }: RenderOption
   return render(<OdemelerPage location="/odemeler" now={now} />, { wrapper: Wrapper });
 }
 
-const bekleTablo = async (name = 'Tahmini ödemeler') => screen.findByRole('table', { name });
+/** Etkileşimli testlerin süre bütçesi: jsdom + user-event, yük altındaki makinede 5 sn varsayılanını aşabiliyor. */
+const YUK_SURESI = 20_000;
 
-describe('OdemelerPage › başlık ve dürüst not', () => {
-  it('bölüm "Para", h1 "Ödemeler", amaç cümlesi ve "Kaynakta kaydedilmiş ödeme yok (app_nakit boş)" notu', async () => {
+const bekleListe = () => screen.findByRole('region', { name: 'Tahmini ödemeler' });
+const satirlar = (alan: HTMLElement) => Array.from(alan.querySelectorAll<HTMLButtonElement>('button[aria-expanded]'));
+const grupAdlari = (alan: HTMLElement) => within(alan).getAllByRole('heading', { level: 3 }).map((h) => h.firstChild?.textContent?.trim());
+
+describe('OdemelerPage › telefon: başlık ve kaynak gerçeği', () => {
+  it('bölüm "Para", h1, amaç; "Ödeme kaydet" devre dışı ve gerekçesi "Kaynakta ödeme kaydı yok."', async () => {
     renderPage();
     expect(screen.getByRole('heading', { level: 1, name: 'Ödemeler' })).toBeInTheDocument();
     expect(screen.getByText('Para')).toBeInTheDocument();
     expect(screen.getByText('Planlanan, yapılan ve geciken ödemeleri tarihleriyle izleyin.')).toBeInTheDocument();
-    const not = screen.getByRole('note');
-    expect(not).toHaveTextContent('Kaynakta kaydedilmiş ödeme yok (app_nakit boş)');
-    await bekleTablo();
+    await bekleListe();
+    const birincil = screen.getByRole('button', { name: 'Ödeme kaydet' });
+    expect(birincil).toBeDisabled();
+    expect(birincil).toHaveAccessibleDescription('Kaynakta ödeme kaydı yok.');
+    expect(screen.getByText('Kaynakta ödeme kaydı yok.')).toBeInTheDocument();
   });
 
-  it('tazelik satırı nesil kimliğini yazar; yüklenirken iskelet, sonra tablo', async () => {
+  it('manifest okunmadan kaynak hakkında hüküm yok: gerekçe "Ödeme kaynağı bilinmiyor."', () => {
     renderPage();
-    expect(screen.getByRole('status', { busy: true })).toBeInTheDocument();
-    await bekleTablo();
-    await waitFor(() => expect(screen.getByText(/Nesil/)).toHaveTextContent(GENERATION_ID.slice(0, 6)));
+    expect(screen.getByRole('button', { name: 'Ödeme kaydet' })).toHaveAccessibleDescription('Ödeme kaynağı bilinmiyor.');
   });
-});
 
-describe('OdemelerPage › özet (plan ve gerçek ayrı)', () => {
-  it('Geciken (plan) ₺16.600,00 · 1 tahmini ödeme; Bu hafta (plan) "Ödeme yok"; Ödenen (gerçek) "Henüz yok"', async () => {
+  it('özet: Tarihi geçen (plan) ₺16.600,00; Sıradaki (plan) ₺15.400,00 · 08.12.2026; Yapılan (gerçek) Bilinmiyor', async () => {
     renderPage();
-    await bekleTablo();
-    const ozet = screen.getByRole('list', { name: 'Özet' });
-    const maddeler = within(ozet).getAllByRole('listitem').map((li) => li.textContent ?? '');
+    await bekleListe();
+    const maddeler = within(screen.getByRole('list', { name: 'Özet' })).getAllByRole('listitem').map((li) => li.textContent ?? '');
     expect(maddeler).toHaveLength(3);
-    expect(maddeler[0]).toContain('Geciken (plan)');
+    expect(maddeler[0]).toContain('Tarihi geçen (plan)');
     expect(maddeler[0]).toContain('₺16.600,00');
-    expect(maddeler[0]).toContain('1 tahmini ödeme');
-    expect(maddeler[1]).toContain('Bu hafta (plan)');
-    expect(maddeler[1]).toContain('Ödeme yok');
-    expect(maddeler[2]).toContain('Ödenen (gerçek)');
-    expect(maddeler[2]).toContain('Henüz yok');
-    expect(maddeler[2]).toContain('Kaynakta kaydedilmiş ödeme yok');
-  });
-
-  it('Bu hafta: 05.12.2026 bakışıyla 08.12.2026 olayı bu haftadadır (₺15.400,00)', async () => {
-    renderPage({ now: ARALIK_BASI });
-    await bekleTablo();
-    const ozet = screen.getByRole('list', { name: 'Özet' });
-    const maddeler = within(ozet).getAllByRole('listitem').map((li) => li.textContent ?? '');
+    expect(maddeler[0]).toContain('1 tahmin · ödeme durumu bilinmiyor');
+    expect(maddeler[1]).toContain('Sıradaki (plan)');
     expect(maddeler[1]).toContain('₺15.400,00');
-    expect(maddeler[1]).toContain('1 tahmini ödeme');
+    expect(maddeler[1]).toContain('08.12.2026 · Ödeme');
+    expect(maddeler[2]).toContain('Yapılan (gerçek)');
+    expect(maddeler[2]).toContain('Bilinmiyor');
+    expect(maddeler[2]).toContain('Kaynakta ödeme kaydı yok');
+  });
+
+  it('manifestte payments varsa yokluk iddia edilmez: "Kaynakta 3 ödeme kaydı var; panel bunları okumuyor"', async () => {
+    renderPage({ overrides: { 'manifest.json': manifestile((m) => { m.counts.payments = 3; }) } });
+    await bekleListe();
+    expect(screen.getByRole('button', { name: 'Ödeme kaydet' })).toHaveAccessibleDescription('Kaynakta 3 ödeme kaydı var; panel bunları okumuyor.');
+    expect(screen.queryByText('Kaynakta ödeme kaydı yok.')).not.toBeInTheDocument();
   });
 });
 
-describe('OdemelerPage › tablo (masaüstü)', () => {
-  it('geciken satır üstte; Planlanan ₺16.600,00 ve Gerçekleşen "Henüz yok" ayrı sütunlar; durum sözcükle "Gecikti · 1 gün"', async () => {
+describe('OdemelerPage › telefon: tarih gruplu liste', () => {
+  it('geniş modül telefonda yüklenmez', async () => {
     renderPage();
-    await bekleTablo();
-    // antd Table başlığı ayrı bir <table> içinde çizer; başlık ve satırlar sayfa genelinde aranır (Table.test ile aynı).
-    const basliklar = screen.getAllByRole('columnheader').map((th) => th.textContent?.trim());
-    expect(basliklar).toEqual(expect.arrayContaining(['Tarih', 'Ödeme', 'Planlanan', 'Gerçekleşen', 'Durum']));
-    const satirlar = screen.getAllByRole('row').filter((row) => within(row).queryAllByRole('cell').length > 0);
-    expect(satirlar).toHaveLength(20);
-    const ilk = satirlar[0]!;
-    expect(ilk).toHaveTextContent('01.11.2026');
+    await bekleListe();
+    expect(wideManifest().find((entry) => entry.key === 'odemeler-genis')?.status ?? 'idle').toBe('idle');
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+  });
+
+  it('ilk 10 satır; gruplar Tarihi geçenler üstte, sonra aylar; ilk satır açık ve tahmin olduğunu söyler', async () => {
+    renderPage();
+    const alan = await bekleListe();
+    expect(within(alan).getByRole('heading', { level: 2, name: 'Tahmini ödemeler' })).toBeInTheDocument();
+    // Tablonun telefon biçimi: ResponsiveTable sözleşmesindeki yerleşim kancası (f04 seçicisi) akordeonu taşır.
+    const yerlesim = alan.querySelectorAll('[data-layout]');
+    expect(Array.from(yerlesim, (el) => el.getAttribute('data-layout'))).toEqual(['accordion']);
+    expect(satirlar(yerlesim[0] as HTMLElement)).toHaveLength(10);
+    expect(satirlar(alan)).toHaveLength(10);
+    expect(grupAdlari(alan)).toEqual([
+      'Tarihi geçenler', 'Aralık 2026', 'Ocak 2027', 'Şubat 2027', 'Mart 2027', 'Mayıs 2027', 'Haziran 2027', 'Temmuz 2027',
+      'Ağustos 2027', 'Eylül 2027',
+    ]);
+    expect(within(alan).getByText('20 tahmini ödeme · 1 tarihi geçti', { exact: false })).toBeInTheDocument();
+    expect(within(alan).getByText('Gösterilen 10 / 20')).toBeInTheDocument();
+    const [ilk, ikinci] = satirlar(alan);
+    expect(ilk).toHaveAttribute('aria-expanded', 'true');
     expect(ilk).toHaveTextContent('Örnek tahmin olayı 1');
+    expect(ilk).toHaveTextContent('01.11.2026 · Alım');
+    expect(ilk).toHaveTextContent('Tarihi geçti · 1 gün');
     expect(ilk).toHaveTextContent('₺16.600,00');
-    expect(ilk).toHaveTextContent('Henüz yok');
-    expect(ilk).toHaveTextContent('Gecikti · 1 gün');
-    expect(satirlar[1]).toHaveTextContent('Planlandı');
-    expect(screen.getByText('20 tahmini ödeme · 1 geciken')).toBeInTheDocument();
+    expect(ikinci).toHaveAttribute('aria-expanded', 'false');
+    expect(ikinci).toHaveTextContent('Planlandı');
+    const panel = document.getElementById(ilk!.getAttribute('aria-controls')!)!;
+    const govde = within(panel);
+    expect(govde.getByText('Planlanan').nextSibling).toHaveTextContent('₺16.600,00');
+    // Tutar ui/Money ile (.aile-tutar: tabular-nums, ₺8.500,00); kapalı satırdaki ve gövdedeki tutar aynı stil.
+    expect(govde.getByText('₺16.600,00')).toHaveClass('aile-tutar');
+    expect(within(ilk!).getByText('₺16.600,00')).toHaveClass('aile-tutar');
+    expect(govde.getByText('Gerçekleşen').nextSibling).toHaveTextContent('Ödeme kaydı yok');
+    expect(govde.getByText('Kesinlik').nextSibling).toHaveTextContent('Tutar tahmini');
+    expect(govde.getByText('Kimlik').nextSibling).toHaveTextContent('olay-1');
+    expect(govde.getByText('Kaynak').nextSibling).toHaveTextContent('_Finans web · satır 40');
+    expect(document.body).not.toHaveTextContent(/Ödendi|Gecikti/);
   });
 
-  it('tutar filtresi: En az 20.000 → yalnız 4 satır; etkin filtre etiketi; temizleyince 20', async () => {
+  it('"10 tahmini ödeme daha göster": 20 satır, düğme kalkar, odak 11. satıra geçer', async () => {
     const user = userEvent.setup();
     renderPage();
-    await bekleTablo();
-    // Tablo modunda filtre paneli şerittir (FilterArea defaultOpen=false); önce açılır.
-    await user.click(screen.getByRole('button', { name: /^Filtreleri göster/ }));
-    const enAz = screen.getByRole('textbox', { name: 'En az' });
-    await user.type(enAz, '20.000');
-    await user.tab();
-    await waitFor(() => expect(screen.getByText('4 tahmini ödeme')).toBeInTheDocument());
-    expect(screen.getByRole('button', { name: /Tutar: en az ₺20\.000,00 filtresini kaldır/ })).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Tümünü temizle' }));
-    await waitFor(() => expect(screen.getByText('20 tahmini ödeme · 1 geciken')).toBeInTheDocument());
+    const alan = await bekleListe();
+    await user.click(within(alan).getByRole('button', { name: '10 tahmini ödeme daha göster' }));
+    expect(satirlar(alan)).toHaveLength(20);
+    expect(within(alan).getByText('Gösterilen 20 / 20')).toBeInTheDocument();
+    expect(within(alan).queryByRole('button', { name: /daha göster$/ })).not.toBeInTheDocument();
+    expect(satirlar(alan)[10]).toHaveFocus();
+    expect(satirlar(alan)[10]).toHaveTextContent('Örnek tahmin olayı 11');
+  }, YUK_SURESI);
+
+  it('05.12.2026 bakışıyla 08.12.2026 olayı "Bu hafta" grubundadır; 01.11.2026 "Tarihi geçti · 34 gün"', async () => {
+    renderPage({ now: ARALIK_BASI });
+    const alan = await bekleListe();
+    expect(grupAdlari(alan).slice(0, 3)).toEqual(['Tarihi geçenler', 'Bu hafta', 'Ocak 2027']);
+    expect(satirlar(alan)[0]).toHaveTextContent('Tarihi geçti · 34 gün');
   });
 
-  it('tarih filtresi: Bitiş 31.12.2026 → 2 satır; aralık dışı bitişle sonuç yok → boş durum filtreleri yazar', async () => {
+  it('arama kimlik koduyla daraltır; sonuç yoksa boş durum aramayı yazar ve temizler', async () => {
     const user = userEvent.setup();
     renderPage();
-    await bekleTablo();
-    await user.click(screen.getByRole('button', { name: /^Filtreleri göster/ }));
-    const bitis = screen.getByRole('textbox', { name: 'Bitiş' });
-    await user.type(bitis, '31.12.2026');
-    await user.tab();
-    await waitFor(() => expect(screen.getByText('2 tahmini ödeme · 1 geciken')).toBeInTheDocument());
-    await user.clear(bitis);
-    await user.type(bitis, '31.10.2026');
-    await user.tab();
+    const alan = await bekleListe();
+    const ara = screen.getByRole('searchbox', { name: 'Ara' });
+    await user.type(ara, 'olay-7');
+    await waitFor(() => expect(satirlar(screen.getByRole('region', { name: 'Tahmini ödemeler' }))).toHaveLength(1));
+    expect(within(alan).getByText('Gösterilen 1 / 1')).toBeInTheDocument();
+    await user.clear(ara);
+    await user.type(ara, 'olmayan');
     const baslik = await screen.findByRole('heading', { level: 2, name: 'Bu filtrelerle kayıt yok' });
-    // Aynı etiket sorgu çubuğunda da durur; boş durumun kendi listesi aranır.
     const bos = screen.getAllByRole('status').find((el) => el.contains(baslik))!;
-    expect(within(bos).getByText('Tarih: 31.10.2026 ve öncesi')).toBeInTheDocument();
-    expect(within(bos).getByRole('button', { name: 'Filtreleri temizle' })).toBeInTheDocument();
-    expect(screen.queryByRole('table')).not.toBeInTheDocument();
-  });
-});
+    expect(within(bos).getByText('Arama: olmayan')).toBeInTheDocument();
+    await user.click(within(bos).getByRole('button', { name: 'Filtreleri temizle' }));
+    expect(ara).toHaveValue('');
+    expect(satirlar(await bekleListe())).toHaveLength(10);
+  }, YUK_SURESI);
 
-describe('OdemelerPage › Zaman çizelgesi modu', () => {
-  it('"Zaman çizelgesi" seçilince aylar bölge olur; Kasım 2026 1 kayıt, "Ödeme 01.11.2026"; Gantt devre dışı', async () => {
-    const user = userEvent.setup();
-    renderPage();
-    await bekleTablo();
-    expect(screen.getByRole('radio', { name: 'Gantt' })).toBeDisabled();
-    // antd Segmented girdisi pointer-events: none; etiket tıklanır (QueryBar.test ile aynı).
-    await user.click(screen.getByText('Zaman çizelgesi'));
-    expect(screen.getByRole('radio', { name: 'Zaman çizelgesi' })).toBeChecked();
-    const kasim = await screen.findByRole('region', { name: 'Kasım 2026 1 kayıt' });
-    expect(within(kasim).getByRole('button', { name: /Örnek tahmin olayı 1/ })).toHaveTextContent('Ödeme 01.11.2026');
-    // Zaman çizelgesinde filtre paneli açık başlar (README: Liste/Zaman çizelgesi açık).
-    expect(screen.getByRole('button', { name: 'Paneli gizle' })).toBeInTheDocument();
-    expect(screen.queryByRole('table', { name: 'Tahmini ödemeler' })).not.toBeInTheDocument();
-  });
-});
-
-describe('OdemelerPage › telefon', () => {
-  it('akordeon gruplar: Gecikenler üstte, sonra Sonra; "Bu hafta" ve "Ödenenler" boşsa çizilmez', async () => {
-    renderPage({ device: 'phone' });
-    const gecikenler = await screen.findByRole('region', { name: 'Gecikenler' });
-    const bolgeler = screen.getAllByRole('region').filter((r) => ['Gecikenler', 'Bu hafta', 'Sonra', 'Ödenenler'].includes(r.getAttribute('aria-label') ?? ''));
-    expect(bolgeler[0]).toBe(gecikenler);
-    expect(bolgeler.map((r) => r.getAttribute('aria-label'))).toEqual(['Gecikenler', 'Sonra']);
-    expect(within(gecikenler).getAllByRole('listitem')).toHaveLength(1);
-    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+  it('silinmiş olay listelenmez; ölçülmüş gerçek tutar ödeme sayılmaz: "Kaynakta yazılı", "Ödendi" yok', async () => {
+    const ikinciYol = 'data/forecast_events/budget/2026-12/00000.json';
+    const ilk = parcaDegistir(ILK_PARCA, (records) => { records[0]!.measures = { planned: { amount: '16600.00', currency: 'TRY' }, actual: { amount: '16000.00', currency: 'TRY' } }; });
+    const ikinciEnvelope = JSON.parse(FILES[ikinciYol]!) as { records: Record<string, unknown>[] };
+    ikinciEnvelope.records[0]!.deleted_at = '2026-10-30T00:00:00Z';
+    const ikinciText = JSON.stringify(ikinciEnvelope);
+    const manifest = JSON.parse(ilk['manifest.json']!) as ManifestShape;
+    const dosya = manifest.files.find((f) => f.path === ikinciYol)!;
+    dosya.sha256 = sha256(ikinciText);
+    dosya.bytes = Buffer.byteLength(ikinciText);
+    renderPage({ overrides: { ...ilk, [ikinciYol]: ikinciText, 'manifest.json': JSON.stringify(manifest) } });
+    const alan = await bekleListe();
+    expect(within(alan).getByText('19 tahmini ödeme · 1 tarihi geçti', { exact: false })).toBeInTheDocument();
+    expect(within(alan).queryByText(/Örnek tahmin olayı 2$/)).not.toBeInTheDocument();
+    const panel = document.getElementById(satirlar(alan)[0]!.getAttribute('aria-controls')!)!;
+    expect(within(panel).getByText('Gerçekleşen').nextSibling).toHaveTextContent('₺16.000,00 · Kaynakta yazılı');
+    expect(within(panel).getByText('₺16.000,00')).toHaveClass('aile-tutar');
+    expect(document.body).not.toHaveTextContent(/Ödendi|Gecikti/);
   });
 });
 
 describe('OdemelerPage › veri durumları', () => {
-  it('forecast_events nesilde yoksa: "Kaynakta tahmini ödeme kaydı yok", tablo yok, not kalır', async () => {
-    renderPage({ overrides: { 'manifest.json': manifestWithoutForecastEvents() } });
-    const bos = await screen.findByRole('heading', { level: 2, name: 'Kaynakta tahmini ödeme kaydı yok' });
-    expect(bos).toBeInTheDocument();
-    expect(screen.queryByRole('table')).not.toBeInTheDocument();
-    expect(screen.getByRole('note')).toHaveTextContent('app_nakit boş');
+  it('yükleniyor: iskelet (aria-busy), liste yok; sonra liste', async () => {
+    renderPage();
+    expect(screen.getByRole('status', { busy: true })).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Tahmini ödemeler' })).not.toBeInTheDocument();
+    await bekleListe();
+  });
+
+  it('forecast_events nesilde yoksa "Kaynakta tahmini ödeme yok"; liste yok; ödeme kaydı yokluğu yine yazılı', async () => {
+    const manifest = manifestile((m) => {
+      m.files = m.files.filter((file) => file.collection !== 'forecast_events');
+      m.counts = { ...m.counts, forecast_events: 0 };
+    });
+    renderPage({ overrides: { 'manifest.json': manifest } });
+    expect(await screen.findByRole('heading', { level: 2, name: 'Kaynakta tahmini ödeme yok' })).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Tahmini ödemeler' })).not.toBeInTheDocument();
+    expect(screen.getByText('Kaynakta ödeme kaydı yok.')).toBeInTheDocument();
   });
 
   it('bozuk manifest: ErrorState "Hata: …" + "Yeniden dene"; tutar gösterilmez', async () => {
@@ -217,6 +276,53 @@ describe('OdemelerPage › veri durumları', () => {
     const hata = await screen.findByRole('alert');
     expect(within(hata).getByRole('heading', { level: 2 })).toHaveTextContent(/^Hata: /);
     expect(within(hata).getByRole('button', { name: 'Yeniden dene' })).toBeInTheDocument();
-    expect(screen.queryByText('₺16.600,00')).not.toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent('₺');
+  });
+
+  it('eski veri: yenileme başarısızsa son liste kalır, tazelik satırı "yenilenemedi" der', async () => {
+    const kaynak = new KesilenKaynak();
+    renderPage({ source: kaynak });
+    const alan = await bekleListe();
+    kaynak.kesik = true;
+    await act(async () => { screen.getByRole('button', { name: 'Yenile' }).click(); });
+    await waitFor(() => expect(screen.getAllByRole('status').some((el) => /yenilenemedi/.test(el.textContent ?? ''))).toBe(true));
+    expect(satirlar(alan)).toHaveLength(10);
+  });
+});
+
+describe('OdemelerPage › geniş (masaüstü)', () => {
+  it('tablo geniş modülden gelir: Tarih · Ödeme · Planlanan · Gerçekleşen · Durum; tarihi geçen üstte, gerçekleşen "Ödeme kaydı yok"', async () => {
+    renderPage({ device: 'desktop' });
+    await screen.findByRole('table', { name: 'Tahmini ödemeler' }, { timeout: 15000 });
+    expect(wideManifest().find((entry) => entry.key === 'odemeler-genis')?.status).toBe('ready');
+    const basliklar = screen.getAllByRole('columnheader').map((th) => th.textContent?.trim());
+    expect(basliklar).toEqual(expect.arrayContaining(['Tarih', 'Ödeme', 'Planlanan', 'Gerçekleşen', 'Durum']));
+    const veriSatirlari = screen.getAllByRole('row').filter((row) => within(row).queryAllByRole('cell').length > 0);
+    expect(veriSatirlari).toHaveLength(20);
+    expect(veriSatirlari[0]).toHaveTextContent('01.11.2026');
+    expect(veriSatirlari[0]).toHaveTextContent('Örnek tahmin olayı 1');
+    expect(veriSatirlari[0]).toHaveTextContent('Tarihi geçti · 1 gün');
+    expect(veriSatirlari[0]).toHaveTextContent('Ödeme kaydı yok');
+    expect(within(veriSatirlari[0]!).getByText('₺16.600,00')).toHaveClass('aile-tutar');
+    expect(document.body).not.toHaveTextContent(/Ödendi|Gecikti/);
+  }, 20000);
+
+  it('Zaman çizelgesi modu: aylar bölge olur; Gantt devre dışı ve gerekçesi yazılı', async () => {
+    const user = userEvent.setup();
+    renderPage({ device: 'desktop' });
+    await screen.findByRole('table', { name: 'Tahmini ödemeler' }, { timeout: 15000 });
+    expect(screen.getByText(/Gantt kullanılamaz: ödemelerin tek tarihi var, süresi yok\./)).toBeInTheDocument();
+    await user.click(screen.getByText('Zaman çizelgesi'));
+    expect(await screen.findByRole('region', { name: 'Kasım 2026 1 kayıt' })).toBeInTheDocument();
+    expect(screen.queryByRole('table', { name: 'Tahmini ödemeler' })).not.toBeInTheDocument();
+  }, 20000);
+});
+
+describe('OdemelerPage › geriye uyumlu dışa aktarım', () => {
+  it('sumMoney: boş liste null; aynı para birimi toplanır; karışık birim ya da bozuk tutar undefined', () => {
+    expect(sumMoney([])).toBeNull();
+    expect(sumMoney([{ amount: '8500', currency: 'TRY' }, { amount: '0.5', currency: 'TRY' }])).toEqual({ amount: '8500.50', currency: 'TRY' });
+    expect(sumMoney([{ amount: '1.00', currency: 'TRY' }, { amount: '1.00', currency: 'EUR' }])).toBeUndefined();
+    expect(sumMoney([{ amount: 'bozuk', currency: 'TRY' }])).toBeUndefined();
   });
 });
