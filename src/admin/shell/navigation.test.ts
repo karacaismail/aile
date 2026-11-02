@@ -81,7 +81,12 @@ describe('admin navigation (tasarım NAV)', () => {
     expect(currentAdminLink('/alimlarx')).toBe(adminPages[0]);
     expect(currentAdminLink('/ayarlar').key).toBe('ayarlar');
     expect(currentAdminLink('')).toBe(adminPages[0]);
-    expect(defaultAdminPath).toBe('/alimlar');
+  });
+
+  it('the default route is the first page (Genel durum), the same page unknown locations resolve to', () => {
+    expect(defaultAdminPath).toBe('/genel');
+    expect(defaultAdminPath).toBe(adminPages[0].path);
+    expect(currentAdminLink('/bilinmeyen').path).toBe(defaultAdminPath);
   });
 
   it('keeps the legacy one-link-per-group shape for the shell', () => {

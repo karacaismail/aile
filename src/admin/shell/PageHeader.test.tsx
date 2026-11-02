@@ -1,7 +1,11 @@
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { DeviceContext } from '../device';
+import { importsOf } from '../adaptive/sourceRules';
 import type { Device, PageHeaderAction, PageHeaderSummary } from './contracts';
 import { adminGroupTitle, currentAdminLink } from './navigation';
 import { PageHeader } from './PageHeader';
@@ -174,6 +178,64 @@ describe('PageHeader', () => {
     const { unmount } = render(<PageHeader location="/butce" />, { wrapper: onDevice('tablet') });
     expect(screen.getByRole('heading', { level: 1, name: 'Bütçe ve nakit' }).closest('header')).toHaveAttribute('data-narrow', 'true');
     unmount();
+  });
+
+  it('320 order: title block → actions → one context region (status, summary, page notes) in its own full row', () => {
+    const { more } = makeMore();
+    render(
+      <PageHeader
+        location="/veri"
+        primary={<button type="button">İçe aktar</button>}
+        more={more}
+        status={{ state: 'fresh', lastReadAt: OKUMA, generationId: NESIL }}
+        summary={ucOzet}
+      >
+        <p>Birinci not</p>
+        <p>İkinci not</p>
+      </PageHeader>,
+      { wrapper: onDevice('phone') },
+    );
+    const header = screen.getByRole('banner');
+    const regions = Array.from(header.children).map(child => (child.querySelector('h1') ? 'title' : (child as HTMLElement).dataset.part));
+    expect(regions).toEqual(['title', 'actions', 'context']);
+    const actions = header.querySelector<HTMLElement>(':scope > [data-part="actions"]')!;
+    expect(within(actions).getAllByRole('button').map(button => button.textContent?.trim())).toEqual(['İçe aktar', 'Diğer']);
+    const context = header.querySelector<HTMLElement>(':scope > [data-part="context"]')!;
+    expect(within(context).getByRole('status')).toHaveTextContent('Son okuma');
+    expect(within(context).getByRole('list', { name: 'Özet' })).toBeInTheDocument();
+    expect(within(context).getByText('Birinci not')).toBeInTheDocument();
+    expect(within(context).getByText('İkinci not')).toBeInTheDocument();
+    expect(before(within(context).getByRole('status'), within(context).getByText('Birinci not'))).toBe(true);
+  });
+
+  it('desktop: page notes stay in the full-width context row, never in the actions column', () => {
+    render(
+      <PageHeader location="/veri" primary={<button type="button">İçe aktar</button>}>
+        <p>Birinci not</p>
+        <p>İkinci not</p>
+      </PageHeader>,
+      { wrapper: onDevice('desktop') },
+    );
+    const header = screen.getByRole('banner');
+    expect(Array.from(header.children).map(child => (child.querySelector('h1') ? 'title' : (child as HTMLElement).dataset.part)))
+      .toEqual(['title', 'actions', 'context']);
+    expect(screen.getByText('İkinci not').closest('[data-part]')).toHaveAttribute('data-part', 'context');
+  });
+
+  it('renders no empty actions or context region', () => {
+    render(<PageHeader location="/genel" />, { wrapper: onDevice('phone') });
+    const header = screen.getByRole('banner');
+    expect(header.querySelector('[data-part="actions"]')).toBeNull();
+    expect(header.querySelector('[data-part="context"]')).toBeNull();
+    expect(header.children).toHaveLength(1);
+  });
+
+  it('imports only the ui modules it renders: no ui barrel, no antd, ECharts or wide module (phone delivery)', () => {
+    const source = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'PageHeader.tsx'), 'utf8');
+    const specifiers = importsOf(source).filter(ref => !ref.typeOnly).map(ref => ref.specifier);
+    expect(specifiers.filter(specifier => /^\.\.\/ui(?:\/index)?$/.test(specifier)), 'ui barrel').toEqual([]);
+    expect(specifiers.filter(specifier => /(^|\/)(antd|@ant-design|echarts|zrender)(\/|$)|ui\/antd|\.wide$/.test(specifier))).toEqual([]);
+    expect(specifiers.filter(specifier => specifier.startsWith('../ui/')).sort()).toEqual(['../ui/Button', '../ui/DataStatus', '../ui/OverflowActions']);
   });
 
   it('does not touch document.title (the shell owns it)', () => {

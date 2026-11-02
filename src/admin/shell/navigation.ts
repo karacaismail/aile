@@ -71,7 +71,8 @@ export const adminNav: readonly AdminNavItem[] = [...adminPages, ...adminHelpers
 
 // Information architecture of the admin workspace: one top-level link per page, settings as helper.
 export const adminGroups: readonly NavGroup[] = adminPages.map(item => ({ title: item.label, links: [item] }));
-export const defaultAdminPath = '/alimlar';
+/** Açılış ve bilinmeyen konumların yönlendiği sayfa: ilk sayfa (Genel durum); currentAdminLink'in geri dönüşüyle aynı. */
+export const defaultAdminPath = adminPages[0].path;
 
 /** Hash yolu olan öğeler; dış bağlantı hiçbir konumla eşleşmez. */
 const routable: readonly AdminNavItem[] = adminNav.filter(item => !item.external);
