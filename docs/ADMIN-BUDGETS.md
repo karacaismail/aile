@@ -119,10 +119,10 @@ Modül sınırları (davranış ve genel adlar değişmedi; `Menu.tsx` aynı adl
 `p-phonejs` kaydı (118807 B) `429e068` tabanındadır; aynı ölçüm `d70c0ef` tabanında 118815 B'dir (ara birleşmeler, +8 B).
 "Önce" sütunu `d70c0ef`'in kendi derlemesidir. `chunk:reload` (71 B) giriş parçasına katıldı (dosya sayısı −1).
 
-**Hedef `phone-js` ≤ 110000 B: ulaşılamadı (113715 B, hedefin 3715 B üstünde).** Ölçümle açıklama:
+**Hedef `phone-js` ≤ 110 KB: ulaşılamadı (113715 B, hedefin 3715 B üstünde).** Ölçümle açıklama:
 
 - Zincirin üst sınırı: aynı tabanda (`d70c0ef`) `PageHeader`'dan `OverflowActions` tamamen çıkarılarak alınan deney
-  derlemesi (kaynağa işlenmedi) `phone-js` 112169 B verdi (−6646 B). "Diğer" tetiği hiç olmasa bile bu zincirle 110000 B'ye
+  derlemesi (kaynağa işlenmedi) `phone-js` 112169 B verdi (−6646 B). "Diğer" tetiği hiç olmasa bile bu zincirle 110 KB'ye
   inilemez (2169 B eksik kalır).
 - Statik kalan tetik (`OverflowActions` + `Menu.lazy` + `Menu.shared`) derlemede 1546 B'dir (113715 − 112169). Tetik
   sözleşme gereği statiktir: "Diğer" başlıkla aynı karede çizilir, ilk basış kaybolmaz.
