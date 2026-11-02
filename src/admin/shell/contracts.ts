@@ -144,8 +144,6 @@ export interface FilterPanelProps {
 
 // --- Ayrıntı -------------------------------------------------------------------------------------
 export interface DetailSections { identity?: ReactNode; facts?: ReactNode; state?: ReactNode; related?: ReactNode; source?: ReactNode }
-/** Eski kabuk sözleşmesi; DetailSurface.tsx bunu uygular. Yeni sayfalar DetailPanelProps kullanır. */
-export interface DetailSurfaceProps { open: boolean; onClose(): void; title: string; sections: DetailSections }
 export interface DetailPanelProps {
   row: RecordRow;
   related?: readonly { label: string; href: string }[];
