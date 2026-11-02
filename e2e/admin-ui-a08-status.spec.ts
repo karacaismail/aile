@@ -216,6 +216,103 @@ test('ErrorState: manifest okunamazsa "Hata: …", tutar yok; "Yeniden dene" 44/
   await expect(alert).toBeVisible();
 });
 
+/** Dar kap türleri: ErrorState sayfalarda esnek satırın, 1fr ızgara izinin ya da içerik genişliğine göre boyutlanan bir
+ *  kabın (tablo hücresi: en küçük içerik genişliğine büyür) öğesi olur. Kap, metindeki en uzun kelimeden dardır. */
+const DAR_KAPLAR = {
+  'esnek satır': 'display:flex',
+  'ızgara 1fr': 'display:grid;grid-template-columns:1fr',
+  'tablo hücresi': 'display:table;table-layout:auto',
+} as const;
+const DAR_KAP_PX = 240;
+
+test('ErrorState: en uzun kelimeden dar kapta (esnek, ızgara, tablo hücresi) sığar; kelime yalnız sığmazsa bölünür', { tag: '@matrix' }, async ({ page }) => {
+  // Gerçek girdi: sunucunun hata gövdesindeki uzun yol tek kelimedir; başlık ve neden metni sayfanın ErrorState'inden.
+  await page.route(isManifest, route => route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: `nesil bulunamadı ${UZUN_YOL}` }) }));
+  await gotoAdmin(page, '/alimlar');
+  const alert = page.getByRole('alert').filter({ has: page.getByRole('heading', { name: /^Hata: / }) });
+  await expect(alert).toBeVisible();
+  await expect(alert).toContainText(UZUN_YOL);
+  const root = await mark(alert, 'dar-kap');
+
+  for (const [ad, stil] of Object.entries(DAR_KAPLAR)) {
+    // Bileşen geçici bir kaba taşınır, aynı görevde ölçülür ve yerine konur (React'in göreceği bir an yok).
+    const olcum = await page.evaluate(({ selector, stil, genislik, uzunYol }) => {
+      const el = document.querySelector<HTMLElement>(selector)!;
+      const yer = el.parentElement!;
+      const sonraki = el.nextSibling;
+      const kap = document.createElement('div');
+      kap.setAttribute('style', `${stil};width:${genislik}px;max-width:${genislik}px`);
+      let tasiyici: HTMLElement = kap;
+      if (stil.includes('display:table')) {
+        tasiyici = document.createElement('div');
+        tasiyici.setAttribute('style', 'display:table-cell');
+        kap.appendChild(tasiyici);
+      }
+      yer.insertBefore(kap, el);
+      tasiyici.appendChild(el);
+      const kapKutu = kap.getBoundingClientRect();
+      const kutu = el.getBoundingClientRect();
+      const tasan = Array.from(el.querySelectorAll<HTMLElement>('*'))
+        .filter(child => child.getClientRects().length > 0)
+        .filter(child => { const r = child.getBoundingClientRect(); return r.left < kutu.left - 0.5 || r.right > kutu.right + 0.5; })
+        .map(child => `${child.tagName.toLowerCase()}.${child.className || ''} ${Math.round(child.getBoundingClientRect().width)} px`);
+      // Kelime satırı: aralığın satır kutuları (aynı satırdaki parçalar tek sayılır).
+      const satirlar = (node: Text, start: number, end: number) => {
+        const range = document.createRange();
+        range.setStart(node, start);
+        range.setEnd(node, end);
+        return new Set(Array.from(range.getClientRects()).filter(r => r.width > 0).map(r => Math.round(r.top))).size;
+      };
+      let uzunKelime = 0;
+      const bolunen: string[] = [];
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      for (let node = walker.nextNode() as Text | null; node; node = walker.nextNode() as Text | null) {
+        for (const match of node.data.matchAll(/\S+/g)) {
+          const start = match.index ?? 0;
+          const end = start + match[0].length;
+          const range = document.createRange();
+          range.setStart(node, start);
+          range.setEnd(node, end);
+          if (match[0] === uzunYol) { uzunKelime = Math.max(uzunKelime, range.getBoundingClientRect().width); continue; }
+          // Kendi satırına sığan kelime bölünmez (anywhere yalnız sığmayan kelimede devreye girer).
+          if (satirlar(node, start, end) > 1) bolunen.push(match[0]);
+        }
+      }
+      // Uzun kelimenin tek satırdaki doğal genişliği: aynı yazı biçimiyle ölçülür.
+      const olcer = document.createElement('span');
+      const mesaj = Array.from(el.querySelectorAll('p')).find(p => p.textContent?.includes(uzunYol)) ?? el;
+      const cs = getComputedStyle(mesaj);
+      olcer.setAttribute('style', `position:absolute;visibility:hidden;white-space:nowrap;font:${cs.font}`);
+      olcer.textContent = uzunYol;
+      document.body.appendChild(olcer);
+      const dogalGenislik = olcer.getBoundingClientRect().width;
+      olcer.remove();
+      const sonuc = {
+        dogalGenislik: Math.round(dogalGenislik),
+        kap: Math.round(kapKutu.width),
+        bilesenTasmasi: Math.round(Math.max(0, kutu.right - kapKutu.right, kapKutu.left - kutu.left)),
+        kayma: el.scrollWidth - el.clientWidth,
+        tasan,
+        uzunKelimeSatirda: Math.round(uzunKelime),
+        bolunen,
+      };
+      yer.insertBefore(el, sonraki);
+      kap.remove();
+      return sonuc;
+    }, { selector: root, stil, genislik: DAR_KAP_PX, uzunYol: UZUN_YOL });
+
+    const nerede = `${ad} (${DAR_KAP_PX} px): ${JSON.stringify(olcum)}`;
+    expect(olcum.dogalGenislik, `girdi anlamlı: uzun kelime kaptan geniş · ${nerede}`).toBeGreaterThan(DAR_KAP_PX);
+    expect(olcum.kap, `kap genişliği korunur (bileşen kabı büyütmez) · ${nerede}`).toBeLessThanOrEqual(DAR_KAP_PX + 0.5);
+    expect(olcum.bilesenTasmasi, `bileşen kaptan taşmaz · ${nerede}`).toBe(0);
+    expect(olcum.kayma, `bileşen içinde yatay kayma yok · ${nerede}`).toBeLessThanOrEqual(1);
+    expect(olcum.tasan, `iç öğe bileşen kutusundan taşmaz · ${nerede}`).toEqual([]);
+    expect(olcum.uzunKelimeSatirda, `uzun kelime satırlara bölünerek kaba sığar · ${nerede}`).toBeLessThanOrEqual(DAR_KAP_PX);
+    expect(olcum.bolunen, `sığan kelime bölünmez · ${nerede}`).toEqual([]);
+  }
+  await expect(alert, 'ölçümden sonra bileşen yerinde').toBeVisible();
+});
+
 // --- EmptyState + Tag (etkin filtre) ----------------------------------------------------------------------------
 test('EmptyState ve filtre etiketi: boş sonuç etkin filtreleri yazar; kaldır/temizle 44/48 px; metin ≥14 px; taşma yok', { tag: '@matrix' }, async ({ page }, testInfo) => {
   await openAdmin(page, '/alimlar/?ara=zzqx-eslesmeyen&room=unknown');
@@ -287,30 +384,39 @@ test('LoadingShell: iskelet + aria-busy, tek şerit; bloklar parıldamaz; dar ka
   const release = await holdManifest(page);
   await gotoAdmin(page, '/ayarlar');
   const shells = page.locator('[role="status"][aria-busy="true"]').filter({ has: page.locator('[data-part="strip"]') });
-  // Önce rota yedeği (sayfa parçası inerken PageHeader + LoadingShell), sonra sayfanın kendi iskeletleri çizilir. Ölçüm,
-  // yedek iskelet ayrılırken yapılırsa öğe bulunamaz ya da ayrılan öğenin hesaplanmış stili boş okunur (WebKit: '' ≠ 'none').
-  // Sayfa bölümü göründüğünde iskeletler manifest bırakılana dek kalıcıdır.
+  // Önce rota yedeği (sayfa parçası inerken PageHeader + LoadingShell), sonra sayfanın kendi iskeletleri çizilir. Geniş
+  // profilde (tablet/masaüstü) tembel antd sağlayıcısı bağlanınca alt ağaç bir kez yeniden kurulur; o ana dek uygulama
+  // kökü aria-busy taşır (adaptive/AdaptiveRoot). Ölçüm, ayrılan öğede yapılırsa hesaplanmış stil boş okunur (WebKit:
+  // '' ≠ 'none'; gates/m5-round2 webkit-tablet). Bu yüzden: kök meşgul değilken (yeniden kurulum bitti, telefonda hemen)
+  // sayfa bölümü göründükten sonra ölçülür; iskeletler manifest bırakılana dek kalıcıdır.
+  await expect(page.locator('.aile-admin[data-profile]')).not.toHaveAttribute('aria-busy', 'true');
   await expect(page.getByRole('heading', { level: 2, name: 'Aile', exact: true })).toBeVisible();
   await expect(shells.first()).toBeVisible();
 
-  const inspect = () => shells.evaluateAll(roots => roots.map(root => {
-    const box = root.getBoundingClientRect();
-    const strip = root.querySelector('[data-part="strip"] > span');
-    const blocks = Array.from(root.querySelectorAll('[data-part="block"], [data-part="photo"]'));
-    const rows = Array.from(root.querySelectorAll<HTMLElement>('[data-part="row"]'));
-    return {
-      layout: root.getAttribute('data-layout'),
-      width: box.width,
-      strip: strip ? getComputedStyle(strip).animationName : 'yok',
-      shimmer: blocks.filter(block => getComputedStyle(block).animationName !== 'none').length,
-      clipped: rows.filter(row => row.scrollWidth > row.clientWidth + 1 || row.getBoundingClientRect().right > box.right + 0.5).length,
-      visibleAmountSlots: Array.from(root.querySelectorAll('.aile-loading-blok--tutar')).filter(el => getComputedStyle(el).display !== 'none').length,
-    };
-  }));
+  // Sorgu ve ölçüm tek değerlendirmede: locator.evaluateAll öğeleri bir turda bulur, işlevi sonraki turda çalıştırır;
+  // arada React işlerse ayrılmış öğe ölçülürdü. Burada yalnız o anda belgeye bağlı iskeletler ölçülür.
+  const inspect = () => page.evaluate(() => Array.from(document.querySelectorAll('[role="status"][aria-busy="true"]'))
+    .filter(root => root.querySelector('[data-part="strip"]'))
+    .map(root => {
+      const box = root.getBoundingClientRect();
+      const strip = root.querySelector('[data-part="strip"] > span');
+      const blocks = Array.from(root.querySelectorAll('[data-part="block"], [data-part="photo"]'));
+      const rows = Array.from(root.querySelectorAll<HTMLElement>('[data-part="row"]'));
+      return {
+        connected: root.isConnected,
+        layout: root.getAttribute('data-layout'),
+        width: box.width,
+        strip: strip ? getComputedStyle(strip).animationName : 'yok',
+        shimmer: blocks.filter(block => getComputedStyle(block).animationName !== 'none').length,
+        clipped: rows.filter(row => row.scrollWidth > row.clientWidth + 1 || row.getBoundingClientRect().right > box.right + 0.5).length,
+        visibleAmountSlots: Array.from(root.querySelectorAll('.aile-loading-blok--tutar')).filter(el => getComputedStyle(el).display !== 'none').length,
+      };
+    }));
 
   let shellsNow = await inspect();
   expect(shellsNow.length).toBeGreaterThan(0);
   for (const shell of shellsNow) {
+    expect(shell.connected, 'ölçülen iskelet belgede').toBe(true);
     expect(shell.strip, 'şerit döngüsü').not.toBe('none');
     expect(shell.shimmer, 'iskelet blokları parıldamaz').toBe(0);
     expect(shell.clipped, 'iskelet satırı kesilmez/taşmaz').toBe(0);
@@ -320,6 +426,7 @@ test('LoadingShell: iskelet + aria-busy, tek şerit; bloklar parıldamaz; dar ka
 
   await page.emulateMedia({ reducedMotion: 'reduce' });
   shellsNow = await inspect();
+  expect(shellsNow.length, 'reduced-motion’da iskelet hâlâ çizili (manifest bekliyor)').toBeGreaterThan(0);
   for (const shell of shellsNow) expect(shell.strip, 'reduced-motion’da şerit durur').toBe('none');
   await expect(shells.first()).toHaveAttribute('aria-busy', 'true');
 

@@ -73,7 +73,9 @@ export const designTokens = {
   ...palette,
   kenarKontrol: palette.metinIkincil, odak: palette.eylem, odakNav: palette.acikMavi, navMetin: palette.yuzey,
   navHover: 'rgba(166, 190, 208, 0.16)', navBasili: 'rgba(166, 190, 208, 0.28)', ortu: 'rgba(27, 62, 85, 0.48)',
-  fontSans: 'Outfit, system-ui, sans-serif',
+  // Outfit'ten hemen sonra ölçü eşlemeli yerel yedek (src/admin/fonts.css 'Outfit Yedek'): font inerken metin aynı
+  // genişlik ve satır kutusuyla çizilir, geç font değişimi içeriği kaydırmaz. ₺ ve yerel yüzü olmayan sistem system-ui'ye.
+  fontSans: "Outfit, 'Outfit Yedek', system-ui, sans-serif",
   bosluk1: 4, bosluk2: 8, bosluk3: 12, bosluk4: 16, bosluk6: 24, bosluk8: 32,
   koseKontrol: 8, koseKart: 12, kosePanel: 16,
   golgeYukseltilmis: '0 2px 4px rgba(27, 62, 85, 0.18), 0 8px 20px rgba(27, 62, 85, 0.14)',

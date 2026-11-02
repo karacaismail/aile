@@ -514,11 +514,10 @@ export function AyarlarPage({ budgetSheetId = envBudgetSheetId, cacheControl, sa
               <Button variant="quiet" onClick={() => setDraft((current) => ({ ...current, key: '', removeKey: true }))}>Anahtarı sil</Button>
             </div>
           ) : null}
-          {/* Yapışkan değil: form iki alanlık ve altlık hemen altında. Telefonda yapışkan altlık (≈160 px) odaklanan
-              anahtar alanını örtüyordu (e2e ortasiAcik); Kaydet alanların hemen altında, kaydırınca tam görünür. */}
+          {/* Telefonda yapışkan (tasarım: FormFooter telefonda yapışkandır; Ayarlar ekranı). Altlık yüksekliğini belge
+              kaydırma payı olarak ayırır: odaklanan alan altlığın altında kalmaz. Tablet ve masaüstünde akışta. */}
           <FormFooter
             narrow={phone}
-            sticky={false}
             status={altlikDurumu}
             statusTone={urlInvalid ? 'hata' : undefined}
             primaryLabel="Kaydet"

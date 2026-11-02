@@ -13,12 +13,18 @@
   border: 1px solid var(--aile-cizgi);
   border-radius: var(--aile-kose-kart);
   color: var(--aile-metin);
+  /* Esnek satırın ya da ızgara izinin öğesiyken kendiliğinden en küçük içerik genişliğine kilitlenmez; kabını aşmaz. */
+  min-width: 0;
+  max-width: 100%;
 }
 .aile-error-state p { margin: 0; }
-/* Sütun öğeleri align-items: flex-start ile içerik genişliğindedir; en uzun kelime (ör. "(data/…/00000.json):" yolu)
-   min-content genişliğini kabın üstüne çıkarmasın diye her öğe kabın genişliğiyle sınırlanır ve kelime yalnız sığmadığında
-   sarılır (break-word; kelimeler arası doğal sarım korunur). */
-.aile-error-state > * { max-width: 100%; }
+/* Sütun öğeleri align-items: flex-start ile içerik genişliğindedir; her öğe kabın genişliğiyle sınırlanır. Metinde
+   kelime arası olmayan uzun dizgi (ör. "(data/…/00000.json):" yolu) olabilir: başlık, neden ve ek bilgi
+   overflow-wrap: anywhere taşır. anywhere de break-word gibi kelimeyi yalnız satıra sığmadığında böler (sığan kelime
+   bölünmez, kelimeler arası doğal sarım korunur); farkı en küçük içerik genişliğini de küçültmesidir, böylece içerik
+   genişliğine göre boyutlanan kapta (tablo hücresi, fit-content) bileşen kabı büyütmez. Kapsam yalnız bu üç metin
+   öğesi: düğme ve simge etkilenmez, bileşen tablo içeriği taşımaz (tablo ilk sütun kuralı etkilenmez). */
+.aile-error-state > * { max-width: 100%; min-width: 0; }
 .aile-error-state__head {
   display: flex;
   gap: var(--aile-bosluk-2);
@@ -35,11 +41,11 @@
   font-size: 18px;
   line-height: 26px;
   font-weight: 600;
-  overflow-wrap: break-word;
+  overflow-wrap: anywhere;
   min-width: 0;
 }
-.aile-error-state__message { max-width: min(60ch, 100%); overflow-wrap: break-word; }
-.aile-error-state__detail { max-width: min(60ch, 100%); overflow-wrap: break-word; }
+.aile-error-state__message { max-width: min(60ch, 100%); overflow-wrap: anywhere; }
+.aile-error-state__detail { max-width: min(60ch, 100%); overflow-wrap: anywhere; }
 .aile-error-state__retry {
   display: inline-flex;
   align-items: center;

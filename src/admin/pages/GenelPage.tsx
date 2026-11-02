@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import { useLocation } from 'wouter';
-import { Adaptive, lazyWide, useProfile } from '../adaptive';
+import { Adaptive, lazyWide, useProfile, useWideModule } from '../adaptive';
 import {
   currentPeriod,
   useChangeSet,
@@ -49,7 +49,9 @@ import './GenelPage.css';
 //    isteyenler önce, bütçe tablosu akordeon, bekleyen işler yerel onay kutusu, aylık grafik yerine tablo karşılığı.
 //    antd, ECharts ve *.wide modülü telefonda indirilmez.
 //  - Tablet/masaüstü: GenelPage.wide (lazyWide 'genel-genis'): Overview + aylık grafik ve yanında aynı değerler tablosu.
-//    Yüklenirken ya da yüklenemezse telefon sunumu kullanılabilir kalır (Adaptive).
+//    Modül veriyle paralel istenir (sayfa açılır açılmaz). Yüklenirken ya da yüklenemezse telefon sunumu kullanılabilir
+//    kalır (Adaptive); modül beklenirken sayfa kökü aria-busy taşır: yedek sunum birazdan geniş sunumla değişecektir ve
+//    hazır sinyali (e2e openAdmin) onu bitmiş saymamalı. Yüklenemezse meşgul kalmaz (bildirim + telefon sunumu kalıcıdır).
 // Veri anlamı genel/model.ts → data/actuals.ts: dönem ve "bugün" Europe/Istanbul; gelecek ayın Gerçekleşeni "Henüz yok";
 // kanıtsız değer "Kaynakta yazılı" (yüzde ve "harcandı" yok); unclassified/silinmiş gözlem toplamlara girmez; toplamlar
 // kesin ondalık; plan aynası notu. Plan ve gerçek hiçbir yerde tek sayıda birleşmez; eksik bilgi adıyla yazılır.
@@ -87,6 +89,9 @@ const kurulduOpu = (ops: readonly ChangeOp[]) =>
 
 export function GenelPage({ location = YOL, now }: GenelPageProps) {
   const profile = useProfile();
+  // Geniş modül veri okunurken paralel iner; telefon hiç istemez. Beklenirken (boşta/yükleniyor) kök meşguldür.
+  const genis = useWideModule(GenelGenis.resource, profile !== 'phone');
+  const genisBekleniyor = profile !== 'phone' && (genis.status === 'idle' || genis.status === 'loading');
   const [, navigate] = useLocation();
   const generation = useGeneration();
   const changeSet = useChangeSet();
@@ -216,7 +221,7 @@ export function GenelPage({ location = YOL, now }: GenelPageProps) {
   const isaretle = changeSet.ready ? (id: string, done: boolean) => void gorevIsaretle(id, done) : undefined;
 
   return (
-    <div className="aile-genel" data-durum={durumAdi}>
+    <div className="aile-genel" data-durum={durumAdi} aria-busy={hazir && genisBekleniyor ? true : undefined}>
       <PageHeader
         location={location}
         section={sayfa.section}
