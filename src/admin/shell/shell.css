@@ -1,20 +1,45 @@
-/* aile kabuk (shell/WorkspaceShell.tsx) — antd Layout üzerine tasarım kuralları (README › Kabuk, bundle.css › KABUK).
-   Yalnız --aile tokenları; sabit renk/px yok (60 px üst bar ve 1 px ayırıcı tasarım ölçüsüdür). Tüm kurallar .aile-admin
-   altında: admin.css'teki iskelet kuralları (.aile-admin-shell grid, .aile-admin-nav a, .aile-admin-main max-width) aynı
-   sınıf adlarını taşır ve paket sırasında sonra gelebilir; burada daha özgül seçicilerle değiştirilir. Odak çizgisini
-   admin.css çizer (nav ve .ant-layout-sider üzerinde odak-nav); burada outline/box-shadow yok. */
+/* aile kabuk — telefon temeli (shell/WorkspaceShell.tsx üst çubuk + main, shell/MobileNavDrawer.tsx Sayfalar alt
+   sayfası) ve masaüstü yan gezinmesinin ızgara sütunu. Yan gezinmenin görünümü geniş-özel CSS'tedir
+   (shell/wide/WorkspaceNav.wide.css). Tasarım: README › Kabuk + Uyarlanır teslim, bundle.css › KABUK/MENU/BUTTON.
 
-/* Skip link: ilk sekme durağı; odaklanınca üst solda görünür. Akıştan çıkar (üst bar y = 0). admin.css odak çizgisi
-   taşıyıcılarına (:is(.aile-admin, ...) :is(a, ...), özgüllük 0,2,0) position: relative verir ve pakette sonra gelir;
-   eşit özgüllükte bağlantı akışa girip üst barı 44 px aşağı iterdi. Kabuk sınıfıyla özgüllük 0,3,0. */
+   Yalnız --aile-* tokenları (b04 uyarlamalı tokenlar dahil, admin.css):
+     --aile-yogunluk-kenar  sayfa yan boşluğu (telefon alt bantları, tablet, masaüstü bandı tokenda; kabuk ayrı değer
+                            yazmaz); main ve üst çubuk aynı kenarda hizalı.
+     --aile-dokunma-hedefi  dokunma hedefi 44; kaba işaretçi katmanında 48 (bant tokenda).
+     --aile-safe-*          güvenli alan (env(safe-area-inset-*) tek yerde, admin.css).
+   Tek yerel türetme: --aile-shell-ust-bar üst çubuk 56 = hedef-asgari 44 + bosluk-3 12 (hedef 48 iken dikey pay 4 + 4).
+   Profil kararı AdaptiveRoot'un [data-profile] özniteliğinden; genişlik/yükseklik media query türetilmez.
+   Odak çizgisini admin.css çizer (a, [data-focus-line]; lacivert yerel yüzeyler data-odak-zemin="nav" taşır: çizgi
+   odak-nav, seçili öğede odak); burada outline/box-shadow halkası yok. Tüm kurallar .aile-admin altında: admin.css
+   iskelet kuralları (.aile-admin-shell grid, .aile-admin-main max-width, ≥1024 media) daha düşük özgüllükle kalır ve
+   burada ezilir. Hover yalnız (hover: hover) birincil işaretçide (dokunmada takılı kalmaz); 1 px ayırıcı tasarım
+   ölçüsüdür. */
+
+.aile-admin .aile-admin-shell {
+  --aile-shell-ust-bar: calc(var(--aile-hedef-asgari) + var(--aile-bosluk-3));
+  --aile-shell-dikey-pay: calc((var(--aile-shell-ust-bar) - var(--aile-dokunma-hedefi)) / 2);
+  display: block;
+  position: relative;
+  min-height: 100dvh;
+}
+
+/* Masaüstü: yan gezinme yüklendiğinde 272 px sütun + içerik. Yüklenirken üst çubuk düzeni (data-gezinme='ust') kalır. */
+.aile-admin .aile-admin-shell[data-gezinme='yan'] {
+  display: grid;
+  grid-template-columns: var(--aile-nav-genislik) minmax(0, 1fr);
+  align-items: start;
+}
+
+/* Skip link: ilk sekme durağı; odaklanınca üst solda görünür, akıştan çıkar (üst çubuk y = 0). admin.css odak çizgisi
+   taşıyıcılarına (a) position: relative verir; kabuk sınıfıyla özgüllük 0,3,0. */
 .aile-admin .aile-admin-shell > .aile-admin-skip {
   position: absolute;
-  inset-block-start: var(--aile-bosluk-2);
-  inset-inline-start: var(--aile-bosluk-2);
-  z-index: 2;
+  inset-block-start: calc(var(--aile-bosluk-2) + var(--aile-safe-top));
+  inset-inline-start: calc(var(--aile-yogunluk-kenar) + var(--aile-safe-left));
+  z-index: 3;
   display: inline-flex;
   align-items: center;
-  min-height: var(--aile-hedef-asgari);
+  min-height: var(--aile-dokunma-hedefi);
   padding: 0 var(--aile-bosluk-4);
   border-radius: var(--aile-kose-kontrol);
   background: var(--aile-yuzey);
@@ -26,62 +51,88 @@
 }
 .aile-admin .aile-admin-shell > .aile-admin-skip:focus { clip-path: none; }
 
-/* Kök: iskelet gridi kapalı; Layout kendi satır/sütun düzenini kurar. */
-.aile-admin .aile-admin-shell { display: block; position: relative; min-height: 100dvh; }
-.aile-admin .aile-admin-layout { min-height: 100dvh; background: var(--aile-zemin); }
+/* Marka "aile": üst çubukta gövde boyunda 600; yan gezinmede 24/32 (wide css). */
+.aile-admin .aile-admin-brand { font-weight: 600; }
 
-/* Marka: küçük harf "aile", 24/32, 600. */
-.aile-admin .aile-admin-brand { font-size: 24px; line-height: 32px; font-weight: 600; letter-spacing: -0.01em; }
-
-/* --- Masaüstü: 272 px lacivert nav, yapışkan ve kendi içinde kaydırılır -------------------------------------- */
-.aile-admin .aile-admin-nav {
+/* --- Üst çubuk (telefon, tablet; masaüstünde yan gezinme gelene dek): 56 px, yapışkan, güvenli alan ------------- */
+.aile-admin .aile-admin-topbar {
   position: sticky;
   inset-block-start: 0;
-  height: 100dvh;
-  overflow-y: auto;
-  padding: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--aile-bosluk-2);
+  min-height: calc(var(--aile-shell-ust-bar) + var(--aile-safe-top));
+  padding-block: calc(var(--aile-shell-dikey-pay) + var(--aile-safe-top)) var(--aile-shell-dikey-pay);
+  padding-inline: calc(var(--aile-yogunluk-kenar) + var(--aile-safe-left)) calc(var(--aile-yogunluk-kenar) + var(--aile-safe-right));
   background: var(--aile-nav);
   color: var(--aile-nav-metin);
+  line-height: 24px;
 }
-.aile-admin .aile-admin-nav-icerik {
-  display: flex;
-  flex-direction: column;
-  gap: var(--aile-bosluk-2);
-  min-height: 100%;
-  padding: var(--aile-bosluk-4) var(--aile-bosluk-3);
-}
-.aile-admin .aile-admin-nav-brand { margin: 0; padding: var(--aile-bosluk-2) var(--aile-bosluk-3) var(--aile-bosluk-4); }
-/* Altlık: tek cizgi ayırıcı (nav-basili), menü ve not. */
-.aile-admin .aile-admin-nav-foot {
-  margin-block-start: auto;
-  padding-block-start: var(--aile-bosluk-3);
-  border-block-start: 1px solid var(--aile-nav-basili);
-}
-.aile-admin .aile-admin-nav-note {
-  margin: var(--aile-bosluk-1) 0 0;
-  padding-inline: var(--aile-bosluk-3);
-  font-size: 14px;
-  line-height: 20px;
-  color: var(--aile-acik-mavi);
-}
-/* admin.css iskeleti .aile-admin-nav a'ya dolgu ve hover/seçili zemin verir; menü öğesinde zemin li'dedir (Menu.css). */
-.aile-admin .aile-admin-nav .aile-menu-link,
-.aile-admin .aile-admin-nav .aile-menu-link:hover,
-.aile-admin .aile-admin-nav .aile-menu-link:active,
-.aile-admin .aile-admin-nav .aile-menu-link[aria-current='page'] {
-  background: transparent;
-  border-radius: 0;
-  transition: none;
-}
-
-/* İçerik: tam genişlik, iç kapsayıcı ≤ icerik-azami ortalı; kenar 32 (üst 24). */
-.aile-admin .aile-admin-main {
+.aile-admin .aile-admin-topbar-title {
   flex: 1 1 auto;
   min-width: 0;
+  margin: 0;
+  font-weight: 500;
+}
+.aile-admin .aile-admin-topbar-sep { margin: 0 var(--aile-bosluk-2); color: var(--aile-acik-mavi); }
+
+/* --- Kabuk düğmesi (Sayfalar, Kapat): lacivert zemin üstünde ikincil (acik-mavi kenar) ya da sessiz ------------- */
+.aile-admin .aile-shell-btn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--aile-bosluk-2);
+  min-height: var(--aile-dokunma-hedefi);
+  min-width: var(--aile-dokunma-hedefi);
+  margin: 0;
+  padding: 0 var(--aile-bosluk-4);
+  border: 1px solid var(--aile-acik-mavi);
+  border-radius: var(--aile-kose-kontrol);
+  background: transparent;
+  color: var(--aile-nav-metin);
+  font: inherit;
+  font-weight: 500;
+  line-height: 24px;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color var(--aile-sure) var(--aile-egri),
+    color var(--aile-sure) var(--aile-egri),
+    border-color var(--aile-sure) var(--aile-egri);
+}
+.aile-admin .aile-shell-btn--sessiz { border-color: transparent; }
+@media (hover: hover) {
+  .aile-admin .aile-shell-btn:hover { background: var(--aile-nav-hover); }
+}
+.aile-admin .aile-shell-btn:active { background: var(--aile-nav-basili); }
+
+.aile-admin .aile-shell-icon { flex: none; }
+.aile-admin .aile-shell-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* --- İçerik: tek main; kenar yoğunluk tokenı + güvenli alan (bant profile göre tokenda); iç kapsayıcı ≤ icerik-azami
+   ortalı. Altta bosluk-8 + güvenli alan: son öğe ev çubuğunun altında kalmaz. */
+.aile-admin .aile-admin-main {
+  display: block;
+  min-width: 0;
   max-width: none;
-  padding: var(--aile-bosluk-6) var(--aile-bosluk-8) var(--aile-bosluk-8);
+  padding:
+    var(--aile-yogunluk-kenar)
+    calc(var(--aile-yogunluk-kenar) + var(--aile-safe-right))
+    calc(var(--aile-bosluk-8) + var(--aile-safe-bottom))
+    calc(var(--aile-yogunluk-kenar) + var(--aile-safe-left));
   background: var(--aile-zemin);
   color: var(--aile-metin);
+  scroll-margin-block-start: var(--aile-shell-ust-bar);
 }
 .aile-admin .aile-admin-main-inner {
   max-width: var(--aile-icerik-azami);
@@ -91,66 +142,128 @@
   gap: var(--aile-bosluk-6);
 }
 
-/* --- Tablet ve telefon: 60 px yapışkan üst bar + güvenli alan ----------------------------------------------- */
-.aile-admin .aile-admin-topbar {
-  position: sticky;
-  inset-block-start: 0;
-  z-index: 1;
+/* --- Gezinme bağlantıları (alt sayfa ve yan gezinme ortak): lacivert zemin, 44/48 hedef, ayırıcı boşlukla -------
+   Öğeler arası bosluk-2 (8): admin.css odak çizgisi kontrolün 4 px altında 3 px'tir, komşu öğeye binmez. */
+.aile-admin .aile-shell-links {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.aile-admin .aile-shell-links--alt {
+  margin-block-start: var(--aile-bosluk-3);
+  padding-block-start: var(--aile-bosluk-3);
+  border-block-start: 1px solid var(--aile-nav-basili);
+}
+.aile-admin .aile-shell-link {
   display: flex;
   align-items: center;
-  gap: var(--aile-bosluk-2);
-  height: auto;
-  min-height: calc(60px + env(safe-area-inset-top, 0px));
-  line-height: 24px;
-  padding: calc(var(--aile-bosluk-2) + env(safe-area-inset-top, 0px))
-    calc(var(--aile-bosluk-2) + env(safe-area-inset-right, 0px))
-    var(--aile-bosluk-2)
-    calc(var(--aile-bosluk-4) + env(safe-area-inset-left, 0px));
-  background: var(--aile-nav);
-  color: var(--aile-nav-metin);
-}
-.aile-admin .aile-admin-topbar-title {
-  flex: 1 1 auto;
-  min-width: 0;
-  margin: 0;
+  gap: var(--aile-bosluk-3);
+  min-height: var(--aile-dokunma-hedefi);
+  padding: var(--aile-bosluk-2) var(--aile-bosluk-3);
+  border-radius: var(--aile-kose-kontrol);
+  background: transparent;
+  color: inherit;
   font-weight: 500;
-  overflow-wrap: break-word;
-}
-.aile-admin .aile-admin-topbar .aile-admin-brand { font-size: inherit; line-height: inherit; letter-spacing: normal; }
-.aile-admin .aile-admin-topbar-sep { margin: 0 var(--aile-bosluk-2); color: var(--aile-acik-mavi); }
-.aile-admin .aile-admin-topbar .aile-btn { flex: none; }
-
-/* Dar kabukta kenar: telefon 16, tablet 24. */
-.aile-admin .aile-admin-shell--dar .aile-admin-main {
-  padding: var(--aile-bosluk-4) calc(var(--aile-bosluk-4) + env(safe-area-inset-right, 0px)) var(--aile-bosluk-8)
-    calc(var(--aile-bosluk-4) + env(safe-area-inset-left, 0px));
-}
-.aile-admin .aile-admin-shell--dar[data-device='tablet'] .aile-admin-main {
-  padding-inline: calc(var(--aile-bosluk-6) + env(safe-area-inset-right, 0px)) calc(var(--aile-bosluk-6) + env(safe-area-inset-left, 0px));
-}
-
-/* --- Sayfalar çekmecesi hareketi (MobileNavDrawer, kök .aile-mobile-nav; portal .aile-admin dışında) ---------------
-   antd 6 Drawer hareket sınıfları "transition: all <motionDurationSlow>" yazar: süre temadan 240 ms gelir, eğri ise
-   tarayıcı varsayılanı ease ve özellik all kalır (antdTheme eğri tokenı bu kurala ulaşmaz). Yalnız özellik ve eğri
-   uzun elleriyle daraltılır; süre antd'nin kısaltmasından gelir, böylece başlangıç karesi (transition: none → 0s) anlık
-   kalır ve hareket kapalı temada (reduced-motion: motion false) hareket sınıfı hiç oluşmaz. Örtü yalnız opaklık, panel
-   kayma + opaklık; gecikme 0. Kök ve semantik classNames bizim sözleşmemiz (ui/Drawer: mask/wrapper). */
-.aile-mobile-nav.aile-drawer .aile-drawer-mask {
-  transition-property: opacity;
-  transition-timing-function: var(--aile-egri);
-  transition-delay: 0s;
-}
-.aile-mobile-nav.aile-drawer .aile-drawer-wrapper {
-  transition-property: transform, opacity;
-  transition-timing-function: var(--aile-egri);
-  transition-delay: 0s;
-}
-/* Kapat düğmesi doğrudan antd Button'dır (ui/Drawer, .aile-btn değil): antd "transition: all" yazar; açılışta imleç
-   altında kalan düğmenin zemini, kapanışta odak çıkışındaki outline geçişleri "all" ile yürür. Button.css ile aynı
-   özellik listesi; özgüllük 0,4,1 antd'nin .ant-btn kurallarını geçer. */
-.aile-mobile-nav.aile-drawer button.ant-btn.aile-drawer-close {
+  line-height: 24px;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
   transition:
     background-color var(--aile-sure) var(--aile-egri),
-    color var(--aile-sure) var(--aile-egri),
-    border-color var(--aile-sure) var(--aile-egri);
+    color var(--aile-sure) var(--aile-egri);
+}
+@media (hover: hover) {
+  .aile-admin a.aile-shell-link:hover { background: var(--aile-nav-hover); }
+}
+.aile-admin a.aile-shell-link:active { background: var(--aile-nav-basili); }
+/* Seçili: secili yüzey, metin rengi, 600 (hover/basılı durumda da). Seçim odaktan ayrıdır. */
+.aile-admin .aile-shell-links a.aile-shell-link[aria-current='page'] {
+  background: var(--aile-secili);
+  color: var(--aile-metin);
+  font-weight: 600;
+}
+.aile-admin .aile-shell-link[aria-disabled='true'] { color: var(--aile-acik-mavi); cursor: not-allowed; }
+.aile-admin .aile-shell-link__ad { flex: 1 1 auto; min-width: 0; }
+
+/* --- Sayfalar alt sayfası (MobileNavDrawer): soldan, telefonda tam (16 px örtü payı), tablette 384 -------------
+   Hareket: örtü opaklık, panel kayma; 240 ms tek eğri, gecikme yok, açılış ve kapanış aynı. Hareket kapalıyken
+   (reduced-motion) geçiş yok; JS süreyi 0 okur ve aynı karede söker. */
+.aile-admin .aile-mobile-nav {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+}
+.aile-admin .aile-mobile-nav__ortu {
+  position: absolute;
+  inset: 0;
+  background: var(--aile-ortu);
+  opacity: 0;
+  touch-action: none;
+  transition: opacity var(--aile-sure) var(--aile-egri);
+}
+.aile-admin .aile-mobile-nav__panel {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  display: flex;
+  flex-direction: column;
+  width: var(--aile-ayrinti-genislik);
+  /* Örtü payı en az 16; sağ güvenli alan daha genişse (yatay telefonda çentik) o kadar. */
+  max-width: calc(100% - max(var(--aile-bosluk-4), var(--aile-safe-right)));
+  padding: var(--aile-safe-top) 0 0 var(--aile-safe-left);
+  overflow: hidden;
+  background: var(--aile-nav);
+  color: var(--aile-nav-metin);
+  border-start-end-radius: var(--aile-kose-panel);
+  border-end-end-radius: var(--aile-kose-panel);
+  box-shadow: var(--aile-golge-yukseltilmis);
+  transform: translateX(-100%);
+  transition: transform var(--aile-sure) var(--aile-egri);
+}
+.aile-admin .aile-mobile-nav[data-size='tam'] .aile-mobile-nav__panel {
+  width: 100%;
+  border-radius: 0;
+}
+.aile-admin .aile-mobile-nav[data-state='acik'] .aile-mobile-nav__ortu { opacity: 1; }
+.aile-admin .aile-mobile-nav[data-state='acik'] .aile-mobile-nav__panel { transform: none; }
+
+.aile-admin .aile-mobile-nav__baslik {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--aile-bosluk-3);
+  min-height: var(--aile-shell-ust-bar);
+  padding: var(--aile-shell-dikey-pay) var(--aile-bosluk-2) var(--aile-shell-dikey-pay) var(--aile-bosluk-4);
+  border-block-end: 1px solid var(--aile-nav-basili);
+}
+/* Başlık h2, çekmece başlığı ölçüsünde (h3 18/26, 600); kelime ortasından bölünmez. */
+.aile-admin .aile-mobile-nav__ad {
+  margin: 0;
+  font-size: 18px;
+  line-height: 26px;
+  font-weight: 600;
+  color: inherit;
+  word-break: keep-all;
+}
+.aile-admin .aile-mobile-nav__govde {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--aile-bosluk-3) var(--aile-bosluk-3) calc(var(--aile-bosluk-3) + var(--aile-safe-bottom));
+}
+
+/* Alt sayfa açıkken arka plan kaydırılmaz (kök öğe; kapanış başlayınca kalkar). */
+html[data-shell-kilit] { overflow: hidden; }
+
+@media (prefers-reduced-motion: reduce) {
+  .aile-admin .aile-mobile-nav__ortu,
+  .aile-admin .aile-mobile-nav__panel,
+  .aile-admin .aile-shell-btn,
+  .aile-admin .aile-shell-link {
+    transition: none;
+  }
 }
