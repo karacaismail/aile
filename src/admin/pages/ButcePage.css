@@ -46,6 +46,9 @@
    align-items: flex-start olduğundan ileti paragrafı en küçük içerik genişliğinde durur; break-word bunu küçültmez,
    anywhere küçültür. Kapsam yalnız bu durum kabı (içinde tablo yok; tablo ilk sütunu kuralı etkilenmez). */
 .aile-butce-durumu { min-width: 0; overflow-wrap: anywhere; }
+/* Durum bileşenleri kendi metinlerine break-word verir (yerel ErrorState ileti/başlık); kap kuralı onlara mirasla ulaşmaz.
+   İki sınıflı seçici bileşenin iç sınıf adına bağlanmadan onu geçer (yalnız sığmayan sözcük bölünür). */
+.aile-butce .aile-butce-durumu * { overflow-wrap: anywhere; }
 
 /* Canlı Sheet: etiket + DataStatus + fark tek satırda, dar alanda sarar. */
 .aile-butce-canli {
