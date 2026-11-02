@@ -108,14 +108,20 @@ export interface VisualViewportLike {
 }
 
 const SCROLLABLE = /(auto|scroll|overlay)/;
+/** Sanal klavyeyi kendisi yöneten katman kökü (BottomSheet.layer fitVisualViewport, Dialog: klavye açıkken data-klavye). */
+const KEYBOARD_MANAGED_LAYER = '[data-aile-katman][data-klavye]';
 
 /**
  * Öğeyi görsel görünüm alanının (sanal klavyenin üstünde kalan bölge) içine, `margin` boşlukla getirir. Önce en yakın
  * kaydırılabilir atalar, kalan için belge kaydırılır (öğe sabit bir katmanda değilse); anında (hareket yok). Kaydırılan
  * toplam piksel döner (0 = zaten görünür).
  * getBoundingClientRect yerleşim görünüm alanına görelidir; görünür bant [offsetTop, offsetTop + height] aralığıdır.
+ * Klavyeyi kendisi yöneten modal katmanda (kök [data-aile-katman][data-klavye]: alt sayfa, diyalog) hiçbir şey yapmaz
+ * (0): katman kökü görünür alana oturur ve odaklı alanı yapışık altlığın üstüne kendisi getirir; buradaki kaydırma
+ * altlığı bilmez ve katmanın son sözünü bozardı.
  */
 export function revealInVisualViewport(target: Element, viewport: VisualViewportLike, margin: number): number {
+  if (target.closest(KEYBOARD_MANAGED_LAYER)) return 0;
   const rect = target.getBoundingClientRect();
   const top = viewport.offsetTop + margin;
   const bottom = viewport.offsetTop + viewport.height - margin;

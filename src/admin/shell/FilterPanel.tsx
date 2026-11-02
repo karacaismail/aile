@@ -4,10 +4,10 @@ import type { FilterFacet, FilterOption, FilterPanelProps } from './contracts';
 import './FilterPanel.css';
 
 // Tasarım: aile-tasarim/tasarim-sistemi/components/FilterPanel/README.md + README "Filtre boyutları"; referans davranış
-// bundle.js FilterPanel/Opt (section aria-label "Filtreler"; başlık + quiet "Temizle" yalnız bare değilken; her boyut
-// Disclosure, meta seçili sayısı; seçenek = kutu + etiket + sayım; ağaçta alt dallar içeride ve not "Üst kategori
-// seçilince tüm alt dalları kapsar."; tarih = tür Select + Başlangıç/Bitiş gg.aa.yyyy numeric; tutar = En az/En çok ₺
-// decimal). antd Collapse yerine bizim Disclosure.
+// bundle.js FilterPanel/Opt (section aria-label "Filtreler" yalnız başlıklı panelde, bare kök div; başlık + quiet
+// "Temizle" yalnız bare değilken; her boyut Disclosure, meta seçili sayısı; seçenek = kutu + etiket + sayım; ağaçta alt
+// dallar içeride ve not "Üst kategori seçilince tüm alt dalları kapsar."; tarih = tür Select + Başlangıç/Bitiş gg.aa.yyyy
+// numeric; tutar = En az/En çok ₺ decimal). antd Collapse yerine bizim Disclosure.
 //
 // Seçenek kutusu yerel <input type="checkbox"> (antd Checkbox değil): telefon yolu antd istemez ve odak GÖRÜNÜR kutuya
 // düşer. Referanstaki gibi 1 px opacity 0 gizli input + çizilmiş kutu kullanılmaz: klavye odağı görünmez bir öğede
@@ -54,24 +54,29 @@ export function facetSelectedCount(facet: FilterFacet): number {
   return facet.selected.length;
 }
 
+/**
+ * Başlıklı panel "Filtreler" adlı bölgedir (section). bare panel her zaman adını veren bir ev sahibinin içindedir
+ * (FilterArea bölgesi "Filtreler", FilterDrawer / alt sayfa diyaloğu "Filtreler"): kökü landmark değildir (div), yoksa
+ * aynı adlı iki bölge oluşur (f10 yapı sözleşmesi: aynı rolden landmark'lar ayırt edici adla).
+ */
 export function FilterPanel({ facets, onToggle, onClear, openKeys, bare = false }: FilterPanelProps) {
   const open = new Set(openKeys ?? facets.slice(0, DEFAULT_OPEN_COUNT).map(facet => facet.id));
+  const body = facets.map(facet => {
+    const count = facetSelectedCount(facet);
+    return (
+      <Disclosure key={facet.id} title={facet.label} meta={count > 0 ? `${sayi.format(count)} seçili` : undefined} defaultOpen={open.has(facet.id)}>
+        <FacetBody facet={facet} onToggle={onToggle} />
+      </Disclosure>
+    );
+  });
+  if (bare) return <div className="aile-filtre aile-filtre--bare">{body}</div>;
   return (
-    <section className={cx('aile-filtre', bare && 'aile-filtre--bare')} aria-label="Filtreler">
-      {!bare && (
-        <div className="aile-filtre-baslik">
-          <h3>Filtreler</h3>
-          <Button variant="quiet" onClick={() => onClear()}>Temizle</Button>
-        </div>
-      )}
-      {facets.map(facet => {
-        const count = facetSelectedCount(facet);
-        return (
-          <Disclosure key={facet.id} title={facet.label} meta={count > 0 ? `${sayi.format(count)} seçili` : undefined} defaultOpen={open.has(facet.id)}>
-            <FacetBody facet={facet} onToggle={onToggle} />
-          </Disclosure>
-        );
-      })}
+    <section className="aile-filtre" aria-label="Filtreler">
+      <div className="aile-filtre-baslik">
+        <h3>Filtreler</h3>
+        <Button variant="quiet" onClick={() => onClear()}>Temizle</Button>
+      </div>
+      {body}
     </section>
   );
 }

@@ -131,8 +131,19 @@ describe('Select › kaynak (telefon profili antd ve geniş-özel kod istemez)',
     expect(popover).not.toBeNull();
     expect(popover![1]).toMatch(/overflow:\s*hidden/);
     expect(popover![1]).not.toMatch(/overflow(-y)?:\s*(auto|scroll)/);
-    expect(css).toMatch(/\.aile-select-acilir \.aile-select-liste\s*\{[^}]*overflow-y:\s*auto[^}]*\}/);
-    expect(css).toMatch(/\.aile-select-acilir \.aile-select-liste\s*\{[^}]*overscroll-behavior:\s*contain[^}]*\}/);
+    // r-a11y: yükseklik sınırı da kaydırıcıdadır; sarmalayıcı yalnız konum, yüzey ve gölge taşır (içeriği kadar uzar).
+    expect(popover![1]).not.toMatch(/(^|[\s;])max-height\s*:/);
+    // UA [popover] dolgusu (0.25em) sıfırlanır; iç boşluk listbox'ta.
+    expect(popover![1]).toMatch(/(^|[\s;])padding:\s*0\s*;/);
+    const list = /\.aile-select-acilir \.aile-select-liste\s*\{([^}]*)\}/.exec(css);
+    expect(list, 'geniş liste kuralı').not.toBeNull();
+    expect(list![1]).toMatch(/overflow-y:\s*auto/);
+    expect(list![1]).toMatch(/overscroll-behavior:\s*contain/);
+    expect(list![1]).toMatch(/max-height:\s*var\(--aile-select-acilir-azami\)/);
+    // İç boşluk kaydırıcının içinde: son seçeneğin odak çizgisi (aralik + kalinlik) kırpılmaz ve sığan listeyi
+    // kaydırılabilir yapmaz; border-box ile sınır dolguyu da kapsar.
+    expect(list![1]).toMatch(/box-sizing:\s*border-box/);
+    expect(list![1]).toMatch(/padding:\s*var\(--aile-bosluk-2\)/);
   });
 
   it('CSS: telefon alt sayfası ortak BottomSheet\'tir; Select.css alt sayfa kabuğu (örtü, panel, Kapat) yazmaz', () => {
@@ -141,12 +152,44 @@ describe('Select › kaynak (telefon profili antd ve geniş-özel kod istemez)',
     expect(css).not.toMatch(/::backdrop/);
   });
 
-  // r-sheet / f01 odak sözleşmesi: klavye odağı tek alt çizgidir. Geniş açılır listede DOM odağı tetikte kalır
-  // (aria-activedescendant): çizgi tetikte; etkin seçenek çizgi değil yüzey tonuyla (bilgi-yuzey; tasarım README antd
-  // eşlemesi optionActiveBg = bilgi-yuzey, optionSelectedBg = secili) gösterilir. Zorunlu renk modunda sistem vurgusu.
-  it('CSS: geniş etkin seçenek odak çizgisi taşımaz (tek çizgi tetikte); bilgi-yuzey zemin, seçili seçenekte secili kalır', () => {
+  // r-focus / f01 odak sözleşmesi (admin-focus.spec "etkin" kalıbı): klavye odağı tek alt çizgidir. Geniş açılır listede
+  // DOM odağı tetikte kalır (aria-activedescendant) ama görsel odak etkin seçenektedir (APG): klavye modunda tetik
+  // aria-activedescendant taşırken tetiğin çizgisi bastırılır ve tek çizgi etkin seçeneğin altına (kontrol çizgisi
+  // geometrisi, yalnız tokenlar) gelir. İşaretçi modunda çizgi yok. Etkin seçenek ayrıca bilgi-yuzey tonunu korur
+  // (tasarım README antd eşlemesi optionActiveBg); seçili seçenek secili kalır. Zorunlu renk modunda sistem vurgusu.
+  it('CSS: geniş açık listede tek çizgi etkin seçenekte (yalnız klavye modu); tetiğin çizgisi bastırılır; zemin tonu kalır', () => {
     const css = stripComments(readFileSync(SELECT_CSS, 'utf8'));
-    expect(css).not.toMatch(/is-etkin[^{]*::(after|before)/);
+    const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(match => ({ selector: match[1]!.replace(/\s+/g, ' ').trim(), body: match[2]! }));
+    const keyboardOnly = (selector: string) => /^html\[data-keyboard='true'\] /.test(selector);
+
+    const triggerOff = rules.filter(rule => /\.aile-select-tetik\[aria-activedescendant\]:focus-visible::after$/.test(rule.selector));
+    expect(triggerOff.map(rule => rule.selector), 'tetik çizgisini bastıran kural').toHaveLength(1);
+    expect(keyboardOnly(triggerOff[0]!.selector)).toBe(true);
+    expect(triggerOff[0]!.body).toMatch(/content:\s*none/);
+    // admin.css çizgi kuralı (0,4,2) yükleme sırasından bağımsız ezilir: en az beş sınıf/öznitelik/sözde sınıf.
+    const specificity = (triggerOff[0]!.selector.match(/\.[\w-]+|\[[^\]]+\]|(?<!:):(?!:)[\w-]+/g) ?? []).length;
+    expect(specificity).toBeGreaterThanOrEqual(5);
+
+    const lines = rules.filter(rule => /\.is-etkin::after$/.test(rule.selector));
+    expect(lines.map(rule => rule.selector), 'etkin seçenek çizgisi').toHaveLength(1);
+    const line = lines[0]!;
+    expect(keyboardOnly(line.selector), line.selector).toBe(true);
+    // Yalnız tetik klavye odağındayken ve etkin seçeneği gösterirken; yalnız geniş popover'da (telefon alt sayfası
+    // seçeneğe gerçek odak verir, çizgiyi admin.css :focus-visible çizer).
+    expect(line.selector).toContain(':has(> .aile-select-tetik[aria-activedescendant]:focus-visible)');
+    expect(line.selector).toContain('.aile-select-acilir');
+    expect(line.body).toMatch(/content:\s*(''|"")/);
+    expect(line.body).toMatch(/position:\s*absolute/);
+    expect(line.body).toMatch(/left:\s*0/);
+    expect(line.body).toMatch(/right:\s*0/);
+    expect(line.body).toMatch(/bottom:\s*calc\(-1 \* \(var\(--aile-odak-aralik\) \+ var\(--aile-odak-kalinlik\)\)\)/);
+    expect(line.body).toMatch(/height:\s*var\(--aile-odak-kalinlik\)/);
+    expect(line.body).toMatch(/background:\s*var\(--aile-odak\)/);
+    expect(line.body).toMatch(/pointer-events:\s*none/);
+    // Başka hiçbir yerde seçenek ya da tetik için ikinci süs çizgisi yok.
+    expect(css).not.toMatch(/is-etkin[^{]*::before/);
+    expect(rules.filter(rule => /::after$/.test(rule.selector)).map(rule => rule.selector)).toEqual([triggerOff[0]!.selector, line.selector]);
+
     expect(css).toMatch(/\.aile-select-acilir \.aile-select-secenek\.is-etkin\s*\{[^}]*background:\s*var\(--aile-bilgi-yuzey\)/);
     expect(css).toMatch(/\.aile-select-acilir \.aile-select-secenek\.is-etkin\.is-secili\s*\{[^}]*background:\s*var\(--aile-secili\)/);
     const forced = /@media\s*\(forced-colors:\s*active\)\s*\{([\s\S]*?\})\s*\}/.exec(css);

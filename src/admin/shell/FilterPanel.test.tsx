@@ -62,6 +62,29 @@ describe('FilterPanel', () => {
     expect(disclosure('Tutar aralığı')).toBeInTheDocument();
   });
 
+  // r-a11y (f10 yapı sözleşmesi, /alimlar masaüstü): bare panel her zaman adını veren bir ev sahibinin içindedir
+  // (FilterArea bölgesi "Filtreler", FilterDrawer / alt sayfa diyaloğu "Filtreler"). Kendisi de "Filtreler" adlı bölge
+  // olursa aynı adlı iki region landmark oluşur ("region [Filtreler, Filtreler, ...]"); bare kök landmark değildir.
+  it('bare: kök adlı landmark değildir (ev sahibi adlandırır); başlıklı panel "Filtreler" bölgesi kalır', () => {
+    const { container, unmount } = render(<FilterPanel facets={facets} onToggle={vi.fn()} onClear={vi.fn()} bare />);
+    // Boyut panelleri (Disclosure) kendi adlarıyla bölgedir; panel kökü "Filtreler" bölgesi değildir.
+    expect(screen.queryByRole('region', { name: 'Filtreler' })).toBeNull();
+    const root = container.querySelector('.aile-filtre')!;
+    expect(root).not.toBeNull();
+    expect(root.tagName).not.toBe('SECTION');
+    expect(root).not.toHaveAttribute('aria-label');
+    expect(root).not.toHaveAttribute('role');
+    unmount();
+
+    // Ev sahibinin içinde tek "Filtreler" bölgesi (FilterArea kalıbı): iç içe ikinci adaş bölge yok.
+    render(
+      <section aria-label="Filtreler">
+        <FilterPanel facets={facets} onToggle={vi.fn()} onClear={vi.fn()} bare />
+      </section>,
+    );
+    expect(screen.getAllByRole('region', { name: 'Filtreler' })).toHaveLength(1);
+  });
+
   it('her boyut bir Disclosure: openKeys açık başlar, diğerleri kapalı; meta seçili sayısı', () => {
     render(<FilterPanel facets={facets} onToggle={vi.fn()} onClear={vi.fn()} openKeys={['oda']} />);
     expect(disclosure('Oda')).toHaveAttribute('aria-expanded', 'true');

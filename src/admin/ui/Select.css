@@ -95,24 +95,45 @@
 .aile-select-secenek-onay { flex: none; }
 .aile-select-bos { display: flex; align-items: center; min-height: var(--aile-hedef-asgari); margin: 0; padding: 0 var(--aile-bosluk-3); color: var(--aile-metin-ikincil); }
 
-/* Geniş: DOM odağı tetikte kalır (aria-activedescendant); klavye odağının tek alt çizgisi tetiktedir (admin.css). Etkin
-   seçenek çizgiyle değil yüzey tonuyla gösterilir: bilgi-yuzey (tasarım README antd eşlemesi optionActiveBg); seçili
+/* Geniş: DOM odağı tetikte kalır (aria-activedescendant), görsel odak etkin seçenektedir (APG select-only combobox).
+   Etkin seçenek her girişte yüzey tonuyla görünür: bilgi-yuzey (tasarım README antd eşlemesi optionActiveBg); seçili
    seçenek etkinken de secili kalır (onay simgesi ve 600 ağırlık seçimi ayrıca söyler). */
 .aile-select-acilir .aile-select-secenek.is-etkin { background: var(--aile-bilgi-yuzey); }
 .aile-select-acilir .aile-select-secenek.is-etkin.is-secili { background: var(--aile-secili); }
 
+/* Klavye modunda aynı anda tek alt çizgi (admin.css odak sözleşmesi, f01 "etkin" kalıbı): tetik klavye odağında ve etkin
+   seçeneği gösterirken (aria-activedescendant) tetiğin çizgisi bastırılır, çizgi etkin seçeneğin altına geçer. Geometri
+   admin.css kontrol çizgisiyle aynıdır (seçenek genişliğinde, odak-aralik altında, odak-kalinlik); yalnız tokenlar.
+   Liste kapanınca (aria-activedescendant kalkar) çizgi hemen tetiğe döner. İşaretçi modunda (data-keyboard false) çizgi
+   yok. Tetik kuralı admin.css çizgi kuralından (0,4,2) özgüldür (0,5,2): yükleme sırasından bağımsız. Telefonda
+   seçenek gerçek odak alır; çizgisini admin.css :focus-visible çizer, bu kurallar yalnız geniş popover içindir. */
+html[data-keyboard='true'] .aile-select > .aile-select-tetik[aria-activedescendant]:focus-visible::after { content: none; }
+html[data-keyboard='true'] .aile-select:has(> .aile-select-tetik[aria-activedescendant]:focus-visible) > .aile-select-acilir .aile-select-secenek.is-etkin::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(-1 * (var(--aile-odak-aralik) + var(--aile-odak-kalinlik)));
+  height: var(--aile-odak-kalinlik);
+  border-radius: calc(var(--aile-odak-kalinlik) / 2);
+  background: var(--aile-odak);
+  pointer-events: none;
+}
+
 /* Geniş: popover liste. Konum (top/left/bottom, en az genişlik, --aile-select-alan) Select.tsx'te görünüm alanından.
    Kaydırılan öğe sarmalayıcı değil, combobox'ın denetlediği listbox'ın kendisidir (APG açılır pencere; axe
-   scrollable-region-focusable combobox açılır penceresini muaf tutar, rolsüz kaydırma bölgesini klavyeyle erişilmez sayar). */
+   scrollable-region-focusable combobox açılır penceresini muaf tutar, rolsüz kaydırma bölgesini klavyeyle erişilmez sayar).
+   Yükseklik sınırı, iç boşluk ve kaydırma zinciri kesme listbox'tadır; sarmalayıcı yalnız konum, yüzey, köşe ve gölge
+   taşır, içeriği kadar uzar ve kaydırmaz (overflow hidden: köşe kırpması). İç boşluk kaydırıcının içinde olduğundan son
+   seçeneğin odak çizgisi (aralik + kalinlik < bosluk-2) kırpılmaz ve sığan listeyi kaydırılabilir yapmaz. */
 .aile-select-acilir {
   --aile-select-acilir-azami: min(var(--aile-select-liste-azami), calc(var(--aile-select-alan, 100vh) - var(--aile-select-aralik) - var(--aile-bosluk-4)));
   position: fixed;
   inset: auto;
   box-sizing: border-box;
   max-width: calc(100vw - 2 * var(--aile-bosluk-4));
-  max-height: var(--aile-select-acilir-azami);
   margin: var(--aile-select-aralik) 0 0;
-  padding: var(--aile-bosluk-2);
+  padding: 0;
   border: 0;
   border-radius: var(--aile-kose-kart);
   overflow: hidden;
@@ -125,7 +146,9 @@
   transition: opacity var(--aile-sure) var(--aile-egri), transform var(--aile-sure) var(--aile-egri);
 }
 .aile-select-acilir .aile-select-liste {
-  max-height: calc(var(--aile-select-acilir-azami) - 2 * var(--aile-bosluk-2));
+  box-sizing: border-box;
+  max-height: var(--aile-select-acilir-azami);
+  padding: var(--aile-bosluk-2);
   overflow-y: auto;
   overscroll-behavior: contain;
 }
