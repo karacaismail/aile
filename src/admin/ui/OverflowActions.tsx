@@ -2,7 +2,8 @@ import { useLayoutEffect, useRef, useState, type ReactNode, type RefObject } fro
 import { useProfile } from '../device';
 import { Button, type ButtonVariant } from './Button';
 import type { IconName } from './icons';
-import { DANGER_GROUP_LABEL, Menu, MENU_POPUP_MIN_WIDTH, type MenuItem } from './Menu';
+import { MenuButton } from './Menu.lazy';
+import { DANGER_GROUP_LABEL, MENU_POPUP_MIN_WIDTH, type MenuItem } from './Menu.shared';
 import './OverflowActions.css';
 
 // Tasarım: aile-tasarim/tasarim-sistemi/components/OverflowActions/README.md + index.d.ts OverflowActionsProps; referans
@@ -14,7 +15,10 @@ import './OverflowActions.css';
 // - danger: tehlikeli eylem menüde ayırıcıdan sonra "Tehlikeli eylemler" grubunda; satırda danger düğmesi, ayrı grupta.
 // - collapse="auto": geniş profilde yer varsa ikincil eylemler satırda düğmedir; telefonda ya da satır sığmadığında
 //   (kapsayıcı genişliği ölçülür) "Diğer" menüsüne taşınır, kapsayıcı yeniden genişleyince geri çıkar.
-// Görsel kurallar OverflowActions.css ve Menu.css (yalnız --aile tokenları); odak çizgisini admin.css çizer.
+// Teslim: "Diğer" düğmesi (Menu.lazy.tsx menü düğmesi) statiktir; açılır gövde (liste, açılır panel, telefonda alt sayfa)
+// ilk niyette (basma, odak, tuş) tembel iner. Telefon ilk rotası (PageHeader → bu modül) gövdeyi ve BottomSheet'i
+// çekmez; yüklenirken düğme aria-busy taşır, ilk tıklama kaybolmaz (gövde gelince menü açılır, odak ilk öğeye gider).
+// Görsel kurallar OverflowActions.css, Menu.lazy.css ve Menu.css (yalnız --aile tokenları); odak çizgisini admin.css çizer.
 
 export interface OverflowActionItem {
   /** Eylem etiketi, cümle düzeni ("Dışa aktar"). Kesilmez. */
@@ -138,7 +142,7 @@ export function OverflowActions({
     key: itemKey(index), label: item.label, icon: item.icon, danger: item.danger, disabled: item.disabled,
   }));
   const menu = items.length > 0 && (
-    <Menu
+    <MenuButton
       trigger={label}
       triggerIcon="more"
       triggerVariant={variant}

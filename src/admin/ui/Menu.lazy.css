@@ -1,0 +1,19 @@
+/* aile menü düğmesi (Menu.lazy.tsx) — telefon ilk rotasında statik kalan tek menü kuralı. Liste, açılır panel ve alt
+   sayfa kuralları gövdeyle birlikte tembel iner (Menu.css, BottomSheet.css). Tek kaynak tokenlar --aile-*
+   (src/design/tokens.ts); sabit renk, kenarlık ve odak halkası yok (odak çizgisini admin.css [data-focus-line] çizer).
+   Kurtarma bildirimi (adaptive.css .aile-wide-notice) gövde indirilemezse düğmenin altında tam satırdır. */
+
+.aile-menu-dugme {
+  position: relative;
+  display: inline-flex;
+  max-width: 100%;
+}
+
+.aile-menu-dugme[data-failure] {
+  flex-wrap: wrap;
+}
+
+.aile-menu-dugme > .aile-wide-notice {
+  flex: 1 1 100%;
+  margin: var(--aile-bosluk-2) 0 0;
+}

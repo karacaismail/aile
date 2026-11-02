@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { DeviceContext } from '../device';
@@ -25,6 +25,14 @@ vi.mock('../ui/BottomSheet', () => ({
       </div>
     ),
 }));
+
+// "Diğer" gövdesi (Menu.panel: menü listesi + alt sayfa sarmalı) ilk niyette tembel iner (telefon ilk rota bütçesi,
+// src/admin/phoneEntry.test.ts). Fabrika modül ilk içe aktarıldığında bir kez çalışır: kaç kez indirildiğini sayar.
+const panelLoads = vi.hoisted(() => ({ count: 0 }));
+vi.mock('../ui/Menu.panel', async importOriginal => {
+  panelLoads.count += 1;
+  return importOriginal();
+});
 
 const onDevice = (device: Device) => ({ children }: { children: ReactNode }) =>
   <DeviceContext.Provider value={device}>{children}</DeviceContext.Provider>;
@@ -136,6 +144,34 @@ describe('PageHeader', () => {
     expect(disaAktar).toHaveBeenCalledTimes(1);
   });
 
+  // Bu dosyada menüyü ilk açan test budur (gövde henüz inmemiştir); sayaç bu sıraya dayanır.
+  it('phone: the "Diğer" body is not downloaded with the header; the first press downloads it once and opens it', async () => {
+    const user = userEvent.setup();
+    const { more } = makeMore();
+    render(<PageHeader location="/alimlar" primary={<button type="button">Alım ekle</button>} more={more} />, { wrapper: onDevice('phone') });
+    const diger = within(screen.getByRole('banner')).getByRole('button', { name: 'Diğer' });
+    expect(panelLoads.count).toBe(0);
+    expect(diger).toHaveAttribute('aria-haspopup', 'dialog');
+    expect(diger).toHaveAttribute('aria-expanded', 'false');
+
+    await user.click(diger);
+    const sheet = await screen.findByRole('dialog', { name: 'Diğer eylemler' });
+    expect(panelLoads.count).toBe(1);
+    expect(diger).toHaveAttribute('aria-expanded', 'true');
+    expect(diger).not.toHaveAttribute('aria-busy');
+    const items = within(sheet).getAllByRole('menuitem');
+    expect(items.map(item => item.textContent)).toEqual(['Dışa aktar', 'Yazdır']);
+    await waitFor(() => expect(items[0]).toHaveFocus());
+
+    await user.click(within(sheet).getByRole('button', { name: 'Kapat' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(diger).toHaveFocus();
+    // Gövde artık hazır: ikinci açılış aynı karede, yeniden indirme yok.
+    await user.click(diger);
+    expect(screen.getByRole('dialog', { name: 'Diğer eylemler' })).toBeInTheDocument();
+    expect(panelLoads.count).toBe(1);
+  });
+
   it('phone: header shows only the primary and a "Diğer" button; the more actions open from it', async () => {
     const user = userEvent.setup();
     const { more, yazdir } = makeMore();
@@ -149,7 +185,7 @@ describe('PageHeader', () => {
     expect(before(primaryEl, diger)).toBe(true);
 
     await user.click(diger);
-    const sheet = screen.getByRole('dialog', { name: 'Diğer eylemler' });
+    const sheet = await screen.findByRole('dialog', { name: 'Diğer eylemler' });
     await user.click(within(sheet).getByRole('menuitem', { name: 'Yazdır' }));
     expect(yazdir).toHaveBeenCalledTimes(1);
   });
