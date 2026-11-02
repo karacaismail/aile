@@ -254,6 +254,26 @@ const contentText = (page: Page) => visibleTextWithout(page, '[role="status"]');
 /** İçerik alanının söylediği: sayfa başlığı (header) hariç main metni. */
 const bodyText = (page: Page) => visibleTextWithout(page, 'header');
 
+/**
+ * Yerleşmiş içerik metni (eski veri karşılaştırmasının tabanı). openAdmin'in hazır sinyali geniş profilde geç gelen
+ * parçaları beklemez: lazyWide önce telefon sunumunu yedek olarak çizer, geniş modül (ör. Bütçe trendi, Genel tablo
+ * görünümü, Hesaplar projeksiyon tablosu) gelince yerini alır. Taban o ana kadar alınırsa yenilemeden bağımsız bu
+ * değişim "son iyi veri değişti" diye okunur. Ağ sessizleşir (bekleyen modül/veri isteği yok) ve içerik ardışık iki
+ * okumada (en az 300 ms arayla) aynı kalınca döner; sabit bekleme yok.
+ */
+async function settledContent(page: Page): Promise<string> {
+  await page.waitForLoadState('networkidle');
+  let previous: string | null = null;
+  let current = '';
+  await expect.poll(async () => {
+    current = await contentText(page);
+    const same = current === previous;
+    previous = current;
+    return same;
+  }, { message: 'içerik yerleşmedi (geç gelen geniş parça ya da veri)', intervals: [300, 500, 1000] }).toBe(true);
+  return current;
+}
+
 /** Konumlayıcıya geçici, testlik bir seçici verir; dedektör seçeneği string kök/hedef alır. */
 async function mark(locator: Locator, id: string): Promise<string> {
   await locator.evaluate((el, value) => el.setAttribute('data-e2e-dedektor', value), id);
@@ -345,7 +365,7 @@ for (const { path: route, h1 } of PAGES) {
       const fresh = (await status.innerText()).match(new RegExp(`Son okuma (${CLOCK})`));
       expect(fresh, 'taze satırda son okuma saati').not.toBeNull();
       const lastRead = fresh![1];
-      const before = await contentText(page);
+      const before = await settledContent(page);
 
       generation.mode = 'offline';
       await status.getByRole('button', { name: 'Yenile' }).click();
@@ -495,7 +515,9 @@ test('boş sonuç: EmptyState etkin filtreleri yazar, "Filtreleri temizle" kayı
 test.describe('Klasörden içe aktar', () => {
   const reason = 'Bu tarayıcı klasör içe aktarmayı desteklemiyor; nesil geliştirme sunucusundan okunur.';
 
-  test('desteklenmeyen tarayıcıda düğme devre dışı ve nedeni yanında yazar', async ({ page }) => {
+  // Özellik algılama (pages/veri/klasor.ts): showDirectoryPicker (Chromium) → <input type="file" webkitdirectory> yedeği
+  // (Safari/WebKit) → yok. "Desteklenmeyen" ikisinin de olmamasıdır; yalnız seçiciyi silmek WebKit yolunu açık bırakır.
+  test('ne seçici ne webkitdirectory olan tarayıcıda düğme devre dışı ve nedeni yanında yazar', async ({ page }) => {
     await page.addInitScript(() => {
       const host = window as unknown as Record<string, unknown>;
       try {
@@ -504,6 +526,11 @@ test.describe('Klasörden içe aktar', () => {
         /* prototipte yok */
       }
       Object.defineProperty(host, 'showDirectoryPicker', { value: undefined, configurable: true, writable: true });
+      try {
+        delete (HTMLInputElement.prototype as unknown as Record<string, unknown>).webkitdirectory;
+      } catch {
+        /* silinemez */
+      }
     });
     await routeGeneration(page, 'ok');
     await gotoAdmin(page, '/veri');
@@ -515,10 +542,12 @@ test.describe('Klasörden içe aktar', () => {
     await expect(page.getByText(reason)).toBeVisible();
   });
 
-  test('düğme durumu motorun gerçek desteğini izler (Chromium etkin; WebKit devre dışı + neden)', async ({ page }) => {
+  test('düğme durumu motorun gerçek desteğini izler (Chromium seçici, WebKit webkitdirectory yedeği: etkin; ikisi yoksa devre dışı + neden)', async ({ page }) => {
     await routeGeneration(page, 'ok');
     await gotoAdmin(page, '/veri');
-    const supported = await page.evaluate(() => typeof (window as unknown as { showDirectoryPicker?: unknown }).showDirectoryPicker === 'function');
+    const supported = await page.evaluate(() =>
+      typeof (window as unknown as { showDirectoryPicker?: unknown }).showDirectoryPicker === 'function'
+      || 'webkitdirectory' in document.createElement('input'));
     const button = page.getByRole('button', { name: 'Klasörden içe aktar' });
     if (supported) {
       await expect(button).toBeEnabled();
@@ -561,7 +590,11 @@ test.describe('Durum yüzeyleri matris genişliklerinde', () => {
   test('Alımlar: yükleniyor ve kayıtsız nesil yüzeyleri taşmaz, metin ≥14 px', { tag: '@matrix' }, async ({ page }) => {
     const generation = await routeGeneration(page, 'hold');
     await gotoAdmin(page, '/alimlar');
-    const shell = main(page).locator('[aria-busy="true"]').first();
+    // Sayfanın kendi iskeleti ("Alımlar yükleniyor"). İlk [aria-busy] rota yedeği (routes.tsx RouteFallback, "Yükleniyor")
+    // olabilir; sayfa parçası gelince o düğüm yerini sayfanınkine bırakır ve üzerine konan işaret kaybolur. Geniş profilde
+    // sağlayıcı geçidi (AdaptiveRoot kökü aria-busy) bağlanınca çalışma alanı bir kez yeniden kurulur; işaret ondan sonra.
+    await expect(page.locator('[aria-busy="true"]:not(main *)'), 'sağlayıcı geçidi bağlandı').toHaveCount(0);
+    const shell = main(page).locator('[aria-busy="true"]').filter({ hasText: 'Alımlar yükleniyor' });
     await expect(shell).toBeVisible();
     const iskelet = await mark(shell, 'matris-iskelet');
     expect.soft(await overflow(page, { root: iskelet }), 'iskelet taşma').toEqual([]);

@@ -4,6 +4,7 @@ import path from 'node:path';
 import {
   ContractError,
   GenerationStore,
+  contractSummary,
   HEAVY_COLLECTIONS,
   HeavyCollectionError,
   IntegrityError,
@@ -96,6 +97,33 @@ describe('GenerationStore › nesil yükleme', () => {
     await expect(store.loadManifest()).rejects.toBeInstanceOf(ContractError);
     expect(store.status.state).toBe('error');
     expect(store.status.message).toMatch(/^Hata: /);
+  });
+
+  // ErrorState ve DataStatus bu iletiyi kullanıcıya yazar: zod'un ham JSON sorun dizisi değil, ilk sorunun yolu ve kısa
+  // Türkçe nedeni (+ kalan sorun sayısı). Yol kayıt indeksini taşır ki kaynaktaki satır bulunabilsin.
+  it('ZodError saran ContractError kısa Türkçe özet verir: yol + neden + kalan sorun sayısı; ham JSON yok', async () => {
+    const manifest = JSON.parse(await readFile(path.join(generationDir, 'manifest.json'), 'utf8')) as { files: Record<string, unknown>[] };
+    manifest.files = manifest.files.map((file, index) => (index === 0 ? { ...file, sha256: undefined } : file));
+    const broken: GenerationSource = { readText: async () => JSON.stringify(manifest) };
+    const store = new GenerationStore(broken, { cache: null });
+    const error = await store.loadManifest().catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(ContractError);
+    const message = (error as Error).message;
+    expect(message).toBe('manifest.json sözleşmeye uymuyor: files[0].sha256: metin bekleniyor');
+    expect(store.status.message).toBe(`Hata: ${message}`);
+    // Ham zod çıktısı yok: JSON nesnesi/dizisi açılışı, tırnaklı anahtar, İngilizce sorun kodu ya da ileti.
+    expect(store.status.message).not.toMatch(/[{}"]|\[\s*\{|invalid_type|expected|received/i);
+  });
+
+  it('sözleşme özeti: izinli değerler, tanımsız alan ve birden çok sorun', () => {
+    const issues = [
+      { code: 'invalid_value', values: [false], path: ['records', 79, 'payment_evidence'], message: 'Invalid input: expected false' },
+      { code: 'unrecognized_keys', keys: ['extra'], path: [], message: 'Unrecognized key: "extra"' },
+    ];
+    const zod = Object.assign(new Error(JSON.stringify(issues, null, 2)), { name: 'ZodError', issues });
+    expect(contractSummary(zod)).toBe('records[79].payment_evidence: yalnız false (+1 sorun daha)');
+    expect(contractSummary(Object.assign(new Error('x'), { name: 'ZodError', issues: [issues[1]] }))).toBe('kök: tanımsız alan extra');
+    expect(contractSummary(new Error('düz neden'))).toBe('düz neden');
   });
 
   it('koleksiyon: manifest.files içindeki parçaları bulur, hash doğrular, kayıtları yayınlar', async () => {

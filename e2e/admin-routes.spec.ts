@@ -314,6 +314,11 @@ test.describe('rotalar', () => {
   test('çevrim dışıyken sayfa parçası gelmezse "Yeniden dene" bağlantı gelince sayfayı getirir', { tag: '@matrix' }, async ({ page, context }) => {
     const veri = route('/veri');
     await openAdmin(page, '/genel');
+    // Bağlantı, açık sayfa tamamen yüklendikten sonra kesilir: openAdmin'in hazır sinyali geniş profilde geç gelen
+    // parçaları (GenelPage.wide ve bağımlılıkları) beklemez. WebKit başarısız modül isteğini modül haritasında tutar;
+    // çevrim dışıyken yarıda kalan ortak bir modül (ör. ui/Tag) /veri parçasının da bağımlılığıysa bağlantı gelince
+    // yeniden deneme de düşer (yalnız tam yenileme düzeltir). Bu test yalnız /veri parçasının kesilmesini sınar.
+    await page.waitForLoadState('networkidle');
     await context.setOffline(true);
     await page.evaluate(() => { window.location.hash = '/veri'; });
     const main = page.locator(ADMIN_MAIN);
