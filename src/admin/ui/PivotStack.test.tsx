@@ -1,8 +1,13 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { PivotStack } from './PivotStack';
+import { createElement, type ReactNode } from 'react';
+import { wideRuleViolations } from '../adaptive/sourceRules';
+import { DeviceContext } from '../device';
+import type { Device } from '../shell/contracts';
+import { PivotStack, type PivotRow } from './PivotStack';
+import { PIVOT_KOLON_ASGARI } from './PivotStack.parts';
 
 // Tasarım › components/PivotStack/README.md: pivotun telefondaki biçimi; satır boyutu dış katman, sütun değerleri
 // açılınca alt alta. Üstte genel toplam; her satırın kapalı başlığında satır toplamı (Planlanan / Gerçekleşen ayrı).
@@ -17,6 +22,9 @@ const ROWS: [string, [number | null, number | null][]][] = [
   ['Mutfak', [[30000, 4120], [12000, null], [4000, null], [null, null]]], // plan 46.000 · gerçek 4.120
   ['Çalışma odası', [[null, null], [6800, 6400], [3000, 2525.9], [null, null]]], // plan 9.800 · gerçek 8.925,90
 ];
+
+const onDevice = (device: Device) => ({ children }: { children: ReactNode }) =>
+  createElement(DeviceContext.Provider, { value: device }, children);
 
 const rowButton = (name: string) => screen.getByRole('button', { name: new RegExp(`^${name}`) });
 const regionOf = (button: HTMLElement) => {
@@ -202,6 +210,160 @@ describe('PivotStack', () => {
     // Sabit px yok; tek istisna 1 px ayırıcı çizgi (cizgi). Metin boyutu 14 px altına inmez.
     const fixedPx = (css.match(/\b\d+px\b/g) ?? []).filter(value => value !== '1px');
     expect(fixedPx).toEqual([]);
+    expect(css).not.toMatch(/font-size:\s*(1[0-3]|[0-9])px/);
+  });
+});
+
+describe('PivotStack › sahiplik: yalnız sahipli ölçüler toplanır', () => {
+  // Kaynak: view_definitions › pivot.aggregation.ownership_rule — yalnız açık yaprak satır sahipliği toplamayı açar;
+  // kaynaktaki alt toplam çocuklarıyla yeniden toplanmaz. Satır rolü: leaf (varsayılan), subtotal, unowned.
+  const SAHIPLI: PivotRow[] = [
+    ['Salon', [[1000, 500], [200, null]]],
+    ['Mutfak', [[2000, null], [null, 300]]],
+    ['Ev geneli', [[3000, 500], [200, 300]], { role: 'subtotal' }],
+    ['Eski tablo satırı', [[999, 111], [null, null]], { role: 'unowned' }],
+  ];
+
+  it('alt toplam ve sahipliği belirsiz satır gösterilir ama genel toplama girmez (çift sayım yok)', () => {
+    render(<PivotStack columns={['Önce', 'Sonra']} rows={SAHIPLI} />);
+    const total = screen.getByRole('group', { name: 'Genel toplam' });
+    expect(within(total).getByText('₺3.200,00')).toBeInTheDocument();
+    expect(within(total).getByText('₺800,00')).toBeInTheDocument();
+    expect(total.textContent).not.toContain('₺6.400,00');
+    expect(total.textContent).not.toContain('₺4.199,00');
+    expect(screen.getByText('Toplama girmeyen: 1 alt toplam satırı · 1 sahipliği belirsiz satır')).toBeInTheDocument();
+  });
+
+  it('alt toplam satırı kendi değeriyle ve "Alt toplam" işaretiyle; belirsiz satır "Sahipliği belirsiz · toplama girmedi" ile yazılır', () => {
+    render(<PivotStack columns={['Önce', 'Sonra']} rows={SAHIPLI} />);
+    const sub = rowButton('Ev geneli');
+    expect(sub).toHaveTextContent('Alt toplam');
+    expect(within(sub).getByText('₺3.200,00')).toBeInTheDocument();
+    const unowned = rowButton('Eski tablo satırı');
+    expect(unowned).toHaveTextContent('Sahipliği belirsiz · toplama girmedi');
+    expect(rowButton('Salon')).not.toHaveTextContent('Alt toplam');
+  });
+
+  it('dışlanan satır yoksa not yazılmaz', () => {
+    render(<PivotStack columns={COLUMNS} rows={ROWS} />);
+    expect(screen.queryByText(/^Toplama girmeyen/)).toBeNull();
+  });
+
+  it('sayı olmayan değer (NaN, Infinity) "Bilinmiyor" yazılır, toplama girmez; ₺NaN asla', async () => {
+    const user = userEvent.setup();
+    render(<PivotStack columns={['Önce']} rows={[['Bozuk', [[Number.NaN, Number.POSITIVE_INFINITY]]], ['Sağlam', [[100, 40]]]]} firstOpen />);
+    expect(document.body.textContent).not.toMatch(/NaN|∞/);
+    const total = screen.getByRole('group', { name: 'Genel toplam' });
+    expect(within(total).getByText('₺100,00')).toBeInTheDocument();
+    expect(within(total).getByText('₺40,00')).toBeInTheDocument();
+    expect(within(rowButton('Bozuk')).getAllByText('Bilinmiyor')).toHaveLength(2);
+    await user.click(rowButton('Sağlam'));
+    expect(document.body.textContent).not.toMatch(/NaN/);
+  });
+
+  it('tutarlar kuruşta kesin toplanır: 0,10 + 0,20 = 0,30', () => {
+    render(<PivotStack columns={['A']} rows={[['Bir', [[0.1, null]]], ['İki', [[0.2, null]]]]} />);
+    expect(within(screen.getByRole('group', { name: 'Genel toplam' })).getByText('₺0,30')).toBeInTheDocument();
+  });
+});
+
+describe('PivotStack › dokunma ve odak', () => {
+  it('Pointer Events: başlık basılınca data-pressed; pointercancel basılı durumu siler, satırı açmaz/kapatmaz', () => {
+    render(<PivotStack columns={COLUMNS} rows={ROWS} />);
+    const head = rowButton('Mutfak');
+    fireEvent.pointerDown(head, { pointerType: 'touch', button: 0, isPrimary: true });
+    expect(head).toHaveAttribute('data-pressed', 'true');
+    fireEvent.pointerCancel(head, { pointerType: 'touch' });
+    expect(head).not.toHaveAttribute('data-pressed');
+    expect(head).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('aç/kapa sonrası odak başlıkta kalır; Shift+Tab önceki başlığa döner', async () => {
+    const user = userEvent.setup();
+    render(<PivotStack columns={COLUMNS} rows={ROWS} firstOpen={false} />);
+    rowButton('Mutfak').focus();
+    await user.keyboard('{Enter}');
+    expect(rowButton('Mutfak')).toHaveFocus();
+    expect(rowButton('Mutfak')).toHaveAttribute('aria-expanded', 'true');
+    await user.tab({ shift: true });
+    expect(rowButton('Bebek odası')).toHaveFocus();
+  });
+
+  it('CSS: başlık 44 px, kaba işaretçide 48 px; basılı durum secili; antd sınıfı yok', () => {
+    const css = read('PivotStack.css');
+    expect(css).toMatch(/--aile-pivot-hedef:\s*var\(--aile-hedef-asgari\)/);
+    expect(css).toMatch(/\[data-input-coarse\][^{]*\{[^}]*--aile-pivot-hedef:\s*calc\(var\(--aile-hedef-asgari\)\s*\+\s*var\(--aile-bosluk-1\)\)/);
+    expect(css).toMatch(/\.aile-pivot-head\s*\{[^}]*min-height:\s*var\(--aile-pivot-hedef\)/);
+    expect(css).toMatch(/\.aile-pivot-head\[data-pressed='true'\]/);
+    expect(css).not.toMatch(/\.ant-/);
+  });
+});
+
+describe('PivotStack › uyarlamalı: telefonda yığın, genişte pivot tablo (ui/wide/Pivot.wide.tsx)', () => {
+  const COLS = ['Önce', 'Sonra'];
+  const SAT: PivotRow[] = [
+    ['Salon', [[1000, 500], [200, null]]],
+    ['Mutfak', [[2000, null], [null, null]]],
+    ['Ev geneli', [[3000, 500], [200, null]], { role: 'subtotal' }],
+  ];
+  const tabloyuBekle = () => screen.findByRole('table', { name: 'Oda ve aşamaya göre plan ve gerçek' }, { timeout: 3000 });
+
+  it('telefonda yığın: tablo yok', () => {
+    render(<PivotStack columns={COLS} rows={SAT} />, { wrapper: onDevice('phone') });
+    expect(screen.queryByRole('table')).toBeNull();
+    expect(rowButton('Salon')).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('tablette kapsayıcıya sığmayan pivot yığın kalır (tablo indirilmez)', async () => {
+    render(<PivotStack columns={COLS} rows={SAT} label="Oda ve aşamaya göre plan ve gerçek" />, { wrapper: onDevice('tablet') });
+    await new Promise(r => setTimeout(r, 30));
+    expect(screen.queryByRole('table')).toBeNull();
+    expect(rowButton('Salon')).toBeInTheDocument();
+  });
+
+  it('masaüstünde tablo tembel gelir: kaydırma bölgesi sekme durağı; başlıklar th; Plan/Gerçek ayrı; Toplam yalnız sahipli satırlardan', async () => {
+    render(<PivotStack columns={COLS} rows={SAT} label="Oda ve aşamaya göre plan ve gerçek" cornerLabel="Oda / Aşama" />, { wrapper: onDevice('desktop') });
+    const table = await tabloyuBekle();
+    const region = screen.getByRole('region', { name: 'Oda ve aşamaya göre plan ve gerçek' });
+    expect(region).toHaveAttribute('tabindex', '0');
+    expect(region.contains(table)).toBe(true);
+    expect(within(table).getAllByRole('columnheader').map(h => h.textContent)).toEqual(['Oda / Aşama', 'Önce', 'Sonra', 'Toplam']);
+    const salon = within(table).getByRole('row', { name: /^Salon/ });
+    expect(within(salon).getByRole('rowheader')).toHaveTextContent('Salon');
+    expect(salon).toHaveTextContent('Planlanan ₺1.000,00');
+    expect(salon).toHaveTextContent('Gerçekleşen ₺500,00');
+    expect(salon).toHaveTextContent('Planlanan ₺1.200,00');
+    const mutfak = within(table).getByRole('row', { name: /^Mutfak/ });
+    expect(mutfak).toHaveTextContent('Kayıt yok');
+    expect(mutfak).toHaveTextContent('Henüz yok');
+    const sub = within(table).getByRole('row', { name: /^Ev geneli/ });
+    expect(sub).toHaveAttribute('data-rol', 'subtotal');
+    expect(sub).toHaveTextContent('Alt toplam');
+    const toplam = within(table).getByRole('row', { name: /^Toplam/ });
+    const cells = within(toplam).getAllByRole('cell');
+    expect(cells[0]).toHaveTextContent('Planlanan ₺3.000,00');
+    expect(cells[1]).toHaveTextContent('Planlanan ₺200,00');
+    expect(cells[2]).toHaveTextContent('Planlanan ₺3.200,00');
+    expect(cells[2]).toHaveTextContent('Gerçekleşen ₺500,00');
+    expect(toplam.textContent).not.toContain('₺6.400,00');
+    expect(screen.getByRole('group', { name: 'Genel toplam' })).toBeInTheDocument();
+  });
+
+  it('kaynak: Pivot.wide yalnız lazyWide ile; antd/echarts yok; kolon asgari genişliği TS ve CSS\'te aynı', () => {
+    const tsx = read('PivotStack.tsx');
+    expect(tsx).toMatch(/lazyWide\(\s*'ui-pivot-tablo',\s*\(\)\s*=>\s*import\('\.\/wide\/Pivot\.wide'\)\s*\)/);
+    for (const file of ['PivotStack.tsx', 'PivotStack.parts.tsx', 'wide/Pivot.wide.tsx']) {
+      const source = read(file);
+      expect(wideRuleViolations(`src/admin/ui/${file}`, source), file).toEqual([]);
+      expect(source, file).not.toMatch(/from\s+['"](antd|@ant-design\/|@phosphor-icons\/|echarts)/);
+      expect(source, file).not.toMatch(/from\s+['"]\.{1,2}\/antd['"]/);
+      expect(source, file).not.toMatch(/Intl\.NumberFormat/);
+    }
+    const css = read('wide/Pivot.wide.css');
+    expect(css).toMatch(new RegExp(`--aile-pivot-kolon:\\s*${PIVOT_KOLON_ASGARI}px`));
+    expect(css).toMatch(/position:\s*sticky/);
+    expect(css).not.toMatch(/#[0-9a-f]{3,8}\b/i);
+    expect(css).not.toMatch(/^\s*(outline|box-shadow)\s*:/m);
     expect(css).not.toMatch(/font-size:\s*(1[0-3]|[0-9])px/);
   });
 });

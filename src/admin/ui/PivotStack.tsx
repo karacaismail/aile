@@ -1,22 +1,30 @@
-import { useId, useState, type ReactNode } from 'react';
+import { useId, useRef, useState } from 'react';
+import { lazyWide } from '../adaptive';
+import { useContainerWidth, useDevice } from '../device';
 import { Button } from './Button';
 import { Icon } from './icons';
+import { PRESS_HANDLERS } from './Kanban.press';
+import {
+  CellValue, GENEL_TOPLAM, KAYIT_YOK, Pair, RoleMark, excludedNote, pivotTableMinWidth, summarizePivot,
+  type PivotRow, type PivotSummary,
+} from './PivotStack.parts';
 import './PivotStack.css';
 
-// Tasarım › components/PivotStack/README.md + index.d.ts PivotStackProps; referans davranış bundle.js PivotStack
-// (AccordionList üstüne kurulu). Pivotun telefondaki biçimi (tablette tablo sığmazsa da bu): satır boyutu dış katman,
-// sütun değerleri açılınca alt alta. Üstte genel toplam; her satırın kapalı başlığında satır toplamı; her hücre
-// Planlanan / Gerçekleşen ayrı, asla tek sayıda birleşmez. Eksik plan "Fiyat yok", eksik gerçek "Henüz yok",
-// iki değer de yoksa hücre "Kayıt yok". Para ₺8.500,00 (tr-TR, 2 ondalık, tabular). İlk satır açık gelir; birden çok
-// satır açık kalabilir; üstte "Tümünü aç / kapat". Satır başlığı APG disclosure (aria-expanded/controls, kapalı bölge
-// hidden+inert) — ui/Disclosure başlığı tek satır metin + kısa sayım taşır, iki satırlık Planlanan/Gerçekleşen çifti
-// 320 px'te oraya sığmaz; aynı işaretleme ve 240 ms tek eğri burada kurulur. antd Collapse kullanılmaz.
-// Odak çizgisini admin.css çizer ([data-focus-line]); görsel kurallar PivotStack.css (yalnız --aile tokenları).
+// Tasarım › components/PivotStack/README.md + index.d.ts PivotStackProps; referans davranış bundle.js PivotStack /
+// PivotTable. Uyarlamalı teslim (W0 sözleşmesi):
+//  - Telefon (ve tablette tablo kapsayıcıya sığmıyorsa): yığılmış özet. Satır boyutu dış katman, sütun değerleri
+//    açılınca alt alta. Satır başlığı APG disclosure (aria-expanded/controls, kapalı bölge hidden+inert); ilk satır
+//    açık gelir, birden çok satır açık kalabilir, üstte "Tümünü aç / kapat". 240 ms tek eğri; reduced-motion anlık.
+//  - Geniş (masaüstü; tablette sığarsa): pivot tablo + yapışkan ilk sütun, ui/wide/Pivot.wide.tsx'ten yalnız lazyWide
+//    ile; beklerken ve yükleme hatasında yığın yedektir; telefonda hiç indirilmez.
+//  - Her iki biçimde üstte genel toplam. Planlanan / Gerçekleşen her yerde ayrı, asla tek sayıda birleşmez. Eksik plan
+//    "Fiyat yok", eksik gerçek "Henüz yok", iki değer de yoksa hücre "Kayıt yok", sayı olmayan değer "Bilinmiyor".
+//  - Yalnız sahipliği belirlenmiş (yaprak) satırlar toplanır; alt toplam satırı çocuklarıyla yeniden toplanmaz,
+//    sahipsiz satır gösterilir ama toplanmaz; toplama girmeyenler toplamın altında adıyla yazılır (PivotStack.parts).
+// antd Collapse kullanılmaz; bu dosya ve statik içe aktardıkları antd çekmez. Odak çizgisini admin.css çizer
+// ([data-focus-line]); görsel kurallar PivotStack.css (yalnız --aile tokenları).
 
-/** Bir hücre: [planlanan, gerçekleşen]; null = o değer yok. Tutarlar TRY, sayı olarak. */
-export type PivotCell = [plan: number | null, actual: number | null];
-/** Bir satır: [satır adı, sütun sırasıyla hücreler]. */
-export type PivotRow = [label: string, cells: PivotCell[]];
+export type { PivotCell, PivotRow, PivotRowMeta, PivotRowRole } from './PivotStack.parts';
 
 export interface PivotStackProps {
   /** Sütun adları (ör. proje aşamaları); hücreler bu sırayla okunur. */
@@ -29,57 +37,63 @@ export interface PivotStackProps {
   /** İlk satır açık gelsin (AccordionList kuralı); varsayılan true. */
   firstOpen?: boolean;
   className?: string;
+  /** Geniş tablonun ve kaydırma bölgesinin erişilebilir adı; varsayılan "Pivot tablo". */
+  label?: string;
+  /** Geniş tablonun köşe başlığı (ör. "Oda / Aşama"); varsayılan "Satır". */
+  cornerLabel?: string;
 }
 
-const PLANLANAN = 'Planlanan';
-const GERCEKLESEN = 'Gerçekleşen';
-const FIYAT_YOK = 'Fiyat yok';
-const HENUZ_YOK = 'Henüz yok';
-const KAYIT_YOK = 'Kayıt yok';
-const GENEL_TOPLAM = 'Genel toplam';
+const PIVOT_TABLO = 'Pivot tablo';
+const SATIR = 'Satır';
 
-// ui/Money henüz stub; aynı biçim (₺8.500,00) burada yerel. Money gelince tek kaynağa bağlanır.
-const TRY_FORMAT = new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const PivotTable = lazyWide('ui-pivot-tablo', () => import('./wide/Pivot.wide'));
 
-/** Bilinen değerleri toplar; hiç değer yoksa null kalır (₺0,00 yazılmaz, adıyla "Fiyat yok" / "Henüz yok" denir). */
-function sumCells(cells: readonly PivotCell[]): PivotCell {
-  let plan: number | null = null;
-  let actual: number | null = null;
-  for (const [p, a] of cells) {
-    if (p != null) plan = (plan ?? 0) + p;
-    if (a != null) actual = (actual ?? 0) + a;
-  }
-  return [plan, actual];
-}
+export function PivotStack({
+  columns, rows, caption, totalLabel = GENEL_TOPLAM, firstOpen = true, className, label = PIVOT_TABLO, cornerLabel = SATIR,
+}: PivotStackProps) {
+  const id = useId();
+  const totalId = `${id}-toplam`;
+  const device = useDevice();
+  const rootRef = useRef<HTMLDivElement>(null);
+  const width = useContainerWidth(rootRef);
+  const summary = summarizePivot(columns, rows);
+  const note = excludedNote(summary.excluded);
+  const hasRows = rows.length > 0;
+  // Masaüstünde tablo kendi bölgesinde yatay kayar; tablette yalnız kapsayıcıya sığıyorsa (README).
+  const table = hasRows && (device === 'desktop' || (device === 'tablet' && width >= pivotTableMinWidth(columns.length)));
 
-function Amount({ value, missing }: { value: number | null; missing: string }): ReactNode {
-  if (value == null) return <span className="aile-pivot-eksik">{missing}</span>;
-  return <span className="aile-tutar">{TRY_FORMAT.format(value)}</span>;
-}
+  const stack = <Stack columns={columns} rows={rows} caption={caption} firstOpen={firstOpen} summary={summary} idBase={id} />;
 
-/** Planlanan ve Gerçekleşen alt alta, ikisi de adıyla; renk ya da konum tek işaret değil. */
-function Pair({ value }: { value: PivotCell }) {
   return (
-    <span className="aile-pivot-pair">
-      <span className="aile-pivot-pair-line">
-        <span className="aile-pivot-k aile-kucuk">{PLANLANAN}</span> <Amount value={value[0]} missing={FIYAT_YOK} />
-      </span>
-      {' '}
-      <span className="aile-pivot-pair-line">
-        <span className="aile-pivot-k aile-kucuk">{GERCEKLESEN}</span> <Amount value={value[1]} missing={HENUZ_YOK} />
-      </span>
-    </span>
+    <div ref={rootRef} className={['aile-pivot', className].filter(Boolean).join(' ')}>
+      {hasRows ? (
+        <div className="aile-pivot-total" role="group" aria-labelledby={totalId}>
+          <span id={totalId} className="aile-pivot-total-label">{totalLabel}</span>
+          <Pair value={summary.grand} />
+        </div>
+      ) : null}
+      {note ? <p className="aile-pivot-not aile-kucuk aile-ikincil">{note}</p> : null}
+      {table ? (
+        <PivotTable columns={columns} rows={rows} summary={summary} caption={caption} label={label} cornerLabel={cornerLabel} wideFallback={stack} />
+      ) : stack}
+    </div>
   );
 }
 
-export function PivotStack({ columns, rows, caption, totalLabel = GENEL_TOPLAM, firstOpen = true, className }: PivotStackProps) {
-  const id = useId();
-  const totalId = `${id}-toplam`;
-  const [openKeys, setOpenKeys] = useState<ReadonlySet<string>>(() => new Set(firstOpen && rows[0] ? [rows[0][0]] : []));
+// --- Yığın (telefon temel sunumu) --------------------------------------------------------------------
+interface StackProps {
+  columns: readonly string[];
+  rows: readonly PivotRow[];
+  caption?: string;
+  firstOpen: boolean;
+  summary: PivotSummary;
+  idBase: string;
+}
 
+function Stack({ columns, rows, caption, firstOpen, summary, idBase }: StackProps) {
+  const [openKeys, setOpenKeys] = useState<ReadonlySet<string>>(() => new Set(firstOpen && rows[0] ? [rows[0][0]] : []));
   const hasRows = rows.length > 0;
   const allOpen = hasRows && rows.every(([label]) => openKeys.has(label));
-  const grand = sumCells(rows.map(([, cells]) => sumCells(cells)));
 
   const toggleRow = (label: string) => {
     setOpenKeys(prev => {
@@ -92,31 +106,23 @@ export function PivotStack({ columns, rows, caption, totalLabel = GENEL_TOPLAM, 
   const toggleAll = () => setOpenKeys(allOpen ? new Set() : new Set(rows.map(([label]) => label)));
 
   return (
-    <div className={['aile-pivot', className].filter(Boolean).join(' ')}>
-      {hasRows ? (
-        <div className="aile-pivot-total" role="group" aria-labelledby={totalId}>
-          <span id={totalId} className="aile-pivot-total-label">{totalLabel}</span>
-          <Pair value={grand} />
-        </div>
-      ) : null}
-
+    <>
       {caption || hasRows ? (
         <div className="aile-pivot-bar">
           {caption ? <p className="aile-pivot-caption aile-kucuk aile-ikincil">{caption}</p> : <span />}
-          {hasRows ? (
-            <Button variant="quiet" onClick={toggleAll}>{allOpen ? 'Tümünü kapat' : 'Tümünü aç'}</Button>
-          ) : null}
+          {hasRows ? <Button variant="quiet" onClick={toggleAll}>{allOpen ? 'Tümünü kapat' : 'Tümünü aç'}</Button> : null}
         </div>
       ) : null}
 
       {hasRows ? (
-        <ul className="aile-pivot-rows">
-          {rows.map(([label, cells], index) => {
+        <ul className="aile-pivot-rows" data-gorunum="yigin">
+          {rows.map((row, index) => {
+            const [label, cells] = row;
             const open = openKeys.has(label);
-            const buttonId = `${id}-s${index}-baslik`;
-            const panelId = `${id}-s${index}-icerik`;
+            const buttonId = `${idBase}-s${index}-baslik`;
+            const panelId = `${idBase}-s${index}-icerik`;
             return (
-              <li key={label} className="aile-pivot-row">
+              <li key={`${index}:${label}`} className="aile-pivot-row" data-rol={row[2]?.role ?? 'leaf'}>
                 <button
                   type="button"
                   id={buttonId}
@@ -125,27 +131,26 @@ export function PivotStack({ columns, rows, caption, totalLabel = GENEL_TOPLAM, 
                   aria-controls={panelId}
                   data-focus-line=""
                   onClick={() => toggleRow(label)}
+                  {...PRESS_HANDLERS}
                 >
-                  <span className="aile-pivot-title">{label}</span>
+                  <span className="aile-pivot-title">
+                    <span className="aile-pivot-title-ad">{label}</span>
+                    {' '}
+                    <RoleMark row={row} />
+                  </span>
                   {' '}
-                  <Pair value={sumCells(cells)} />
+                  <Pair value={summary.rowTotals[index]!} />
                   <Icon name="chevronDown" className="aile-pivot-chev" />
                 </button>
                 <div id={panelId} role="region" aria-labelledby={buttonId} className="aile-pivot-panel" hidden={!open} inert={!open}>
                   <div className="aile-pivot-inner">
                     <dl className="aile-pivot-cells">
-                      {columns.map((column, j) => {
-                        const cell = cells[j] ?? [null, null];
-                        const empty = cell[0] == null && cell[1] == null;
-                        return (
-                          <div key={column} className="aile-pivot-cell">
-                            <dt className="aile-pivot-cell-k">{column}</dt>
-                            <dd className="aile-pivot-cell-v">
-                              {empty ? <span className="aile-pivot-eksik">{KAYIT_YOK}</span> : <Pair value={cell} />}
-                            </dd>
-                          </div>
-                        );
-                      })}
+                      {columns.map((column, j) => (
+                        <div key={`${j}:${column}`} className="aile-pivot-cell">
+                          <dt className="aile-pivot-cell-k">{column}</dt>
+                          <dd className="aile-pivot-cell-v"><CellValue cell={cells[j]} /></dd>
+                        </div>
+                      ))}
                     </dl>
                   </div>
                 </div>
@@ -156,6 +161,6 @@ export function PivotStack({ columns, rows, caption, totalLabel = GENEL_TOPLAM, 
       ) : (
         <p className="aile-pivot-bos aile-ikincil">{KAYIT_YOK}</p>
       )}
-    </div>
+    </>
   );
 }

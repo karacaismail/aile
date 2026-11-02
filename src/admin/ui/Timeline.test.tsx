@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -173,6 +173,85 @@ describe('Timeline — kayıt satırı', () => {
   });
 });
 
+describe('Timeline — tarih okuma', () => {
+  it('takvimde olmayan gün (31 Şubat, 31 Nisan) okunamadı sayılır: "Tarihi bilinmiyor" grubunda, nedeni yazılı', () => {
+    render(<Timeline items={[
+      row({ id: 'T-1', label: 'Şubat otuz biri', dates: { planned: '2027-02-31' } }),
+      row({ id: 'T-2', label: 'Nisan otuz biri', dates: { planned: '2027-04-31' } }),
+      row({ id: 'T-3', label: 'Artık gün', dates: { planned: '2028-02-29' } }),
+    ]} dateField="planned" />);
+    expect(headingTexts()).toEqual(['Şubat 2028 1 kayıt', 'Tarihi bilinmiyor 2 kayıt']);
+    const undated = screen.getByRole('region', { name: /^Tarihi bilinmiyor/ });
+    expect(within(undated).getByRole('button', { name: /Şubat otuz biri/ })).toHaveTextContent('Planlanan teslim: Tarih okunamadı');
+    expect(within(undated).getByRole('button', { name: /Nisan otuz biri/ })).toHaveTextContent('Planlanan teslim: Tarih okunamadı');
+  });
+
+  it('saatli ISO değer Europe/Istanbul takvim gününe yerleşir; ofsetsiz saat yerel duvar saatidir', () => {
+    render(<Timeline items={[
+      row({ id: 'Z-1', label: 'UTC gece', dates: { paid: '2026-11-30T22:30:00Z' } }),
+      row({ id: 'Z-2', label: 'İstanbul gece', dates: { paid: '2026-11-30T23:30:00+03:00' } }),
+      row({ id: 'Z-3', label: 'Ofsetsiz', dates: { paid: '2026-12-02T10:00:00' } }),
+    ]} dateField="paid" />);
+    expect(headingTexts()).toEqual(['Kasım 2026 1 kayıt', 'Aralık 2026 2 kayıt']);
+    expect(screen.getByRole('button', { name: /UTC gece/ })).toHaveTextContent('Ödeme 01.12.2026');
+    expect(screen.getByRole('button', { name: /İstanbul gece/ })).toHaveTextContent('Ödeme 30.11.2026');
+    expect(screen.getByRole('button', { name: /Ofsetsiz/ })).toHaveTextContent('Ödeme 02.12.2026');
+  });
+
+  it('aynı gündeki kayıtlar gelen sırayı korur; aylar yıl sınırını doğru sıralar', () => {
+    render(<Timeline items={[
+      row({ id: 'S-1', label: 'Ocak kaydı', dates: { planned: '2027-01-02' } }),
+      row({ id: 'S-2', label: 'Aralık ikinci', dates: { planned: '2026-12-05' } }),
+      row({ id: 'S-3', label: 'Aralık birinci', dates: { planned: '2026-12-05' } }),
+    ]} dateField="planned" />);
+    expect(headingTexts()).toEqual(['Aralık 2026 2 kayıt', 'Ocak 2027 1 kayıt']);
+    const aralik = screen.getByRole('region', { name: /^Aralık 2026/ });
+    expect(within(aralik).getAllByRole('button').map(b => b.querySelector('.aile-tl-title')?.textContent)).toEqual(['Aralık ikinci', 'Aralık birinci']);
+  });
+});
+
+describe('Timeline — klavye ve dokunma', () => {
+  it('Tab kronolojik sırayla kayıtlarda ilerler, tarihsizler en sonda; Shift+Tab geri; Space de açar', async () => {
+    const user = userEvent.setup();
+    const onOpen = vi.fn();
+    render(<Timeline items={ITEMS} dateField="planned" onOpen={onOpen} />);
+    const order: string[] = [];
+    for (let i = 0; i < ITEMS.length; i += 1) {
+      await user.tab();
+      order.push((document.activeElement as HTMLElement).querySelector('.aile-tl-title')?.textContent ?? '');
+    }
+    expect(order).toEqual(['Karartma perde seti', 'Kedi kumu kabı', 'Bebek karyolası', 'Yemek masası', 'Bulaşık makinesi', 'Çamaşır kurutma makinesi', 'Mama kabı']);
+    await user.tab({ shift: true });
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: /Çamaşır kurutma makinesi/ }));
+    await user.keyboard(' ');
+    expect(onOpen).toHaveBeenCalledWith(ITEMS[5]);
+  });
+
+  it('Pointer Events: basılınca data-pressed; pointercancel (kaydırma) basılı durumu siler ve kaydı açmaz', () => {
+    const onOpen = vi.fn();
+    render(<Timeline items={ITEMS} dateField="planned" onOpen={onOpen} />);
+    const button = screen.getByRole('button', { name: /Bebek karyolası/ });
+    fireEvent.pointerDown(button, { pointerType: 'touch', button: 0, isPrimary: true });
+    expect(button).toHaveAttribute('data-pressed', 'true');
+    fireEvent.pointerCancel(button, { pointerType: 'touch' });
+    expect(button).not.toHaveAttribute('data-pressed');
+    expect(onOpen).not.toHaveBeenCalled();
+    fireEvent.pointerDown(button, { pointerType: 'pen', button: 0 });
+    fireEvent.pointerUp(button, { pointerType: 'pen' });
+    expect(button).not.toHaveAttribute('data-pressed');
+  });
+
+  it('CSS: kayıt düğmesi 44 px, kaba işaretçide 48 px; basılı durum secili; reduced-motion anlık; antd sınıfı yok', () => {
+    const css = readFileSync(resolve(__dirname, 'Timeline.css'), 'utf8');
+    expect(css).toMatch(/--aile-tl-hedef:\s*var\(--aile-hedef-asgari\)/);
+    expect(css).toMatch(/\[data-input-coarse\][^{]*\{[^}]*--aile-tl-hedef:\s*calc\(var\(--aile-hedef-asgari\)\s*\+\s*var\(--aile-bosluk-1\)\)/);
+    expect(css).toMatch(/\.aile-tl-body\s*\{[^}]*min-height:\s*var\(--aile-tl-hedef\)/);
+    expect(css).toMatch(/\.aile-tl-body\[data-pressed='true'\]/);
+    expect(css).toMatch(/prefers-reduced-motion:\s*reduce[\s\S]*transition-duration:\s*0s/);
+    expect(css).not.toMatch(/\.ant-/);
+  });
+});
+
 describe('Timeline — kaynak kuralları', () => {
   const read = (name: string) => readFileSync(resolve(__dirname, name), 'utf8');
 
@@ -185,6 +264,8 @@ describe('Timeline — kaynak kuralları', () => {
     expect(tsx).toMatch(/from ['"]\.\/Money['"]/);
     expect(tsx).not.toMatch(/Intl\.NumberFormat/);
     expect(tsx).toMatch(/from ['"]\.\.\/shell\/contracts['"]/);
+    expect(tsx).not.toMatch(/from\s+['"]\.{1,2}\/antd['"]/);
+    expect(tsx).not.toMatch(/\.wide['"]/);
   });
 
   it('bileşen içinde sabit renk yok; renk, boşluk, köşe, hedef ve hareket --aile tokenlarından', () => {
