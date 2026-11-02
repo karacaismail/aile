@@ -8,6 +8,7 @@ import { EmptyState } from '../../ui/EmptyState';
 import { FilterArea } from '../../ui/FilterArea';
 import { Kanban } from '../../ui/Kanban';
 import { ResponsiveTable } from '../../ui/ResponsiveTable';
+import { Bolum } from './Bolumler';
 import { SIRALAMALAR, aramaEslesir, ganttGirdileri, ganttPlan, projeGruplari, sayi, tariheGoreSirala, type GorevSatiri } from './model';
 import { GOREV_SUTUNLARI_GENIS, gorevGrubu } from './sutunlar';
 import { Gantt } from './wide/Gantt';
@@ -17,6 +18,8 @@ import { Gantt } from './wide/Gantt';
 // (Proje, Tür, Durum; masaüstünde 56 px şeritle başlayan panel, tablette sağdan çekmece) ve üç görünüm: Tablo (ilk
 // sütun yapışkan), Kanban (teslimat iş akışı sırası), Gantt (proje satırı + görevleri). Liste, Zaman çizelgesi ve Pivot
 // devre dışıdır, gerekçesi yazılır. Yazma yok: tarih ve durum kaynakta değişir.
+// Başlık yapısı: çalışma alanı h2 "Görevler" bölümüdür (Kontroller ve şablonlarla aynı Bolum iskeleti). Altındaki h3'ler
+// (tablette sığmayan tablonun akordeon grupları, Kanban sütunları, Gantt "Tarihsiz") h1'den seviye atlamaz.
 
 const SUPPORTED: readonly ViewMode[] = ['table', 'kanban', 'gantt_chart'];
 const UNSUPPORTED: Partial<Record<ViewMode, string>> = {
@@ -129,28 +132,32 @@ export default function ProjelerGenis({ gorevler, kanbanSutunlari, now }: Projel
   if (narrow) {
     // Tablet: filtreler sağdan çekmecede (FilterDrawer), sonuç tam genişlikte.
     return (
-      <div className="aile-projeler-genis" data-narrow="true">
-        {sorgu}
-        {gorunum}
-        <FilterDrawer
-          open={filtreAcik}
-          onClose={() => setFiltreAcik(false)}
-          resultCount={sonuc.length}
-          facets={facets}
-          onToggle={toggle}
-          onClear={temizle}
-          openKeys={ACIK_FACETLER}
-        />
-      </div>
+      <Bolum title={GOREVLER}>
+        <div className="aile-projeler-genis" data-narrow="true">
+          {sorgu}
+          {gorunum}
+          <FilterDrawer
+            open={filtreAcik}
+            onClose={() => setFiltreAcik(false)}
+            resultCount={sonuc.length}
+            facets={facets}
+            onToggle={toggle}
+            onClear={temizle}
+            openKeys={ACIK_FACETLER}
+          />
+        </div>
+      </Bolum>
     );
   }
   return (
-    <div className="aile-projeler-genis" data-narrow="false">
-      {sorgu}
-      {/* Tablo, Kanban ve Gantt: masaüstünde filtre 56 px şeritle başlar (README › Uyarlanır teslim); mod değişince yeniden kurulur. */}
-      <FilterArea key={mode} panel={<FilterPanel bare facets={facets} onToggle={toggle} onClear={temizle} openKeys={ACIK_FACETLER} />} defaultOpen={false} count={activeFilters.length}>
-        {gorunum}
-      </FilterArea>
-    </div>
+    <Bolum title={GOREVLER}>
+      <div className="aile-projeler-genis" data-narrow="false">
+        {sorgu}
+        {/* Tablo, Kanban ve Gantt: masaüstünde filtre 56 px şeritle başlar (README › Uyarlanır teslim); mod değişince yeniden kurulur. */}
+        <FilterArea key={mode} panel={<FilterPanel bare facets={facets} onToggle={toggle} onClear={temizle} openKeys={ACIK_FACETLER} />} defaultOpen={false} count={activeFilters.length}>
+          {gorunum}
+        </FilterArea>
+      </div>
+    </Bolum>
   );
 }

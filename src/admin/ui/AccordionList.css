@@ -174,12 +174,14 @@ button.aile-acc-head:hover .aile-acc-tog { background: var(--aile-bilgi-yuzey); 
 .aile-acc-item[data-open='true'] > .aile-acc-panel { background: var(--aile-bilgi-yuzey); }
 .aile-acc-item[data-open='true'] .aile-acc-dl { border-top-color: var(--aile-acik-mavi); }
 
-/* Seçili satır: secili yüzey + 600 (başlık zaten 600); secili üzerinde metin-ikincil 4,0:1'de kalır, metin olur.
-   Açık ve seçili birlikteyse seçim yüzeyi kalır (bundle .is-selected.is-open). */
+/* Seçili satır: secili yüzey + 600 (başlık zaten 600); secili üzerinde metin-ikincil 4,0:1'de kalır (WCAG 1.4.3 için
+   4,5:1), metin olur: meta, düz satır oku ve sayfanın başlığa koyduğu ikincil yazılar (.aile-ikincil; Table.css seçili
+   satırıyla aynı kural, sayfada yinelenmez). Açık ve seçili birlikteyse seçim yüzeyi kalır (bundle .is-selected.is-open). */
 .aile-acc-item[data-selected='true'] > .aile-acc-head,
 .aile-acc-item[data-selected='true'][data-open='true'] > .aile-acc-head { background: var(--aile-secili); }
 .aile-acc-item[data-selected='true'] > .aile-acc-head .aile-acc-meta,
-.aile-acc-item[data-selected='true'] > .aile-acc-head .aile-acc-chev-flat { color: var(--aile-metin); }
+.aile-acc-item[data-selected='true'] > .aile-acc-head .aile-acc-chev-flat,
+.aile-acc-item[data-selected='true'] > .aile-acc-head .aile-ikincil { color: var(--aile-metin); }
 
 /* Gövde: grid satırı 0fr → 1fr ile yükseklik geçişi (Disclosure ile aynı). React kapalıyken hidden+inert verir;
    display geçişi allow-discrete ile kapanış süresince kutuyu tutar, @starting-style açılışı 0fr'dan başlatır. */

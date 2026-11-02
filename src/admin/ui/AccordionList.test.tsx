@@ -269,6 +269,16 @@ describe('AccordionList', () => {
     expect(head('Mutfak masası').closest('li')).toHaveAttribute('data-selected', 'false');
   });
 
+  it('seçili başlıkta sayfanın ikincil metni (.aile-ikincil) ana metin rengine döner: secili üzerinde 4,5:1 (Table.css ile eşlik)', () => {
+    // metin-ikincil secili yüzeyde 4,0:1'de kalır (WCAG 1.4.3 için 4,5:1). Sayfalar başlığa .aile-ikincil yazı koyar
+    // (Bütçe "Fark" etiketi, "Kaynakta yazılı"); kural bileşende tek yerde durur, sayfa düzeyinde yinelenmez.
+    const rules = (css: string) => Array.from(css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^}]*)\}/g))
+      .map(([, selector, body]) => ({ selectors: selector!.split(',').map(part => part.trim().replace(/\s+/g, ' ')), body: body! }));
+    const metinRengi = (css: string, hedef: string) => rules(css).some(rule => rule.selectors.includes(hedef) && /color: var\(--aile-metin\);/.test(rule.body));
+    expect(metinRengi(read('AccordionList.css'), ".aile-acc-item[data-selected='true'] > .aile-acc-head .aile-ikincil")).toBe(true);
+    expect(metinRengi(read('Table.css'), ".aile-table tbody > tr[aria-selected='true'] > td.aile-table-hucre .aile-ikincil")).toBe(true);
+  });
+
   it('klavye: Enter ve Space satırı açar/kapatır; ok tuşları, Home ve End satır başlıkları arasında odağı taşır', async () => {
     const user = userEvent.setup();
     render(<AccordionList items={alimlar} firstOpen={false} />);

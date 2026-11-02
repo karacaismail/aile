@@ -10,7 +10,8 @@ import { Toplam } from './ortak';
 // Oda ayrıntısı (tasarım README › Sayfa iskeleti 5): kimlik + fotoğraf → Plan | Gerçek (iki ayrı değer) → sayımlar ve
 // eksik bilgi → bağlı kayıtlar (sekmeler) → kaynak. Telefonda ve tablette tam sayfa ("Listeye dön"), masaüstünde sağ
 // panel ("Ayrıntıyı kapat"). Başlık programatik odak alır (tabIndex -1) ve klavye modunda tek alt çizgiyi taşır.
-// Bağlı kayıt listesinin biçimini çağıran verir (telefon/panel akordeon, tablet tablo).
+// Bağlı kayıt listesinin biçimini çağıran verir (telefon/panel akordeon, tablet tablo); liste "Oda bölümleri"
+// sekmelerinin panelinde çizilir (role=tabpanel, seçili sekmeyle adlı).
 
 export interface OdaAyrintiProps {
   oda: OdaOzeti;
@@ -71,8 +72,10 @@ export function OdaAyrinti({ oda, sekme, onSekme, baslikRef, yerlesim, onDon, li
         <p className="aile-kucuk aile-ikincil aile-ev-satir-metni">{`Eksik bilgi: ${oda.eksik}`}</p>
       </div>
 
-      <Tabs label="Oda bölümleri" items={SEKMELER} activeKey={sekme} onChange={(key) => onSekme(key as Sekme)} />
-      <div className="aile-ev-ayrinti__bolum">{liste(sekme, oda)}</div>
+      {/* Bağlı liste sekmelerin panelidir (APG Tabs): role=tabpanel seçili sekmeyle adlanır, sekme aria-controls ile bağlı. */}
+      <Tabs label="Oda bölümleri" items={SEKMELER} activeKey={sekme} onChange={(key) => onSekme(key as Sekme)}>
+        <div className="aile-ev-ayrinti__bolum">{liste(sekme, oda)}</div>
+      </Tabs>
 
       <p className="aile-kucuk aile-ikincil aile-ev-satir-metni">{`Kaynak: ${oda.kaynak ?? BILINMIYOR}`}</p>
     </section>

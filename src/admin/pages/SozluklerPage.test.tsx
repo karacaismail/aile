@@ -237,6 +237,33 @@ describe('SozluklerPage › sözlük ağacı (masaüstü, lazyWide tablo)', () =
   });
 });
 
+describe('SozluklerPage › geniş profil: bölüm içeriği "Sözlük" sekmelerinin panelinde (APG Tabs)', () => {
+  for (const device of ['desktop', 'tablet'] as const) {
+    it(`${device}: tabpanel seçili sekmeyle adlanır ve ona bağlıdır; sekme değişince panel yeni bölümü taşır`, async () => {
+      setup({ device });
+      const { bolge } = await categoryTable();
+      const sekmeler = screen.getByRole('group', { name: 'Sözlük' });
+      const secili = within(sekmeler).getByRole('tab', { selected: true });
+      const panel = within(sekmeler).getByRole('tabpanel');
+      expect(panel).toHaveAccessibleName(secili.textContent!);
+      expect(secili).toHaveAttribute('aria-controls', panel.id);
+      expect(panel).toContainElement(bolge);
+
+      await userEvent.click(within(sekmeler).getByRole('tab', { name: 'Durumlar' }));
+      const durumlar = within(sekmeler).getByRole('tabpanel', { name: 'Durumlar' });
+      expect(within(durumlar).getByRole('region', { name: 'Tedarik durumu' })).toBeInTheDocument();
+      expect(within(sekmeler).getAllByRole('tabpanel')).toHaveLength(1);
+    });
+  }
+
+  it('telefonda sekme paneli yok: seçim "Sözlük" alt sayfasıdır, bölüm içeriği doğrudan akar', async () => {
+    setup({ device: 'phone' });
+    await screen.findByRole('region', { name: 'Kategoriler' });
+    expect(screen.queryByRole('tabpanel')).toBeNull();
+    expect(screen.getByRole('combobox', { name: 'Sözlük' })).toBeInTheDocument();
+  });
+});
+
 describe('SozluklerPage › kullanım bilinmiyorsa', () => {
   it('bir tür koleksiyonu okunamazsa sayım "Bilinmiyor" olur ve hiçbir terim pasifleştirilemez (0 sayılmaz)', async () => {
     setup({ overrides: corrupted('work_orders') });
