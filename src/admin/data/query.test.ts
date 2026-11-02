@@ -255,10 +255,10 @@ describe('Türkçe metin ve sıralama', () => {
   });
 
   it('küçük harf ve İ/ı: ı-sözcükleri i-sözcüklerinden önce, sayılar doğal sırada', () => {
-    const labels = ['ip', 'İnci', 'ılgın', 'Işık', 'iğde', 'ıhlamur', 'Ölçü', 'oda', 'Kalem 10', 'Kalem 2', 'cam', 'Çay'];
+    const labels = ['ip', 'İncir', 'ılgın', 'Işık', 'iğde', 'ıhlamur', 'Ölçü', 'oda', 'Kalem 10', 'Kalem 2', 'cam', 'Çay'];
     const rows = labels.map((label, i) => row({ id: `t${i}`, label }));
-    expect(sortRows(rows, { field: 'label', dir: 'asc' }).map(r => r.label)).toEqual(['cam', 'Çay', 'ıhlamur', 'ılgın', 'Işık', 'iğde', 'İnci', 'ip', 'Kalem 2', 'Kalem 10', 'oda', 'Ölçü']);
-    expect(sortRows(rows, { field: 'label', dir: 'desc' }).map(r => r.label)).toEqual(['Ölçü', 'oda', 'Kalem 10', 'Kalem 2', 'ip', 'İnci', 'iğde', 'Işık', 'ılgın', 'ıhlamur', 'Çay', 'cam']);
+    expect(sortRows(rows, { field: 'label', dir: 'asc' }).map(r => r.label)).toEqual(['cam', 'Çay', 'ıhlamur', 'ılgın', 'Işık', 'iğde', 'İncir', 'ip', 'Kalem 2', 'Kalem 10', 'oda', 'Ölçü']);
+    expect(sortRows(rows, { field: 'label', dir: 'desc' }).map(r => r.label)).toEqual(['Ölçü', 'oda', 'Kalem 10', 'Kalem 2', 'ip', 'İncir', 'iğde', 'Işık', 'ılgın', 'ıhlamur', 'Çay', 'cam']);
   });
 
   it('kararlı sıralama: eşit anahtarlı kayıtlar her alanda ve iki yönde girdi sırasını korur', () => {

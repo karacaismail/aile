@@ -20,6 +20,7 @@ import { get as idbGet, set as idbSet } from 'idb-keyval';
 import type { Budget, Category, Irregular, Month } from '../../dashboard/data';
 import { fetchBudget, sheetId } from '../../dashboard/data';
 import { BudgetIntegrityError } from '../../dashboard/integrity';
+import { sheetMonthKey } from '../../dashboard/current';
 import { ApiError, callApi } from '../../sync/api';
 import type { ReadFull, ReadResponse } from '@shared/api';
 import type { CashEntry, Item, Setting } from '@shared/schema';
@@ -169,7 +170,14 @@ function periodOf(label: string, labels: ReadonlyMap<string, Period>): Period | 
   const known = labels.get(text.toLocaleLowerCase('tr'));
   if (known) return known;
   const iso = /^(\d{4})-(0[1-9]|1[0-2])(?:-\d{2})?$/.exec(text);
-  return iso ? `${iso[1]}-${iso[2]}` : null;
+  if (iso) return `${iso[1]}-${iso[2]}`;
+  // Bütçe penceresi dışındaki Türkçe ay etiketi ("Mart 2099"): eski panoyla aynı ayrıştırıcı.
+  try {
+    return sheetMonthKey(text);
+  } catch (error) {
+    if (error instanceof BudgetIntegrityError) return null;
+    throw error;
+  }
 }
 
 const irregularView = (row: Irregular, labels: ReadonlyMap<string, Period>): BudgetIrregularView => ({

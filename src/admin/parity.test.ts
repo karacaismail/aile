@@ -20,7 +20,7 @@ import { liveBudget, type BudgetLineView, type BudgetViewModel } from './data/li
 //  - Eski pano: fetchBudget → Budget. budgetStore/useBudget aynı nesneyi tutar, Dashboard onu olduğu gibi çizer.
 //  - Yeni panel: liveBudget → BudgetViewModel.
 // Kaynak yalnız fetch saplamasıdır (src/dashboard fikstürleri, VITE_BUDGET_SHEET_ID=synthetic-budget-sheet-2098). Google'a
-// ağ çağrısı yok, kasa-work verisi yok, Sheets'e yazma yok.
+// ağ çağrısı yok, özel nesil verisi yok, Sheets'e yazma yok.
 //
 // Bilinçli farklar (eşitlik bunları hesaba katar, her biri aşağıda kendi testinde adlandırılır):
 //  1. Gerçekleşen anlamı: eski pano Gerçekleşen sekmesindeki değeri her ay için "Güncel" adıyla gösterir. live aynı sayıyı
