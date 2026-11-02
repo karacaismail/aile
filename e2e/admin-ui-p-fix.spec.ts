@@ -41,6 +41,10 @@ test.beforeEach(async ({ page }) => {
   await page.route(url => url.hostname !== '127.0.0.1', route => route.abort('blockedbyclient'));
 });
 
+// Yalnız telefon profili: geniş profilde (tablet, masaüstü) Sayfalar çekmecesi ve "Diğer" menüsü yoktur. Profil kuralı
+// src/admin/adaptive/profile.ts ile aynı: genişlik < 600 ya da kısa kenar < 480.
+test.skip(({ viewport }) => !viewport || (viewport.width >= 600 && Math.min(viewport.width, viewport.height) >= 480), 'yalnız telefon profili');
+
 test('bekleme: meşgul düğme, ince şerit, kibar duyuru; Escape iptal eder ve geç gelen modül hiçbir şeyi açmaz (m2)', async ({ page, browserName }) => {
   await openAdmin(page, ROUTE);
   let release!: () => void;

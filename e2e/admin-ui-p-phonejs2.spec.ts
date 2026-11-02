@@ -24,6 +24,10 @@ function recordModules(page: Page): string[] {
   return paths;
 }
 
+// Yalnız telefon profili: geniş profilde (tablet, masaüstü) Sayfalar çekmecesi ve "Diğer" menüsü yoktur. Profil kuralı
+// src/admin/adaptive/profile.ts ile aynı: genişlik < 600 ya da kısa kenar < 480.
+test.skip(({ viewport }) => !viewport || (viewport.width >= 600 && Math.min(viewport.width, viewport.height) >= 480), 'yalnız telefon profili');
+
 const digerOf = (page: Page) => page.locator('.aile-ph [data-part="actions"]').getByRole('button', { name: 'Diğer', exact: true });
 
 test('/genel telefon: menü düğmesi modülü statik, açılır gövde (Menu.panel, Menu.css) ve BottomSheet istenmez', async ({ page }) => {
