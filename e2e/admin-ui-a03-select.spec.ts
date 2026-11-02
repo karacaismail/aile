@@ -4,7 +4,8 @@ import { openAdmin, tabKey } from './admin-helpers';
 
 // Görev a03 — yerel Select (antd yok) gerçek rotada: Raporlar. Telefonda "Rapor" seçimi ortak alt sayfa (ui/BottomSheet:
 // kipli diyalog, APG listbox, dolaşan odak); genişte "Dönem" seçimi popover listbox (odak tetikte, aria-activedescendant;
-// tek alt çizgi tetikte, etkin seçenek bilgi-yuzey tonuyla).
+// klavye modunda tek alt çizgi etkin seçenekte, tetiğin çizgisi o sürede bastırılır; etkin seçenek bilgi-yuzey tonunu da
+// korur; işaretçi modunda çizgi yok). Kaydırıcı listbox'ın kendisidir (axe scrollable-region-focusable muafiyeti).
 // Görev koşusu: chromium 320×568 dokunmatik ve webkit 390×844 dokunmatik (ikisi de telefon profili); geniş davranış
 // aynı projelerde görünüm alanı büyütülerek ölçülür. @matrix testleri entegrasyonda ek projelerde (360/375/kısa/yatay
 // telefon, tablet, masaüstü) de koşar ve profile göre dallanır. Emülasyon gerçek cihaz değildir.
@@ -23,6 +24,32 @@ const press = async (page: Page, locator: Locator) => ((await hasTouch(page)) ? 
 const heightOf = async (locator: Locator) => (await locator.boundingBox())?.height ?? 0;
 /** Select kökü (tetiğin üstü) için dedektör seçicisi. */
 const rootOf = async (combo: Locator) => `.aile-select:has(> [id="${await combo.getAttribute('id')}"])`;
+
+/**
+ * Select kökünde (tetik, popover, seçenekler) görünür odak çizgisi çizen öğeler: ::after içerikli, odak kalınlığında,
+ * saydam olmayan zeminli ve genişliği > 0. Aynı anda tek çizgi sözleşmesini sayar (f01 "etkin" kalıbı).
+ */
+async function focusLines(combo: Locator) {
+  return combo.page().locator(await rootOf(combo)).evaluate(root => [root, ...Array.from(root.querySelectorAll('*'))].filter(node => {
+    const line = getComputedStyle(node, '::after');
+    if (line.content === 'none' || line.content === 'normal' || line.display === 'none') return false;
+    const thickness = parseFloat(getComputedStyle(node).getPropertyValue('--aile-odak-kalinlik')) || 3;
+    const bg = line.backgroundColor;
+    return Math.abs(parseFloat(line.height) - thickness) < 0.5 && parseFloat(line.width) > 0 && bg !== 'transparent' && !/,\s*0\)$/.test(bg);
+  }).map(node => (node.id ? `#${node.id}` : node.className)));
+}
+
+/** Etkin seçeneğin çizgisi listbox'ın görünür alanında (kaydırıcı kırpmaz): çizginin altı ≤ listenin altı. */
+async function activeLineInsideList(page: Page, optionId: string) {
+  return page.locator(`[id="${optionId}"]`).evaluate(option => {
+    const list = option.closest('[role="listbox"]')!;
+    const line = getComputedStyle(option, '::after');
+    const box = option.getBoundingClientRect();
+    const lineBottom = box.bottom - parseFloat(line.bottom);
+    const area = list.getBoundingClientRect();
+    return { lineBottom: Math.round(lineBottom), listBottom: Math.round(area.bottom), inside: lineBottom <= area.bottom + 0.5 && box.top >= area.top - 0.5 };
+  });
+}
 
 async function expectTargets(page: Page, locators: Locator[]) {
   const min = await minTarget(page);
@@ -108,6 +135,16 @@ test.describe('a03 Select — gerçek rota', () => {
       await expectTargets(page, await list.getByRole('option').all());
       expect(await smallText(page, { root: POPOVER })).toEqual([]);
       expect(await motion(page, undefined, undefined, { root: POPOVER })).toEqual([]);
+      // İşaretçi modu: tetikte ve etkin seçenekte çizgi yok.
+      await expect(page.locator('html')).toHaveAttribute('data-keyboard', 'false');
+      expect(await focusLines(combo), 'işaretçi modunda odak çizgisi').toEqual([]);
+      // Kaydırıcı listbox'tır; popover sarmalayıcı kaydırmaz (axe scrollable-region-focusable).
+      const scrollers = await page.locator(POPOVER).evaluate(el => ({
+        wrapper: getComputedStyle(el).overflowY,
+        list: getComputedStyle(el.querySelector('[role="listbox"]')!).overflowY,
+        wrapperScrolls: el.scrollHeight > el.clientHeight + 1,
+      }));
+      expect(scrollers).toEqual({ wrapper: 'hidden', list: 'auto', wrapperScrolls: false });
       const target = list.getByRole('option', { selected: false }).first();
       const name = ((await target.textContent()) ?? '').trim();
       await press(page, target);
@@ -146,25 +183,38 @@ test.describe('a03 Select — gerçek rota', () => {
       await expect(combo).toBeFocused();
       const first = await combo.getAttribute('aria-activedescendant');
       expect(first).toBeTruthy();
+      // Açılır açılmaz görsel odak etkin seçenekte: tek çizgi orada, tetikte yok (f01 "etkin" kalıbı, APG).
+      expect(await focusLines(combo), 'açılışta tek çizgi etkin seçenekte').toEqual([`#${first}`]);
+      expect(await focusRing(page, { target: `[id="${first}"]` }), 'etkin seçenek çizgisi kontrol geometrisinde').toEqual([]);
+      expect(await focusRing(page, { keyboard: false }), 'tetikte çizgi ya da halka yok').toEqual([]);
       await page.keyboard.press('End');
       const last = await combo.getAttribute('aria-activedescendant');
       const active = page.locator(`[id="${last}"]`);
       await expect(active).toHaveClass(/is-etkin/);
-      // Tek alt çizgi tetikte (odak sözleşmesi, f01): etkin seçenek çizgi taşımaz, yüzey tonuyla (bilgi-yuzey) gösterilir.
+      await expect(combo).toBeFocused();
+      // Çizgi yeni etkin seçeneğe taşınır; aynı anda tek çizgi; kaydırıcı son seçeneğin çizgisini kırpmaz.
+      expect(await focusLines(combo), 'End sonrası tek çizgi son seçenekte').toEqual([`#${last}`]);
+      expect(await focusRing(page, { target: `[id="${last}"]` }), 'son seçenek çizgisi').toEqual([]);
+      expect(await focusRing(page, { keyboard: false }), 'End sonrası tetikte çizgi yok').toEqual([]);
+      const inside = await activeLineInsideList(page, last!);
+      expect(inside.inside, `son seçeneğin çizgisi listenin görünür alanında (çizgi alt ${inside.lineBottom}, liste alt ${inside.listBottom})`).toBe(true);
+      // Etkin seçenek zemin tonunu da korur: bilgi-yuzey (seçili değilse); 240 ms geçişle gelir, oturmuş tonu bekle.
       const look = await active.evaluate((el) => {
         const probe = document.createElement('span');
         probe.style.backgroundColor = 'var(--aile-bilgi-yuzey)';
         el.append(probe);
         const tone = getComputedStyle(probe).backgroundColor;
         probe.remove();
-        const after = getComputedStyle(el, '::after');
-        return { line: after.content !== 'none' && after.content !== 'normal', bg: getComputedStyle(el).backgroundColor, tone, selected: el.getAttribute('aria-selected') === 'true' };
+        return { tone, selected: el.getAttribute('aria-selected') === 'true' };
       });
-      expect(look.line, 'etkin seçenekte çizgi yok').toBe(false);
-      // Zemin 240 ms geçişle gelir (hareket sözleşmesi): oturmuş tonu bekle.
       if (!look.selected) await expect.poll(() => active.evaluate(el => getComputedStyle(el).backgroundColor), { message: 'etkin seçenek bilgi-yuzey' }).toBe(look.tone);
-      expect(await focusRing(page)).toEqual([]);
+      await page.keyboard.press('Home');
+      const home = await combo.getAttribute('aria-activedescendant');
+      expect(await focusLines(combo), 'Home sonrası tek çizgi ilk seçenekte').toEqual([`#${home}`]);
       await page.keyboard.press('Escape');
+      await expect(combo).toHaveAttribute('aria-expanded', 'false');
+      // Kapanınca (aria-activedescendant kalkar) çizgi hemen tetiğe döner; çıkış geçişindeki katmanda çizgi yok.
+      expect(await focusLines(combo), 'kapanışta tek çizgi tetikte').toEqual([`#${await combo.getAttribute('id')}`]);
       await expect(page.locator(POPOVER)).toHaveCount(0);
     }
     await expect(combo).toHaveAttribute('aria-expanded', 'false');

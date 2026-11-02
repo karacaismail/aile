@@ -385,6 +385,57 @@ describe('TextField — sanal klavye (visualViewport)', () => {
     element.remove();
   });
 
+  // r-sheet: alt sayfa ve diyalog kökü sanal klavyeyi kendisi yönetir (BottomSheet.layer fitVisualViewport, Dialog
+  // syncViewport): klavye açıkken kök data-klavye taşır, kök görünür alana oturur ve odaklı alanı yapışık altlığın üstüne
+  // kendisi kaydırır. Alanın kendi kaydırması altlığı bilmez ve katmanın son sözünü bozar; o katmanda hiçbir şey yapmaz.
+  it('inside a modal layer that manages the keyboard itself ([data-aile-katman][data-klavye]) it does nothing', () => {
+    const page = document.scrollingElement ?? document.documentElement;
+    const pageTop = scroller(page as HTMLElement, 3000, 568);
+    const layer = document.createElement('div');
+    layer.setAttribute('data-aile-katman', '');
+    layer.setAttribute('data-klavye', 'acik');
+    layer.style.position = 'fixed';
+    const body = document.createElement('div');
+    body.style.overflowY = 'auto';
+    const element = document.createElement('div');
+    body.append(element);
+    layer.append(body);
+    document.body.append(layer);
+    const bodyTop = scroller(body, 700, 500);
+    placeAt(element, 480, 60, bodyTop);
+    try {
+      expect(revealInVisualViewport(element, { height: 300, offsetTop: 0 }, 16)).toBe(0);
+      expect(bodyTop()).toBe(0);
+      expect(pageTop()).toBe(0);
+      // Klavye kapalıyken (data-klavye yok) katman yönetmiyor: alan kendi kaydırmasını yapar (önceki sözleşme).
+      layer.removeAttribute('data-klavye');
+      expect(revealInVisualViewport(element, { height: 300, offsetTop: 0 }, 16)).toBe(200);
+      expect(bodyTop()).toBe(200);
+      expect(pageTop()).toBe(0);
+    } finally {
+      layer.remove();
+      for (const key of ['scrollTop', 'scrollHeight', 'clientHeight']) delete (page as unknown as Record<string, unknown>)[key];
+    }
+  });
+
+  it('a focused field inside a keyboard-managing layer does not scroll when the visual viewport shrinks', () => {
+    const viewport = installVisualViewport(568);
+    render(
+      <div data-aile-katman="" data-klavye="acik">
+        <div data-testid="govde" style={{ overflowY: 'auto' }}>
+          <TextField label="Not" />
+        </div>
+      </div>,
+    );
+    const scrolled = scroller(screen.getByTestId('govde'), 1200, 568);
+    const input = screen.getByLabelText('Not');
+    placeAt(input.closest('.aile-textfield')!, 400, 100, scrolled);
+    act(() => input.focus());
+    viewport.height = 300;
+    act(() => { viewport.dispatchEvent(new Event('resize')); });
+    expect(scrolled()).toBe(0);
+  });
+
   it('inside a fixed layer (dialog, bottom sheet) it scrolls the layer but never the page behind it', () => {
     const page = document.scrollingElement ?? document.documentElement;
     const pageTop = scroller(page as HTMLElement, 3000, 568);
