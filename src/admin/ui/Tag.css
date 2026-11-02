@@ -1,26 +1,31 @@
 /* Tag — tasarım components/Tag/README.md + bundle.css .ai-tag*; yalnız --aile tokenları (admin.css / aileCssVars).
-   Seçiciler [data-tone] ile iki parçalı: antd'nin :where() ile düşürülmüş .ant-tag kurallarını sıradan bağımsız yener,
-   antd iç sınıfına bağlanmaz. Yazı ölçeği admin.css'tekiyle aynı: küçük metin 14/20 (alt sınır 14 px).
+   Yerel span/button; antd yok. Yazı ölçeği admin.css'tekiyle aynı: küçük metin 14/20 (alt sınır 14 px).
+   Dokunma hedefi tek kaynaktan: --aile-dokunma-hedefi (44 px; AdaptiveRoot data-input-coarse katmanında admin.css onu
+   48 px yapar). Bileşen coarse değerini kendisi türetmez.
+   Hover yalnız hover destekleyen birincil işaretçide: dokunmatik cihazda takılı hover kalmaz.
    Odak çizgisini admin.css çizer ([data-focus-line]); burada outline/halka/box-shadow yok. */
 
-.aile-tag[data-tone] {
+.aile-tag {
   display: inline-flex;
   align-items: center;
   gap: var(--aile-bosluk-1);
+  max-width: 100%;
   margin: 0;
   padding: var(--aile-bosluk-1) var(--aile-bosluk-3);
   border: 0;
   border-radius: var(--aile-kose-kontrol);
   background: var(--aile-liste-zemin);
   color: var(--aile-metin);
-  font-family: inherit;
+  font: inherit;
   font-size: 14px;
   line-height: 20px;
   font-weight: 500;
   white-space: nowrap;
+  text-align: start;
+  vertical-align: middle;
   transition: background-color var(--aile-sure) var(--aile-egri), color var(--aile-sure) var(--aile-egri);
 }
-.aile-tag[data-tone] svg { flex: none; }
+.aile-tag > svg { flex: none; }
 
 /* Durum tonları: renk destekler, sözcük anlamı taşır. */
 .aile-tag--durum[data-tone='bilgi'] { background: var(--aile-bilgi-yuzey); color: var(--aile-eylem); }
@@ -29,44 +34,66 @@
 .aile-tag--durum[data-tone='hata'] { background: var(--aile-hata-yuzey); color: var(--aile-hata); }
 
 /* Seçilebilir: 44 px hedef; hover bilgi-yuzey, basılı/seçili secili, seçili 600; devre dışı liste-zemin + ikincil metin. */
-.aile-tag--btn[data-tone] {
-  min-height: var(--aile-hedef-asgari);
+.aile-tag--btn {
+  min-height: var(--aile-dokunma-hedefi);
   padding: 0 var(--aile-bosluk-3);
   cursor: pointer;
   user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
-.aile-tag--btn[data-tone]:hover { background: var(--aile-bilgi-yuzey); color: var(--aile-metin); }
-.aile-tag--btn[data-tone]:active,
-.aile-tag--btn[data-tone][aria-pressed='true'] { background: var(--aile-secili); color: var(--aile-metin); }
-.aile-tag--btn[data-tone][aria-pressed='true'] { font-weight: 600; }
-.aile-tag--btn[data-tone][aria-disabled='true'] { background: var(--aile-liste-zemin); color: var(--aile-metin-ikincil); cursor: not-allowed; }
+@media (hover: hover) {
+  .aile-tag--btn:hover:not(:disabled) { background: var(--aile-bilgi-yuzey); }
+}
+.aile-tag--btn:active:not(:disabled),
+.aile-tag--btn[aria-pressed='true'] { background: var(--aile-secili); color: var(--aile-metin); }
+.aile-tag--btn[aria-pressed='true'] { font-weight: 600; }
+.aile-tag--btn:disabled { background: var(--aile-liste-zemin); color: var(--aile-metin-ikincil); cursor: not-allowed; }
 
-/* Kaldırılabilir: 44 px etiket, bilgi-yuzey; kaldır düğmesi 44 × 44 kare, hover secili, basılı acik-mavi. */
-.aile-tag--removable[data-tone] {
-  min-height: var(--aile-hedef-asgari);
+/* Kaldırılabilir: 44 px etiket, bilgi-yuzey; uzun filtre metni dar ekranda kesilmez, sarar. Kaldır düğmesi 44 × 44 kare,
+   hover secili, basılı acik-mavi. */
+.aile-tag--removable {
+  min-height: var(--aile-dokunma-hedefi);
   gap: 0;
   padding: 0 0 0 var(--aile-bosluk-3);
   background: var(--aile-bilgi-yuzey);
   color: var(--aile-metin);
+  white-space: normal;
 }
-.aile-tag--removable[data-tone] .aile-tag-kaldir {
+.aile-tag--removable > svg { margin-inline-end: var(--aile-bosluk-1); }
+.aile-tag-metin {
+  min-width: 0;
+  padding-block: var(--aile-bosluk-1);
+  overflow-wrap: break-word;
+}
+.aile-tag--removable .aile-tag-kaldir {
   display: inline-grid;
+  flex: none;
   place-items: center;
-  width: var(--aile-hedef-asgari);
-  height: var(--aile-hedef-asgari);
+  width: var(--aile-dokunma-hedefi);
+  height: var(--aile-dokunma-hedefi);
   margin: 0;
   padding: 0;
+  border: 0;
   border-radius: var(--aile-kose-kontrol);
   background: transparent;
   color: var(--aile-metin);
-  font-size: 14px;
+  font: inherit;
   cursor: pointer;
-  transition: background-color var(--aile-sure) var(--aile-egri);
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--aile-sure) var(--aile-egri), color var(--aile-sure) var(--aile-egri);
 }
-.aile-tag--removable[data-tone] .aile-tag-kaldir:hover { background: var(--aile-secili); color: var(--aile-metin); }
-.aile-tag--removable[data-tone] .aile-tag-kaldir:active { background: var(--aile-acik-mavi); }
-.aile-tag--removable[data-tone] .aile-tag-kaldir[aria-disabled='true'] { background: transparent; color: var(--aile-metin-ikincil); cursor: not-allowed; }
+@media (hover: hover) {
+  .aile-tag--removable .aile-tag-kaldir:hover:not(:disabled) { background: var(--aile-secili); }
+}
+.aile-tag--removable .aile-tag-kaldir:active:not(:disabled) { background: var(--aile-acik-mavi); }
+.aile-tag--removable .aile-tag-kaldir:disabled { background: transparent; color: var(--aile-metin-ikincil); cursor: not-allowed; }
 
 @media (prefers-reduced-motion: reduce) {
-  .aile-tag[data-tone], .aile-tag[data-tone] .aile-tag-kaldir { transition-duration: 0s; }
+  .aile-tag, .aile-tag .aile-tag-kaldir { transition-duration: 0s; }
+}
+
+/* Zorunlu renkler: yüzeyler kalkar; etiket sınırı ve seçili durum sistem renkleriyle görünür kalır. */
+@media (forced-colors: active) {
+  .aile-tag { border: 1px solid CanvasText; }
+  .aile-tag--btn[aria-pressed='true'] { forced-color-adjust: none; background: Highlight; color: HighlightText; }
 }

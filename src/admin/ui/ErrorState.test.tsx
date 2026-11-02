@@ -1,6 +1,6 @@
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { render, screen } from '@testing-library/react';
+import { existsSync, readFileSync, statSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ErrorState, type ErrorStateProps } from './ErrorState';
 
@@ -79,3 +79,94 @@ describe('ErrorState', () => {
     expect(css).toContain('var(--aile-hata)');
   });
 });
+
+describe('ErrorState — native button, keyboard and touch', () => {
+  it('"Yeniden dene" is a native <button type="button"> carrying the shared focus-line hook', () => {
+    render(<ErrorState onRetry={() => {}} />);
+    const retry = screen.getByRole('button', { name: 'Yeniden dene' });
+    expect(retry.tagName).toBe('BUTTON');
+    expect(retry).toHaveAttribute('type', 'button');
+    expect(retry).toHaveAttribute('data-focus-line');
+  });
+
+  it('Tab reaches "Yeniden dene", Shift+Tab leaves it; Enter and Space retry; Escape does nothing', async () => {
+    const user = userEvent.setup();
+    const onRetry = vi.fn();
+    render(<><button type="button">Önce</button><ErrorState onRetry={onRetry} /></>);
+    await user.tab();
+    await user.tab();
+    expect(screen.getByRole('button', { name: 'Yeniden dene' })).toHaveFocus();
+    await user.keyboard('{Escape}');
+    expect(onRetry).not.toHaveBeenCalled();
+    await user.keyboard('{Enter}');
+    await user.keyboard(' ');
+    expect(onRetry).toHaveBeenCalledTimes(2);
+    await user.tab({ shift: true });
+    expect(screen.getByRole('button', { name: 'Önce' })).toHaveFocus();
+  });
+
+  it('a cancelled touch (pointercancel) does not retry; a completed tap retries once', async () => {
+    const onRetry = vi.fn();
+    render(<ErrorState onRetry={onRetry} />);
+    const retry = screen.getByRole('button', { name: 'Yeniden dene' });
+    fireEvent.pointerDown(retry, { pointerType: 'touch', isPrimary: true });
+    fireEvent.pointerCancel(retry, { pointerType: 'touch', isPrimary: true });
+    expect(onRetry).not.toHaveBeenCalled();
+    await userEvent.setup().pointer({ keys: '[TouchA]', target: retry });
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+});
+
+// --- Telefon teslimi: bileşenin statik import kapanışı (tür importu ve dinamik import() hariç) ---------------------
+const ANTD = /^(?:antd(?:\/|$)|@ant-design\/)/;
+function staticClosure(entry: string): { files: string[]; packages: string[] } {
+  const files = new Set<string>();
+  const packages = new Set<string>();
+  const visit = (file: string) => {
+    if (files.has(file)) return;
+    files.add(file);
+    if (!/\.[jt]sx?$/.test(file)) return;
+    const source = readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    for (const [, spec] of source.matchAll(/^\s*(?:import|export)\s+(?!type\b)(?:[^'";]*?\bfrom\s*)?['"]([^'"]+)['"]/gm)) {
+      if (!spec.startsWith('.')) { packages.add(spec); continue; }
+      const base = resolve(dirname(file), spec);
+      const hit = ['', '.tsx', '.ts', '/index.tsx', '/index.ts'].map(ext => base + ext).find(p => existsSync(p) && statSync(p).isFile());
+      if (!hit) throw new Error(`çözülemedi: ${spec} (${file})`);
+      visit(hit);
+    }
+  };
+  visit(entry);
+  return { files: [...files], packages: [...packages] };
+}
+
+describe('ErrorState — phone delivery and stylesheet', () => {
+  const css = () => readFileSync(resolve(__dirname, 'ErrorState.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+
+  it('phone presentation has no antd: no antd, @ant-design/* or ui/antd.ts in its static import closure', () => {
+    const { files, packages } = staticClosure(resolve(__dirname, 'ErrorState.tsx'));
+    expect(packages.filter(spec => ANTD.test(spec))).toEqual([]);
+    expect(files).not.toContain(resolve(__dirname, 'antd.ts'));
+    expect(files.filter(file => /\.wide\.|[\\/]wide[\\/]/.test(file))).toEqual([]);
+    expect(packages).not.toContain('echarts');
+  });
+
+  // f05 bulgusu: coarse girişte "Yeniden dene" 156×44 ölçüldü. Hedef tek kaynaktan gelir: --aile-dokunma-hedefi
+  // (admin.css / tokens.ts targetTokens: 44, data-input-coarse katmanında 48); bileşen coarse değerini kendisi türetmez.
+  it('"Yeniden dene" is the primary action: eylem fill, height from the touch-target token (44 px, 48 px coarse)', () => {
+    const sheet = css();
+    expect(sheet).toMatch(/\.aile-error-state__retry\s*\{[^}]*min-height:\s*var\(--aile-dokunma-hedefi\)/);
+    expect(sheet).toMatch(/\.aile-error-state__retry\s*\{[^}]*min-width:\s*var\(--aile-dokunma-hedefi\)/);
+    expect(sheet).toMatch(/\.aile-error-state__retry\s*\{[^}]*background:\s*var\(--aile-eylem\)/);
+    expect(sheet).not.toMatch(/\[data-input-coarse\]/);
+    expect(sheet).not.toContain('var(--aile-hedef-asgari) + var(--aile-bosluk-1)');
+  });
+
+  it('text stays at or above 14 px and motion follows the single curve, off under reduced motion', () => {
+    const sheet = css();
+    const sizes = [...sheet.matchAll(/font-size:\s*(\d+(?:\.\d+)?)px/g)].map(m => Number(m[1]));
+    expect(Math.min(...sizes)).toBeGreaterThanOrEqual(14);
+    expect(sheet).toContain('var(--aile-sure) var(--aile-egri)');
+    expect(sheet).toMatch(/@media \(prefers-reduced-motion: reduce\)\s*\{[^}]*transition-duration:\s*0s/);
+  });
+});
+

@@ -1,6 +1,8 @@
 /* ErrorState — tasarım bundle.css .ai-state / .ai-state--hata karşılığı. Tek yuzey bloğu: kenar yalnız cizgi,
    tüm köşeler kose-kart (tek kenar renkli şerit yok). Renk ve boşluk yalnız --aile-* tokenlarından; tipografi
-   admin.css h3 ölçüsü (18/26). Odak çizgisini admin.css .ant-btn kuralı çizer; burada odak/outline yok. */
+   admin.css h3 ölçüsü (18/26). "Yeniden dene" Button birincil biçimi (eylem dolgu, hover nav, basılı metin); dokunma
+   hedefi tek kaynaktan: --aile-dokunma-hedefi (44; data-input-coarse katmanında admin.css onu 48 yapar). Odak
+   çizgisini admin.css [data-focus-line] kuralı çizer; burada odak/outline yok. */
 .aile-error-state {
   display: flex;
   flex-direction: column;
@@ -17,6 +19,7 @@
   display: flex;
   gap: var(--aile-bosluk-2);
   align-items: flex-start;
+  min-width: 0;
 }
 .aile-error-state__icon {
   flex: none;
@@ -29,6 +32,38 @@
   line-height: 26px;
   font-weight: 600;
   overflow-wrap: break-word;
+  min-width: 0;
 }
-.aile-error-state__message { max-width: 60ch; }
-.aile-error-state__detail { max-width: 60ch; }
+.aile-error-state__message { max-width: 60ch; overflow-wrap: break-word; }
+.aile-error-state__detail { max-width: 60ch; overflow-wrap: break-word; }
+.aile-error-state__retry {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--aile-bosluk-2);
+  min-height: var(--aile-dokunma-hedefi);
+  min-width: var(--aile-dokunma-hedefi);
+  margin: 0;
+  padding: 0 var(--aile-bosluk-4);
+  border: 0;
+  border-radius: var(--aile-kose-kontrol);
+  background: var(--aile-eylem);
+  color: var(--aile-yuzey);
+  font: inherit;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--aile-sure) var(--aile-egri);
+}
+@media (hover: hover) {
+  .aile-error-state__retry:hover { background: var(--aile-nav); }
+}
+.aile-error-state__retry:active { background: var(--aile-metin); }
+@media (prefers-reduced-motion: reduce) {
+  .aile-error-state__retry { transition-duration: 0s; }
+}
+/* Zorunlu renkler: dolgu kalkar; düğme sınırı sistem rengiyle görünür kalır. */
+@media (forced-colors: active) {
+  .aile-error-state__retry { border: 1px solid ButtonText; }
+}

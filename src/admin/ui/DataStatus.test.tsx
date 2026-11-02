@@ -1,9 +1,10 @@
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { render, screen } from '@testing-library/react';
+import { existsSync, readFileSync, statSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { DataStatus, type DataStatusProps } from './DataStatus';
 import type { DataStatusProps as ContractProps } from '../shell/contracts';
+import { targetTokens } from '../../design/tokens';
 
 // Tasarım: components/DataStatus/README.md + envanter.md satırı + bundle.js DataStatus. Sayfa başlığının altındaki tazelik
 // satırı: tek role="status" satırı, şerit yok; metinler README'den birebir. Saat tr-TR, Europe/Istanbul; başka güne ait
@@ -142,4 +143,165 @@ describe('DataStatus', () => {
     expect(css).toContain('var(--aile-uyari)');
     expect(css).toContain('var(--aile-hata)');
   });
+
+  it('separators belong to the part before them, so a wrapped line never starts with "·"', () => {
+    render(<DataStatus state="fresh" lastReadAt={OKUMA} generationId={NESIL} onRefresh={() => {}} />);
+    const seps = [...status().querySelectorAll('[aria-hidden="true"]:not(svg)')];
+    expect(seps).toHaveLength(2);
+    for (const sep of seps) {
+      expect(sep.parentElement).not.toBe(status());
+      expect(sep.previousSibling?.textContent?.trim()).not.toBe('');
+    }
+  });
 });
+
+describe('DataStatus — native button, keyboard, touch and focus return', () => {
+  const user = () => userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+  const dropFocusToPage = () => act(() => {
+    const sink = document.createElement('input');
+    document.body.append(sink);
+    sink.focus();
+    sink.remove();
+  });
+
+  it('Yenile is a native <button type="button"> carrying the shared focus-line hook', () => {
+    render(<DataStatus state="fresh" lastReadAt={OKUMA} generationId={NESIL} onRefresh={() => {}} />);
+    const refresh = screen.getByRole('button', { name: 'Yenile' });
+    expect(refresh.tagName).toBe('BUTTON');
+    expect(refresh).toHaveAttribute('type', 'button');
+    expect(refresh).toHaveAttribute('data-focus-line');
+  });
+
+  it('Tab reaches Yenile; Enter and Space refresh; Escape does nothing', async () => {
+    const onRefresh = vi.fn();
+    render(<DataStatus state="fresh" lastReadAt={OKUMA} generationId={NESIL} onRefresh={onRefresh} />);
+    const u = user();
+    await u.tab();
+    expect(screen.getByRole('button', { name: 'Yenile' })).toHaveFocus();
+    await u.keyboard('{Escape}');
+    expect(onRefresh).not.toHaveBeenCalled();
+    await u.keyboard('{Enter}');
+    await u.keyboard(' ');
+    expect(onRefresh).toHaveBeenCalledTimes(2);
+  });
+
+  it('a cancelled touch (pointercancel) does not refresh; a completed tap refreshes once', async () => {
+    const onRefresh = vi.fn();
+    render(<DataStatus state="fresh" lastReadAt={OKUMA} generationId={NESIL} onRefresh={onRefresh} />);
+    const refresh = screen.getByRole('button', { name: 'Yenile' });
+    fireEvent.pointerDown(refresh, { pointerType: 'touch', isPrimary: true });
+    fireEvent.pointerCancel(refresh, { pointerType: 'touch', isPrimary: true });
+    expect(onRefresh).not.toHaveBeenCalled();
+    await user().pointer({ keys: '[TouchA]', target: refresh });
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns focus to the action after the read finishes when disabling it dropped focus to the page', async () => {
+    const onRefresh = vi.fn();
+    const { rerender } = render(<DataStatus state="fresh" lastReadAt={OKUMA} generationId={NESIL} onRefresh={onRefresh} />);
+    const u = user();
+    await u.tab();
+    await u.keyboard('{Enter}');
+    rerender(<DataStatus state="checking" lastReadAt={OKUMA} generationId={NESIL} onRefresh={onRefresh} />);
+    const button = screen.getByRole('button', { name: 'Yenile' });
+    expect(button).toBeDisabled();
+    // Tarayıcı odak düzeltmesi: devre dışı kalan odaklı düğme odağı belgeye bırakır. jsdom bunu yapmaz ve devre dışı
+    // öğede blur() çalışmaz; aynı sonucu geçici bir öğeye odaklanıp onu kaldırarak üretiriz (odak <body>'ye düşer).
+    dropFocusToPage();
+    expect(document.body).toHaveFocus();
+    rerender(<DataStatus state="stale" lastReadAt={OKUMA} lastGoodAt={SON_IYI} generationId={NESIL} onRefresh={onRefresh} />);
+    const retry = screen.getByRole('button', { name: 'Yeniden dene' });
+    expect(retry).toBe(button);
+    expect(retry).toHaveFocus();
+  });
+
+  it('does not steal focus back when the user moved on during the read', async () => {
+    const { rerender } = render(
+      <>
+        <DataStatus state="fresh" lastReadAt={OKUMA} generationId={NESIL} onRefresh={() => {}} />
+        <button type="button">Başka</button>
+      </>,
+    );
+    const u = user();
+    await u.tab();
+    await u.keyboard('{Enter}');
+    rerender(
+      <>
+        <DataStatus state="checking" lastReadAt={OKUMA} generationId={NESIL} onRefresh={() => {}} />
+        <button type="button">Başka</button>
+      </>,
+    );
+    dropFocusToPage();
+    act(() => screen.getByRole('button', { name: 'Başka' }).focus());
+    rerender(
+      <>
+        <DataStatus state="fresh" lastReadAt={OKUMA} generationId={NESIL} onRefresh={() => {}} />
+        <button type="button">Başka</button>
+      </>,
+    );
+    expect(screen.getByRole('button', { name: 'Başka' })).toHaveFocus();
+  });
+
+  it('does not take focus on its own when the action was never focused', () => {
+    const { rerender } = render(<DataStatus state="checking" onRefresh={() => {}} />);
+    rerender(<DataStatus state="fresh" lastReadAt={OKUMA} generationId={NESIL} onRefresh={() => {}} />);
+    expect(document.body).toHaveFocus();
+  });
+});
+
+// --- Telefon teslimi: bileşenin statik import kapanışı (tür importu ve dinamik import() hariç) ---------------------
+const ANTD = /^(?:antd(?:\/|$)|@ant-design\/)/;
+function staticClosure(entry: string): { files: string[]; packages: string[] } {
+  const files = new Set<string>();
+  const packages = new Set<string>();
+  const visit = (file: string) => {
+    if (files.has(file)) return;
+    files.add(file);
+    if (!/\.[jt]sx?$/.test(file)) return;
+    const source = readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    for (const [, spec] of source.matchAll(/^\s*(?:import|export)\s+(?!type\b)(?:[^'";]*?\bfrom\s*)?['"]([^'"]+)['"]/gm)) {
+      if (!spec.startsWith('.')) { packages.add(spec); continue; }
+      const base = resolve(dirname(file), spec);
+      const hit = ['', '.tsx', '.ts', '/index.tsx', '/index.ts'].map(ext => base + ext).find(p => existsSync(p) && statSync(p).isFile());
+      if (!hit) throw new Error(`çözülemedi: ${spec} (${file})`);
+      visit(hit);
+    }
+  };
+  visit(entry);
+  return { files: [...files], packages: [...packages] };
+}
+
+describe('DataStatus — phone delivery and stylesheet', () => {
+  const css = () => readFileSync(resolve(__dirname, 'DataStatus.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+
+  it('phone presentation has no antd: no antd, @ant-design/* or ui/antd.ts in its static import closure', () => {
+    const { files, packages } = staticClosure(resolve(__dirname, 'DataStatus.tsx'));
+    expect(packages.filter(spec => ANTD.test(spec))).toEqual([]);
+    expect(files).not.toContain(resolve(__dirname, 'antd.ts'));
+    expect(files.filter(file => /\.wide\.|[\\/]wide[\\/]/.test(file))).toEqual([]);
+    expect(packages).not.toContain('echarts');
+  });
+
+  // f05 bulgusu: coarse girişte "Yeniden dene" 129×44 ölçüldü. Hedef tek kaynaktan gelir: --aile-dokunma-hedefi
+  // (admin.css / tokens.ts targetTokens: 44, data-input-coarse katmanında 48); bileşen coarse değerini kendisi türetmez.
+  it('the action takes its height from the single touch-target token: 44 px, 48 px under coarse input', () => {
+    const sheet = css();
+    expect(sheet).toMatch(/\.aile-ds__btn\s*\{[^}]*min-height:\s*var\(--aile-dokunma-hedefi\)/);
+    expect(sheet).not.toMatch(/\[data-input-coarse\]/);
+    expect(sheet).not.toContain('var(--aile-hedef-asgari) + var(--aile-bosluk-1)');
+    expect(targetTokens.dokunmaHedefi).toBe(44);
+    expect(targetTokens.dokunmaHedefiCoarse).toBe(48);
+  });
+
+  it('never pulls the action outside its line with a negative margin (no overflow when it wraps at 320 px)', () => {
+    expect(css()).not.toMatch(/margin[a-z-]*:\s*calc\(\s*-/);
+    expect(css()).not.toMatch(/margin[a-z-]*:\s*-/);
+  });
+
+  it('colour changes are instant semantic updates; hover feedback only where hover exists; reduced motion is honoured', () => {
+    const sheet = css();
+    expect(sheet).toMatch(/@media \(hover: hover\)/);
+    expect(sheet).toMatch(/@media \(prefers-reduced-motion: reduce\)\s*\{[^}]*transition-duration:\s*0s/);
+  });
+});
+

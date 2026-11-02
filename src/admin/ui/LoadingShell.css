@@ -16,7 +16,10 @@
   /* Döngü süresi: tek eğri, tasarım referansı 1200 ms = 5 × sure-hareket. */
   --aile-loading-sure: calc(var(--aile-sure) * 5);
   display: block;
+  width: 100%;
   min-width: 0;
+  /* Satır yerleşimini kapsayıcı genişliği seçer: dar kapsayıcıda geniş iskelet de telefon satırına iner (aşağıda). */
+  container-type: inline-size;
 }
 
 /* Ekran okuyucu etiketi: görünmez ama duyurulur. */
@@ -103,7 +106,19 @@
 }
 .aile-loading-ok { display: block; width: var(--aile-loading-ok-sutun); }
 
-/* Hareket azaltma: şerit döngüsü durur, parça durağan ve biraz daha geniş kalır. */
+/* Dar kapsayıcı (telefon, dar panel): geniş satırın en az genişliği fotoğraf + 2 tutar + ok + aralıklar ≈ 430 px'tir;
+   600 px altında (kirilim-tablet; @container var() alamaz) satır fotoğraf + metin yuvasına iner, tutar yuvaları gizlenir.
+   Böylece narrow verilmeyen bir iskelet de 320 px'te kesilmez ve taşmaz. */
+@container (max-width: 599px) {
+  .aile-loading-satir {
+    grid-template-columns: var(--aile-fotograf-liste) minmax(0, 1fr);
+    gap: var(--aile-bosluk-3);
+  }
+  .aile-loading-blok--tutar,
+  .aile-loading-ok { display: none; }
+}
+
+/* Hareket azaltma: şerit döngüsü durur, parça durağan ve biraz daha geniş kalır; iskelet blokları zaten parıldamaz. */
 @media (prefers-reduced-motion: reduce) {
   .aile-loading-serit > span {
     animation: none;

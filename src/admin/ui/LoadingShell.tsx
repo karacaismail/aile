@@ -1,6 +1,7 @@
 import './LoadingShell.css';
 
-// Tasarım › Loading (components/Loading/README.md): veri okunurken aynı yerleşimde iskelet + üstte tek ince şerit.
+// Tasarım › Loading (components/Loading/README.md): veri okunurken aynı yerleşimde iskelet + üstte tek ince şerit. Yerel
+// HTML, antd yok (telefon profili antd istemez); dar kapsayıcıda geniş iskelet container query ile telefon satırına iner.
 // Döner simge ya da tam sayfa örtü yok; iskelet gerçek liste satırının ölçüsündedir (fotograf-liste 56 px yuva,
 // başlık + kimlik satırı, geniş yerleşimde Planlanan | Gerçekleşen yuvaları), içerik gelince yerleşim kaymaz.
 // Rakam ya da yüzde gösterilmez; ekran okuyucu yalnız etiketi duyar, iskelet aria-hidden'dır. Şerit döngüsü
@@ -57,7 +58,9 @@ export function LoadingShell({ rows, narrow = false, label = DEFAULT_LABEL }: Lo
   const Row = narrow ? NarrowRow : WideRow;
   return (
     <div className="aile-loading" role="status" aria-live="polite" aria-busy="true" data-layout={narrow ? 'narrow' : 'wide'}>
-      <div className="aile-loading-serit" data-part="strip" aria-hidden="true">
+      {/* data-allow-motion: hareket dedektörünün (e2e/admin-detectors.ts) tek bilinçli istisnası. Belirsiz ilerleme döngüsü
+          bir durum geçişi değildir; süresi --aile-sure × 5, eğrisi --aile-egri; reduced-motion'da durur. */}
+      <div className="aile-loading-serit" data-part="strip" data-allow-motion="" aria-hidden="true">
         <span />
       </div>
       <span className="aile-loading-etiket">{label}</span>
