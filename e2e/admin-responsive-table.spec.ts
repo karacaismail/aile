@@ -14,14 +14,15 @@ import { horizontalOverflow, openAdmin, tabKey } from './admin-helpers';
 //     çalışır; kaydırınca ilk sütun yerinde kalır, belge (window.scrollX) kaymaz.
 //   - Tablet (768): sığma kuralı. Gerekli genişlik = sütun minWidth toplamı + sütun başına 32 px; alan küçükse akordeon.
 //   - Telefon (320 · 360 · 375 · 390, yatay telefon dahil; @matrix): akordeon, ilk satır açık, ok kutusu 32 px, açık /
-//     kapalı ok kutusu dolgusu farklı, "ayrıntı için satıra dokunun" ipucu, geciken grup üstte.
+//     kapalı ok kutusu dolgusu farklı, "ayrıntı için satıra dokunun" ipucu, geciken ("Gecikenler" / "Tarihi geçenler")
+//     grup üstte; klavye modunda satır başlığında etiket genişliğinde tek alt çizgi.
 //   - Her genişlikte: kelime ortasından bölünme yok (yalnız boşluk ve tire / eğik çizgi sonrasında sarılır), ilk sütunda
 //     word-break: break-all / break-word, overflow-wrap: anywhere, line-break: anywhere yok; sayfa düzeyinde yatay
 //     taşma yok; tablo alanında 14 px altı metin ve radiuslu kutuda kenar şeridi yok.
 // Veri: yalnız sentetik nesil (fixtures/generation-synthetic). Alımlar'da 12 kaydın adı gerçekçi uzun sentetik ürün
 // adıyla değiştirilir (parça yeniden yazılır, manifest sha256/bytes ve generation_id yeniden hesaplanır; panel bütünlük
 // denetimi bu yüzden geçer). 127.0.0.1 dışındaki her istek kesilir: Google (GViz, Sheets, Apps Script) dahil ağa çıkılmaz.
-// Saat sabit (2027-02-18): Ödemeler grupları Gecikenler · Bu hafta · Sonra.
+// Saat sabit (2027-02-18): Ödemeler (tahmin olayları) grupları Tarihi geçenler · Bu hafta · aylar.
 // Ortak kurallar admin-detectors.ts'ten (sahibi f09). Tabloya özgü dedektörler ve etkileşim adımları aşağıdaki bölgede;
 // tarayıcıda locator.evaluate ile çalışırlar, bu yüzden her biri kendi içinde kapalıdır (dış değişken yok). Her biri
 // "dedektör öz denetimi" bölümünde bilinçli ihlal enjekte edilerek kör olmadığı her motorda kanıtlanır.
@@ -448,8 +449,9 @@ function detectAccordion(root: Element, secenek: AkordeonSecenekleri): string[] 
   const metin = (root.textContent ?? '').replace(/\s+/g, ' ');
   if (!metin.includes(secenek.ipucu)) ihlaller.push(`açılabilirlik ipucu yok ("${secenek.ipucu}")`);
 
-  const gruplar = Array.from(root.querySelectorAll('h3')).map(h => (h.firstChild?.textContent ?? '').trim());
-  const geciken = gruplar.findIndex(ad => /gecik/.test(ad.toLocaleLowerCase('tr-TR')));
+  // Geciken grup: "Gecikenler" ya da ödeme gerçeği bilinmeyen tahmin olaylarının "Tarihi geçenler"i. Grup başlığı h2–h6.
+  const gruplar = Array.from(root.querySelectorAll('section > :is(h2, h3, h4, h5, h6)')).map(h => (h.firstChild?.textContent ?? '').trim());
+  const geciken = gruplar.findIndex(ad => /gecik|tarihi geç/.test(ad.toLocaleLowerCase('tr-TR')));
   if (geciken > 0) ihlaller.push(`geciken grup üstte değil (sıra: ${gruplar.join(' · ')})`);
   return ihlaller.slice(0, 10);
 }
@@ -601,12 +603,14 @@ interface AkordeonOrnegi {
   ilkAcik?: boolean;
   okKutusu?: number;
   gecikenUstte?: boolean;
+  /** Geciken grubun adı (Gecikenler ya da tahmin olaylarının "Tarihi geçenler"i). */
+  gecikenAdi?: string;
   ipucu?: boolean;
   ayniDolgu?: boolean;
 }
 
-/** Öz denetim örneği: iki gruplu akordeon (Gecikenler · Sonra). */
-function akordeonOrnegi({ ilkAcik = true, okKutusu = 32, gecikenUstte = true, ipucu = true, ayniDolgu = false }: AkordeonOrnegi = {}): string {
+/** Öz denetim örneği: iki gruplu akordeon (geciken grup · Sonra). */
+function akordeonOrnegi({ ilkAcik = true, okKutusu = 32, gecikenUstte = true, gecikenAdi = 'Gecikenler', ipucu = true, ayniDolgu = false }: AkordeonOrnegi = {}): string {
   const kutu = (acik: boolean) => {
     const dolgu = acik && !ayniDolgu ? 'rgb(0, 82, 204)' : 'rgb(255, 255, 255)';
     return `<span aria-hidden="true" style="display:grid;width:${okKutusu}px;height:${okKutusu}px;background-color:${dolgu}"><svg aria-hidden="true" width="20" height="20"></svg></span>`;
@@ -616,7 +620,7 @@ function akordeonOrnegi({ ilkAcik = true, okKutusu = 32, gecikenUstte = true, ip
     `<div id="${kimlik}"${acik ? '' : ' hidden'}><dl><dt>Gerçekleşen</dt><dd>Henüz yok</dd></dl></div></li>`;
   const grup = (ad: string, kimlik: string, acik: boolean) =>
     `<section aria-label="${ad}"><h3>${ad}<span>1</span></h3><ul>${satir(kimlik, `${ad} satırı`, acik)}</ul></section>`;
-  const geciken = grup('Gecikenler', 'ornek-geciken', gecikenUstte && ilkAcik);
+  const geciken = grup(gecikenAdi, 'ornek-geciken', gecikenUstte && ilkAcik);
   const sonra = grup('Sonra', 'ornek-sonra', !gecikenUstte && ilkAcik);
   const ust = `<div><p>2 kayıt${ipucu ? ' · ayrıntı için satıra dokunun' : ''}</p><button type="button">Tümünü aç</button></div>`;
   return `<div data-layout="accordion">${ust}${gecikenUstte ? geciken + sonra : sonra + geciken}</div>`;
@@ -654,6 +658,57 @@ function kaydirmaOrnegi({ odaklanir = true, kayar = true, dokunma = 'auto' }: Ka
     '<main style="padding:24px;font:16px/24px sans-serif"><button type="button">önce</button>' +
     `<div data-layout="table" style="width:420px;margin:16px 0"><div${sekme} style="overflow-x:${kayar ? 'auto' : 'hidden'};touch-action:${dokunma};width:420px">${tablo}</div></div>` +
     '<button type="button">sonra</button><div style="height:1200px"></div></main>'
+  );
+}
+/**
+ * Akordeon satır başlığının etiket odak çizgisi (klavye modu, odaklı başlık = document.activeElement): odaklı öğe ve
+ * içinde tam bir görünür 3 px ::after çizgisi; çizgi konağının (etiket) kutusu genişliğinde, etiket metninin bütün
+ * satırlarını kaplar ve son satırın altında durur. Satıra sarılan satır içi (inline) konakta ::after'ın kapsayıcı bloğu
+ * ilk ve son satır parçasından kurulur: çizgi metinden dar kalır (Chromium) ya da 0 px olur (WebKit, blok içerik).
+ */
+function detectLabelFocusLine(root: Element): string[] {
+  const odak = document.activeElement;
+  if (!odak || odak === document.body || !root.contains(odak)) return ['odak alanın içinde değil'];
+  const px = (deger: string) => { const n = parseFloat(deger); return Number.isFinite(n) ? n : 0; };
+  const kalinlik = px(getComputedStyle(odak).getPropertyValue('--aile-odak-kalinlik')) || 3;
+  const saydam = (renk: string) => !renk || renk === 'transparent' || /rgba\([^)]*,\s*0\)$/.test(renk);
+  const cizgiler = [odak, ...Array.from(odak.querySelectorAll('*'))].filter(el => {
+    const ps = getComputedStyle(el, '::after');
+    if (!ps.content || ps.content === 'none' || ps.content === 'normal') return false;
+    if (ps.display === 'none' || ps.visibility === 'hidden') return false;
+    if (Math.abs(px(ps.height) - kalinlik) > 0.5 || saydam(ps.backgroundColor)) return false;
+    return Number(ps.opacity) >= 0.5;
+  });
+  const ad = (odak.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 32);
+  if (cizgiler.length !== 1) return [`"${ad}": görünür odak çizgisi ${cizgiler.length} (beklenen 1)`];
+  const konak = cizgiler[0]!;
+  const ps = getComputedStyle(konak, '::after');
+  const cizgi = px(ps.width);
+  const kutu = konak.getBoundingClientRect();
+  const aralik = document.createRange();
+  aralik.selectNodeContents(konak);
+  const satirlar = Array.from(aralik.getClientRects()).filter(r => r.width > 0 && r.height > 0);
+  const ihlaller: string[] = [];
+  const yuvarla = (n: number) => Math.round(n * 10) / 10;
+  if (Math.abs(cizgi - kutu.width) > 1) ihlaller.push(`"${ad}": çizgi ${yuvarla(cizgi)} px, etiket kutusu ${yuvarla(kutu.width)} px`);
+  if (satirlar.length > 0) {
+    const metin = Math.max(...satirlar.map(r => r.right)) - Math.min(...satirlar.map(r => r.left));
+    if (cizgi + 1 < metin) ihlaller.push(`"${ad}": çizgi ${yuvarla(cizgi)} px, etiket metni ${yuvarla(metin)} px (${new Set(satirlar.map(r => Math.round(r.top))).size} satır)`);
+    const cizgiUst = kutu.bottom - px(ps.bottom) - px(ps.height);
+    const metinAlt = Math.max(...satirlar.map(r => r.bottom));
+    if (cizgiUst + 0.5 < metinAlt) ihlaller.push(`"${ad}": çizgi metnin üstünde (çizgi üstü ${yuvarla(cizgiUst)}, metin altı ${yuvarla(metinAlt)})`);
+  }
+  return ihlaller;
+}
+
+/** Öz denetim örneği: odaklanabilir satır başlığında etiket çizgili, 120 px'te üç satıra sarılan ad. */
+function etiketCizgisiOrnegi(gosterim: 'inline' | 'block'): string {
+  return (
+    '<style>.ornek-ul{position:relative}.ornek-ul::after{content:"";position:absolute;left:0;right:0;bottom:-4px;height:3px;background:rgb(0,82,204)}</style>' +
+    '<div data-layout="accordion" style="width:120px;font:16px/24px sans-serif"><ul style="list-style:none;margin:0;padding:0"><li>' +
+    '<button type="button" aria-expanded="true" style="display:block;width:120px;margin:0;padding:0 0 8px;border:0;background:none;font:inherit;text-align:left">' +
+    `<span style="display:block"><span class="ornek-ul" style="display:${gosterim}">Karartma perde seti çocuk odası a</span></span>` +
+    '</button></li></ul></div>'
   );
 }
 // #endregion dedektorler
@@ -819,8 +874,22 @@ test.describe('dedektör öz denetimi', () => {
     expect(await dene({ ilkAcik: false })).toContainEqual(expect.stringContaining('ilk satır kapalı'));
     expect(await dene({ okKutusu: 28 })).toContainEqual(expect.stringContaining('ok kutusu'));
     expect(await dene({ gecikenUstte: false })).toContainEqual(expect.stringContaining('geciken grup üstte değil'));
+    expect(await dene({ gecikenAdi: 'Tarihi geçenler' })).toEqual([]);
+    expect(await dene({ gecikenAdi: 'Tarihi geçenler', gecikenUstte: false })).toContainEqual(expect.stringContaining('geciken grup üstte değil'));
     expect(await dene({ ipucu: false })).toContainEqual(expect.stringContaining('ipucu'));
     expect(await dene({ ayniDolgu: true })).toContainEqual(expect.stringContaining('aynı dolgu'));
+  });
+
+  test('etiket odak çizgisi: blok konakta çizgi sarılan adın genişliğinde; satır içi konakta dar ya da 0 px çizgi yakalanır', async ({ page }) => {
+    const dene = async (gosterim: 'inline' | 'block') => {
+      await page.setContent(etiketCizgisiOrnegi(gosterim));
+      await page.locator('button[aria-expanded]').focus();
+      return page.locator(RTABLE).evaluate(detectLabelFocusLine);
+    };
+    expect(await dene('block')).toEqual([]);
+    expect(await dene('inline')).toContainEqual(expect.stringMatching(/çizgi [\d.]+ px, etiket (kutusu|metni)/));
+    await page.setContent(etiketCizgisiOrnegi('block'));
+    expect(await page.locator(RTABLE).evaluate(detectLabelFocusLine)).toEqual(['odak alanın içinde değil']);
   });
 
   test('fare: yatay tekerlek kapsayıcıyı kaydırır; tekerleği engelleyen betik yakalanır', async ({ page }) => {
@@ -1028,9 +1097,16 @@ test.describe('telefon akordeon', { tag: '@matrix' }, () => {
       const alan = await tabloyuAc(page, sayfa);
       await akordeonKurallari(page, alan, sayfa);
       if (sayfa === ODEMELER) {
+        // Tahmin olayı ödeme değildir: geciken grup "Tarihi geçenler" (ödenip ödenmediği bilinmez), sonra "Bu hafta" ve
+        // tarih sırasıyla aylar; telefonda ilk sayfa 10 satır (sentetik nesil, saat 2027-02-18).
         const gruplar = await alan.getByRole('heading', { level: 3 }).evaluateAll(basliklar => basliklar.map(b => b.firstChild?.textContent?.trim() ?? ''));
-        expect(gruplar, 'geciken grup üstte, sonra veri sırası').toEqual(['Gecikenler', 'Bu hafta', 'Sonra']);
-        await expect(alan.getByRole('region', { name: 'Gecikenler' }).locator('button[aria-expanded]').first()).toHaveAttribute('aria-expanded', 'true');
+        expect(gruplar, 'tarihi geçen grup üstte, sonra bu hafta ve aylar tarih sırasıyla').toEqual([
+          'Tarihi geçenler', 'Bu hafta', 'Mart 2027', 'Mayıs 2027', 'Haziran 2027', 'Temmuz 2027', 'Ağustos 2027', 'Eylül 2027',
+        ]);
+        const gecenler = alan.getByRole('region', { name: 'Tarihi geçenler' }).locator('button[aria-expanded]');
+        await expect(gecenler.first()).toHaveAttribute('aria-expanded', 'true');
+        await expect(gecenler.first()).toContainText(/Tarihi geçti · \d+ gün/);
+        await expect(alan, 'tahmin olayı ödeme gibi görünmez').not.toContainText(/Gecikti|Ödendi/);
       }
       // İkinci satır dokunuşla (dokunmatik projede tap) açılır; ilk açık kalır; kural yine tutar.
       const basliklar = alan.locator('button[aria-expanded]');
@@ -1042,6 +1118,35 @@ test.describe('telefon akordeon', { tag: '@matrix' }, () => {
       expect(await alan.evaluate(detectAccordion, AKORDEON)).toEqual([]);
       await kelimeKurallari(alan);
       await ortakKurallar(page);
+    });
+  }
+});
+
+// --- Telefon: akordeon satır başlığında klavye odağı (tek alt çizgi, etiket genişliğinde; @matrix) -------------------
+
+test.describe('telefon akordeon klavye odağı', { tag: '@matrix' }, () => {
+  test.beforeEach(({ page }) => {
+    test.skip(!telefonMu(page.viewportSize()), 'telefon profili değil (genişlik ≥ 600 ve kısa kenar ≥ 480)');
+  });
+
+  for (const sayfa of SAYFALAR) {
+    test(`${sayfa.ad}: satır başlığında tek odak çizgisi, sarılan adın tam genişliğinde ve altında`, async ({ page, browserName }) => {
+      const alan = await tabloyuAc(page, sayfa);
+      await expect(alan).toHaveAttribute('data-layout', 'accordion');
+      // Görünür odak modu yalnız Tab ile açılır; mod açıkken programatik odak göstergeyi korur.
+      await page.keyboard.press(tabKey(browserName));
+      await expect(page.locator('html')).toHaveAttribute('data-keyboard', 'true');
+      const basliklar = alan.locator('button[aria-expanded]');
+      const adet = Math.min(3, await basliklar.count());
+      for (let i = 0; i < adet; i++) {
+        await basliklar.nth(i).focus();
+        await expect(basliklar.nth(i)).toBeFocused();
+        // Çizgi opaklığı 240 ms geçişle gelir; ölçüm geçiş bitene kadar yinelenir.
+        await expect.poll(() => alan.evaluate(detectLabelFocusLine), { message: `${sayfa.ad} satır ${i + 1}: etiket odak çizgisi` }).toEqual([]);
+      }
+      // Gösterge etiket çizgisidir (yukarıda); paylaşılan dedektörden yalnız çevreleyen gösterge bulguları alınır.
+      const cevreleyen = (await focusRing(page)).filter(bulgu => /halka|outline|çerçeve/.test(bulgu));
+      expect(cevreleyen, 'akordeon başlığında çevreleyen halka yok').toEqual([]);
     });
   }
 });
@@ -1068,6 +1173,10 @@ test.describe('diğer tablo sayfaları', () => {
 
       await page.setViewportSize({ width: 1440, height: 900 });
       await openAdmin(page, rota);
+      // Masaüstü tablosu geniş sunumdadır (lazyWide, *.wide.tsx). openAdmin'in hazır sinyali geniş modülü beklemez; modül
+      // veriden sonra istenir (izde /ev: EvIkiBolme.wide.tsx hazır sinyalinden ~640 ms sonra) ve o ana kadar telefon
+      // sunumu yedek olarak görünür. Tarama, sayılmadan önce geniş sunumun tablosunun gelmesini bekler.
+      await expect(page.locator('main [data-layout="table"]').first(), `${rota}: 1440'ta geniş sunumun tablosu`).toBeVisible();
       const genis = await gorunurAlanlar(page);
       for (const [i, alan] of genis.entries()) {
         await test.step(`1440 · alan ${i + 1} (${await alan.getAttribute('data-layout')})`, async () => {
@@ -1083,6 +1192,8 @@ test.describe('diğer tablo sayfaları', () => {
 
       await page.setViewportSize({ width: 320, height: 568 });
       await openAdmin(page, rota);
+      // Telefon sunumu akordeonu ResponsiveTable'sız da kurabilir (ör. /ev: AccordionList); sayfa düzeyinde tablo yoktur.
+      await expect.soft(page.locator('main table'), '320: telefonda sayfada tablo yok (akordeon ya da liste)').toHaveCount(0);
       const dar = await gorunurAlanlar(page);
       for (const [i, alan] of dar.entries()) {
         await test.step(`320 · alan ${i + 1} (${await alan.getAttribute('data-layout')})`, async () => {

@@ -22,6 +22,7 @@ import { smallText } from './admin-detectors';
 const BUGUN = new Date('2026-11-02T10:00:00+03:00');
 const TELEFON = { width: 320, height: 568 } as const;
 const MASAUSTU = { width: 1440, height: 900 } as const;
+const TABLET = { width: 820, height: 1180 } as const;
 const AMAC = 'Planlanan, yapılan ve geciken ödemeleri tarihleriyle izleyin.';
 const KAYNAKTA_ODEME_YOK = 'Kaynakta ödeme kaydı yok';
 const LISTE = 'Tahmini ödemeler';
@@ -132,6 +133,24 @@ const tabularOlmayanTutarlar = (page: Page) =>
     return out;
   });
 
+/** main içindeki görünür başlıkların sırası: bir düzey atlanırsa ("h1 → h3") ihlal. */
+const baslikSirasiAtlamalari = (page: Page) =>
+  page.locator(ADMIN_MAIN).evaluate(kok => {
+    const out: string[] = [];
+    const basliklar = Array.from(kok.querySelectorAll('h1, h2, h3, h4, h5, h6, [role="heading"]'))
+      .filter(el => (el as HTMLElement).offsetParent !== null || getComputedStyle(el).position === 'fixed');
+    let onceki = 0;
+    let oncekiAd = '';
+    for (const el of basliklar) {
+      const duzey = Number(el.getAttribute('aria-level') ?? el.tagName.slice(1));
+      const ad = (el.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 40);
+      if (onceki > 0 && duzey > onceki + 1) out.push(`h${onceki} "${oncekiAd}" → h${duzey} "${ad}"`);
+      onceki = duzey;
+      oncekiAd = ad;
+    }
+    return out;
+  });
+
 /** Telefon profili: genişlik < 600 ya da kısa kenar < 480 (src/admin/adaptive/profile.ts). */
 const telefonProfili = ({ width, height }: { width: number; height: number }) => width < 600 || Math.min(width, height) < 480;
 
@@ -219,7 +238,11 @@ test.describe('Ödemeler telefon 320×568', () => {
     const filtre = page.getByRole('dialog', { name: /^Filtreler/ });
     await expect(filtre).toBeVisible();
     await filtre.getByRole('checkbox', { name: /Tarihi geçti/ }).check();
-    await filtre.getByRole('button', { name: '1 sonucu göster' }).click();
+    // Alt sayfa altlığı: seçim anında uygulanır; sonuç sayısı canlı durum metnidir ve "Uygula"nın açıklamasıdır (FilterDrawer).
+    await expect(filtre.getByRole('status')).toHaveText('1 sonuç');
+    const uygula = filtre.getByRole('button', { name: 'Uygula' });
+    await expect(uygula).toHaveAccessibleDescription('1 sonuç');
+    await uygula.click();
     await expect(filtre).toBeHidden();
 
     const alan = liste(page);
@@ -249,7 +272,8 @@ test.describe('Ödemeler telefon 320×568', () => {
   test('büyük liste (300 sentetik olay): ilk ekranda 10 satır, sayfa metni sınırlı; daha fazla göster 10 ekler', async ({ page }) => {
     const nesil = genisNesil(300);
     await page.route(MANIFEST_YOLU, route => route.fulfill(jsonYanit(nesil.manifest)));
-    await page.route(`**/__aile/generation/${nesil.yol}`, route => route.fulfill(jsonYanit(nesil.parca)));
+    // Parça okuması nesle sabitlenir (data/sources.ts: "…/00000.json?generation=<kimlik>"); eşleşme sorgusuz yol adıyla.
+    await page.route(url => url.pathname.endsWith(`/__aile/generation/${nesil.yol}`), route => route.fulfill(jsonYanit(nesil.parca)));
     await hazirla(page);
     const main = await openAdmin(page, '/odemeler');
     const alan = liste(page);
@@ -349,6 +373,21 @@ test.describe('Ödemeler geniş görünüm', () => {
     await expect(satirlar(alan).first()).toContainText('Örnek tahmin olayı 7');
     await expect(main.getByRole('searchbox', { name: 'Ara' })).toHaveValue('olay-7');
     expect(await horizontalOverflow(page)).toEqual([]);
+  });
+});
+
+test.describe('Ödemeler tablet', () => {
+  test('820×1180: tablo sığmaz, tarih gruplu akordeon; grup başlıkları h2, sayfanın başlık sırası atlamaz', async ({ page }) => {
+    await hazirla(page, TABLET);
+    const main = await openAdmin(page, '/odemeler');
+    // Geniş sunum (lazyWide) gelene kadar telefon sunumu yedektir; geniş sorgu şeridinin görünüm modu düğmesi gelişini gösterir.
+    await expect(main.getByText('Zaman çizelgesi', { exact: true }).first()).toBeVisible();
+    const alan = main.locator('[data-layout="accordion"]');
+    await expect(alan).toHaveCount(1);
+    await expect(alan.getByRole('heading', { level: 2 }).first()).toHaveText(/^Tarihi geçenler/);
+    expect(await alan.getByRole('heading', { level: 3 }).count(), 'h1 altında h3 grup başlığı').toBe(0);
+    expect(await baslikSirasiAtlamalari(page), 'başlık sırası atlıyor').toEqual([]);
+    expect(await horizontalOverflow(page), 'belge düzeyinde yatay taşma').toEqual([]);
   });
 });
 

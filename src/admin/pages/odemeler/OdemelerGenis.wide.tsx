@@ -13,8 +13,9 @@ import './OdemelerGenis.wide.css';
 // Tasarım: bundle.js Pages.Odemeler — sorgu şeridi (görünüm modu Tablo · Zaman çizelgesi; Gantt devre dışı: "ödemelerin
 // tek tarihi var, süresi yok"), masaüstünde FilterArea (Tabloda 56 px şerit, Zaman çizelgesinde açık panel), tablet'te
 // Filtreler çekmecesi (sayfa çizer). Tablo: Tarih · Ödeme · Planlanan · Gerçekleşen · Durum (ilk sütun yapışkan Table'da),
-// tablette sığmazsa ResponsiveTable akordeona iner. Zaman çizelgesi: ui/Timeline aylık bölgeler. Plan ve gerçek ayrı
-// sütun; gerçekleşen "Ödeme kaydı yok" (tahmin olayı ödeme değildir). Satır sayısı sayfa düzeyinde 50'şer açılır.
+// tablette sığmazsa ResponsiveTable akordeona iner (grup başlıkları h2: başlık sırası h1'den atlamaz). Zaman çizelgesi:
+// ui/Timeline aylık bölgeler. Plan ve gerçek ayrı sütun; gerçekleşen "Ödeme kaydı yok" (tahmin olayı ödeme değildir).
+// Satır sayısı sayfa düzeyinde 50'şer açılır.
 
 const DESTEKLENEN: readonly ViewMode[] = ['table', 'timeline'];
 const DESTEKLENMEYEN: Partial<Record<ViewMode, string>> = {
@@ -83,6 +84,8 @@ export default function OdemelerGenis({
           columns={SUTUNLAR}
           rows={satirlar}
           groupBy={row => grupOf(row, anahtar).label}
+          // Geniş sunumda liste h1'in hemen altındadır (telefondaki h2 "Tahmini ödemeler" yok): grup başlıkları h2.
+          headingLevel={2}
         />
       )}
       <Sayfalama gosterilen={satirlar.length} toplam={toplam} adim={adim} onDahaFazla={onDahaFazla} />
