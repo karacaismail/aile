@@ -2,8 +2,8 @@ import { act, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { installViewport } from './testing';
 
-// Geçiş kesimi (plan D8) App.tsx bağlantısı: telefon profili WideProviders modülünü (antd ConfigProvider + App + tr_TR +
-// aile teması) hiç içe aktarmaz; tablet/masaüstünde wideResource('wide-providers', …) ile tembel yüklenir ve yapışkan
+// Geçiş kesimi (plan D8) App.tsx bağlantısı: telefon profili WideProviders modülünü (antd ConfigProvider + tr_TR + aile
+// teması) hiç içe aktarmaz; tablet/masaüstünde wideResource('wide-providers', …) ile tembel yüklenir ve yapışkan
 // kalır. Nesil sağlayıcısı ve yönlendirici sağlayıcı geçidinin üstündedir: sağlayıcı bağlanınca yalnız çalışma alanı bir
 // kez yeniden bağlanır, nesil kaynağı/deposu (Veri sayfasında seçilen klasör dahil) korunur.
 // Ağır modüller (veri katmanı, kabuk, rotalar) işaretli taslaklarla değiştirilir; sınanan yalnız App.tsx + AdaptiveRoot.

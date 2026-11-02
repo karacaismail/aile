@@ -170,19 +170,53 @@ describe('AdaptiveRoot · antd sağlayıcı geçidi', () => {
 describe('WideProviders', () => {
   function ConfigProbe() {
     const config = useContext(ConfigProvider.ConfigContext);
-    const theme = config.theme as { token?: { motion?: boolean; fontFamily?: string } } | undefined;
-    return <p>{`locale=${config.locale?.locale ?? 'yok'} motion=${String(theme?.token?.motion)} font=${theme?.token?.fontFamily ?? 'yok'}`}</p>;
+    const theme = config.theme as { token?: { motion?: boolean; fontFamily?: string; motionDurationMid?: string } } | undefined;
+    return <p>{`locale=${config.locale?.locale ?? 'yok'} motion=${String(theme?.token?.motion)} sure=${theme?.token?.motionDurationMid ?? 'yok'} font=${theme?.token?.fontFamily ?? 'yok'}`}</p>;
   }
 
   it('provides the Turkish locale and the aile theme', () => {
     installViewport({ width: 1440, height: 900 });
     render(<WideProviders><ConfigProbe /></WideProviders>);
-    expect(screen.getByText('locale=tr motion=true font=Outfit, system-ui, sans-serif')).toBeInTheDocument();
+    expect(screen.getByText('locale=tr motion=true sure=0.24s font=Outfit, system-ui, sans-serif')).toBeInTheDocument();
   });
 
-  it('turns antd motion off under prefers-reduced-motion', () => {
+  // antd MotionWrapper, token.motion ilk kez false olunca alt ağacı MotionProvider ile sarar: ağaç biçimi değişir ve
+  // bütün uygulama yeniden kurulur (odak/durum kaybı). Bu yüzden motion hep açık; azaltılmış hareket süre tokenlarıdır.
+  it('expresses prefers-reduced-motion with zero duration tokens; antd motion itself stays on', () => {
     installViewport({ width: 1440, height: 900, reducedMotion: true });
     render(<WideProviders><ConfigProbe /></WideProviders>);
-    expect(screen.getByText(/motion=false/)).toBeInTheDocument();
+    expect(screen.getByText('locale=tr motion=true sure=0s font=Outfit, system-ui, sans-serif')).toBeInTheDocument();
+  });
+
+  it('keeps the app mounted with its state and focus when prefers-reduced-motion changes at runtime', () => {
+    const viewport = installViewport({ width: 1440, height: 900, fine: true, hover: true });
+    render(<WideProviders><Content /><ConfigProbe /></WideProviders>);
+    const input = screen.getByRole('textbox', { name: 'Not' });
+    fireEvent.change(input, { target: { value: 'taslak' } });
+    input.focus();
+    expect(mounts).toBe(1);
+
+    act(() => viewport.set({ reducedMotion: true }));
+    expect(mounts, 'alt ağaç yeniden kurulmamalı').toBe(1);
+    expect(screen.getByRole('textbox', { name: 'Not' })).toBe(input);
+    expect(input).toHaveValue('taslak');
+    expect(input).toHaveFocus();
+    expect(screen.getByText(/ sure=0s /)).toBeInTheDocument();
+
+    act(() => viewport.set({ reducedMotion: false }));
+    expect(screen.getByText(/ sure=0.24s /)).toBeInTheDocument();
+    expect(mounts).toBe(1);
+    expect(input).toHaveValue('taslak');
+    expect(input).toHaveFocus();
+  });
+
+  // antd App bileşeni kendi kabını antd özet sınıfıyla çizer; antd'nin genel bağlantı sıfırlaması (a { transition:
+  // color … } — eğrisiz, yani tarayıcı varsayılanı ease) bu sınıfın altındaki her <a>'ya, ürünün kendi bağlantılarına
+  // (a.aile-admin-skip) da işler. Ürün bileşenleri antd kullanmaz: sağlayıcı DOM öğesi çizmez, yalnız bağlam verir.
+  it('renders no wrapper element: the app is a direct child, so antd global link styles cannot reach product anchors', () => {
+    installViewport({ width: 1440, height: 900 });
+    const { container } = render(<WideProviders><a className="aile-admin-skip" href="#admin-content">İçeriğe geç</a></WideProviders>);
+    expect(container.firstElementChild).toBe(screen.getByRole('link', { name: 'İçeriğe geç' }));
+    expect(container.querySelector('.ant-app, [class*="css-"]')).toBeNull();
   });
 });

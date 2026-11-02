@@ -60,6 +60,16 @@ export const aileTema: ThemeConfig = {
 /** Önceki ad; App `themeFor` kullanır. */
 export const antdTheme = aileTema;
 
+/**
+ * Geniş profil sağlayıcısının teması. antd hareketi (token.motion) hep açıktır: ConfigProvider'ın MotionWrapper'ı motion
+ * ilk kez false olunca alt ağacı MotionProvider ile sarar, ağaç biçimi değişir ve uygulama yeniden kurulur (odak ve
+ * durum kaybı). prefers-reduced-motion bu yüzden yalnız süre tokenlarıyla ifade edilir: üç süre 0s, eğri aynı; durum
+ * değişimi anında görünür (admin.css'in azaltılmış hareket kuralıyla aynı sonuç).
+ */
 export function themeFor(reducedMotion: boolean): ThemeConfig {
-  return { ...aileTema, token: { ...aileTema.token, motion: !reducedMotion } };
+  const motionSure = reducedMotion ? '0s' : sure;
+  return {
+    ...aileTema,
+    token: { ...aileTema.token, motion: true, motionDurationFast: motionSure, motionDurationMid: motionSure, motionDurationSlow: motionSure },
+  };
 }

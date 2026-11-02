@@ -9,8 +9,10 @@ import { aileBasePort, syntheticServerEnv } from './playwright.admin.config';
 // Önce `pnpm build` (dist/.vite/manifest.json + delivery-graph.json). Port: AILE_PORT+1 (dev kapısı AILE_PORT'u kullanır;
 // yuvalar çift adımla verilir). AILE_PORT yoksa ayrı 5178 önizlemesi; kullanıcının 5174/5175/5176 sunucularına
 // dokunulmaz, reuseExistingServer her zaman false.
-// AILE_GENERATION_DIR bilerek sentetik nesle ayarlıdır: önizleme bu klasörü de servis etmemeli (404 beklentisi güçlenir);
-// testler sentetik nesli context.route ile verir.
+// AILE_GENERATION_DIR bilerek sentetik nesle ayarlıdır: önizleme bu klasörü de servis etmemeli (404 beklentisi güçlenir).
+// Üretim derlemesinin varsayılan nesil kaynağı seçilmemiş klasördür (nesil isteği yok); veri gerektiren testler sentetik
+// nesli Veri sayfasından "Klasörden içe aktar" ile yükler. VITE_BUDGET_SHEET_ID derlemeye gömülüyse Bütçe rotası canlı
+// GViz okuması dener (dış ağ kesilir); Google isteği başka rotada ihlaldir.
 // Projeler dev kapısıyla aynı telefon öncelikli profillerdir (chromium 320×568, webkit 390×844, dokunmatik); yatay telefon
 // ve 1440 senaryoları kendi görünüm alanlarını test içinde kurar ve @matrix etiketlidir. Yalnız Chrome/Safari ailesi
 // (kullanıcı kararı 2026-10-31). Her test kendi soğuk bağlamını alır; testler bu yüzden paralel koşabilir.

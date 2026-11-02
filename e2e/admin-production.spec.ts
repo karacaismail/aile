@@ -21,8 +21,12 @@ import { ADMIN_MAIN, adminNotReadyReasons, gotoAdmin, openAdmin } from './admin-
 //  - Geniş 1440×900: antd izinli; ECharts yalnız grafik görünür alana girince istenir.
 //  - Admin parçaları ana uygulamanın service worker ön belleğinde (sw.js ve Cache Storage) yoktur.
 //  - Her senaryo aktarım baytını (yanıt başlığı + kodlanmış gövde) ve çözülmüş boyutu (yanıt gövdesi) ayrı raporlar.
-// Veri yalnız sentetik nesilden (fixtures/generation-synthetic) context.route ile gelir; önizleme dışına çıkan her
-// istek (Sheets, Apps Script, örnek görseller) kesilir. Dedektörler saftır; öz-denetim testleri ihlal enjekte ederek
+// Veri: üretim derlemesinin varsayılan nesil kaynağı seçilmemiş klasördür (d02: /__aile/generation isteği yok, "Klasör
+// seçilmedi"); hiçbir senaryoda nesil isteği olmaz. Veri gerektiren senaryo sentetik nesli (fixtures/generation-synthetic)
+// kullanıcı gibi Veri sayfasından "Klasörden içe aktar" ile yükler (<input webkitdirectory>; iki motorda aynı yol) ve rotaya
+// uygulama içinde geçer. Önizleme dışına çıkan her istek kesilir; Google'a istek yalnız derlemeye VITE_BUDGET_SHEET_ID
+// gömülüyken ve yalnız canlı veri kullanan rotada (Bütçe: salt okunur GViz) izinlidir, başka her yerde ihlaldir.
+// Dedektörler saftır; öz-denetim testleri ihlal enjekte ederek
 // (iptal edilen istek dahil) kör olmadıklarını kanıtlar. Sabit bekleme yok: hazır sinyali openAdmin ve aynı
 // adminNotReadyReasons tanımıyla iki ardışık kare.
 
@@ -44,6 +48,10 @@ const PHONE_FORBIDDEN: readonly string[] = FORBIDDEN_PHONE_CLASSES;
 const ECHARTS_RUNTIME_SRC = 'src/admin/ui/Chart.runtime.ts';
 const GENERATION_PREFIX = '/__aile/generation/';
 const GOOGLE_HOST = /(?:^|\.)(?:google|googleapis|googleusercontent|gstatic)\.com$/i;
+/** Canlı Sheets okuyan rotalar: Bütçe (ButcePage → data/live.liveBudget → src/dashboard/data.ts fetchBudget, salt okunur). */
+const LIVE_SHEET_ROUTES: readonly string[] = ['/butce'];
+/** Sözleşmedeki tek izinli Google isteği: e-tablonun GViz okuması (kimlik VITE_BUDGET_SHEET_ID). */
+const GVIZ_READ = /^https:\/\/docs\.google\.com\/spreadsheets\/d\/([\w-]{20,})\/gviz\/tq(?:\?|$)/;
 
 interface ManifestChunk {
   file: string; src?: string; name?: string; isEntry?: boolean; isDynamicEntry?: boolean;
@@ -195,7 +203,7 @@ function classify(url: string, base: URL, index: DeliveryIndex): Classified {
 }
 
 interface NetRecord {
-  seq: number; phase: string; url: string;
+  seq: number; phase: string; url: string; method: string;
   status: 'pending' | 'finished' | 'failed'; failure: string | null; httpStatus: number | null;
   /** Yanıt başlığı + kodlanmış (sıkıştırılmış) gövde baytı; ölçülemediyse null. */
   transferBytes: number | null;
@@ -250,6 +258,50 @@ const googleRequests = (records: readonly NetRecord[]) => [...new Set(records.fl
     return [];
   }
 }))].sort();
+
+/**
+ * Google isteği sözleşmesi: Google'a istek yalnız derlemeye VITE_BUDGET_SHEET_ID gömülüyken ve yalnız canlı veri kullanan
+ * rotada (`livePhases`: o rotada geçen aşamalar) izinlidir; izinli istek o kimliğin salt okunur GViz okumasıdır (GET
+ * docs.google.com/spreadsheets/d/<kimlik>/gviz/tq). Başka her Google isteği ihlaldir: canlı olmayan rota, Apps Script ya
+ * da başka uç, yazma yöntemi, derlemede olmayan kimlik. `compiled(kimlik)`: kimlik dist JS'te dize olarak geçiyor mu
+ * (Vite VITE_BUDGET_SHEET_ID'yi derlemede yerine koyar; tanımsızken fetchBudget ağa çıkmadan durur). İletide kimlik
+ * yazılmaz (gerçek derlemede gizli değer olabilir). Kesilen istek de sayılır.
+ */
+function googleViolations(records: readonly NetRecord[], livePhases: readonly string[], compiled: (id: string) => boolean): string[] {
+  const found = new Set<string>();
+  for (const record of records) {
+    let url: URL;
+    try {
+      url = new URL(record.url);
+    } catch {
+      continue;
+    }
+    if (!GOOGLE_HOST.test(url.host)) continue;
+    const gviz = GVIZ_READ.exec(record.url);
+    const reason = !livePhases.includes(record.phase) ? 'canlı veri kullanmayan rota'
+      : !gviz ? 'GViz okuması değil'
+        : record.method !== 'GET' ? 'salt okunur değil'
+          : !compiled(gviz[1]) ? 'kimlik derlemede yok (VITE_BUDGET_SHEET_ID)'
+            : null;
+    const where = gviz ? '/spreadsheets/d/<kimlik>/gviz/tq' : url.pathname.replace(/[\w-]{20,}/g, '<kimlik>');
+    if (reason) found.add(`${record.phase} · ${record.method} ${url.host}${where}: ${reason}`);
+  }
+  return [...found].sort();
+}
+
+/** Kimlik derlemeye gömülü mü: dist/assets JS dosyalarından birinde tırnaklı dize olarak geçer. Dosyalar bir kez okunur. */
+function compiledSheetId(dist = DIST): (id: string) => boolean {
+  let scripts: string[] | null = null;
+  return id => {
+    scripts ??= readdirSync(path.join(dist, 'assets')).filter(name => name.endsWith('.js')).map(name => readFileSync(path.join(dist, 'assets', name), 'utf8'));
+    const literal = new RegExp(`[\`'"]${id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[\`'"]`);
+    return scripts.some(source => literal.test(source));
+  };
+}
+
+/** Nesil ara katmanına (/__aile/generation) denenen istekler: üretim derlemesi hiç istemez. */
+const dataRequests = (records: readonly NetRecord[], base: URL, index: DeliveryIndex, phases?: readonly string[]) =>
+  [...new Set(records.filter(record => inPhases(record, phases)).map(record => classify(record.url, base, index)).filter(found => found.category === 'data').map(found => found.path))].sort();
 
 /** Dist yolları içinden yasak olanlar (sıralı, tekil). */
 function forbiddenPaths(urls: Iterable<string>, forbidden: ReadonlySet<string>, base: URL): string[] {
@@ -312,31 +364,6 @@ async function isolateNetwork(context: BrowserContext, testInfo: TestInfo) {
   await context.route(url => url.host !== host, route => route.abort('blockedbyclient'));
 }
 
-/** fixtures/generation-synthetic altında manifest.json taşıyan (tek) nesil klasörü. */
-function syntheticGenerationDir(): string {
-  const root = path.join(ROOT, 'fixtures', 'generation-synthetic');
-  for (const name of readdirSync(root).sort()) {
-    const dir = path.join(root, name);
-    if (statSync(dir).isDirectory() && existsSync(path.join(dir, 'manifest.json'))) return dir;
-  }
-  throw new Error(`Hata: ${root} altında sentetik nesil yok`);
-}
-
-/** /__aile/generation/* isteklerini sentetik nesilden yanıtlar (önizleme bu yolu servis etmez; 404 ayrı testte). */
-async function serveSyntheticGeneration(context: BrowserContext) {
-  const dir = syntheticGenerationDir();
-  const generationId = (JSON.parse(readFileSync(path.join(dir, 'manifest.json'), 'utf8')) as { generation_id: string }).generation_id;
-  await context.route(url => url.pathname.startsWith(GENERATION_PREFIX), async route => {
-    const rel = decodeURIComponent(new URL(route.request().url()).pathname.slice(GENERATION_PREFIX.length));
-    const notFound = () => route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: 'nesil dosyası yok' }) });
-    if (rel === '_meta') return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ generation_id: generationId, selectedAt: '2098-01-01T00:00:00.000Z' }) });
-    if (!rel || rel.split('/').some(segment => segment === '' || segment === '.' || segment === '..')) return notFound();
-    const file = path.join(dir, ...rel.split('/'));
-    if (!file.startsWith(dir + path.sep) || !existsSync(file)) return notFound();
-    return route.fulfill({ contentType: 'application/json', body: readFileSync(file) });
-  });
-}
-
 async function measure(request: Request, record: NetRecord) {
   const response = await request.response().catch(() => null);
   record.httpStatus = response?.status() ?? null;
@@ -361,7 +388,7 @@ function recordNetwork(context: BrowserContext) {
   const jobs = new Set<Promise<void>>();
   let phase = 'açılış';
   context.on('request', request => {
-    const record: NetRecord = { seq: records.length + 1, phase, url: request.url(), status: 'pending', failure: null, httpStatus: null, transferBytes: null, decodedBytes: null };
+    const record: NetRecord = { seq: records.length + 1, phase, url: request.url(), method: request.method(), status: 'pending', failure: null, httpStatus: null, transferBytes: null, decodedBytes: null };
     records.push(record);
     byRequest.set(request, record);
   });
@@ -388,10 +415,21 @@ function recordNetwork(context: BrowserContext) {
 }
 type NetworkRecorder = ReturnType<typeof recordNetwork>;
 
-/** Yönetim senaryosu için soğuk bağlam: dış ağ kesilir, sentetik nesil servis edilir, istekler kaydedilir. */
-async function prepareAdminContext(context: BrowserContext, testInfo: TestInfo, { data = true } = {}): Promise<NetworkRecorder> {
+/**
+ * Yönetim senaryosu için soğuk bağlam: dış ağ kesilir, istekler kaydedilir. Nesil isteği karşılanmaz (üretimde yoktur).
+ * showDirectoryPicker kaldırılır: klasör içe aktarma iki motorda da <input webkitdirectory> yolundan gider (WebKit'te
+ * seçici zaten yok; Chromium'da yerel iletişim kutusu açılmaz).
+ */
+async function prepareAdminContext(context: BrowserContext, testInfo: TestInfo): Promise<NetworkRecorder> {
   await isolateNetwork(context, testInfo);
-  if (data) await serveSyntheticGeneration(context);
+  await context.addInitScript(() => {
+    try {
+      delete (Window.prototype as unknown as Record<string, unknown>).showDirectoryPicker;
+    } catch {
+      /* prototipte yok */
+    }
+    Object.defineProperty(window, 'showDirectoryPicker', { value: undefined, configurable: true, writable: true });
+  });
   return recordNetwork(context);
 }
 
@@ -402,6 +440,59 @@ async function waitReady(page: Page, timeout = 20_000) {
   const expression = `(() => { const w = window; const reasons = (${adminNotReadyReasons.toString()})(); `
     + `w[${JSON.stringify(key)}] = reasons.length ? 0 : (w[${JSON.stringify(key)}] || 0) + 1; return w[${JSON.stringify(key)}] >= 2; })()`;
   await page.waitForFunction(expression, undefined, { timeout, polling: 'raf' });
+}
+
+/**
+ * Uygulama içi gezinme (tam yükleme yok; bellekteki nesil kaynağı korunur): hash değişir, yeni sayfanın başlığı bağlanır,
+ * sonra openAdmin ile aynı hazır sinyali (iki ardışık karede main + h1 hazır, aria-busy yok).
+ */
+async function navigateInApp(page: Page, route: string) {
+  const before = await page.locator(`${ADMIN_MAIN} h1`).first().elementHandle();
+  await page.evaluate(next => { window.location.hash = `#${next}`; }, route);
+  await expect(page).toHaveURL(new RegExp(`#${route.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}(?:[/?]|$)`));
+  await page.waitForFunction(([selector, old]) => {
+    const heading = document.querySelector(selector);
+    return Boolean(heading && heading !== old);
+  }, [`${ADMIN_MAIN} h1`, before] as const);
+  await waitReady(page);
+}
+
+/** fixtures/generation-synthetic altında manifest.json taşıyan (tek) nesil klasörü ve kimliği. */
+function syntheticGeneration(): { dir: string; id: string } {
+  const root = path.join(ROOT, 'fixtures', 'generation-synthetic');
+  for (const name of readdirSync(root).sort()) {
+    const dir = path.join(root, name);
+    const manifest = path.join(dir, 'manifest.json');
+    if (statSync(dir).isDirectory() && existsSync(manifest)) return { dir, id: (JSON.parse(readFileSync(manifest, 'utf8')) as { generation_id: string }).generation_id };
+  }
+  throw new Error(`Hata: ${root} altında sentetik nesil yok`);
+}
+
+/**
+ * Sentetik nesli kullanıcı gibi içe aktarır: Veri sayfası (uygulama içinde ya da zaten açıksa) → "Klasörden içe aktar" →
+ * nesil klasörü. Tek aday doğrudan içe aktarılır; durum satırı taze nesli adıyla gösterene kadar beklenir. Kaynak bellekte
+ * durur: sonrası yalnız uygulama içi gezinme (navigateInApp) ile.
+ */
+async function importSyntheticGeneration(page: Page) {
+  const { dir, id } = syntheticGeneration();
+  if (!/#\/veri(?:[/?]|$)/.test(page.url())) await navigateInApp(page, '/veri');
+  const main = page.locator(ADMIN_MAIN);
+  const chooser = page.waitForEvent('filechooser');
+  await main.getByRole('button', { name: 'Klasörden içe aktar' }).click();
+  await (await chooser).setFiles(dir);
+  const status = main.locator('[role="status"][data-state]').first();
+  await expect(status, 'içe aktarılan nesil taze olarak görünür').toHaveAttribute('data-state', 'fresh');
+  await expect(status).toContainText(`Nesil ${id.slice(0, 6)}`);
+  await waitReady(page);
+}
+
+/** Pencereyi ve taşan main kabını en üste alır (bir önceki sayfanın kaydırması grafik konumu önkoşulunu bozmasın). */
+async function scrollToTop(page: Page) {
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+  await page.locator(ADMIN_MAIN).evaluate(main => {
+    for (let element: Element | null = main; element; element = element.parentElement) element.scrollTop = 0;
+  });
+  await waitReady(page);
 }
 
 /** Sayfayı ekran ekran sonuna kadar kaydırır (her adımda hazır sinyali); taşan main kabı varsa onu da sona taşır. */
@@ -525,7 +616,7 @@ test('dedektör öz-denetimi: enjekte edilen sınıf, eşlenmemiş dosya, tekrar
   const at = (rel: string) => new URL(rel, base).href;
   let seq = 0;
   const rec = (url: string, phase = 'açılış', extra: Partial<NetRecord> = {}): NetRecord =>
-    ({ seq: ++seq, phase, url, status: 'finished', failure: null, httpStatus: 200, transferBytes: 100, decodedBytes: 300, ...extra });
+    ({ seq: ++seq, phase, url, method: 'GET', status: 'finished', failure: null, httpStatus: 200, transferBytes: 100, decodedBytes: 300, ...extra });
   expect(classify(at('assets/Table-ZZZZ.css?v=1#x'), base, index)).toMatchObject({ category: 'chunk', path: 'assets/Table-ZZZZ.css', group: 'wide' });
   expect(classify(at('assets/yok-0000.js'), base, index)).toMatchObject({ category: 'unmapped', path: 'assets/yok-0000.js' });
   expect(classify('http://127.0.0.1:5471/__aile/generation/manifest.json', base, index).category).toBe('data');
@@ -553,6 +644,25 @@ test('dedektör öz-denetimi: enjekte edilen sınıf, eşlenmemiş dosya, tekrar
   expect(failedLoads(injected, base, index)).toEqual(['404 assets/yok-0000.js', 'net::ERR_ABORTED assets/antd-EEEE.js']);
   expect(googleRequests(injected)).toEqual(['script.google.com']);
   expect(googleRequests([rec('https://example.invalid/ornek-gorsel-1.jpg')])).toEqual([]);
+  // Google sözleşmesi: yalnız canlı rota aşamasında, derlemeye gömülü kimliğin salt okunur GViz okuması izinli.
+  const sheet = 'ornek-sentetik-kimlik-0001';
+  const gviz = (id: string) => `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?sheet=Plan&tqx=out%3Ajson`;
+  const compiled = (id: string) => id === sheet;
+  expect(dataRequests(injected, base, index)).toEqual([]);
+  expect(dataRequests([rec('http://127.0.0.1:5471/__aile/generation/_meta', 'açılış', { httpStatus: 404 })], base, index)).toEqual(['/__aile/generation/_meta']);
+  expect(googleViolations([rec(gviz(sheet), 'veriyle', { status: 'failed', failure: 'net::ERR_BLOCKED_BY_CLIENT', httpStatus: null })], ['veriyle'], compiled), 'canlı rotada gömülü kimliğin GViz okuması izinli (kesilmiş olsa da)').toEqual([]);
+  expect(googleViolations([
+    rec(gviz(sheet), 'içe aktarma'),
+    rec(gviz('baska-bir-kimlik-000000002'), 'veriyle'),
+    rec(gviz(sheet), 'veriyle', { method: 'POST' }),
+    rec('https://script.google.com/macros/s/AKfycbx-ornek-uc-000000000/exec', 'veriyle'),
+  ], ['veriyle'], compiled)).toEqual([
+    'içe aktarma · GET docs.google.com/spreadsheets/d/<kimlik>/gviz/tq: canlı veri kullanmayan rota',
+    'veriyle · GET docs.google.com/spreadsheets/d/<kimlik>/gviz/tq: kimlik derlemede yok (VITE_BUDGET_SHEET_ID)',
+    'veriyle · GET script.google.com/macros/s/<kimlik>/exec: GViz okuması değil',
+    'veriyle · POST docs.google.com/spreadsheets/d/<kimlik>/gviz/tq: salt okunur değil',
+  ]);
+  expect(googleViolations([rec(gviz(sheet), 'açılış')], [], () => true), 'canlı olmayan rotada her Google isteği ihlal').toHaveLength(1);
   // Büyütme: wide bir kez; ikinci istek yakalanır.
   const once = [rec(at('assets/Table-ZZZZ.js'), 'geniş-1'), rec(at('assets/Table-ZZZZ.css'), 'geniş-1')];
   expect(repeatedRequests(once, base, index, 'wide')).toEqual([]);
@@ -623,6 +733,10 @@ test('dedektör öz-denetimi (canlı): enjekte edilen, iptal edilen ve kesilen i
   const echarts = filesWithClass(index, 'echarts', 'js')[0];
   expect(antd, 'derleme antd sınıfı parça üretmeli').toBeTruthy();
   expect(echarts, 'derleme ECharts sınıfı parça üretmeli').toBeTruthy();
+  // Derlemeye gömülü dize dedektörü gerçek dist üzerinde: bilinen arayüz dizesi bulunur, uydurma kimlik bulunmaz.
+  const compiled = compiledSheetId();
+  expect(compiled('Klasörden içe aktar'), 'dist JS içindeki dize bulunur').toBe(true);
+  expect(compiled('derlemede-olmayan-kimlik-e02-0000'), 'derlemede olmayan kimlik').toBe(false);
   const net = await prepareAdminContext(context, testInfo);
   // ECharts isteği sunucuya ulaşmadan iptal edilir: başlatılmış ama tamamlanmamış istek yine sayılmalı.
   await context.route(url => distPath(url.href, base) === echarts, route => route.abort('aborted'));
@@ -740,7 +854,7 @@ test('/__aile/generation dev-only ara katmanı üretim önizlemesinde 404 döner
 // #endregion
 
 // #region telefon
-/** navigation.ts sırası + Ayarlar; her rota soğuk açılır (derin bağlantı). */
+/** navigation.ts sırası + Ayarlar; her rota önce soğuk açılır (derin bağlantı, veri yok), sonra veriyle yeniden açılır. */
 const ADMIN_ROUTES = ['/alimlar', '/genel', '/butce', '/odemeler', '/hesaplar', '/ev', '/projeler', '/taraflar', '/raporlar', '/sozlukler', '/veri', '/ayarlar'] as const;
 
 test.describe('telefon profili soğuk açılış: antd, pro, icons, echarts ve wide istenmez', () => {
@@ -750,17 +864,25 @@ test.describe('telefon profili soğuk açılış: antd, pro, icons, echarts ve w
       const index = deliveryIndex(build);
       const base = baseOf(testInfo);
       const net = await prepareAdminContext(context, testInfo);
+      // Soğuk derin bağlantı: üretimin varsayılan nesil kaynağı seçilmemiş klasördür (veri yok, nesil isteği yok).
       await openAdmin(page, route);
       expect(new URL(page.url()).hash, `${route} yönlendirilmeden açılmalı`).toMatch(new RegExp(`^#${route}(?:[/?]|$)`));
       await expect(profile(page), 'telefon genişliği telefon profilidir').toHaveAttribute('data-profile', 'phone');
-      // Görünür alana giren her bölge (grafik dahil) telefonda da geniş-özel kod istememeli.
-      net.phase('kaydırma');
+      // Veriyle: sentetik nesil Veri sayfasından içe aktarılır, rota uygulama içinde yeniden açılır ve sonuna kadar
+      // kaydırılır. Görünür alana giren her bölge (grafik dahil) telefonda da geniş-özel kod istememeli.
+      net.phase('içe aktarma');
+      await importSyntheticGeneration(page);
+      net.phase('veriyle');
+      if (route !== '/veri') await navigateInApp(page, route);
+      await expect(profile(page)).toHaveAttribute('data-profile', 'phone');
       await scrollThrough(page);
       await report(page, testInfo, net, `telefon ${route}`, base, index);
       expect(classRequests(net.records, base, index, PHONE_FORBIDDEN), `telefon ${route}: istenen yasak sınıflar (${PHONE_FORBIDDEN.join(', ')})`).toEqual([]);
       expect(unmappedRequests(net.records, base, index), 'istenen her assets/ dosyası manifestte olmalı').toEqual([]);
       expect(failedLoads(net.records, base, index), 'önizleme dosyaları eksiksiz yüklenmeli').toEqual([]);
-      expect(googleRequests(net.records), 'Google alanlarına istek yok').toEqual([]);
+      expect(dataRequests(net.records, base, index), 'üretim derlemesi nesil ara katmanını istemez').toEqual([]);
+      const livePhases = LIVE_SHEET_ROUTES.includes(route) ? ['açılış', 'veriyle'] : [];
+      expect(googleViolations(net.records, livePhases, compiledSheetId()), `telefon ${route}: Google isteği yalnız VITE_BUDGET_SHEET_ID gömülüyken ve yalnız canlı veri rotasında (salt okunur GViz)`).toEqual([]);
     });
   }
 });
@@ -773,10 +895,20 @@ test.describe('yatay telefon 568×320', () => {
     const index = deliveryIndex(build);
     const base = baseOf(testInfo);
     const net = await prepareAdminContext(context, testInfo);
-    for (const route of ['/alimlar', '/genel', '/raporlar']) {
+    const routes = ['/alimlar', '/genel', '/raporlar'];
+    // Önce soğuk derin bağlantı (veri yok), sonra içe aktarılan sentetik nesille uygulama içinde aynı rotalar.
+    for (const route of routes) {
       net.phase(route);
       await openAdmin(page, route);
       await expect(profile(page), `${route}: kısa kenarı 480'den küçük yatay telefon telefon profilidir`).toHaveAttribute('data-profile', 'phone');
+      await scrollThrough(page);
+    }
+    net.phase('içe aktarma');
+    await importSyntheticGeneration(page);
+    for (const route of routes) {
+      net.phase(`${route} veriyle`);
+      await navigateInApp(page, route);
+      await expect(profile(page), `${route} veriyle: profil telefon kalır`).toHaveAttribute('data-profile', 'phone');
       await scrollThrough(page);
     }
     const body = await report(page, testInfo, net, 'yatay-telefon', base, index);
@@ -787,6 +919,8 @@ test.describe('yatay telefon 568×320', () => {
     expect(classRequests(net.records, base, index, ['wide']), 'yatay telefonda wide istenmemeli').toEqual([]);
     expect(unmappedRequests(net.records, base, index)).toEqual([]);
     expect(failedLoads(net.records, base, index)).toEqual([]);
+    expect(dataRequests(net.records, base, index), 'üretim derlemesi nesil ara katmanını istemez').toEqual([]);
+    expect(googleViolations(net.records, [], compiledSheetId()), 'Google isteği canlı veri kullanmayan rotalarda yok').toEqual([]);
   });
 });
 
@@ -800,6 +934,9 @@ test('telefondan 1440×900 büyütme: wide bir kez yüklenir, telefona dönüp y
   net.phase('telefon');
   await openAdmin(page, '/alimlar');
   await expect(profile(page)).toHaveAttribute('data-profile', 'phone');
+  // Sentetik nesille: Alımlar tablosu dolu (genişte geniş tablo/pivot bunu çizer).
+  await importSyntheticGeneration(page);
+  await navigateInApp(page, '/alimlar');
   expect(classRequests(net.records, base, index, ['wide']), 'telefon açılışında wide istenmemeli').toEqual([]);
   const wideFiles = filesWithClass(index, 'wide', 'js');
   expect(wideFiles.length, 'derlemede wide grubu (manifest + delivery-graph) bulunmalı: geniş-özel *.wide.tsx modülleri lazyWide ile yüklenir').toBeGreaterThan(0);
@@ -825,6 +962,8 @@ test('telefondan 1440×900 büyütme: wide bir kez yüklenir, telefona dönüp y
   expect(repeatedRequests(net.records, base, index, 'wide'), 'her wide dosyası en çok bir kez istenmeli').toEqual([]);
   expect(classRequests(net.records, base, index, ['wide'], ['telefon', 'telefon-2', 'geniş-2']), 'wide yalnız ilk büyütmede istenmeli').toEqual([]);
   expect(failedLoads(net.records, base, index)).toEqual([]);
+  expect(dataRequests(net.records, base, index), 'üretim derlemesi nesil ara katmanını istemez').toEqual([]);
+  expect(googleViolations(net.records, [], compiledSheetId()), 'Google isteği canlı veri kullanmayan rotalarda yok').toEqual([]);
 });
 // #endregion
 
@@ -838,14 +977,19 @@ test.describe('geniş 1440×900', () => {
     const base = baseOf(testInfo);
     const viewport = page.viewportSize()!;
     const net = await prepareAdminContext(context, testInfo);
-    net.phase('grafiksiz');
-    await openAdmin(page, '/alimlar');
+    // Veri gerektiren senaryo: sentetik nesil Veri sayfasından içe aktarılır; rotalar uygulama içinde açılır.
+    net.phase('içe aktarma');
+    await openAdmin(page, '/veri');
     await expect(profile(page)).toHaveAttribute('data-profile', 'desktop');
+    await importSyntheticGeneration(page);
+    net.phase('grafiksiz');
+    await navigateInApp(page, '/alimlar');
     await scrollThrough(page);
-    expect(classRequests(net.records, base, index, ['echarts'], ['grafiksiz']), '/alimlar grafiği yok: ECharts istenmemeli').toEqual([]);
+    expect(classRequests(net.records, base, index, ['echarts'], ['içe aktarma', 'grafiksiz']), '/veri ve /alimlar grafiği yok: ECharts istenmemeli').toEqual([]);
+    await scrollToTop(page);
 
     net.phase('katlama-alti');
-    await openAdmin(page, '/genel');
+    await navigateInApp(page, '/genel');
     const chart = anyChart(page);
     await expect(chart, '/genel bir grafik içerir').toBeAttached();
     expect(await page.evaluate(() => window.scrollY), 'önkoşul: sayfa en üstte').toBe(0);
@@ -862,6 +1006,8 @@ test.describe('geniş 1440×900', () => {
     expect(classRequests(net.records, base, index, ['echarts'], ['gorunur']).length, 'grafik görünür alana girince ECharts istenir').toBeGreaterThan(0);
     expect(unmappedRequests(net.records, base, index)).toEqual([]);
     expect(failedLoads(net.records, base, index)).toEqual([]);
+    expect(dataRequests(net.records, base, index), 'üretim derlemesi nesil ara katmanını istemez').toEqual([]);
+    expect(googleViolations(net.records, [], compiledSheetId()), 'Google isteği canlı veri kullanmayan rotalarda yok').toEqual([]);
   });
 
   test('geniş: açılışta görünür alandaki grafik ECharts yükler ve çizilir', { tag: '@matrix' }, async ({ page, context }, testInfo) => {
@@ -870,15 +1016,22 @@ test.describe('geniş 1440×900', () => {
     const base = baseOf(testInfo);
     const viewport = page.viewportSize()!;
     const net = await prepareAdminContext(context, testInfo);
-    await openAdmin(page, '/raporlar');
+    net.phase('içe aktarma');
+    await openAdmin(page, '/veri');
+    await importSyntheticGeneration(page);
+    expect(classRequests(net.records, base, index, ['echarts']), 'grafiksiz Veri sayfası ECharts istemez').toEqual([]);
+    net.phase('raporlar');
+    await navigateInApp(page, '/raporlar');
     await expect(anyChart(page), '/raporlar bir grafik içerir').toBeAttached();
     const top = await topChartEdge(page);
     expect(top, '/raporlar grafiğinin konumu okunur').not.toBeNull();
     expect(top!, `önkoşul: /raporlar grafiği ${viewport.height} px yüksekliğinde görünür alanda başlar`).toBeLessThan(viewport.height);
     await expect(chartDrawn(page).first(), 'görünür grafik çizilir').toBeVisible({ timeout: 20_000 });
     await report(page, testInfo, net, 'genis-gorunur-grafik', base, index);
-    expect(classRequests(net.records, base, index, ['echarts']).length, 'görünür grafik ECharts ister').toBeGreaterThan(0);
+    expect(classRequests(net.records, base, index, ['echarts'], ['raporlar']).length, 'görünür grafik ECharts ister').toBeGreaterThan(0);
     expect(failedLoads(net.records, base, index)).toEqual([]);
+    expect(dataRequests(net.records, base, index), 'üretim derlemesi nesil ara katmanını istemez').toEqual([]);
+    expect(googleViolations(net.records, [], compiledSheetId()), 'Google isteği canlı veri kullanmayan rotalarda yok').toEqual([]);
   });
 
   test('geniş: admin.html#/alimlar kendi giriş parçasını bir kez yükler, ana girişin parçalarını istemez; veri ara katmanı 404', { tag: '@matrix' }, async ({ page, context }, testInfo) => {
@@ -886,12 +1039,18 @@ test.describe('geniş 1440×900', () => {
     const index = deliveryIndex(build);
     const scope = precacheScope(build, index);
     const base = baseOf(testInfo);
-    const net = await prepareAdminContext(context, testInfo, { data: false });
+    const net = await prepareAdminContext(context, testInfo);
     await gotoAdmin(page, '/alimlar');
     await expect(page).toHaveURL(/\/aile\/admin\.html#\/alimlar$/);
+    await waitReady(page);
     const adminEntry = build.manifest[ADMIN_ENTRY];
     await expect.poll(() => net.records.filter(record => distPath(record.url, base) === adminEntry.file).length, { message: 'admin giriş parçası istenmeli' }).toBe(1);
-    // İstemcinin varsayılan nesil kaynağı üretimde yanıt bulamaz; veri sızmaz.
+    // d02: üretimin varsayılan nesil kaynağı seçilmemiş klasördür; açılış nesil ara katmanına hiç istek atmaz ve sayfa
+    // "Klasör seçilmedi" durumunda açılır (neden + çözüm: Veri sayfasında «Klasörden içe aktar»).
+    expect(dataRequests(net.records, base, index, ['açılış']), 'varsayılan üretim derlemesi /__aile/generation istemez').toEqual([]);
+    await expect(page.locator(ADMIN_MAIN).getByText(/Nesil klasörü seçilmedi\. Veri sayfasında «Klasörden içe aktar»/).first(), 'seçilmemiş klasör durumu').toBeVisible();
+    // Ara katman önizlemede de yok (doğrudan denenince 404); veri sızmaz.
+    net.phase('ara-katman');
     expect(await page.evaluate(() => fetch('/__aile/generation/_meta').then(response => response.status))).toBe(404);
     await report(page, testInfo, net, 'genis-admin-giris', base, index);
     const paths = net.records.map(record => distPath(record.url, base) ?? '');
@@ -901,6 +1060,7 @@ test.describe('geniş 1440×900', () => {
     expect(forbiddenPaths(net.records.map(record => record.url), scope.mainOnly, base), 'yalnız ana uygulamaya ait parçalar istenmemeli').toEqual([]);
     expect(unmappedRequests(net.records, base, index)).toEqual([]);
     expect(failedLoads(net.records, base, index), 'yönetim dosyaları eksiksiz yüklenmeli').toEqual([]);
+    expect(googleViolations(net.records, [], compiledSheetId()), 'Google isteği canlı veri kullanmayan rotalarda yok').toEqual([]);
   });
 });
 // #endregion

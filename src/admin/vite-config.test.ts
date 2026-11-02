@@ -189,7 +189,7 @@ describe('vite.config.ts admin sözleşmesi', () => {
 // kendi hesabından bağımsız olarak Vite'ın derleme manifestinden (.vite/manifest.json: imports, dynamicImports, css)
 // çıkarılır: admin.html'den erişilen ama ana girişin kabuğundan (bilinçli tembel eski parçalarda durarak) erişilmeyen
 // her JS/CSS yönetime aittir ve ön belleğe giremez; ana kabuğun her dosyası ise çevrimdışı için ön bellekte kalır.
-type ManifestChunk = { file: string; name?: string; src?: string; css?: string[]; imports?: string[]; dynamicImports?: string[] };
+type ManifestChunk = { file: string; name?: string; src?: string; isEntry?: boolean; isDynamicEntry?: boolean; css?: string[]; imports?: string[]; dynamicImports?: string[] };
 type DeliveryGraph = { schema: number; groups: string[]; chunks: Record<string, { modules: number; groups: Record<string, number>; packages: Record<string, number> }>; edges: Array<{ fromChunk: string; from: string; fromGroup: string | null; toChunk: string; to: string; toGroup: string | null }> };
 
 const root = resolve(__dirname, '../..');
@@ -214,6 +214,11 @@ async function checkDelivery(outDir: string, args: string[] = []) {
   }
 }
 const parsePrecache = (sw: string) => [...sw.matchAll(/["']?url["']?\s*:\s*["']([^"']+)["']/g)].map((m) => m[1]);
+/** Bir parçanın dinamik import ön yükleme listesi: Vite'ın `__vite__mapDeps` tablosu (m.f=[…]); tablo yoksa boş. */
+function preloadDeps(code: string): string[] {
+  const match = /m\.f\|\|\(m\.f=(\[[^\]]*\])\)/.exec(code);
+  return match ? (JSON.parse(match[1]) as string[]) : [];
+}
 function walk(dir: string, base = dir): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const full = join(dir, entry.name);
@@ -376,6 +381,24 @@ describe('üretim derlemesi PWA ön belleği ve teslim grafiği', () => {
     expect(inline).toBeLessThan(entry);
     expect(html).not.toContain('<!--admin-startup-->');
     expect(html).not.toMatch(/app-startup/);
+  });
+
+  // Giriş parçası sayfanın <script type="module"> öğesiyle zaten yüklenir. Tembel bir parça (sayfa, wide) giriş
+  // parçasını statik import edince Vite onu dinamik importun ön yükleme listesine koyar; ön yükleme yardımcısı yinelemeyi
+  // yalnız link[href] ile denetlediği için <link rel="modulepreload"> eklenir ve WebKit giriş parçasını ikinci kez ister
+  // (e2e/admin-production.spec.ts › admin.html#/alimlar kendi giriş parçasını bir kez yükler). Ön yükleme listeleri
+  // giriş parçası taşımaz; giriş dışı bağımlılıklar listede kalır (ön yükleme kapanmadı).
+  it('dinamik import ön yükleme listeleri (__vite__mapDeps) hiçbir giriş parçasını taşımaz; diğer bağımlılıklar kalır', () => {
+    const entries = new Set(Object.values(manifest).filter((chunk) => chunk.isEntry).map((chunk) => chunk.file));
+    expect([...entries].sort()).toEqual([manifest['admin.html'].file, manifest['index.html'].file].sort());
+    // Önkoşul: tembel parçalar giriş parçasını gerçekten statik import eder; yoksa bu test boşuna geçer.
+    const lazyImportingEntry = Object.entries(manifest).filter(([, chunk]) => chunk.isDynamicEntry && (chunk.imports ?? []).some((key) => manifest[key]?.isEntry));
+    expect(lazyImportingEntry.map(([key]) => key), 'giriş parçasını statik import eden tembel parça').toContain('src/admin/pages/AlimlarPage.tsx');
+    const scripts = walk(outDir).filter((file) => /^assets\/[^/]+\.js$/.test(file));
+    const lists = scripts.map((file) => ({ file, deps: preloadDeps(readFileSync(join(outDir, file), 'utf8')) }));
+    expect(lists.flatMap(({ file, deps }) => deps.filter((dep) => entries.has(dep)).map((dep) => `${file} -> ${dep}`)), 'ön yükleme listesindeki giriş parçaları').toEqual([]);
+    const alimlar = lists.find(({ file }) => file === manifest['src/admin/pages/AlimlarPage.tsx'].file);
+    expect(alimlar?.deps.length ?? 0, 'AlimlarPage tembel wide importu için ön yükleme listesi taşır').toBeGreaterThan(0);
   });
 });
 
