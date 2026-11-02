@@ -62,6 +62,22 @@
 
 .aile-ayarlar__bekleyen { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
 
+/* Satır içi eylem: düğme kendi genişliğinde, satır başında (tam genişlik değil). */
+.aile-ayarlar__eylem { display: flex; flex-wrap: wrap; gap: var(--aile-bosluk-2); }
+
+/* Canlı bölgeler (role=status) her zaman DOM'da ve erişilebilirlik ağacında: display:none yok, boşken yükseklik 0.
+   Bu yüzden grubun son öğesidir. Dosya adı tek sözcüktür; dar ekranda satır içinde kırılır (metin küçülmez). */
+.aile-ayarlar__sonuc,
+.aile-ayarlar__dosya { margin: 0; overflow-wrap: anywhere; }
+
+/* Onay içeriği (Dialog / telefonda alt sayfa portalında): paragraflar arası boşluk tokenla. */
+.aile-ayarlar__onay { display: flex; flex-direction: column; gap: var(--aile-bosluk-2); }
+.aile-ayarlar__onay > p { margin: 0; }
+
+/* Tazelik satırı + "Eski veri" canlı bölgesi: bölge boşken boşluk bırakmaz (aralık yalnız içerik varken). */
+.aile-ayarlar__tazelik { display: flex; flex-direction: column; min-width: 0; }
+.aile-ayarlar__canli:not(:empty) { margin-top: var(--aile-bosluk-2); }
+
 /* Hata metni "Hata: …" ile başlar; renk yalnız destekler. */
 .aile-ayarlar__hata { margin: 0; color: var(--aile-hata); }
 
