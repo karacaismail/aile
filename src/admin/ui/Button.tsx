@@ -1,10 +1,13 @@
 import type { AriaAttributes, MouseEvent, ReactNode, Ref } from 'react';
-import { AntButton } from './antd';
+import { useButtonActivation } from './Button.activation';
 import { Icon, type IconName } from './icons';
 import './Button.css';
 
 // Tasarım: components/Button/README.md + index.d.ts ButtonProps; davranış bundle.js Button (type="button",
-// aria-pressed yalnız selected verilince, simge → metin → simge sırası). antd Button üzerine; renkler Button.css'te tokenla.
+// aria-pressed yalnız selected verilince, simge → metin → simge sırası). Yerel <button>: telefon sunumu antd istemez,
+// aynı uygulama tablet ve masaüstüne de hizmet eder (geniş dosya yok). Görünüm Button.css (.aile-dugme + .aile-btn),
+// yalnız --aile-* tokenları; odak alt çizgisi (data-focus-line), dokunma hedefi (--aile-dokunma-hedefi: 44, kaba girişte
+// 48) ve hover medyası orada.
 
 export type ButtonVariant = 'primary' | 'secondary' | 'quiet' | 'danger';
 
@@ -25,55 +28,61 @@ export interface ButtonProps extends AriaPassthrough {
   iconEnd?: IconName;
   /** Aç/kapa düğmesi: verilirse `aria-pressed` + secili yüzey, 600 ağırlık. Seçim odaktan ayrıdır. */
   selected?: boolean;
-  /** Devre dışı düğmenin nedeni yakınında yazılı olmalı (`aria-describedby`). */
+  /** Devre dışı düğmenin nedeni yakınında yazılı olmalı: `disabledReason` ya da kendi metnine `aria-describedby`. */
   disabled?: boolean;
+  /** Devre dışıyken düğmenin hemen ardında görünür yazılır ve `aria-describedby` ile bağlanır. Etkinken yazılmaz. */
+  disabledReason?: string;
+  /**
+   * İşlem sürüyor: `aria-busy` + `aria-disabled`, etiket ve erişilebilir ad korunur, odak düğmede kalır, etkinleştirme
+   * (tıklama, Enter/Space, form gönderimi) yok sayılır. onClick bir söz döndürürse düğme o söz bitene kadar kendiliğinden
+   * meşguldür.
+   */
+  loading?: boolean;
   /** Tam genişlik. */
   block?: boolean;
   /** Lacivert nav üzerinde: nav-metin renk, acik-mavi kenar, odak çizgisi odak-nav. */
   onNav?: boolean;
   /** Varsayılan "button"; form altlığında "submit". */
   type?: 'button' | 'submit' | 'reset';
-  onClick?(event: MouseEvent<HTMLButtonElement>): void;
+  onClick?(event: MouseEvent<HTMLButtonElement>): void | Promise<unknown>;
   id?: string;
   className?: string;
   /** Odak dönüşü için (ör. çekmece kapanınca "Sayfalar" düğmesine). */
   ref?: Ref<HTMLButtonElement>;
 }
 
-/** Tasarım varyantı → antd 6 color/variant. Renk değerleri antd'den değil Button.css'ten (--ant-btn-* ← --aile-*). */
-const ANT_VARIANT: Record<ButtonVariant, { color: 'primary' | 'danger'; variant: 'solid' | 'outlined' | 'text' }> = {
-  primary: { color: 'primary', variant: 'solid' },
-  secondary: { color: 'primary', variant: 'outlined' },
-  quiet: { color: 'primary', variant: 'text' },
-  danger: { color: 'danger', variant: 'outlined' },
-};
-
 export function Button({
-  children, variant = 'secondary', icon, iconEnd, selected, disabled, block, onNav, type = 'button', onClick, id, className, ref, ...aria
+  children, variant = 'secondary', icon, iconEnd, selected, disabled, disabledReason, loading, block, onNav, type = 'button',
+  onClick, id, className, ref, 'aria-describedby': describedBy, ...rest
 }: ButtonProps) {
+  const { handleClick, stateProps, reason } = useButtonActivation({ loading, disabled, disabledReason, describedBy, onClick });
   const classes = [
-    'aile-btn', `aile-btn--${variant}`,
+    'aile-dugme', 'aile-btn', `aile-btn--${variant}`,
     selected && 'aile-btn--secili', onNav && 'aile-btn--nav', block && 'aile-btn--blok', className,
   ].filter(Boolean).join(' ');
   return (
-    <AntButton
-      // href verilmez; öğe her zaman <button>, ref türü daraltılır.
-      ref={ref as Ref<HTMLAnchorElement | HTMLButtonElement> | undefined}
-      id={id}
-      htmlType={type}
-      color={ANT_VARIANT[variant].color}
-      variant={ANT_VARIANT[variant].variant}
-      block={block}
-      disabled={disabled}
-      onClick={onClick}
-      className={classes}
-      data-variant={variant}
-      aria-pressed={selected === undefined ? undefined : selected}
-      {...aria}
-    >
-      {icon && <Icon name={icon} />}
-      <span className="aile-btn-metin">{children}</span>
-      {iconEnd && <Icon name={iconEnd} />}
-    </AntButton>
+    <>
+      <button
+        // Kalan öznitelikler önce: Dropdown/Popover gibi tetikleyiciler çocuğu klonlayıp olay işleyicisi ve aria ekler.
+        {...rest}
+        ref={ref}
+        id={id}
+        type={type}
+        className={classes}
+        disabled={disabled}
+        onClick={handleClick}
+        data-variant={variant}
+        data-nav={onNav ? '' : undefined}
+        // Merkezi odak sözleşmesi (admin.css [data-focus-line]); Button.css kapsam dışı portalda da aynı çizgiyi çizer.
+        data-focus-line=""
+        aria-pressed={selected === undefined ? undefined : selected}
+        {...stateProps}
+      >
+        {icon && <Icon name={icon} />}
+        <span className="aile-btn-metin">{children}</span>
+        {iconEnd && <Icon name={iconEnd} />}
+      </button>
+      {reason && <span id={reason.id} className="aile-btn-neden">{reason.text}</span>}
+    </>
   );
 }
