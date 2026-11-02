@@ -38,11 +38,19 @@ export interface TermTree {
   readonly rejected: readonly TermTreeRejection[];
 }
 
-export function buildTermTree(terms: readonly Term[]): TermTree {
-  const byId = new Map<UUID, Term>();
+/** Üst bağ çözümünün girdisi: Term ya da sorgu bağlamının kısmi terimi (vocabulary_id yoksa sözlük denetimi yapılmaz). */
+export type TermLink = Pick<Term, 'id' | 'parent_id'> & { vocabulary_id?: UUID };
+
+/**
+ * Etkin üst bağlar: kendi üstü, olmayan üst ve başka sözlükteki üst reddedilir; döngüyü kapatan bağ kesilir. Sıra
+ * deterministiktir (girdi sırası). Terim ağacı (buildTermTree) ve sorgu bağlamı (query.createQueryContext) aynı
+ * sonucu kullanır: "üst terim alt terimleri kapsar" iki yerde ayrı yorumlanmaz.
+ */
+export function resolveTermParents(terms: readonly TermLink[]): { parentOf: Map<UUID, UUID | null>; rejected: TermTreeRejection[] } {
+  const byId = new Map<UUID, TermLink>();
   for (const t of terms) byId.set(t.id, t);
 
-  // Etkin üst bağ: önce yapısal reddler, sonra döngü kesme. Kayıt sırası deterministiktir (girdi sırası).
+  // Önce yapısal reddler, sonra döngü kesme.
   const parentOf = new Map<UUID, UUID | null>();
   const rejected: TermTreeRejection[] = [];
   for (const t of terms) {
@@ -76,6 +84,13 @@ export function buildTermTree(terms: readonly Term[]): TermTree {
     }
     for (const id of chain) safe.add(id);
   }
+  return { parentOf, rejected };
+}
+
+export function buildTermTree(terms: readonly Term[]): TermTree {
+  const byId = new Map<UUID, Term>();
+  for (const t of terms) byId.set(t.id, t);
+  const { parentOf, rejected } = resolveTermParents(terms);
 
   const childrenOf = new Map<UUID, Term[]>();
   const rootsOf = new Map<UUID, Term[]>();
@@ -272,8 +287,13 @@ function rowDates(record: PurchaseNeedRecord): RecordRow['dates'] {
   return Object.keys(out).length ? out : undefined;
 }
 
+/** Kaydın görünen adı: label, yoksa attributes.ad, yoksa source_attributes.ad; hiçbiri yoksa undefined (UI "Bilinmiyor"). */
+export function recordLabel(record: PurchaseNeedRecord): string | undefined {
+  return record.label ?? stringAttr(record.attributes, 'ad') ?? stringAttr(record.source_attributes, 'ad');
+}
+
 export function toRecordRow(record: PurchaseNeedRecord, ctx: RecordRowContext): RecordRow {
-  const label = record.label ?? stringAttr(record.attributes, 'ad') ?? stringAttr(record.source_attributes, 'ad') ?? 'Bilinmiyor';
+  const label = recordLabel(record) ?? 'Bilinmiyor';
   const category = record.category_term_id ? ctx.termsById.get(record.category_term_id)?.label : undefined;
   const amounts = record.amounts ?? {};
   const row: RecordRow = {
