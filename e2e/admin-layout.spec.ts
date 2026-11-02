@@ -1554,7 +1554,7 @@ test.describe('dedektör öz denetimi', () => {
       .toContainEqual(expect.stringContaining('Örtülü alan'));
   });
 
-  test('kavisli vurgu kenarı: border, border-inline, üst kenar, iç gölge ve pseudo şerit yakalanır; düz/eşit/gölge temiz', async ({ page }) => {
+  test('kavisli vurgu kenarı: border, border-inline, üst kenar, iç gölge, pseudo şerit ve kırpan radiuslu atadaki son satır çizgisi yakalanır; düz/eşit/gölge/köşesiz temiz', async ({ page }) => {
     await page.setContent(`<!doctype html><html lang="tr"><head><meta charset="utf-8"><style>
       body { margin: 0; font: 16px/24px sans-serif; }
       .kutu { position: relative; width: 240px; height: 80px; margin: 8px; border-radius: 12px; background: rgb(255, 255, 255); }
@@ -1566,6 +1566,10 @@ test.describe('dedektör öz denetimi', () => {
       #ok-flat .kutu { border-left: 4px solid rgb(0, 80, 200); border-top-left-radius: 0; border-bottom-left-radius: 0; }
       #ok-uniform .kutu { border: 1px solid rgb(200, 200, 200); }
       #ok-plain .kutu { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); }
+      .liste { list-style: none; width: 240px; margin: 8px; padding: 0; border-radius: 12px; overflow: hidden; background: rgb(255, 255, 255); }
+      .liste a { position: relative; display: block; min-height: 44px; }
+      .liste li:last-child a::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgb(0, 80, 200); }
+      #ok-clip .liste { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
     </style></head><body>
       <section id="v-border"><div class="kutu">Sol şerit</div></section>
       <section id="v-inline"><div class="kutu">Mantıksal şerit</div></section>
@@ -1575,11 +1579,15 @@ test.describe('dedektör öz denetimi', () => {
       <section id="ok-flat"><div class="kutu">Düz çizgi, köşesiz kenar</div></section>
       <section id="ok-uniform"><div class="kutu">Eşit kenarlık</div></section>
       <section id="ok-plain"><div class="kutu">Yükselti gölgesi</div></section>
+      <section id="v-clip"><ul class="liste"><li><a href="#a">İlk satır</a></li><li><a href="#b">Son satır</a></li></ul></section>
+      <section id="ok-clip"><ul class="liste"><li><a href="#a">İlk satır</a></li><li><a href="#b">Son satır</a></li></ul></section>
     </body></html>`);
     for (const root of ['#v-border', '#v-inline', '#v-top', '#v-shadow', '#v-pseudo']) {
       expect((await accentEdges(page, { root })).length, `${root} ihlali yakalanmalı`).toBeGreaterThan(0);
     }
-    for (const root of ['#ok-flat', '#ok-uniform', '#ok-plain']) {
+    // Son satırın alt kenar çizgisi radiuslu ve taşmayı kırpan listenin köşe eğrisiyle kesilir (ata kırpma radiusu).
+    expect((await accentEdges(page, { root: '#v-clip' })).join('\n'), '#v-clip ihlali yakalanmalı').toMatch(/radiuslu ve kırpan ata kenarında şerit \(ul\.liste, alt\)/);
+    for (const root of ['#ok-flat', '#ok-uniform', '#ok-plain', '#ok-clip']) {
       expect(await accentEdges(page, { root }), `${root} uyumlu`).toEqual([]);
     }
   });
