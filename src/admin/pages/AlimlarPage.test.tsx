@@ -361,16 +361,74 @@ describe('AlimlarPage › ayrıntı, odak ve durum değişikliği', () => {
     await waitFor(() => expect(document.activeElement).toBe(kayitOgesi(region, 'Örnek kase')));
   });
 
-  it('telefon: filtreler tam ekran çekmecede; hash’teki seçim ayrıntıyı doğrudan açar', async () => {
+  // Filtre yüzeyi telefonda shell/FilterDrawer › ui/BottomSheet (b03/a05): diyalog h2 "Filtreler" ile adlanır; altlıkta
+  // canlı sonuç sayısı ("28 sonuç") ve "Uygula" (açıklaması sonuç sayısı, kapatır), "Temizle". Seçim anında uygulanır.
+  it('telefon: filtreler alt sayfada; hash’teki seçim ayrıntıyı doğrudan açar', async () => {
     const kase = byLabel('Örnek kase');
     window.location.hash = `#/alimlar/${kase.id}`;
     const { user } = setup({ device: 'phone' });
     const sayfa = await screen.findByRole('dialog', { name: 'Örnek kase' });
     await user.click(within(sayfa).getByRole('button', { name: 'Listeye dön' }));
     await act(async () => {});
-    await user.click(await sorguAlani().findByRole('button', { name: 'Filtreler (0)' }));
-    // antd test ortamında başlık kimliği sabit ("test-id") olduğundan diyalog adı yerine h2 başlığından bulunur.
-    const cekmece = (await screen.findByRole('heading', { level: 2, name: 'Filtreler' })).closest('[role="dialog"]') as HTMLElement;
-    expect(within(cekmece).getByRole('button', { name: '28 sonucu göster' })).toBeInTheDocument();
+    const filtreDugmesi = await sorguAlani().findByRole('button', { name: 'Filtreler (0)' });
+    await user.click(filtreDugmesi);
+    const cekmece = await screen.findByRole('dialog', { name: 'Filtreler' });
+    const sonucDurumu = within(cekmece).getByRole('status');
+    expect(sonucDurumu).toHaveTextContent(`${PURCHASES.length} sonuç`);
+    const uygula = within(cekmece).getByRole('button', { name: 'Uygula' });
+    expect(uygula).toHaveAccessibleDescription(`${PURCHASES.length} sonuç`);
+    expect(within(cekmece).getByRole('button', { name: 'Temizle' })).toBeInTheDocument();
+
+    // Seçim anında uygulanır: altlıktaki sayı daralır; "Uygula" kapatır ve odak Filtreler düğmesine döner.
+    await user.click(within(cekmece).getByRole('checkbox', { name: 'Örnek oda 1' }));
+    const oda1 = PURCHASES.filter((r) => r.room_id === roomId('Örnek oda 1')).length;
+    await waitFor(() => expect(sonucDurumu).toHaveTextContent(`${oda1} sonuç`));
+    expect(uygula).toHaveAccessibleDescription(`${oda1} sonuç`);
+    await user.click(uygula);
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: /^Filtreler/ })).toBeNull());
+    await waitFor(() => expect(sorguAlani().getByRole('button', { name: 'Filtreler (1)' })).toHaveFocus());
+    await sonucSayisi(oda1);
+  });
+
+  // WebKit/Safari düğmeye tıklamayı odak taşımadan işler (fireEvent.click bunu taklit eder): açan Filtreler düğmesi
+  // document.activeElement'ten bilinemez; çekmece kapanınca odak yine o düğmeye dönmelidir (body'de kalmaz).
+  it('telefon: tıklama odak taşımasa da (Safari) "Uygula" sonrası odak Filtreler düğmesine döner', async () => {
+    const { user } = setup({ device: 'phone' });
+    await sonuclar();
+    expect(document.activeElement).toBe(document.body);
+    fireEvent.click(sorguAlani().getByRole('button', { name: 'Filtreler (0)' }));
+    const cekmece = await screen.findByRole('dialog', { name: 'Filtreler' });
+    await user.click(within(cekmece).getByRole('button', { name: 'Uygula' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Filtreler' })).toBeNull());
+    await waitFor(() => expect(sorguAlani().getByRole('button', { name: 'Filtreler (0)' })).toHaveFocus());
+  });
+
+  // a11 DetailPanel telefonda ekranı kaplayan modal katmandır (position fixed, aria-modal). Sayfa sonundaki bildirim bölgesi
+  // bu katmanın arkasında kalır ve modalın dışında okunmaz; bildirim ayrıntı açıkken katmanın altlığında (footer) çizilir.
+  it('telefon: durum bildirimi tam ekran ayrıntının içinde, altlıkta görünür; geri alma bildirimi de orada', async () => {
+    const { user } = setup({ device: 'phone' });
+    const region = await sonuclar();
+    await user.click(kayitOgesi(region, 'Örnek kase'));
+    const sayfa = await screen.findByRole('dialog', { name: 'Örnek kase' });
+    // Canlı bölge içerikten önce vardır (duyuru için): ayrıntı açılınca boş durum ve uyarı bölgeleri katmanın içindedir.
+    const durumBolgesi = within(sayfa).getByRole('status');
+    expect(durumBolgesi).toBeEmptyDOMElement();
+    expect(within(sayfa).getByRole('alert')).toBeEmptyDOMElement();
+
+    await user.click(within(sayfa).getByRole('combobox', { name: 'Durumu değiştir' }));
+    const liste = await screen.findByRole('listbox', { name: 'Durumu değiştir' });
+    await user.click(within(liste).getByRole('option', { name: 'Karar bekliyor' }));
+    await waitFor(() => expect(durumBolgesi).toHaveTextContent(/Araştırılıyor → Karar bekliyor.*kaynağa yazılmadı/));
+
+    await user.click(within(sayfa).getByRole('button', { name: 'Geri al' }));
+    await waitFor(() => expect(durumBolgesi).toHaveTextContent('Değişiklik geri alındı.'));
+    // Tek bildirim bölgesi: aynı metin sayfada ikinci kez (katmanın arkasında) yazılmaz.
+    expect(screen.getAllByText('Değişiklik geri alındı.')).toHaveLength(1);
+
+    // Listeye dönünce bildirim kapanır; sayfanın canlı bölgesi yine vardır (boş).
+    await user.click(within(sayfa).getByRole('button', { name: 'Listeye dön' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Örnek kase' })).toBeNull());
+    expect(screen.queryByText('Değişiklik geri alındı.')).toBeNull();
+    expect(document.querySelector('.aile-alimlar-bildirim-yuva [role="status"]')).toBeInTheDocument();
   });
 });

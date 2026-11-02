@@ -28,6 +28,10 @@
   overflow-wrap: break-word;
 }
 .aile-alimlar-bildirim[data-tone='hata'] { color: var(--aile-hata); }
+/* Ayrıntı katmanının altlığında (DetailPanel footer): altlık zaten içerik kayarken yerinde kalır, yapışma gerekmez; alt
+   güvenli alanı altlık taşır. Bildirim gövdeyi örtmez, gövde kısalır. Boşken yer tutmaz. */
+.aile-alimlar-bildirim-yuva--altlik { position: static; }
+.aile-alimlar-bildirim-yuva--altlik .aile-alimlar-bildirim { margin: var(--aile-bosluk-3) 0; }
 
 .aile-alimlar-sonuc { display: flex; flex-direction: column; gap: var(--aile-bosluk-4); min-width: 0; }
 

@@ -59,7 +59,8 @@ export { pivotHesapla } from './alimlar/pivot';
 // Zaman, SayfaAlimlarPivot, EkranAyrinti); bundle.js Aile.Pages.Alimlar.
 // Telefon önce: temel sunum liste + arama + filtre alt sayfası (FilterDrawer) + tam ekran ayrıntı (üstten başlar,
 // "Listeye dön" ile liste konumu ve odak geri gelir) + durum değiştir alt sayfası (DetailPanel › Select) ve Geri al.
-// Bildirim kullanıcının baktığı yerde, alta yapışık durum bölgesinde (güvenli alan dahil) görünür. Tablo/Kanban/Zaman
+// Bildirim kullanıcının baktığı yerde görünür: sayfada alta yapışık durum bölgesi (güvenli alan dahil), ayrıntı katmanı
+// açıkken katmanın altlığı. Tablo/Kanban/Zaman
 // çizelgesi ui/ bileşenlerinin telefon biçimiyle (akordeon, yana kayan pano) gelir; Pivot telefonda PivotStack.
 // Geniş-özel kod alimlar/*.wide.tsx'te ve lazyWide ile yüklenir (telefon indirmez): masaüstü yerleşimi (filtre paneli
 // 272 / şerit 56, ayrıntı sağda 384) ve pivot tablosu. Başlık ve sorgu çubuğu geniş modül gelince yeniden kurulmaz.
@@ -168,6 +169,8 @@ export function AlimlarPage({ location = KONUM }: AlimlarPageProps) {
   const [filtreAcik, setFiltreAcik] = useState(false);
   const [bildirim, setBildirim] = useState<Bildirim | null>(null);
   const filtreDugmesi = useRef<HTMLElement | null>(null);
+  /** Gövdede son tıklanan odaklanabilir öğe (yakalama aşamasında, düğmenin onClick'inden önce): çekmeceyi açan düğme. */
+  const govdeTiklanan = useRef<HTMLElement | null>(null);
 
   // --- Görünüm kataloğu: hangi modlar anlamlı ---
   const katalog = useMemo(() => {
@@ -497,8 +500,15 @@ export function AlimlarPage({ location = KONUM }: AlimlarPageProps) {
   );
 
   const siralamaSec = useCallback((option: SortOption) => setSira(SIRALAR.find(item => item.key === option.key) ?? VARSAYILAN_SIRA), []);
+  // Çekmece kapanınca odak açan düğmeye döner. WebKit/Safari düğmeye tıklayınca onu odaklamaz (activeElement body ya da
+  // odaklanabilir bir ata olur): açan öğe tıklamadan bilinir; klavyeyle (Enter/Space) etkinleştirme de click üretir.
+  const govdeTiklamaKaydet = useCallback((event: ReactMouseEvent<HTMLElement>) => {
+    govdeTiklanan.current = event.target instanceof Element ? event.target.closest<HTMLElement>(ODAKLANABILIR) : null;
+  }, []);
   const filtreAc = useCallback(() => {
-    filtreDugmesi.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const active = document.activeElement;
+    filtreDugmesi.current = govdeTiklanan.current ?? (active instanceof HTMLElement && active !== document.body ? active : null);
+    govdeTiklanan.current = null;
     setFiltreAcik(true);
   }, []);
   const filtreKapat = useCallback(() => setFiltreAcik(false), []);
@@ -619,9 +629,12 @@ export function AlimlarPage({ location = KONUM }: AlimlarPageProps) {
   const sonucDar = useMemo(() => sonucBolgesi(false), [sonucBolgesi]);
   const sonucGenis = useMemo(() => (masaustu ? sonucBolgesi(true) : null), [masaustu, sonucBolgesi]);
 
-  // Durum bölgesi hep çizilir (canlı bölge önce var olmalı); bildirim alta yapışık, kullanıcının baktığı yerde görünür.
-  const bildirimYuvasi = (
-    <div className="aile-alimlar-bildirim-yuva">
+  // Durum bölgesi hep çizilir (canlı bölge önce var olmalı); bildirim kullanıcının baktığı yerde görünür. Sayfada alta
+  // yapışıktır; ayrıntı katman olarak açıkken (telefon/tablet tam ekran, geniş modül yokken masaüstü örtülü panel) katmanın
+  // altlığına (DetailPanel footer) taşınır: katman sayfanın üstündedir (aria-modal), dışarıdaki bölge arkada kalır ve
+  // okunmaz. Bölge ayrıntıyla birlikte açılır, metin sonra gelir; tek yerde çizilir (iki kopya yok).
+  const bildirimYuvasi = (altlik: boolean) => (
+    <div className={altlik ? 'aile-alimlar-bildirim-yuva aile-alimlar-bildirim-yuva--altlik' : 'aile-alimlar-bildirim-yuva'}>
       <div role="status">
         {bildirim?.tone === 'bilgi' ? <p className="aile-alimlar-bildirim" data-tone="bilgi">{bildirim.text}</p> : null}
       </div>
@@ -686,6 +699,9 @@ export function AlimlarPage({ location = KONUM }: AlimlarPageProps) {
     }
     : null;
 
+  /** Ayrıntı sayfanın kendi katmanında (geniş yerleşimde ayrıntı AlimlarGenis'in sağ sütununda, akışta). */
+  const katmanDetay = detay && !genisYerlesim ? detay : null;
+
   const darGovde = (
     <>
       {sonucDar}
@@ -695,7 +711,7 @@ export function AlimlarPage({ location = KONUM }: AlimlarPageProps) {
 
   return (
     <div ref={kok} className="aile-alimlar" data-device={device}>
-      <div className="aile-alimlar-govde" hidden={tamSayfa}>
+      <div className="aile-alimlar-govde" hidden={tamSayfa} onClickCapture={govdeTiklamaKaydet}>
         {header}
         {sorguCubugu}
         {masaustu ? (
@@ -712,8 +728,7 @@ export function AlimlarPage({ location = KONUM }: AlimlarPageProps) {
           />
         ) : darGovde}
       </div>
-      {detay && !genisYerlesim ? <DetailPanel key={detay.row.id} {...detay} /> : null}
-      {bildirimYuvasi}
+      {katmanDetay ? <DetailPanel key={katmanDetay.row.id} {...katmanDetay} footer={bildirimYuvasi(true)} /> : bildirimYuvasi(false)}
     </div>
   );
 }

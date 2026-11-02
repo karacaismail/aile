@@ -147,7 +147,7 @@ async function gorunenAdlar(page: Page): Promise<string[]> {
   return sirali(found);
 }
 
-/** Filtre paneli: masaüstünde FilterArea içinde açık; dar ekranda "Filtreler (N)" tam ekran / sağ çekmece açılır. */
+/** Filtre paneli: masaüstünde FilterArea içinde açık; dar ekranda "Filtreler (N)" telefonda alt sayfa, tablette sağ çekmece açar. */
 async function filtrePaneli(page: Page): Promise<Locator> {
   if (cihaz(page) !== 'desktop') {
     await sorgu(page).getByRole('button', { name: /^Filtreler \(/ }).click();
@@ -159,17 +159,25 @@ async function filtrePaneli(page: Page): Promise<Locator> {
   return panel;
 }
 
-/** Filtre seçimi sürerken sonuç sayısı: masaüstünde sorgu çubuğunda, dar ekranda çekmecenin birincil düğmesinde. */
+/**
+ * Filtre seçimi sürerken sonuç sayısı: masaüstünde sorgu çubuğunda; dar ekranda çekmece altlığının canlı durum metninde
+ * ("N sonuç") ve birincil "Uygula" düğmesinin açıklamasında (shell/FilterDrawer; seçim anında uygulanır).
+ */
 async function araSonuc(page: Page, beklenen: number) {
-  if (cihaz(page) === 'desktop') await sonucBekle(page, beklenen);
-  else await expect(page.getByRole('dialog', { name: /^Filtreler/ }).getByRole('button', { name: `${sayi(beklenen)} sonucu göster` })).toBeVisible();
+  if (cihaz(page) === 'desktop') return sonucBekle(page, beklenen);
+  const dialog = page.getByRole('dialog', { name: /^Filtreler/ });
+  await expect(dialog.getByRole('status').filter({ hasText: / sonuç$/ })).toHaveText(`${sayi(beklenen)} sonuç`);
+  await expect(dialog.getByRole('button', { name: 'Uygula', exact: true })).toHaveAccessibleDescription(`${sayi(beklenen)} sonuç`);
 }
 
+/** Dar ekranda çekmece "Uygula" ile kapanır (sayı önce doğrulanır); odak sorgu çubuğundaki "Filtreler (N)" düğmesine döner. */
 async function filtreKapat(page: Page, beklenen: number) {
   if (cihaz(page) === 'desktop') return;
+  await araSonuc(page, beklenen);
   const dialog = page.getByRole('dialog', { name: /^Filtreler/ });
-  await dialog.getByRole('button', { name: `${sayi(beklenen)} sonucu göster` }).click();
+  await dialog.getByRole('button', { name: 'Uygula', exact: true }).click();
   await expect(dialog).toBeHidden();
+  await expect(sorgu(page).getByRole('button', { name: /^Filtreler \(\d+\)$/ })).toBeFocused();
 }
 
 /** Boyut bölümü (Disclosure bölgesi, adı "Oda" + isteğe bağlı "N seçili"); kapalıysa açılır. */

@@ -91,22 +91,27 @@ test.describe('Alımlar telefon yolculuğu', () => {
     await ara.fill('');
     await sonucBekle(page, toplam);
 
-    // Filtre: telefonda tam ekran alt sayfa (tablette sağdan 384); seçim anında uygulanır, birincil düğme sayıyı söyler.
+    // Filtre: telefonda tam genişlik alt sayfa (tablette sağdan 384); seçim anında uygulanır. Altlıkta canlı sonuç sayısı
+    // ("N sonuç") ve birincil "Uygula" (açıklaması bu sayı, kapatır) görünür ve örtüsüzdür (shell/FilterDrawer).
     const filtreDugmesi = sorgu(page).getByRole('button', { name: 'Filtreler (0)' });
     await filtreDugmesi.click();
     const cekmece = page.getByRole('dialog', { name: /^Filtreler/ });
     await expect(cekmece).toBeVisible();
     const kutu = (await cekmece.boundingBox())!;
     const genislik = page.viewportSize()!.width;
-    if (p === 'phone') expect(kutu.width, 'telefonda filtre tam ekran').toBeGreaterThanOrEqual(genislik - 1);
+    if (p === 'phone') expect(kutu.width, 'telefonda filtre tam genişlik').toBeGreaterThanOrEqual(genislik - 1);
     else expect(Math.abs(kutu.width - 384), 'tablette filtre 384').toBeLessThanOrEqual(24);
     const oda = cekmece.getByRole('checkbox', { name: ODA_1, exact: true });
     await oda.scrollIntoViewIfNeeded();
     await oda.click();
     await expect(oda).toBeChecked();
-    const goster = cekmece.getByRole('button', { name: `${sayi(ODA_1_KAYITLARI.length)} sonucu göster` });
-    await gercektenGorunur(goster, 'filtre birincil eylemi');
-    await goster.click();
+    const sonucDurumu = cekmece.getByRole('status').filter({ hasText: / sonuç$/ });
+    await expect(sonucDurumu).toHaveText(`${sayi(ODA_1_KAYITLARI.length)} sonuç`);
+    await gercektenGorunur(sonucDurumu, 'filtre sonuç sayısı');
+    const uygula = cekmece.getByRole('button', { name: 'Uygula', exact: true });
+    await expect(uygula).toHaveAccessibleDescription(`${sayi(ODA_1_KAYITLARI.length)} sonuç`);
+    await gercektenGorunur(uygula, 'filtre birincil eylemi');
+    await uygula.click();
     await expect(cekmece).toBeHidden();
     await expect(sorgu(page).getByRole('button', { name: 'Filtreler (1)' })).toBeFocused();
     await sonucBekle(page, ODA_1_KAYITLARI.length);
