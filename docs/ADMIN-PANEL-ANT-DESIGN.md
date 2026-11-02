@@ -1,6 +1,6 @@
 # Ant Design yönetim paneli: JSON verisinden admin paneline geçiş eylem planı
 
-Tarih: 1 Kasım 2026. Durum: **plan**. Bu belge kod, kurulum veya canlı değişiklik içermez; [PRE-MVP-UI.md](PRE-MVP-UI.md) içindeki ürün/veri kararlarını değiştirmez, onların üzerine arayüz kütüphanesi ve geçiş stratejisi kararını ekler.
+Tarih: 1 Kasım 2026. Durum: **plan; yürütme 2 Kasım 2026'dan itibaren [ADMIN-PANEL-PARALLEL-PLAN.md](ADMIN-PANEL-PARALLEL-PLAN.md) ile**. D1–D6 ve §4 bütünlük sözleşmesi geçerlidir; §6 sıralı dilimlerinin yerini paralel plan almıştır. Bu belge kod, kurulum veya canlı değişiklik içermez; [PRE-MVP-UI.md](PRE-MVP-UI.md) içindeki ürün/veri kararlarını değiştirmez, onların üzerine arayüz kütüphanesi ve geçiş stratejisi kararını ekler.
 
 Kullanıcının talimatı: JSON verileri istenen hale geldikten sonra, frontend bütünlüğü korunarak, Ant Design ile yönetim paneline dönüştürülecek. Önceki "Mantine korunur" kaydı bu talimatla **arayüz kütüphanesi için** değişir; veri sözleşmesi, Pages iş akışı, Git/yetki sınırları aynen kalır.
 
@@ -120,6 +120,8 @@ Kullanıcı verinin "istediği gibi" geliştirilmesini önkoşul koydu. Bu kapı
 Not (P0c): Sentetik nesil `node scripts/synthetic-generation.mjs` ile deterministik üretilir ve `fixtures/generation-synthetic/<sha256>/` altında Git'tedir; `data-platform/cli.mjs validate` kapısından geçer. Gerçek nesil yalnız dev sunucusunda, `AILE_GENERATION_DIR` ortam değişkeniyle `/__aile/generation/*` yolundan salt okunur servis edilir (`src/admin/devServer/privateData.ts`, `apply: 'serve'`); build çıktısına girmez.
 
 ## 6. Dilimler
+
+> 2 Kasım 2026: Bu sıralı dilimler kapsam listesi olarak korunur. Yürütme sırası, worktree/dal düzeni, 320 px öncelik (D7), uyarlamalı teslim (D8) ve yalnız Chromium + WebKit kuralı (D9) için [ADMIN-PANEL-PARALLEL-PLAN.md](ADMIN-PANEL-PARALLEL-PLAN.md) geçerlidir.
 
 Her dilim tek başına incelenebilir ve geri alınabilir; önce başarısız test, sonra en küçük düzeltme, aynı testte yeşil; ardından bağımsız `standards-reviewer` incelemesi (salt okunur). 320 kabulü diğer genişliklerden önce gelir. Firefox çalıştırılmaz. Chromium/WebKit sonucu gerçek Chrome/Safari sayılmaz; gerçek cihaz ayrı rapor edilir.
 
