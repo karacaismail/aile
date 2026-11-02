@@ -18,8 +18,9 @@ import { ADMIN_MAIN, adminNotReadyReasons, gotoAdmin, openAdmin } from './admin-
 //    icons, echarts ve wide sınıfından hiçbir dosya istenmez (FORBIDDEN_PHONE_CLASSES, scripts/check-delivery.mjs).
 //  - Yatay telefon 568×320: profil telefon kalır; wide istenmez.
 //  - Telefondan 1440×900'e büyütme: wide bir kez yüklenir; telefona dönüp yeniden büyütünce tekrar istenmez.
-//  - Geniş 1440×900: antd/pro/icons istenmez (antd sağlayıcısı hiçbir profilde yüklenmez); ECharts yalnız grafik görünür
-//    alana girince istenir; bir rota açılınca başka hiçbir rota sayfasının parçası istenmez (wide birim başına parçadır).
+//  - Geniş 1440×900: antd/pro/icons istenmez (antd sağlayıcısı hiçbir profilde yüklenmez); grafiksiz rotalar (Alımlar,
+//    Genel) ECharts istemez; katlama altındaki grafik (Bütçe › Aylık eğilim) ECharts'ı yalnız görünür alana girince ister;
+//    bir rota açılınca başka hiçbir rota sayfasının parçası istenmez (wide birim başına parçadır).
 //  - Admin parçaları ana uygulamanın service worker ön belleğinde (sw.js ve Cache Storage) yoktur; SW denetimindeki
 //    admin sekmesi çalışma zamanı önbelleğine (aile-visited-modules) yönetim dosyası yazmaz.
 //  - Parça hatası (yayından sonra silinen sayfa ya da wide parçası; route.abort): sayfa kendiliğinden yenilenmez, "Yeni
@@ -54,6 +55,11 @@ const GENERATION_PREFIX = '/__aile/generation/';
 const GOOGLE_HOST = /(?:^|\.)(?:google|googleapis|googleusercontent|gstatic)\.com$/i;
 /** Canlı Sheets okuyan rotalar: Bütçe (ButcePage → data/live.liveBudget → src/dashboard/data.ts fetchBudget, salt okunur). */
 const LIVE_SHEET_ROUTES: readonly string[] = ['/butce'];
+/** Geniş profilde grafik çizmeyen rotalar (veriyle de): Alımlar ve Genel (r4-sums: Genel'in aylık bölümü yalnız tablo). */
+const CHART_FREE_ROUTES: readonly string[] = ['/alimlar', '/genel'];
+/** 1440×900 açılışında katlamanın altında kalan grafik: Bütçe › "Aylık eğilim" (butce/ButceTrend.wide). */
+const BELOW_FOLD_CHART_ROUTE = '/butce';
+const BELOW_FOLD_CHART_REGION = 'Aylık eğilim';
 /** Sözleşmedeki tek izinli Google isteği: e-tablonun GViz okuması (kimlik VITE_BUDGET_SHEET_ID). */
 const GVIZ_READ = /^https:\/\/docs\.google\.com\/spreadsheets\/d\/([\w-]{20,})\/gviz\/tq(?:\?|$)/;
 
@@ -1061,32 +1067,45 @@ test.describe('geniş 1440×900', () => {
     await openAdmin(page, '/veri');
     await expect(profile(page)).toHaveAttribute('data-profile', 'desktop');
     await importSyntheticGeneration(page);
+    // Grafiksiz rotalar: Alımlar ve Genel (r4-sums: Genel'in "Aylık plan ve gerçek" bölümü yalnız tablodur; yaprak satır
+    // sahipliği haritası olmadan dürüst aylık toplam yok). Sonuna kadar kaydırılsa da grafik yuvası belirmez, ECharts
+    // istenmez. anyChart aynı testte /butce eğiliminde grafiği bulur (konumlayıcı kör değil).
     net.phase('grafiksiz');
-    await navigateInApp(page, '/alimlar');
-    await scrollThrough(page);
-    expect(classRequests(net.records, base, index, ['echarts'], ['içe aktarma', 'grafiksiz']), '/veri ve /alimlar grafiği yok: ECharts istenmemeli').toEqual([]);
+    for (const route of CHART_FREE_ROUTES) {
+      await navigateInApp(page, route);
+      await scrollThrough(page);
+      await expect(anyChart(page), `${route} grafik çizmez (yuva ya da çizim yok)`).toHaveCount(0);
+    }
+    expect(classRequests(net.records, base, index, ['echarts'], ['içe aktarma', 'grafiksiz']), `/veri ve grafiksiz rotalar (${CHART_FREE_ROUTES.join(', ')}): ECharts istenmemeli`).toEqual([]);
     await scrollToTop(page);
 
+    // Katlama altındaki grafik: Bütçe › "Aylık eğilim" (butce/ButceTrend.wide; seçili kalemin aylık plan ve gerçek
+    // çizgisi). 1440×900 açılışında kalem tablosunun altında, katlamanın altında başlar (konum her koşuda ölçülür).
     net.phase('katlama-alti');
-    await navigateInApp(page, '/genel');
+    await navigateInApp(page, BELOW_FOLD_CHART_ROUTE);
+    const trend = page.locator(ADMIN_MAIN).getByRole('region', { name: BELOW_FOLD_CHART_REGION });
+    await expect(trend, `${BELOW_FOLD_CHART_ROUTE} › ${BELOW_FOLD_CHART_REGION} bölgesi`).toBeAttached();
     const chart = anyChart(page);
-    await expect(chart, '/genel bir grafik içerir').toBeAttached();
+    await expect(chart, `${BELOW_FOLD_CHART_ROUTE} bir grafik (yuva) içerir`).toBeAttached();
+    expect(await trend.evaluate((region, slot) => region.contains(slot), await chart.elementHandle()), 'grafik eğilim bölgesinde').toBe(true);
     expect(await page.evaluate(() => window.scrollY), 'önkoşul: sayfa en üstte').toBe(0);
     const top = await topChartEdge(page);
-    expect(top, '/genel grafiğinin konumu okunur').not.toBeNull();
-    expect(top!, `önkoşul: /genel grafikleri ${viewport.width}×${viewport.height} açılışında katlamanın altında (üst kenar ≥ ${viewport.height})`).toBeGreaterThanOrEqual(viewport.height);
+    expect(top, `${BELOW_FOLD_CHART_ROUTE} grafiğinin konumu okunur`).not.toBeNull();
+    testInfo.annotations.push({ type: 'katlama', description: `${BELOW_FOLD_CHART_ROUTE} grafik üst kenarı ${Math.round(top!)} px (görünüm ${viewport.width}×${viewport.height})` });
+    expect(top!, `önkoşul: ${BELOW_FOLD_CHART_ROUTE} grafiği ${viewport.width}×${viewport.height} açılışında katlamanın altında (üst kenar ≥ ${viewport.height})`).toBeGreaterThanOrEqual(viewport.height);
     await net.settle();
     expect(classRequests(net.records, base, index, ['echarts'], ['katlama-alti']), 'grafik görünür alana girmeden ECharts istenmemeli').toEqual([]);
 
     net.phase('gorunur');
     await chart.scrollIntoViewIfNeeded();
-    await expect(chartDrawn(page).first(), 'görünür alana giren grafik çizilir').toBeVisible({ timeout: 20_000 });
+    await expect(trend.locator('[role="img"][aria-describedby]').first(), 'görünür alana giren grafik çizilir').toBeVisible({ timeout: 20_000 });
     await report(page, testInfo, net, 'genis-echarts-gorunurluk', base, index);
     expect(classRequests(net.records, base, index, ['echarts'], ['gorunur']).length, 'grafik görünür alana girince ECharts istenir').toBeGreaterThan(0);
     expect(unmappedRequests(net.records, base, index)).toEqual([]);
     expect(failedLoads(net.records, base, index)).toEqual([]);
     expect(dataRequests(net.records, base, index), 'üretim derlemesi nesil ara katmanını istemez').toEqual([]);
-    expect(googleViolations(net.records, [], compiledSheetId()), 'Google isteği canlı veri kullanmayan rotalarda yok').toEqual([]);
+    // Bütçe canlı veri rotasıdır: GViz okuması yalnız o rotadaki aşamalarda izinli; grafiksiz rotalarda ihlal.
+    expect(googleViolations(net.records, ['katlama-alti', 'gorunur'], compiledSheetId()), 'Google isteği yalnız canlı veri rotasında (salt okunur GViz)').toEqual([]);
   });
 
   test('geniş: açılışta görünür alandaki grafik ECharts yükler ve çizilir', { tag: '@matrix' }, async ({ page, context }, testInfo) => {
