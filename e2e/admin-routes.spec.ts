@@ -11,7 +11,8 @@ import { ADMIN, ADMIN_MAIN, gotoAdmin, horizontalOverflow, openAdmin } from './a
 //   - Belge başlığı "<etiket> · aile".
 //   - Bilinmeyen rota /genel'e geçmişe kayıt eklemeden (replace) yönlenir; /alimlar/:id ayrıntı rotası korunur.
 //   - Sayfa parçası indirilemezse kabuk ve başlık ayakta kalır: çevrim içi (sürüm kayması) "Yeni sürüm var · Yenile" sayfayı
-//     yeniden yükler; çevrim dışı "Yeniden dene" bağlantı gelince parçayı getirir.
+//     yalnız kullanıcı isteyince yeniden yükler (kendiliğinden yenileme yok); çevrim dışı "Yeniden dene" bağlantı gelince
+//     parçayı getirir. Üretim derlemesindeki (Vite ön yükleme yardımcısı) eşleniği e2e/admin-production.spec.ts'tedir.
 //   - Başka sayfanın parçası ya da geniş (*.wide) parça önceden indirilmez.
 // Veri: webServer sentetik nesli /__aile/generation/* altında verir (playwright.admin.config.ts). Yerel sunucu dışındaki her
 // istek (Google GViz / Apps Script dahil) kesilir. Görünüm genişliğinden bağımsız testler @matrix etiketlidir; tablet ve
@@ -301,8 +302,10 @@ test.describe('rotalar', () => {
 
     const reload = notice.getByRole('button', { name: 'Yenile', exact: true });
     await expect(reload).toBeVisible();
+    // Dokunma hedefi 44 px; kaba işaretçi katmanında (html[data-input-coarse], dokunmatik projeler) 48 px.
+    const coarse = await page.evaluate(() => document.documentElement.hasAttribute('data-input-coarse'));
     const box = await reload.boundingBox();
-    expect(box!.height, 'Yenile dokunma hedefi').toBeGreaterThanOrEqual(44);
+    expect(box!.height, `Yenile dokunma hedefi (${coarse ? 'coarse' : 'fine'})`).toBeGreaterThanOrEqual(coarse ? 48 : 44);
     await Promise.all([page.waitForEvent('load'), reload.click()]);
     await expect(heading(page)).toHaveText(veri.label, { timeout: 15_000 });
     await expect(notice).toHaveCount(0);

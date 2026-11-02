@@ -64,8 +64,38 @@ describe('vite.config.ts admin sözleşmesi', () => {
     expect([...names].sort()).toEqual(['antd', 'babel-runtime', 'icons', 'pro', 'router', 'shared', 'tokens', 'wide']);
     const block = source.slice(source.indexOf('codeSplitting:'));
     expect(source).toContain('codeSplitting:');
-    expect(block).toMatch(/groups:\s*CHUNK_GROUPS,/);
+    // codeSplitting grupları CHUNK_GROUPS'tan türer: ad, öncelik ve test aynı; yalnız parça adı (chunkName) gruba özeldir.
+    expect(block).toMatch(/groups:\s*SPLIT_GROUPS,/);
+    expect(source).toMatch(/const SPLIT_GROUPS = CHUNK_GROUPS\.map\(\(\{ name, chunkName, priority, test \}\) => \(\{ name: chunkName \?\? name, priority, test \}\)\);/);
     expect(block).toMatch(/includeDependenciesRecursively:\s*false/);
+  });
+
+  // İnceleme bulgusu (major): tek `wide` parçası dokuz sayfa parçasını statik çekiyordu; geniş ilk rota başka sayfaların
+  // JS/CSS'ini indirip çalıştırıyordu. Geniş-özel modüller artık birim başına parçadır: rota sayfası klasörü
+  // (src/admin/pages/<ad>/… ya da pages/<Ad>Page.wide.*) ya da modülün kendisi (kabuk, ui). Sınıf (delivery-graph) yine `wide`.
+  it('wide grubu parça adını birime göre verir: sayfa klasörü/sayfa ya da modül kökü (kabuk, ui)', () => {
+    expect(groupLine('wide')).toContain('chunkName: wideChunkName');
+    const match = /function wideChunkName\(id: string\): string \{[\s\S]*?\n\}/.exec(source);
+    expect(match, 'wideChunkName işlevi').not.toBeNull();
+    const body = match![0].replace(/^function wideChunkName\(id: string\): string/, 'function wideChunkName(id)');
+    const name = new Function(`${body}; return wideChunkName;`)() as (id: string) => string;
+    const cases: Record<string, string> = {
+      '/repo/src/admin/pages/GenelPage.wide.tsx': 'wide-genel',
+      '/repo/src/admin/pages/GenelPage.wide.css?used': 'wide-genel',
+      '/repo/src/admin/pages/alimlar/AlimlarGenis.wide.tsx': 'wide-alimlar',
+      '/repo/src/admin/pages/alimlar/AlimlarPivot.wide.css': 'wide-alimlar',
+      '/repo/src/admin/pages/projeler/wide/Gantt.tsx': 'wide-projeler',
+      '/repo/src/admin/pages/projeler/ProjelerGenis.wide.tsx': 'wide-projeler',
+      '/repo/src/admin/shell/wide/WorkspaceNav.wide.tsx': 'wide-shell-workspacenav',
+      '/repo/src/admin/shell/QueryBar.wide.tsx': 'wide-shell-querybar',
+      '/repo/src/admin/ui/wide/Kanban.wide.tsx': 'wide-ui-kanban',
+      '/repo/src/admin/ui/wide/Kanban.wide.css': 'wide-ui-kanban',
+      '/repo/src/admin/ui/wide/Pivot.wide.tsx': 'wide-ui-pivot',
+      'C:\\repo\\src\\admin\\pages\\ev\\EvIkiBolme.wide.tsx': 'wide-ev',
+      '/repo/src/Panel.wide.tsx': 'wide-panel',
+      '/repo/src/wide/Board.ts': 'wide-board',
+    };
+    for (const [id, expected] of Object.entries(cases)) expect(name(id), id).toBe(expected);
   });
 
   it('wide grubu en yüksek öncelikte; başka hiçbir grup (shared/tokens dahil) geniş-özel modülü alamaz', () => {
@@ -146,6 +176,12 @@ describe('vite.config.ts admin sözleşmesi', () => {
     expect(source).toMatch(/plugins:\s*\[[\s\S]*deliveryGraph\(CHUNK_GROUPS\),[\s\S]*VitePWA\(/);
   });
 
+  it('package.json kapı betikleri: check:delivery --strict; check:budgets ölçülmüş tavanlarla (ratchet)', () => {
+    const pkg = JSON.parse(readFileSync(resolve(__dirname, '../../package.json'), 'utf8')) as { scripts: Record<string, string> };
+    expect(pkg.scripts['check:delivery']).toBe('node scripts/check-delivery.mjs dist --strict');
+    expect(pkg.scripts['check:budgets']).toBe('node scripts/check-budgets.mjs dist');
+  });
+
   it('globPatterns değişmez', () => {
     expect(arrayLiteral('globPatterns')).toEqual(['**/*.{js,css,html,svg,woff2,ttf}']);
   });
@@ -195,18 +231,20 @@ type DeliveryGraph = { schema: number; groups: string[]; chunks: Record<string, 
 const root = resolve(__dirname, '../..');
 const run = promisify(execFile);
 /** `pnpm build` ile aynı yol: ayrı süreçte Vite CLI. Vitest süreci NODE_ENV=test taşır; o ortamda derleme farklı bir
- *  grafik ve küçültülmemiş sw.js üretir, bu yüzden ortam üretime sabitlenir ve VITEST* değişkenleri atılır. */
+ *  grafik ve küçültülmemiş sw.js üretir, bu yüzden ortam üretime sabitlenir ve VITEST* değişkenleri atılır. E-tablo
+ *  kimliği sentetiktir (kayıtlı bütçe ölçümüyle aynı koşul; süreç ortamı .env dosyalarındaki değeri ezer). */
+const SYNTHETIC_SHEET_ID = 'synthetic-budget-sheet-2098';
 function productionEnv() {
   const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('VITEST')));
-  return { ...env, NODE_ENV: 'production' };
+  return { ...env, NODE_ENV: 'production', VITE_BUDGET_SHEET_ID: SYNTHETIC_SHEET_ID };
 }
 function viteBuild(cwd: string, outDir: string) {
   return run(process.execPath, [resolve(root, 'node_modules/vite/bin/vite.js'), 'build', '--config', resolve(root, 'vite.config.ts'), '--outDir', outDir, '--emptyOutDir', '--logLevel', 'error'], { cwd, env: productionEnv(), maxBuffer: 16 * 1024 * 1024 });
 }
-/** scripts/check-delivery.mjs; çıkış kodu ve rapor (rapor geçici derleme klasörüne yazılır). */
-async function checkDelivery(outDir: string, args: string[] = []) {
+/** scripts/check-delivery.mjs (ya da check-budgets.mjs); çıkış kodu ve rapor (rapor geçici derleme klasörüne yazılır). */
+async function checkDelivery(outDir: string, args: string[] = [], script = 'scripts/check-delivery.mjs') {
   try {
-    const { stdout, stderr } = await run(process.execPath, [resolve(root, 'scripts/check-delivery.mjs'), outDir, ...args], { cwd: root, maxBuffer: 16 * 1024 * 1024 });
+    const { stdout, stderr } = await run(process.execPath, [resolve(root, script), outDir, ...args], { cwd: root, maxBuffer: 16 * 1024 * 1024 });
     return { code: 0, output: stdout + stderr };
   } catch (error) {
     const failure = error as { code: number; stdout: string; stderr: string };
@@ -235,7 +273,7 @@ describe('üretim derlemesi PWA ön belleği ve teslim grafiği', () => {
 
   /** Eski tembel parça adları (globIgnores'un ilk 12 girdisi): ana kabuk bunların içine inmez. */
   const lazyLegacy = (key: string) => LEGACY_IGNORES.some((glob) => manifest[key].file.split('/').pop()!.startsWith(glob.slice(0, -1)));
-  function closure(start: string, stop: (key: string) => boolean): Set<string> {
+  function closure(start: string, stop: (key: string) => boolean, dynamic = true): Set<string> {
     const seen = new Set<string>();
     const queue = [start];
     while (queue.length) {
@@ -243,7 +281,7 @@ describe('üretim derlemesi PWA ön belleği ve teslim grafiği', () => {
       if (seen.has(key)) continue;
       seen.add(key);
       const chunk = manifest[key];
-      for (const child of [...(chunk.imports ?? []), ...(chunk.dynamicImports ?? [])]) if (!seen.has(child) && !stop(child)) queue.push(child);
+      for (const child of [...(chunk.imports ?? []), ...(dynamic ? chunk.dynamicImports ?? [] : [])]) if (!seen.has(child) && !stop(child)) queue.push(child);
     }
     return seen;
   }
@@ -353,19 +391,88 @@ describe('üretim derlemesi PWA ön belleği ve teslim grafiği', () => {
     expect(graph.edges.some((edge) => edge.from === 'src/admin/ui/antd.ts' && edge.toGroup === 'antd')).toBe(true);
   });
 
-  it('check-delivery ratchet modunda PASS: telefon statik kapanışında baseline dışı ihlal yok; rapor yazılır', async () => {
-    const result = await checkDelivery(outDir);
+  // İnceleme bulgusu (major): --strict hiçbir yerde sabit değildi; baseline'a kimlik eklemek her kontrolden geçerdi.
+  // Kapı gerçek derlemede --strict koşar (tek ihlal FAIL), baseline boş kalır ve `pnpm check:delivery` aynı modu kullanır.
+  it('check-delivery --strict PASS: telefon profilinde (giriş + rota sayfaları) hiç ihlal yok; baseline boş; rapor yazılır', async () => {
+    const result = await checkDelivery(outDir, ['--strict']);
     expect(result.code, result.output).toBe(0);
     const report = JSON.parse(readFileSync(join(outDir, 'delivery-report.json'), 'utf8'));
     const baseline = JSON.parse(readFileSync(resolve(root, 'scripts/delivery-baseline.json'), 'utf8'));
     expect(report.status).toBe('pass');
-    expect(report.mode).toBe('ratchet');
-    expect(report.violations.map((violation: { id: string }) => violation.id).filter((id: string) => !baseline.violations.includes(id))).toEqual([]);
+    expect(report.mode).toBe('strict');
+    expect(report.violations).toEqual([]);
+    expect(baseline.violations, 'scripts/delivery-baseline.json yalnız daralır; kesimden sonra boştur').toEqual([]);
+    // Telefon profili rota sayfalarının kapanışlarını da kapsar (routes.tsx PAGE_LOADERS: 12 sayfa).
+    expect(report.phone.routes.map((entry: { root: string }) => entry.root).sort()).toEqual(
+      Object.keys(manifest).filter((key) => /^src\/admin\/pages\/[^/]+Page\.tsx$/.test(key)).sort(),
+    );
+    expect(report.phone.routes).toHaveLength(12);
     // babel-runtime ayrı ve yasak olmayan bir sınıftır: hiçbir ihlal kimliği onu taşımaz, raporda kendi grubu vardır.
     expect(report.forbidden).not.toContain('babel-runtime');
     expect(report.groups['babel-runtime']?.files).toBe(1);
     expect(report.violations.filter((violation: { id: string }) => /babel/.test(violation.id))).toEqual([]);
   }, 60_000);
+
+  // Bütçe kapısı gerçek derlemede: kayıtlı tavanlar ölçüme eşittir (scripts/budgets.json + CEILING_LOCK), bu yüzden ratchet
+  // pratikte katıdır: ilk rota JS'i bir bayt bile büyürse FAIL. Tavanı olmayan her bütçe (telefon CSS/aktarım/yetenek isteği,
+  // geniş antd) kendi sınırında geçer. Bütçe kapısı aynı derlemenin check-delivery raporunu okur (test önce onu yazar).
+  it('check-budgets gerçek derlemede PASS: tavansız her bütçe sınırında, tavanlı bütçe kayıtlı tavanını aşmaz', async () => {
+    expect((await checkDelivery(outDir, ['--strict'])).code, 'aynı derlemenin teslim raporu').toBe(0);
+    const result = await checkDelivery(outDir, [], 'scripts/check-budgets.mjs');
+    expect(result.code, result.output).toBe(0);
+    const report = JSON.parse(readFileSync(join(outDir, 'budget-report.json'), 'utf8')) as { mode: string; budgets: { id: string; status: string; ceiling: number | null }[] };
+    expect(report.mode).toBe('ratchet');
+    expect(report.budgets.filter((budget) => budget.status === 'fail').map((budget) => budget.id)).toEqual([]);
+    expect(report.budgets.filter((budget) => budget.status === 'ratchet' && budget.ceiling === null).map((budget) => budget.id)).toEqual([]);
+    for (const id of ['phone-capability', 'phone-css', 'phone-transfer', 'phone-html', 'wide-antd']) expect(report.budgets.find((budget) => budget.id === id)?.status, id).toBe('pass');
+  }, 60_000);
+
+  // Geniş profil ilk ziyaret: giriş kapanışı + sayfa kapanışı + bunlardan dinamik erişilen wide sınıfı kökler (zincirleme)
+  // ve onların statik kapanışı. Bu küme başka hiçbir rota sayfasının parçasını içermez.
+  it('geniş profilde bir rota açılınca başka hiçbir rota sayfasının (src/admin/pages/*Page.tsx) parçası statik çekilmez', () => {
+    const staticClosure = (start: string) => closure(start, () => false, false);
+    const isWide = (key: string) => (graph.chunks[manifest[key].file]?.groups.wide ?? 0) * 2 > (graph.chunks[manifest[key].file]?.modules ?? 0);
+    const pages = Object.keys(manifest).filter((key) => /^src\/admin\/pages\/[^/]+Page\.tsx$/.test(key)).sort();
+    expect(pages).toHaveLength(12);
+    const wideChunks = Object.keys(manifest).filter(isWide);
+    expect(wideChunks.length, 'wide sınıfı parçalar').toBeGreaterThan(1);
+    const leaks: string[] = [];
+    for (const page of pages) {
+      const visit = new Set([...staticClosure('admin.html'), ...staticClosure(page)]);
+      let frontier = [...visit];
+      while (frontier.length) {
+        const next: string[] = [];
+        for (const key of frontier) for (const child of manifest[key].dynamicImports ?? []) {
+          if (visit.has(child) || !isWide(child)) continue;
+          for (const added of staticClosure(child)) if (!visit.has(added)) { visit.add(added); next.push(added); }
+        }
+        frontier = next;
+      }
+      for (const other of pages) if (other !== page && visit.has(other)) leaks.push(`${page} -> ${other}`);
+    }
+    expect(leaks, 'geniş ilk ziyarette statik çekilen başka sayfa parçaları').toEqual([]);
+    // Her wide parçası en çok kendi sayfasının parçasını statik çeker.
+    const multi = wideChunks.map((key) => ({ key, pages: [...staticClosure(key)].filter((child) => pages.includes(child)) })).filter((entry) => entry.pages.length > 1);
+    expect(multi, 'birden çok sayfa parçasını statik çeken wide parçası').toEqual([]);
+  });
+
+  // İnceleme bulgusu (minor): ana uygulamanın service worker'ı (kapsam /aile/) admin.html'i de denetler; çalışma zamanı
+  // önbelleği `aile-visited-modules` (CacheFirst, 30 giriş) yönetim parçalarını da yazıp ana uygulamanın ziyaret edilmiş
+  // tembel modüllerini çıkarıyordu. Yönetime ait dosyalar (admin grafiğinden erişilip ana uygulama grafiğinden erişilmeyen)
+  // bu önbelleğe yazılmaz: kural sw.js'e derleme sırasında hesaplanan listeyle gömülür.
+  it('sw.js çalışma zamanı önbelleği yönetime ait JS/CSS dosyalarını dışlar, ana uygulamanın tembel modüllerini dışlamaz', () => {
+    const sw = readFileSync(join(outDir, 'sw.js'), 'utf8');
+    expect(sw).toContain('aile-visited-modules');
+    const adminFull = files(closure('admin.html', () => false));
+    const mainFull = mainGraphFiles();
+    const adminOnly = [...adminFull].filter((file) => !mainFull.has(file));
+    expect(adminOnly.length).toBeGreaterThan(20);
+    const name = (file: string) => file.split('/').pop()!;
+    expect(adminOnly.filter((file) => !sw.includes(`"${name(file)}"`)).sort(), 'sw.js dışlama listesinde olmayan yönetim dosyaları').toEqual([]);
+    const mainLazy = [...mainFull].filter((file) => !precache.includes(file));
+    expect(mainLazy.length, 'ana uygulamanın ön bellekte olmayan tembel dosyaları').toBeGreaterThan(5);
+    expect(mainLazy.filter((file) => sw.includes(`"${name(file)}"`)).sort(), 'dışlanan ana uygulama dosyaları').toEqual([]);
+  });
 
   it('sw.js gezinme yedeği admin.html ve uzantısız /admin adresini ana uygulamaya düşürmez', () => {
     const sw = readFileSync(join(outDir, 'sw.js'), 'utf8');
@@ -405,7 +512,8 @@ describe('üretim derlemesi PWA ön belleği ve teslim grafiği', () => {
 // Geniş-özel modüller: geçici bir mini projede (iki giriş: index + admin) gerçek vite.config.ts ile derlenir. src/ altında
 // *.wide.tsx, *.wide.css ve wide/ klasörü; ortak yardımcı (format.ts) telefon girişiyle paylaşılır; tokens ve klavye
 // kipi (shared) projeden alias ile gelir. Fixture çıplak paket import etmez (geçici klasörde node_modules yok).
-describe('wide grubu: geniş-özel modüller tek parçada, telefon statik grafiğine ve shared/tokens gruplarına sızmaz', () => {
+// Parça adı birime göredir (wideChunkName): Panel.wide.{tsx,css} → wide-panel, wide/Board.ts → wide-board.
+describe('wide grubu: geniş-özel modüller birim parçalarında, telefon statik grafiğine ve shared/tokens gruplarına sızmaz', () => {
   const fixture = realpathSync(mkdtempSync(join(tmpdir(), 'aile-wide-')));
   const MARKERS = { panel: 'FIXTURE_WIDE_PANEL_MARKER', board: 'FIXTURE_WIDE_BOARD_MARKER', css: 'fixture-wide-panel-marker', format: 'FIXTURE_FORMAT_MARKER' };
   const builds: Record<'lazy' | 'static', { outDir: string; manifest: Record<string, ManifestChunk>; js: Record<string, string> }> = {} as never;
@@ -452,32 +560,35 @@ describe('wide grubu: geniş-özel modüller tek parçada, telefon statik grafi�
   }, 180_000);
   afterAll(() => rmSync(fixture, { recursive: true, force: true }));
 
-  const wideChunks = (variant: 'lazy' | 'static') => Object.values(builds[variant].manifest).filter((chunk) => chunk.name === 'wide');
+  const wideChunks = (variant: 'lazy' | 'static') => Object.values(builds[variant].manifest).filter((chunk) => /^wide-/.test(chunk.name ?? ''));
+  const wideChunk = (variant: 'lazy' | 'static', name: string) => Object.values(builds[variant].manifest).filter((chunk) => chunk.name === name);
 
-  it('*.wide.tsx, wide/ klasörü ve *.wide.css tek bir wide parçasında (ve onun CSS dosyasında) toplanır', () => {
-    const wide = wideChunks('lazy');
-    expect(wide.map((chunk) => chunk.file)).toEqual([expect.stringMatching(/^assets\/wide-[^/]+\.js$/)]);
-    const code = builds.lazy.js[wide[0].file];
-    expect(code).toContain(MARKERS.panel);
-    expect(code).toContain(MARKERS.board);
-    const css = (wide[0].css ?? []).map((file) => readFileSync(join(builds.lazy.outDir, file), 'utf8')).join('\n');
+  it('*.wide.tsx ve *.wide.css birim parçasında (wide-panel ve onun CSS dosyası), wide/ klasörü kendi biriminde (wide-board)', () => {
+    const panel = wideChunk('lazy', 'wide-panel');
+    const board = wideChunk('lazy', 'wide-board');
+    expect(panel.map((chunk) => chunk.file)).toEqual([expect.stringMatching(/^assets\/wide-panel-[^/]+\.js$/)]);
+    expect(board.map((chunk) => chunk.file)).toEqual([expect.stringMatching(/^assets\/wide-board-[^/]+\.js$/)]);
+    expect(wideChunks('lazy')).toHaveLength(2);
+    expect(builds.lazy.js[panel[0].file]).toContain(MARKERS.panel);
+    expect(builds.lazy.js[board[0].file]).toContain(MARKERS.board);
+    const css = (panel[0].css ?? []).map((file) => readFileSync(join(builds.lazy.outDir, file), 'utf8')).join('\n');
     expect(css).toContain(MARKERS.css);
   });
 
   it('wide işaretleri başka hiçbir parçada (giriş, shared, tokens) yok; telefonla ortak yardımcı wide parçasına girmez', () => {
-    const wideFile = wideChunks('lazy')[0].file;
-    const leaks = Object.entries(builds.lazy.js).filter(([file, code]) => file !== wideFile && (code.includes(MARKERS.panel) || code.includes(MARKERS.board))).map(([file]) => file);
+    const wideFiles = new Set(wideChunks('lazy').map((chunk) => chunk.file));
+    const leaks = Object.entries(builds.lazy.js).filter(([file, code]) => !wideFiles.has(file) && (code.includes(MARKERS.panel) || code.includes(MARKERS.board))).map(([file]) => file);
     expect(leaks).toEqual([]);
-    expect(builds.lazy.js[wideFile]).not.toContain(MARKERS.format);
+    for (const file of wideFiles) expect(builds.lazy.js[file], file).not.toContain(MARKERS.format);
     const grouped = (name: string) => Object.values(builds.lazy.manifest).filter((chunk) => chunk.name === name).map((chunk) => chunk.file);
     expect(grouped('shared')).toHaveLength(1);
     expect(grouped('tokens')).toHaveLength(1);
-    const otherCss = Object.values(builds.lazy.manifest).filter((chunk) => chunk.name !== 'wide').flatMap((chunk) => chunk.css ?? []);
+    const otherCss = Object.values(builds.lazy.manifest).filter((chunk) => !/^wide-/.test(chunk.name ?? '')).flatMap((chunk) => chunk.css ?? []);
     for (const file of otherCss) expect(readFileSync(join(builds.lazy.outDir, file), 'utf8'), file).not.toContain(MARKERS.css);
   });
 
   it('tembel wide: telefon statik kapanışında değil, ön bellekte değil; check-delivery --strict PASS', async () => {
-    const wideFile = wideChunks('lazy')[0].file;
+    const wideFile = wideChunk('lazy', 'wide-panel')[0].file;
     const sw = parsePrecache(readFileSync(join(builds.lazy.outDir, 'sw.js'), 'utf8'));
     expect(sw.filter((url) => /(?:^|\/)wide-/.test(url))).toEqual([]);
     const result = await checkDelivery(builds.lazy.outDir, ['--strict']);
@@ -488,7 +599,7 @@ describe('wide grubu: geniş-özel modüller tek parçada, telefon statik grafi�
   }, 60_000);
 
   it('statik wide importu: check-delivery --strict FAIL ve içe aktaran modülü adıyla listeler', async () => {
-    expect(wideChunks('static')).toHaveLength(1);
+    expect(wideChunk('static', 'wide-panel')).toHaveLength(1);
     const result = await checkDelivery(builds.static.outDir, ['--strict']);
     expect(result.code, result.output).toBe(1);
     expect(result.output).toContain('wide <- src/admin.ts');

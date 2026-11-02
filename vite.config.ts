@@ -1,6 +1,6 @@
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
-import { VitePWA } from 'vite-plugin-pwa';
+import { VitePWA, type VitePWAOptions } from 'vite-plugin-pwa';
 import { fileURLToPath, URL } from 'node:url';
 import { realpathSync } from 'node:fs';
 import { startupFailureScript, startupMarkup, startupStyles } from './src/app/startup.ts';
@@ -8,7 +8,7 @@ import { adminStartupScript } from './src/admin/startup.ts';
 import { privateDataPlugin } from './src/admin/devServer/privateData.ts';
 
 // PWA ön belleğinin dışında kalan dosyalar. İlk 12 glob ana uygulamanın bilinçli tembel parçalarıdır (ana kabuk
-// bunlara inmez); son 6'sı yönetim girişi, adıyla yönetime ait sağlayıcı parçaları ve geniş-özel `wide` parçasıdır.
+// bunlara inmez); son 6'sı yönetim girişi, adıyla yönetime ait sağlayıcı parçaları ve geniş-özel `wide-*` parçalarıdır.
 const PRECACHE_IGNORES = ['**/Charts-*', '**/PaymentChart-*', '**/VehiclePage-*', '**/TimelinePage-*', '**/FinancePage-*', '**/timelineStore-*', '**/financeStore-*', '**/LegacyApp-*', '**/HomePlanPage-*', '**/NumberInput-*', '**/Collapse-*', '**/Tabs-*', '**/admin.html', '**/admin-*', '**/antd-*', '**/pro-*', '**/icons-*', '**/wide-*'];
 
 // Ad listesi tek başına yetmez: ikinci giriş (admin.html) eklenince rolldown, yönetim sayfalarını ve yönetimle tembel
@@ -19,6 +19,9 @@ const PRECACHE_IGNORES = ['**/Charts-*', '**/PaymentChart-*', '**/VehiclePage-*'
 function adminPrecacheScope(ignores: readonly string[]) {
   const lazy = ignores.map((glob) => new RegExp(`(?:^|/)${glob.replace(/^\*\*\//, '').replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '[^/]*')}$`));
   let adminOnly: Set<string> | undefined;
+  // Çalışma zamanı önbelleği için: admin grafiğinden erişilip ana uygulamanın TAM grafiğinden (tembel parçalar dahil)
+  // erişilmeyen JS/CSS. Ana uygulamayla paylaşılan tembel parçalar (ECharts çekirdeği, babel-runtime) burada değildir.
+  let adminRuntimeOnly: Set<string> | undefined;
   const plugin: Plugin = {
     name: 'aile-admin-precache-scope',
     apply: 'build',
@@ -44,6 +47,9 @@ function adminPrecacheScope(ignores: readonly string[]) {
       const css = (file: string) => [...(chunks.get(file)?.viteMetadata?.importedCss ?? [])];
       const mainFiles = new Set([...main].flatMap((file) => [file, ...css(file)]));
       adminOnly = new Set([...admin].flatMap((file) => [file, ...css(file)]).filter((file) => !mainFiles.has(file)));
+      const mainAll = reach(entries('index'), () => false);
+      const mainAllFiles = new Set([...mainAll].flatMap((file) => [file, ...css(file)]));
+      adminRuntimeOnly = new Set([...admin].flatMap((file) => [file, ...css(file)]).filter((file) => !mainAllFiles.has(file)));
     },
   };
   const manifestTransform = <T extends { url: string }>(manifest: T[]) => {
@@ -51,7 +57,32 @@ function adminPrecacheScope(ignores: readonly string[]) {
     const excluded = adminOnly;
     return { manifest: manifest.filter((entry) => !excluded.has(entry.url.replace(/^\.?\//, ''))), warnings: [] };
   };
-  return { plugin, manifestTransform };
+  const runtimeExcluded = (): string[] => {
+    if (!adminRuntimeOnly) throw new Error('aile-admin-precache-scope: paket grafiği hesaplanmadan çalışma zamanı dışlama listesi istendi');
+    return [...adminRuntimeOnly].sort();
+  };
+  return { plugin, manifestTransform, runtimeExcluded };
+}
+
+type RuntimeCachingEntry = NonNullable<NonNullable<VitePWAOptions['workbox']>['runtimeCaching']>[number];
+
+/**
+ * Ana uygulamanın "ziyaret edilen modüller" önbelleği: aynı kökenden /assets/ altındaki script/style isteği CacheFirst
+ * (30 giriş, 7 gün). Service worker kapsamı /aile/ olduğundan admin.html sekmesi de denetlenir; yönetime ait dosyalar
+ * (adminPrecacheScope.runtimeExcluded) bu önbelleğe yazılmaz, yoksa 30 girişi doldurup ana uygulamanın çevrim dışı
+ * tembel modüllerini çıkarırlar. workbox urlPattern işlevini Function.prototype.toString ile sw.js'e yazar; kapanış
+ * değişkeni taşınmaz, bu yüzden dosya adı listesi gövdeye sabit olarak gömülür (hash'li adlar dist içinde tekildir).
+ */
+function visitedModulesRoute(excluded: readonly string[]): RuntimeCachingEntry {
+  const names = JSON.stringify([...new Set(excluded.map((file) => file.slice(file.lastIndexOf('/') + 1)))].sort());
+  const urlPattern = new Function('context', [
+    'const url = context.url;',
+    'const request = context.request;',
+    `const admin = ${names};`,
+    "return url.origin === self.location.origin && url.pathname.includes('/assets/') && ['script', 'style'].includes(request.destination)",
+    "  && !admin.includes(url.pathname.slice(url.pathname.lastIndexOf('/') + 1));",
+  ].join('\n')) as RuntimeCachingEntry['urlPattern'];
+  return { urlPattern, handler: 'CacheFirst', options: { cacheName: 'aile-visited-modules', expiration: { maxEntries: 30, maxAgeSeconds: 604800 } } };
 }
 
 const precacheScope = adminPrecacheScope(PRECACHE_IGNORES);
@@ -89,21 +120,39 @@ const entryPreload = entryPreloadFilter();
 // precached `shared` chunk; the `router` group below keeps it out of the shell and away from an `index-*` name.
 const WOUTER_BOOT = /node_modules[\\/]wouter[\\/]src[\\/](use-hash-location|react-deps|use-sync-external-store)\.js$/;
 
-type ChunkGroup = { name: string; priority: number; test: (id: string) => boolean };
+/** name = sınıf (delivery-graph grubu); chunkName verilirse codeSplitting parça adı modüle göre ondan gelir. */
+type ChunkGroup = { name: string; priority: number; test: (id: string) => boolean; chunkName?: (id: string) => string };
 
-// Geniş-özel (tablet/masaüstü) modüller: src/ altında `*.wide.{ts,tsx,js,jsx,css}` adı veya `wide/` klasörü. Hepsi tek
-// `wide` parçasında toplanır; telefon profili bu parçayı statik olarak hiç istemez (kapı: scripts/check-delivery.mjs).
+// Geniş-özel (tablet/masaüstü) modüller: src/ altında `*.wide.{ts,tsx,js,jsx,css}` adı veya `wide/` klasörü. Sınıfları
+// `wide`dır (delivery-graph); telefon profili bunları statik olarak hiç istemez (kapı: scripts/check-delivery.mjs).
 // Sorgu eki (?used, ?inline) kabul edilir; node_modules içindeki `src/wide` gibi yollar sayılmaz. Geniş-özel bir
 // modülün yalnız onun kullandığı yardımcıları da `.wide.` adı veya `wide/` klasörüyle işaretlenir; işaretsiz ortak
 // modüller bilerek wide parçasına alınmaz (includeDependenciesRecursively: false).
 const WIDE_MODULE = /[\\/]src[\\/](?:[^?]*[\\/])?(?:wide[\\/][^?]+|[^\\/?]+\.wide\.(?:[cm]?[jt]sx?|css))(?:\?.*)?$/;
 const isWideModule = (id: string) => !/[\\/]node_modules[\\/]/.test(id) && WIDE_MODULE.test(id);
 
+// Geniş-özel modülün parçası birime göredir (tek `wide` parçası sayfa modüllerini statik çektiği için geniş ilk rota
+// başka sayfaların JS/CSS'ini indiriyordu): rota sayfası klasörü (src/admin/pages/<ad>/…) ya da sayfa dosyası
+// (pages/<Ad>Page.wide.*) → `wide-<ad>`; başka yerdeki modül (kabuk, ui, mini proje) klasör yolu + modül kökü →
+// `wide-shell-workspacenav`, `wide-ui-kanban`. `wide` klasör segmenti ve `admin` öneki ada girmez; .tsx ile .css aynı
+// kökü paylaşır. Ad yalnız parça dosya adını belirler; sınıf (check-delivery, check-budgets) delivery-graph'tan gelir.
+// Gövde düz JavaScript'tir (tür ifadesi yok): vite-config.test.ts işlevi metinden çalıştırıp örnek yollarla sınar.
+function wideChunkName(id: string): string {
+  const path = id.replace(/\\/g, '/').replace(/\?.*$/, '');
+  const rel = path.slice(path.lastIndexOf('/src/') + '/src/'.length);
+  const page = /^admin\/pages\/(?:([^/]+)\/|([^/.]+?)Page\.wide\.)/.exec(rel);
+  if (page) return `wide-${page[1] ?? page[2]}`.toLowerCase();
+  const parts = rel.split('/').filter((part) => part !== 'wide');
+  if (parts[0] === 'admin') parts.shift();
+  const stem = (parts.pop() ?? '').split('.')[0];
+  return ['wide', ...parts, stem].join('-').toLowerCase();
+}
+
 // codeSplitting grupları için tek liste; deliveryGraph aynı testlerle modül → grup üyeliğini yazar. Bir modül en yüksek
 // öncelikli eşleşen gruba girer (rolldown kuralı).
 const CHUNK_GROUPS: ChunkGroup[] = [
   // Geniş-özel modüller en yüksek öncelikte: shared/tokens dahil hiçbir grup onları alamaz.
-  { name: 'wide', priority: 30, test: isWideModule },
+  { name: 'wide', chunkName: wideChunkName, priority: 30, test: isWideModule },
   // Both token modules (source + legacy re-export) stay in one chunk, as before the second entry.
   { name: 'tokens', priority: 20, test: (id: string) => /src[\\/](design|dashboard)[\\/]tokens\.ts$/.test(id) },
   // icons/pro outrank the antd group so `@ant-design/*` below cannot swallow them.
@@ -131,6 +180,9 @@ const CHUNK_GROUPS: ChunkGroup[] = [
   // instead of becoming more sub-kilobyte precache entries. The rolldown runtime cannot be grouped.
   { name: 'shared', priority: 0, test: (id: string) => /node_modules[\\/](react|react-dom|scheduler|use-sync-external-store|clsx)[\\/]/.test(id) || WOUTER_BOOT.test(id) || /src[\\/]dashboard[\\/]keyboard\.ts$/.test(id) || /vite\/(modulepreload-polyfill|preload-helper)/.test(id) },
 ];
+
+// rolldown codeSplitting grupları: ad işlevi her dönen adı ayrı grup sayar (wide birimleri); öncelik ve test aynı.
+const SPLIT_GROUPS = CHUNK_GROUPS.map(({ name, chunkName, priority, test }) => ({ name: chunkName ?? name, priority, test }));
 
 type DeliveryChunk = { modules: number; groups: Record<string, number>; packages: Record<string, number> };
 type DeliveryEdge = { fromChunk: string; from: string; fromGroup: string | null; toChunk: string; to: string; toGroup: string | null };
@@ -256,6 +308,13 @@ export default defineConfig({
     deliveryGraph(CHUNK_GROUPS),
     VitePWA({
       registerType: 'autoUpdate',
+      // Çalışma zamanı önbellek kuralı derleme grafiğine göre yazılır (yönetim dosyaları dışlanır); workbox sw.js'i paket
+      // grafiği hesaplandıktan sonra (closeBundle) üretir.
+      integration: {
+        beforeBuildServiceWorker(options) {
+          options.workbox.runtimeCaching = [visitedModulesRoute(precacheScope.runtimeExcluded())];
+        },
+      },
       // public/icon.svg is copied to dist and precached by workbox.globPatterns. includeAssets and the default
       // manifest-icon injection both add the same file again as an additional manifest entry (precached twice).
       includeManifestIcons: false,
@@ -282,7 +341,7 @@ export default defineConfig({
         navigateFallback: '/aile/index.html',
         // pathname + search üzerinde denenir: GitHub Pages uzantısız /aile/admin adresini de admin.html olarak çözer.
         navigateFallbackDenylist: [/\/admin(?:\.html)?(?:\?|$)/],
-        runtimeCaching: [{ urlPattern: ({url,request}) => url.origin === self.location.origin && url.pathname.includes('/assets/') && ['script','style'].includes(request.destination), handler: 'CacheFirst', options: { cacheName: 'aile-visited-modules', expiration: { maxEntries: 30, maxAgeSeconds: 604800 } } }],
+        // Ziyaret edilen ana uygulama modülleri: kural integration.beforeBuildServiceWorker'da (visitedModulesRoute).
       },
     }),
   ],
@@ -306,7 +365,7 @@ export default defineConfig({
           // Admin-only vendor code gets its own chunks (never precached). Dependencies are NOT pulled in
           // recursively: the default would drag React into the antd chunk and break the main entry offline.
           includeDependenciesRecursively: false,
-          groups: CHUNK_GROUPS,
+          groups: SPLIT_GROUPS,
         },
       },
     },

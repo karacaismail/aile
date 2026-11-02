@@ -209,11 +209,13 @@ describe('check-budgets: ilk rota kümeleri', () => {
     assert.deepEqual(wide.totals, phone.totals);
   });
 
-  it('yetenek kaynağı: ilk sayfanın statik antd importu sayılır (check-delivery yalnız statik kapanışa bakar)', () => {
+  it('yetenek kaynağı: ilk sayfanın statik antd importu sayılır (check-delivery de rota sayfası kapanışında ihlal yazar)', () => {
     const build = fakeBuild();
     build.manifest['src/admin/pages/AlimlarPage.tsx'].imports.push('_antd-n1.js');
     const delivery = deliveryFor(build);
-    assert.deepEqual(delivery.violations, [], 'teslim kapısı tembel sayfanın antd importunu ihlal saymaz');
+    // Telefon profili rota sayfalarının statik kapanışını da kapsar: iki kapı aynı sızıntıyı ayrı ölçütle yakalar.
+    assert.deepEqual(delivery.violations.map((violation) => violation.class).sort(), ['antd', 'icons']);
+    assert.deepEqual(delivery.violations.find((violation) => violation.class === 'antd').via, ['admin.html', 'src/admin/pages/AlimlarPage.tsx']);
     const { phone } = measureRoutes({ manifest: build.manifest, graph: build.graph, delivery, html: build.html, readText: (file) => build.css[file] ?? '', sizeOf: fixedSize, budgets: budgetsDoc() });
     assert.deepEqual(phone.capability, { requests: 2, raw: 2000, gzip: 800, files: ['assets/antd-n1.js', 'assets/icons-i1.js'], classes: ['antd', 'icons'] });
     assert.equal(phone.withoutCapability.js.gzip, 2400);
@@ -488,6 +490,22 @@ describe('check-budgets: depodaki scripts/budgets.json', () => {
     for (const [id, ceiling] of Object.entries(ceilings)) assert.equal(ceiling, measured[id], `${id}: tavan kayıtlı ölçüme eşit olmalı`);
     const antd = doc.budgets.find((budget) => budget.id === 'wide-antd');
     assert.equal(antd.max, measured['wide-antd'], 'wide-antd istisnası kayıtlı antd ölçümüne eşit olmalı (gerekçesiz pay yok)');
+  });
+
+  // İnceleme bulgusu (major): tavanı yükseltmek her otomatik kontrolden geçiyordu. Tavanlar burada kilitlidir ve yalnız
+  // düşer: bir tavanı yükseltmek bu kilidi de değiştirmeyi gerektirir (inceleme ve entegrasyon sahibinin açık kararı).
+  // Bütçe aşımı kalmayınca tavan silinir ve kapı --strict koşar. Kayıt: 2026-11-02 r4-gates (taban 006ee49; wide grubu
+  // sayfa başına bölündü, preloadRecovery kaldırıldı). Tavansız bütçe kimliği eklemek de bu listeyi değiştirmez.
+  const CEILING_LOCK = Object.freeze({ 'phone-js': 171040, 'wide-js': 181585 });
+  it('ratchet tavanları kilitlidir: yalnız düşer, kilitte olmayan bütçeye tavan eklenmez', () => {
+    const ceilings = doc.ratchet?.ceilings ?? {};
+    for (const [id, ceiling] of Object.entries(ceilings)) {
+      assert.ok(id in CEILING_LOCK, `${id}: kilitte olmayan yeni tavan (bütçeyi gevşetir)`);
+      assert.ok(ceiling <= CEILING_LOCK[id], `${id}: tavan ${ceiling} > kilit ${CEILING_LOCK[id]} (tavan yalnız düşer)`);
+    }
+    // Bütçe tanımı da gevşetilemez: aday bütçeler (adaptive-qa) sabittir.
+    const max = Object.fromEntries(doc.budgets.map((budget) => [budget.id, budget.max]));
+    assert.deepEqual(max, { 'phone-html': 50000, 'phone-js': 120000, 'phone-css': 35000, 'phone-capability': 0, 'phone-transfer': 500000, 'wide-js': 180000, 'wide-antd': 0 });
   });
 });
 

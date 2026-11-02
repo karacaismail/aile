@@ -18,8 +18,12 @@ import { ADMIN_MAIN, adminNotReadyReasons, gotoAdmin, openAdmin } from './admin-
 //    icons, echarts ve wide sınıfından hiçbir dosya istenmez (FORBIDDEN_PHONE_CLASSES, scripts/check-delivery.mjs).
 //  - Yatay telefon 568×320: profil telefon kalır; wide istenmez.
 //  - Telefondan 1440×900'e büyütme: wide bir kez yüklenir; telefona dönüp yeniden büyütünce tekrar istenmez.
-//  - Geniş 1440×900: antd izinli; ECharts yalnız grafik görünür alana girince istenir.
-//  - Admin parçaları ana uygulamanın service worker ön belleğinde (sw.js ve Cache Storage) yoktur.
+//  - Geniş 1440×900: antd/pro/icons istenmez (antd sağlayıcısı hiçbir profilde yüklenmez); ECharts yalnız grafik görünür
+//    alana girince istenir; bir rota açılınca başka hiçbir rota sayfasının parçası istenmez (wide birim başına parçadır).
+//  - Admin parçaları ana uygulamanın service worker ön belleğinde (sw.js ve Cache Storage) yoktur; SW denetimindeki
+//    admin sekmesi çalışma zamanı önbelleğine (aile-visited-modules) yönetim dosyası yazmaz.
+//  - Parça hatası (yayından sonra silinen sayfa ya da wide parçası; route.abort): sayfa kendiliğinden yenilenmez, "Yeni
+//    sürüm var · Yenile" görünür, içe aktarılan nesil korunur; yenileme yalnız kullanıcı "Yenile" deyince.
 //  - Her senaryo aktarım baytını (yanıt başlığı + kodlanmış gövde) ve çözülmüş boyutu (yanıt gövdesi) ayrı raporlar.
 // Veri: üretim derlemesinin varsayılan nesil kaynağı seçilmemiş klasördür (d02: /__aile/generation isteği yok, "Klasör
 // seçilmedi"); hiçbir senaryoda nesil isteği olmaz. Veri gerektiren senaryo sentetik nesli (fixtures/generation-synthetic)
@@ -432,6 +436,25 @@ async function prepareAdminContext(context: BrowserContext, testInfo: TestInfo):
   });
   return recordNetwork(context);
 }
+
+const LOAD_COUNTER = 'e2e:belge-yuklemesi';
+/** Her belge yüklemesini sessionStorage'da sayar (yenileme aynı sekmede sayacı artırır; yeni bağlam 0'dan başlar). */
+async function countDocumentLoads(context: BrowserContext) {
+  await context.addInitScript(key => {
+    try {
+      window.sessionStorage.setItem(key, String(Number(window.sessionStorage.getItem(key) ?? '0') + 1));
+    } catch {
+      /* depolama yok: sayaç okunamaz, test bunu ayrıca yakalar */
+    }
+  }, LOAD_COUNTER);
+}
+const documentLoads = (page: Page) => page.evaluate(key => Number(window.sessionStorage.getItem(key) ?? 'NaN'), LOAD_COUNTER);
+
+/** Manifest anahtarının dist dosyaları (JS + css[]). */
+const chunkFiles = (manifest: ViteManifest, key: string) => [manifest[key].file, ...(manifest[key].css ?? [])];
+const ROUTE_PAGE = /^src\/admin\/pages\/[^/]+Page\.tsx$/;
+/** Yayından sonra silinmiş parça: GitHub Pages gibi HTML 404 (önbelleğe alınmaz). */
+const deletedChunk = { status: 404, contentType: 'text/html; charset=utf-8', headers: { 'cache-control': 'no-store' }, body: '<!doctype html><title>404</title>' };
 
 let readyProbe = 0;
 /** openAdmin'in hazır tanımı (adminNotReadyReasons) yeniden yüklemeden: iki ardışık karede main + h1 hazır, aria-busy yok. */
@@ -887,6 +910,62 @@ test.describe('telefon profili soğuk açılış: antd, pro, icons, echarts ve w
   }
 });
 
+// İnceleme bulgusu (major): üretimde Vite'ın ön yükleme yardımcısı her dinamik importta `vite:preloadError` yayar;
+// preloadRecovery ilk parça hatasında olayı iptal edip sayfayı kendiliğinden yeniliyordu (içe aktarılan nesil ve taslaklar
+// kayboluyordu, lazyWide yeniden denemesi ve bildirim hiç çalışmıyordu). Dev sunucusunda bu yardımcı yoktur; davranış
+// yalnız üretim önizlemesinde sınanabilir.
+test('parça hatası (telefon): sayfa parçası indirilemezse "Yeni sürüm var · Yenile"; sayfa kendiliğinden yenilenmez, içe aktarılan nesil korunur', async ({ page, context }, testInfo) => {
+  const build = loadBuild();
+  const index = deliveryIndex(build);
+  const base = baseOf(testInfo);
+  const net = await prepareAdminContext(context, testInfo);
+  await countDocumentLoads(context);
+  // Yayından sonra silinmiş sayfa parçası: Taraflar sayfasının JS dosyası 404 döner.
+  const taraflar = build.manifest['src/admin/pages/TaraflarPage.tsx'];
+  expect(taraflar, 'Taraflar sayfası manifestte dinamik giriş').toBeDefined();
+  let blocked = true;
+  await context.route(url => distPath(url.href, base) === taraflar.file, route => (blocked ? route.fulfill(deletedChunk) : route.continue()));
+  await openAdmin(page, '/veri');
+  await expect(profile(page)).toHaveAttribute('data-profile', 'phone');
+  await importSyntheticGeneration(page);
+  const { id } = syntheticGeneration();
+  expect(await documentLoads(page), 'önkoşul: tek belge yüklemesi').toBe(1);
+
+  net.phase('kırık rota');
+  await navigateInApp(page, '/taraflar');
+  const main = page.locator(ADMIN_MAIN);
+  const notice = main.getByRole('status').filter({ hasText: 'Yeni sürüm var' });
+  await expect(notice, 'sürüm kayması bildirimi').toBeVisible({ timeout: 15_000 });
+  await expect(main.getByRole('heading', { level: 1 }), 'sayfa başlığı korunur').toHaveText('Taraflar ve teklifler');
+  const reload = notice.getByRole('button', { name: 'Yenile', exact: true });
+  await expect(reload).toBeVisible();
+  expect(await documentLoads(page), 'parça hatası sayfayı kendiliğinden yenilemez').toBe(1);
+  expect(net.records.filter(record => distPath(record.url, base) === taraflar.file).length, 'parça istendi (404)').toBeGreaterThan(0);
+
+  // Uygulama içinde başka rotaya dönüş: içe aktarılan nesil bellekte, hâlâ taze.
+  net.phase('geri');
+  await navigateInApp(page, '/veri');
+  const status = main.locator('[role="status"][data-state]').first();
+  await expect(status, 'içe aktarılan nesil korunur').toHaveAttribute('data-state', 'fresh');
+  await expect(status).toContainText(`Nesil ${id.slice(0, 6)}`);
+  expect(await documentLoads(page)).toBe(1);
+
+  // Yenileme kullanıcının seçimidir: "Yenile" tek yeni belge yüklemesi başlatır ve kabuk aynı rotada açılır. Gerçek
+  // yayında yeni admin.html yeni parça adlarını getirir; burada derleme aynı olduğundan parçanın yeniden gelip gelmediği
+  // tarayıcı önbelleğine kalır (WebKit aynı adresteki başarısız modülü yeniden yüklemede de istemedi), sınanmaz.
+  net.phase('yenile');
+  await navigateInApp(page, '/taraflar');
+  await expect(notice).toBeVisible({ timeout: 15_000 });
+  blocked = false;
+  await Promise.all([page.waitForEvent('load'), notice.getByRole('button', { name: 'Yenile', exact: true }).click()]);
+  await waitReady(page);
+  expect(await documentLoads(page), '"Yenile" tek yeni belge yüklemesi').toBe(2);
+  await expect(page).toHaveURL(/admin\.html#\/taraflar$/);
+  await expect(main.getByRole('heading', { level: 1 })).toHaveText('Taraflar ve teklifler');
+  await report(page, testInfo, net, 'parca-hatasi-telefon', base, index);
+  expect(dataRequests(net.records, base, index), 'üretim derlemesi nesil ara katmanını istemez').toEqual([]);
+});
+
 test.describe('yatay telefon 568×320', () => {
   test.use({ viewport: { width: 568, height: 320 }, hasTouch: true });
 
@@ -971,7 +1050,7 @@ test('telefondan 1440×900 büyütme: wide bir kez yüklenir, telefona dönüp y
 test.describe('geniş 1440×900', () => {
   test.use({ viewport: { width: 1440, height: 900 }, hasTouch: false });
 
-  test('geniş: antd izinli; ECharts grafiksiz sayfada hiç, katlama altındaki grafikte yalnız görünür alana girince istenir', { tag: '@matrix' }, async ({ page, context }, testInfo) => {
+  test('geniş: ECharts grafiksiz sayfada hiç, katlama altındaki grafikte yalnız görünür alana girince istenir', { tag: '@matrix' }, async ({ page, context }, testInfo) => {
     const build = loadBuild();
     const index = deliveryIndex(build);
     const base = baseOf(testInfo);
@@ -1061,6 +1140,114 @@ test.describe('geniş 1440×900', () => {
     expect(unmappedRequests(net.records, base, index)).toEqual([]);
     expect(failedLoads(net.records, base, index), 'yönetim dosyaları eksiksiz yüklenmeli').toEqual([]);
     expect(googleViolations(net.records, [], compiledSheetId()), 'Google isteği canlı veri kullanmayan rotalarda yok').toEqual([]);
+  });
+
+  // İnceleme bulgusu (major): tek `wide` parçası dokuz sayfa parçasını statik çekiyordu; masaüstünde ilk rota başka
+  // sayfaların JS/CSS'ini indirip çalıştırıyordu (dev testi yanlış yeşildi: dev'de wide modülleri ayrı dosyalar).
+  test('geniş: /genel açılınca başka hiçbir rota sayfasının parçası istenmez; antd/pro/icons istenmez', { tag: '@matrix' }, async ({ page, context }, testInfo) => {
+    const build = loadBuild();
+    const index = deliveryIndex(build);
+    const base = baseOf(testInfo);
+    const net = await prepareAdminContext(context, testInfo);
+    await openAdmin(page, '/genel');
+    await expect(profile(page)).toHaveAttribute('data-profile', 'desktop');
+    await net.settle();
+    const requested = new Set(net.records.map(record => distPath(record.url, base) ?? ''));
+    const pages = Object.keys(build.manifest).filter(key => ROUTE_PAGE.test(key));
+    expect(pages, 'manifestte 12 rota sayfası').toHaveLength(12);
+    const genel = 'src/admin/pages/GenelPage.tsx';
+    expect(chunkFiles(build.manifest, genel).filter(file => requested.has(file)).length, 'Genel sayfası parçası istendi').toBeGreaterThan(0);
+    expect(classRequests(net.records, base, index, ['wide']).length, 'geniş profil wide parçasını ister').toBeGreaterThan(0);
+    await report(page, testInfo, net, 'genis-genel-sayfa-yalitimi', base, index);
+    const others = pages.filter(key => key !== genel).flatMap(key => chunkFiles(build.manifest, key).filter(file => requested.has(file)).map(file => `${key}: ${file}`));
+    expect(others, 'başka rota sayfalarının istenen parçaları').toEqual([]);
+    expect(classRequests(net.records, base, index, ['antd', 'pro', 'icons']), 'geniş profil antd/pro/icons istemez (WideProviders hiçbir profilde yüklenmez)').toEqual([]);
+    expect(failedLoads(net.records, base, index)).toEqual([]);
+  });
+
+  test('parça hatası (geniş): wide parçası indirilemezse bildirim + telefon sunumu; sayfa kendiliğinden yenilenmez, nesil korunur', { tag: '@matrix' }, async ({ page, context }, testInfo) => {
+    const build = loadBuild();
+    const index = deliveryIndex(build);
+    const base = baseOf(testInfo);
+    const net = await prepareAdminContext(context, testInfo);
+    await countDocumentLoads(context);
+    // Genel sayfasının tembel wide parçaları (lazyWide hedefleri) yayından sonra silinmiş gibi 404 döner.
+    const genel = build.manifest['src/admin/pages/GenelPage.tsx'];
+    const wideFiles = new Set((genel.dynamicImports ?? []).map(key => build.manifest[key].file).filter(file => index.get(file)?.classes.includes('wide')));
+    expect(wideFiles.size, 'Genel sayfası tembel wide parçası').toBeGreaterThan(0);
+    await context.route(url => wideFiles.has(distPath(url.href, base) ?? ''), route => route.fulfill(deletedChunk));
+    await openAdmin(page, '/veri');
+    await expect(profile(page)).toHaveAttribute('data-profile', 'desktop');
+    await importSyntheticGeneration(page);
+    const { id } = syntheticGeneration();
+    expect(await documentLoads(page), 'önkoşul: tek belge yüklemesi').toBe(1);
+
+    net.phase('kırık wide');
+    await navigateInApp(page, '/genel');
+    const main = page.locator(ADMIN_MAIN);
+    const notice = main.getByRole('status').filter({ hasText: 'Yeni sürüm var' });
+    await expect(notice, 'geniş görünüm için sürüm kayması bildirimi').toBeVisible({ timeout: 15_000 });
+    await expect(notice.getByRole('button', { name: 'Yenile', exact: true })).toBeVisible();
+    await expect(main.getByRole('heading', { level: 1 })).toHaveText('Genel durum');
+    await expect(main.getByRole('heading', { level: 2 }).first(), 'telefon (temel) sunumu kullanılabilir kalır').toBeVisible();
+    expect(await documentLoads(page), 'wide parça hatası sayfayı kendiliğinden yenilemez').toBe(1);
+    expect(net.records.filter(record => wideFiles.has(distPath(record.url, base) ?? '')).length, 'wide parçası istendi (404)').toBeGreaterThan(0);
+
+    net.phase('geri');
+    await navigateInApp(page, '/veri');
+    const status = main.locator('[role="status"][data-state]').first();
+    await expect(status, 'içe aktarılan nesil korunur').toHaveAttribute('data-state', 'fresh');
+    await expect(status).toContainText(`Nesil ${id.slice(0, 6)}`);
+    expect(await documentLoads(page)).toBe(1);
+    await report(page, testInfo, net, 'parca-hatasi-genis', base, index);
+  });
+
+  // İnceleme bulgusu (minor): ana uygulamanın SW'si (kapsam /aile/) admin sekmesini de denetler; çalışma zamanı önbelleği
+  // (CacheFirst, 30 giriş) yönetim parçalarını da yazıp ana uygulamanın ziyaret edilmiş tembel modüllerini çıkarıyordu.
+  test('SW denetimindeki admin sekmesi çalışma zamanı önbelleğine yönetim dosyası yazmaz; ana uygulama tembel modülü yazılır', { tag: '@matrix' }, async ({ page, context }, testInfo) => {
+    const build = loadBuild();
+    const index = deliveryIndex(build);
+    const base = baseOf(testInfo);
+    const { manifest } = build;
+    const mainRoots = Object.keys(manifest).filter(key => manifest[key].isEntry && key !== ADMIN_ENTRY);
+    const mainReach = filesOf(manifest, reach(manifest, mainRoots, true));
+    const adminOnly = new Set([...filesOf(manifest, reach(manifest, [ADMIN_ENTRY], true))].filter(file => !mainReach.has(file) && /\.(?:js|css)$/.test(file)));
+    const precache = new Set(parsePrecache(readFileSync(path.join(DIST, 'sw.js'), 'utf8')));
+    const mainLazy = [...mainReach].filter(file => file.endsWith('.js') && !precache.has(file));
+    expect(adminOnly.size, 'yönetime ait dosyalar').toBeGreaterThan(20);
+    expect(mainLazy.length, 'ana uygulamanın ön bellekte olmayan tembel parçası').toBeGreaterThan(0);
+    await isolateNetwork(context, testInfo);
+    const net = recordNetwork(context);
+    // Ana uygulama service worker'ı kurar (registerType autoUpdate: skipWaiting + clientsClaim).
+    await page.goto(base.href);
+    const workerState = await page.evaluate(() => Promise.race([
+      navigator.serviceWorker.ready.then(registration => registration.active?.state ?? 'none'),
+      new Promise<string>(resolve => setTimeout(() => resolve('timeout'), 15_000)),
+    ]));
+    expect(workerState, 'service worker kurulmalı').toMatch(/^activat/);
+    net.phase('admin');
+    await openAdmin(page, '/genel');
+    expect(await page.evaluate(() => Boolean(navigator.serviceWorker.controller)), 'önkoşul: admin sekmesi SW denetiminde').toBe(true);
+    await navigateInApp(page, '/alimlar');
+    await navigateInApp(page, '/raporlar');
+    await net.settle();
+    expect(classRequests(net.records, base, index, ['wide'], ['admin']).length, 'önkoşul: admin geniş parçaları istendi').toBeGreaterThan(0);
+    // Pozitif kontrol: ana uygulamanın tembel parçası (modulepreload, hedef script) çalışma zamanı önbelleğine yazılır.
+    const lazyUrl = new URL(mainLazy.sort()[0], base).href;
+    await page.evaluate(href => new Promise<void>((resolve, reject) => {
+      const link = Object.assign(document.createElement('link'), { rel: 'modulepreload', href });
+      link.onload = () => resolve();
+      link.onerror = () => reject(new Error(`modulepreload ${href}`));
+      document.head.append(link);
+    }), lazyUrl);
+    const cachedUrls = () => page.evaluate(async () => (await (await caches.open('aile-visited-modules')).keys()).map(request => request.url));
+    // Önbelleğe yazım yanıttan sonra SW içinde olur: en son istenen ana uygulama parçası görünene dek beklenir; yönetim
+    // istekleri ondan önce bitti, yazılacak olsalardı artık önbellekte olurlardı.
+    await expect.poll(async () => (await cachedUrls()).includes(lazyUrl), { message: 'ana uygulamanın tembel modülü çalışma zamanı önbelleğine yazılır', timeout: 10_000 }).toBe(true);
+    const cached = (await cachedUrls()).map(url => distPath(url, base) ?? url);
+    await testInfo.attach('sw-calisma-zamani-onbellegi.json', { body: JSON.stringify({ cached, adminOnly: [...adminOnly].sort() }, null, 2), contentType: 'application/json' });
+    await report(page, testInfo, net, 'sw-calisma-zamani-onbellegi', base, index);
+    expect(cached.filter(file => adminOnly.has(file)).sort(), 'çalışma zamanı önbelleğindeki yönetim dosyaları').toEqual([]);
   });
 });
 // #endregion

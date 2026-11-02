@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { useContext, useEffect, useState, type ReactNode } from 'react';
+import { designTokens } from '../../design/tokens.ts';
 import { ConfigProvider } from '../ui/antd';
 import { AdaptiveRoot } from './AdaptiveRoot';
 import { useInputLayers, useProfile } from './context';
@@ -201,7 +202,7 @@ describe('WideProviders', () => {
   it('provides the Turkish locale and the aile theme', () => {
     installViewport({ width: 1440, height: 900 });
     render(<WideProviders><ConfigProbe /></WideProviders>);
-    expect(screen.getByText('locale=tr motion=true sure=0.24s font=Outfit, system-ui, sans-serif')).toBeInTheDocument();
+    expect(screen.getByText(`locale=tr motion=true sure=0.24s font=${designTokens.fontSans}`)).toBeInTheDocument();
   });
 
   // antd MotionWrapper, token.motion ilk kez false olunca alt ağacı MotionProvider ile sarar: ağaç biçimi değişir ve
@@ -209,7 +210,7 @@ describe('WideProviders', () => {
   it('expresses prefers-reduced-motion with zero duration tokens; antd motion itself stays on', () => {
     installViewport({ width: 1440, height: 900, reducedMotion: true });
     render(<WideProviders><ConfigProbe /></WideProviders>);
-    expect(screen.getByText('locale=tr motion=true sure=0s font=Outfit, system-ui, sans-serif')).toBeInTheDocument();
+    expect(screen.getByText(`locale=tr motion=true sure=0s font=${designTokens.fontSans}`)).toBeInTheDocument();
   });
 
   it('keeps the app mounted with its state and focus when prefers-reduced-motion changes at runtime', () => {

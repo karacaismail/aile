@@ -101,8 +101,31 @@ function failureStatus(error: unknown): 'error' | 'stale-build' {
 
 const wait = (ms: number) => new Promise<void>(resolve => { setTimeout(resolve, ms); });
 
+/**
+ * Dinamik import bir modül ad alanı (nesne) vermelidir. undefined/null ya da ilkel değer başarısız yükleme sayılır: Vite'ın
+ * ön yükleme yardımcısı `vite:preloadError` iptal edilince importu undefined ile çözer; bu 'ready' sayılırsa geniş ada
+ * render sırasında çöker. Uygulama kodu olayı dinlemez (source-rules.test.ts); bu denetim ikinci savunma hattıdır.
+ */
+function checkedModule<M>(key: string, module: M, valid: (module: M) => boolean): M {
+  if (module === null || (typeof module !== 'object' && typeof module !== 'function') || !valid(module)) {
+    throw new TypeError(`Geniş modül '${key}' geçersiz modül verdi`);
+  }
+  return module;
+}
+const anyModule = () => true;
+
+/** Modülün default'u React bileşeni mi: işlev ya da memo/forwardRef/lazy nesnesi ($$typeof). */
+const hasDefaultComponent = (module: { default?: unknown }): boolean => {
+  const value = module.default;
+  return typeof value === 'function' || (typeof value === 'object' && value !== null && '$$typeof' in value);
+};
+
 /** Düşük düzey kaynak (bileşen olmayan modüller, ör. WideProviders). Çağrı biçimi lazyWide ile aynı kurala uyar. */
 export function wideResource<M>(key: string, importer: () => Promise<M>, options: WideOptions = {}): WideResource<M> {
+  return createResource(key, importer, options, anyModule);
+}
+
+function createResource<M>(key: string, importer: () => Promise<M>, options: WideOptions, valid: (module: M) => boolean): WideResource<M> {
   const existing = registry.get(key);
   if (existing) return existing as WideResource<M>;
   const retryDelayMs = options.retryDelayMs ?? WIDE_RETRY_DELAY_MS;
@@ -113,12 +136,13 @@ export function wideResource<M>(key: string, importer: () => Promise<M>, options
     state = next;
     for (const listener of [...listeners]) listener();
   };
+  const once = async (): Promise<M> => checkedModule(key, await importer(), valid);
   const attempt = async (): Promise<M> => {
     try {
-      return await importer();
+      return await once();
     } catch {
       await wait(retryDelayMs);
-      return importer();
+      return once();
     }
   };
   const resource: WideResource<M> = {
@@ -198,7 +222,7 @@ let antdProviders: WideResource<ProvidersModule> | null = null;
  * wideManifest'te görünmez ve hiçbir profilde istenmez. Yeniden deneme beklemesi ilk antd adasınınkidir (ilk importer).
  */
 function antdProvidersResource(options: WideOptions): WideResource<ProvidersModule> {
-  antdProviders ??= wideResource('wide-providers', () => import('./WideProviders'), options);
+  antdProviders ??= createResource('wide-providers', () => import('./WideProviders'), options, hasDefaultComponent);
   return antdProviders;
 }
 
@@ -220,7 +244,7 @@ export function lazyWide<P extends object>(
   options: LazyWideOptions = {},
 ): WideComponent<P> {
   const { antd = false, ...resourceOptions } = options;
-  const resource = wideResource(key, importer, resourceOptions);
+  const resource = createResource(key, importer, resourceOptions, hasDefaultComponent);
   const providers = antd ? antdProvidersResource(resourceOptions) : null;
   function Wide(props: WideProps<P>): ReactNode {
     const { wideFallback = null, ...rest } = props;

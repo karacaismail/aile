@@ -1,6 +1,8 @@
 // Uyarlamalı teslim kapısı (scripts/check-delivery.mjs): sahte Vite manifesti + delivery-graph ile.
-// Kural: admin.html telefon profilinin STATİK kapanışında antd, pro, icons, echarts, wide sınıfı yoktur; tembel
-// (dinamik) parçalarda olabilirler. Sınıf parça adından değil, delivery-graph modül üyeliğinden gelir.
+// Kural: telefon profili = admin.html statik kapanışı + her rota sayfası dinamik girişinin (src/admin/pages/*Page.tsx)
+// statik kapanışı; bu kümede antd, pro, icons, echarts, wide sınıfı yoktur. lazyWide/wideResource hedefleri ve
+// Chart.runtime gibi diğer tembel (dinamik) parçalarda olabilirler. Sınıf parça adından değil, delivery-graph modül
+// üyeliğinden gelir.
 // Hem `node --test scripts/check-delivery.test.mjs` hem Vitest (vitest.config.ts `scripts/**/*.test.mjs`) koşar.
 // Gerçek veri yok: yalnız sentetik dosya adları ve içerikler.
 import assert from 'node:assert/strict';
@@ -24,8 +26,10 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const script = path.join(root, 'scripts', 'check-delivery.mjs');
 
 // #region sahte derleme
-/** Temiz telefon kapanışı: admin girişi yalnız shared/tokens/ortak kabuğu statik çeker; antd, wide, echarts tembeldir.
- *  `_antd-x1.js` adı tuzaktır: ui/antd.ts'ten adını alan otomatik parça, içinde antd paketi yok (sınıfı app). */
+/** Temiz telefon profili: admin girişi yalnız shared/tokens/ortak kabuğu statik çeker; rota sayfaları da yalnız ortak
+ *  parçaları statik çeker. antd (WideProviders adası), wide (lazyWide hedefi, sayfasını statik geri çeker) ve echarts
+ *  (Chart.runtime) tembeldir. `_antd-x1.js` adı tuzaktır: ui/antd.ts'ten adını alan otomatik parça, içinde antd paketi
+ *  yok (sınıfı app). */
 function cleanBuild() {
   const manifest = {
     'admin.html': { file: 'assets/admin-a1.js', name: 'admin', src: 'admin.html', isEntry: true, imports: ['_shared-s1.js', '_tokens-t1.js', '_PageHeader-p1.js', '_antd-x1.js'], dynamicImports: ['src/admin/pages/GenelPage.tsx', 'src/admin/pages/RaporlarPage.tsx'], css: ['assets/admin-a1.css'] },
@@ -33,12 +37,17 @@ function cleanBuild() {
     '_tokens-t1.js': { file: 'assets/tokens-t1.js', name: 'tokens' },
     '_antd-x1.js': { file: 'assets/antd-x1.js', name: 'antd', imports: ['_shared-s1.js'] },
     '_PageHeader-p1.js': { file: 'assets/PageHeader-p1.js', name: 'PageHeader', imports: ['_shared-s1.js'], dynamicImports: ['_core-e1.js'], css: ['assets/PageHeader-p1.css'] },
-    'src/admin/pages/GenelPage.tsx': { file: 'assets/GenelPage-g2.js', name: 'GenelPage', src: 'src/admin/pages/GenelPage.tsx', isDynamicEntry: true, imports: ['_shared-s1.js', '_antd-n1.js', 'admin.html'] },
-    'src/admin/pages/RaporlarPage.tsx': { file: 'assets/RaporlarPage-r2.js', name: 'RaporlarPage', src: 'src/admin/pages/RaporlarPage.tsx', isDynamicEntry: true, imports: ['_shared-s1.js', '_wide-w1.js', 'admin.html'] },
+    'src/admin/pages/GenelPage.tsx': { file: 'assets/GenelPage-g2.js', name: 'GenelPage', src: 'src/admin/pages/GenelPage.tsx', isDynamicEntry: true, imports: ['_shared-s1.js', 'admin.html'], dynamicImports: ['src/admin/adaptive/WideProviders.tsx'] },
+    'src/admin/pages/RaporlarPage.tsx': { file: 'assets/RaporlarPage-r2.js', name: 'RaporlarPage', src: 'src/admin/pages/RaporlarPage.tsx', isDynamicEntry: true, imports: ['_shared-s1.js', 'admin.html'], dynamicImports: ['_wide-w1.js', 'src/admin/ui/Chart.runtime.ts'] },
+    // antd adası: yalnız tembel sağlayıcı antd'yi statik çeker (lazyWide(…, { antd: true }) yolu).
+    'src/admin/adaptive/WideProviders.tsx': { file: 'assets/WideProviders-v1.js', name: 'WideProviders', src: 'src/admin/adaptive/WideProviders.tsx', isDynamicEntry: true, imports: ['_shared-s1.js', '_antd-n1.js'] },
+    // Chart'ın tembel ECharts çalışma zamanı: sayfadan yalnız dinamik import.
+    'src/admin/ui/Chart.runtime.ts': { file: 'assets/Chart.runtime-c1.js', name: 'Chart.runtime', src: 'src/admin/ui/Chart.runtime.ts', isDynamicEntry: true, imports: ['_core-e1.js'] },
     // antd ↔ ortak kabuk döngüsü gerçek derlemede de var; kapanış sonsuz döngüye girmemeli.
     '_antd-n1.js': { file: 'assets/antd-n1.js', name: 'antd', imports: ['_shared-s1.js', '_icons-i1.js', '_PageHeader-p1.js'] },
     '_icons-i1.js': { file: 'assets/icons-i1.js', name: 'icons', imports: ['_shared-s1.js'] },
-    '_wide-w1.js': { file: 'assets/wide-w1.js', name: 'wide', imports: ['_shared-s1.js'] },
+    // lazyWide hedefi kendi sayfasını statik geri çeker (gerçek derlemede de var); kapı tembel parçanın içine inmez.
+    '_wide-w1.js': { file: 'assets/wide-w1.js', name: 'wide-raporlar', imports: ['_shared-s1.js', 'src/admin/pages/RaporlarPage.tsx'] },
     '_core-e1.js': { file: 'assets/core-e1.js', name: 'core', imports: ['_graphic-g1.js'] },
     '_graphic-g1.js': { file: 'assets/graphic-g1.js', name: 'graphic' },
   };
@@ -50,6 +59,8 @@ function cleanBuild() {
     'assets/PageHeader-p1.js': { modules: 10, groups: {}, packages: { '.': 10 } },
     'assets/GenelPage-g2.js': { modules: 1, groups: {}, packages: { '.': 1 } },
     'assets/RaporlarPage-r2.js': { modules: 1, groups: {}, packages: { '.': 1 } },
+    'assets/WideProviders-v1.js': { modules: 1, groups: {}, packages: { '.': 1 } },
+    'assets/Chart.runtime-c1.js': { modules: 1, groups: {}, packages: { '.': 1 } },
     'assets/antd-n1.js': { modules: 50, groups: { antd: 50 }, packages: { antd: 40, '@rc-component/table': 10 } },
     'assets/icons-i1.js': { modules: 5, groups: { icons: 5 }, packages: { '@ant-design/icons': 5 } },
     'assets/wide-w1.js': { modules: 2, groups: { wide: 2 }, packages: { '.': 2 } },
@@ -57,20 +68,33 @@ function cleanBuild() {
     'assets/graphic-g1.js': { modules: 15, groups: {}, packages: { zrender: 10, echarts: 5 } },
   };
   const edges = [
-    { fromChunk: 'assets/GenelPage-g2.js', from: 'src/admin/pages/GenelPage.tsx', fromGroup: null, toChunk: 'assets/antd-n1.js', to: 'antd', toGroup: 'antd' },
+    { fromChunk: 'assets/WideProviders-v1.js', from: 'src/admin/adaptive/WideProviders.tsx', fromGroup: null, toChunk: 'assets/antd-n1.js', to: 'antd', toGroup: 'antd' },
     { fromChunk: 'assets/antd-n1.js', from: 'antd', fromGroup: 'antd', toChunk: 'assets/icons-i1.js', to: '@ant-design/icons', toGroup: 'icons' },
-    { fromChunk: 'assets/RaporlarPage-r2.js', from: 'src/admin/pages/RaporlarPage.tsx', fromGroup: null, toChunk: 'assets/wide-w1.js', to: 'src/admin/ui/Table.wide.tsx', toGroup: 'wide' },
+    { fromChunk: 'assets/wide-w1.js', from: 'src/admin/pages/raporlar/Tablo.wide.tsx', fromGroup: 'wide', toChunk: 'assets/RaporlarPage-r2.js', to: 'src/admin/pages/raporlar/model.ts', toGroup: null },
     { fromChunk: 'assets/core-e1.js', from: 'echarts', fromGroup: null, toChunk: 'assets/graphic-g1.js', to: 'zrender', toGroup: null },
     { fromChunk: 'assets/admin-a1.js', from: 'src/admin/App.tsx', fromGroup: null, toChunk: 'assets/shared-s1.js', to: 'react', toGroup: 'shared' },
   ];
   return { manifest, graph: { schema: 1, groups: ['wide', 'tokens', 'pro', 'icons', 'antd', 'router', 'shared'], chunks, edges } };
 }
 
-/** Bugünkü gerçek ihlalin eşleniği: ui/antd.ts barrel'ı admin girişinde antd'yi statik çeker; antd de icons'u. */
+/** Kesim öncesi gerçek ihlalin eşleniği: ui/antd.ts barrel'ı admin girişinde antd'yi statik çeker; antd de icons'u. */
 function antdLeakBuild() {
   const build = cleanBuild();
   build.manifest['admin.html'].imports.push('_antd-n1.js');
   build.graph.edges.push({ fromChunk: 'assets/admin-a1.js', from: 'src/admin/ui/antd.ts', fromGroup: null, toChunk: 'assets/antd-n1.js', to: 'antd', toGroup: 'antd' });
+  return build;
+}
+
+/** Rota sayfasından sızıntı (inceleme bulgusu): giriş kapanışı temiz, ama telefonun her rotada indirdiği sayfa parçaları
+ *  antd'yi (GenelPage), geniş-özel modülü ve gömülü ECharts'ı (RaporlarPage) statik çeker. */
+function pageLeakBuild() {
+  const build = cleanBuild();
+  build.manifest['src/admin/pages/GenelPage.tsx'].imports.push('_antd-n1.js');
+  build.graph.edges.push({ fromChunk: 'assets/GenelPage-g2.js', from: 'src/admin/pages/OdemelerPage.tsx', fromGroup: null, toChunk: 'assets/antd-n1.js', to: 'antd', toGroup: 'antd' });
+  build.manifest['src/admin/pages/RaporlarPage.tsx'].imports.push('_wide-w1.js');
+  build.graph.edges.push({ fromChunk: 'assets/RaporlarPage-r2.js', from: 'src/admin/pages/RaporlarPage.tsx', fromGroup: null, toChunk: 'assets/wide-w1.js', to: 'src/admin/ui/Table.wide.tsx', toGroup: 'wide' });
+  build.graph.chunks['assets/RaporlarPage-r2.js'] = { modules: 4, groups: {}, packages: { '.': 2, echarts: 2 } };
+  build.graph.edges.push({ fromChunk: 'assets/RaporlarPage-r2.js', from: 'src/admin/ui/Chart.tsx', fromGroup: null, toChunk: 'assets/RaporlarPage-r2.js', to: 'echarts', toGroup: null });
   return build;
 }
 
@@ -87,7 +111,7 @@ describe('check-delivery: manifest grafiği', () => {
     assert.ok(!closure.includes('_core-e1.js'));
   });
 
-  it('dinamik kökler statik kapanışın dynamicImports listesinden gelir (sayfalar + Chart tembel ECharts)', () => {
+  it('dinamik kökler statik kapanışın dynamicImports listesinden gelir (sayfalar + tembel ECharts)', () => {
     const { manifest } = cleanBuild();
     const roots = dynamicRoots(manifest, staticClosure(manifest, 'admin.html'));
     assert.deepEqual([...roots].sort(), ['_core-e1.js', 'src/admin/pages/GenelPage.tsx', 'src/admin/pages/RaporlarPage.tsx']);
@@ -109,13 +133,23 @@ describe('check-delivery: sınıflandırma ve ihlal', () => {
     // Tembel kökler: sayfa parçaları page, ECharts parçası adıyla değil paket üyeliğiyle echarts.
     const lazy = Object.fromEntries(report.lazy.map((entry) => [entry.root, entry]));
     assert.equal(lazy['src/admin/pages/GenelPage.tsx'].class, 'page');
-    assert.deepEqual(Object.keys(lazy['src/admin/pages/GenelPage.tsx'].added.byClass).sort(), ['icons', 'page', 'antd'].sort());
+    assert.deepEqual(Object.keys(lazy['src/admin/pages/GenelPage.tsx'].added.byClass), ['page']);
     assert.equal(lazy['chunk:core'].class, 'echarts');
     assert.ok(lazy['chunk:core'].added.byClass.echarts, 'graphic-g1 (zrender) echarts sayılmalı');
-    assert.ok(lazy['src/admin/pages/RaporlarPage.tsx'].added.byClass.wide);
+    // antd adası, lazyWide hedefi ve Chart.runtime sayfadan tembel kökler olarak kalır (telefon kümesine girmez).
+    assert.deepEqual(Object.keys(lazy['src/admin/adaptive/WideProviders.tsx'].added.byClass).sort(), ['antd', 'icons', 'lazy']);
+    assert.equal(lazy['src/admin/adaptive/WideProviders.tsx'].importer, 'src/admin/pages/GenelPage.tsx');
+    assert.equal(lazy['chunk:wide-raporlar'].class, 'wide');
+    assert.equal(lazy['chunk:wide-raporlar'].importer, 'src/admin/pages/RaporlarPage.tsx');
+    assert.equal(lazy['src/admin/ui/Chart.runtime.ts'].importer, 'src/admin/pages/RaporlarPage.tsx');
+    // Telefon profili: giriş kapanışı + rota sayfalarının kapanışı; sayfa başına yalnız eklediği parçalar.
+    const routes = Object.fromEntries(report.phone.routes.map((entry) => [entry.root, entry]));
+    assert.deepEqual(Object.keys(routes).sort(), ['src/admin/pages/GenelPage.tsx', 'src/admin/pages/RaporlarPage.tsx']);
+    assert.deepEqual(routes['src/admin/pages/RaporlarPage.tsx'].added.chunks, ['src/admin/pages/RaporlarPage.tsx']);
+    assert.deepEqual(Object.keys(routes['src/admin/pages/GenelPage.tsx'].added.byClass), ['page']);
   });
 
-  it('antd sızıntısı: içe aktaran modül ve zincir listelenir; tembel sayfanın antd importu ihlal sayılmaz', () => {
+  it('antd sızıntısı: içe aktaran modül ve zincir listelenir', () => {
     const report = analyzeDelivery({ ...antdLeakBuild(), sizeOf: fixedSize });
     assert.deepEqual(ids(report), ['antd <- src/admin/ui/antd.ts', 'icons <- antd']);
     const antd = report.violations[0];
@@ -124,7 +158,33 @@ describe('check-delivery: sınıflandırma ve ihlal', () => {
     assert.equal(antd.attributed, true);
     assert.deepEqual(antd.via, ['admin.html']);
     assert.deepEqual(report.violations[1].via, ['admin.html', 'chunk:antd']);
-    assert.ok(!ids(report).some((id) => id.includes('GenelPage')));
+  });
+
+  // İnceleme bulgusu (major): kapı yalnız admin.html statik kapanışına bakıyordu; telefon her rotada sayfa parçasını
+  // indirdiği için sayfanın statik antd/wide/echarts importu telefonun indirdiği koddur ve ihlaldir.
+  it('rota sayfasının statik kapanışı telefon profilidir: sayfadan statik antd, wide ve gömülü ECharts ihlaldir (yol: admin.html > sayfa)', () => {
+    const report = analyzeDelivery({ ...pageLeakBuild(), sizeOf: fixedSize });
+    assert.deepEqual(ids(report), ['antd <- src/admin/pages/OdemelerPage.tsx', 'echarts <- src/admin/ui/Chart.tsx', 'icons <- antd', 'wide <- src/admin/pages/RaporlarPage.tsx']);
+    const byId = Object.fromEntries(report.violations.map((violation) => [violation.id, violation]));
+    assert.deepEqual(byId['antd <- src/admin/pages/OdemelerPage.tsx'].via, ['admin.html', 'src/admin/pages/GenelPage.tsx']);
+    assert.deepEqual(byId['antd <- src/admin/pages/OdemelerPage.tsx'].importerChunks, ['src/admin/pages/GenelPage.tsx']);
+    assert.deepEqual(byId['icons <- antd'].via, ['admin.html', 'src/admin/pages/GenelPage.tsx', 'chunk:antd']);
+    assert.deepEqual(byId['wide <- src/admin/pages/RaporlarPage.tsx'].via, ['admin.html', 'src/admin/pages/RaporlarPage.tsx']);
+    assert.deepEqual(byId['echarts <- src/admin/ui/Chart.tsx'].via, ['admin.html', 'src/admin/pages/RaporlarPage.tsx']);
+    // Sayfa kapanışındaki yasak parçalar telefon profilinin parçası olarak raporlanır.
+    const routes = Object.fromEntries(report.phone.routes.map((entry) => [entry.root, entry]));
+    assert.ok(routes['src/admin/pages/GenelPage.tsx'].added.byClass.antd, 'GenelPage rotası antd parçasını ekler');
+    assert.ok(routes['src/admin/pages/RaporlarPage.tsx'].added.byClass.wide, 'RaporlarPage rotası wide parçasını ekler');
+  });
+
+  it('yalnız rota sayfaları (src/admin/pages/*Page.tsx) eklenir: girişten tembel antd adası ya da geniş gezinme telefon kümesine girmez', () => {
+    const build = cleanBuild();
+    build.manifest['admin.html'].dynamicImports.push('src/admin/adaptive/WideProviders.tsx', '_wide-n1.js');
+    build.manifest['_wide-n1.js'] = { file: 'assets/wide-n1.js', name: 'wide-shell', imports: ['_shared-s1.js', '_antd-n1.js'] };
+    build.graph.chunks['assets/wide-n1.js'] = { modules: 3, groups: { wide: 3 }, packages: { '.': 3 } };
+    const report = analyzeDelivery({ ...build, sizeOf: fixedSize });
+    assert.deepEqual(report.violations, []);
+    assert.deepEqual(report.phone.routes.map((entry) => entry.root).sort(), ['src/admin/pages/GenelPage.tsx', 'src/admin/pages/RaporlarPage.tsx']);
   });
 
   it('girişe gömülü ECharts (parça içi kenar) ve statik wide importu yakalanır', () => {
@@ -247,7 +307,7 @@ describe('check-delivery: CLI', () => {
     assert.ok(report.phone.static.gzip > 0);
   });
 
-  it('--strict bugünkü ihlali listeleyerek FAIL (çıkış 1)', async () => {
+  it('--strict ihlali listeleyerek FAIL (çıkış 1)', async () => {
     const dist = await writeDist('leak-strict', antdLeakBuild());
     const result = await cli([dist, '--strict']);
     assert.equal(result.code, 1);
@@ -264,6 +324,14 @@ describe('check-delivery: CLI', () => {
     const result = await cli([dist, '--baseline', baseline]);
     assert.equal(result.code, 1);
     assert.match(result.stdout + result.stderr, /yeni ihlal/i);
+  });
+
+  it('--strict sayfa kapanışındaki ihlali yol ile yazar ve FAIL (çıkış 1)', async () => {
+    const dist = await writeDist('page-leak-strict', pageLeakBuild());
+    const result = await cli([dist, '--strict']);
+    assert.equal(result.code, 1, result.stdout + result.stderr);
+    assert.match(result.stdout, /wide <- src\/admin\/pages\/RaporlarPage\.tsx .*yol: admin\.html > src\/admin\/pages\/RaporlarPage\.tsx/);
+    assert.match(result.stdout, /rota sayfaları: 2/);
   });
 
   it('temiz derleme strict modda da PASS', async () => {
