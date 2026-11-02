@@ -524,8 +524,12 @@ describe('Tabs kaynak kuralları (statik)', () => {
 
   it('imports its stylesheet; nothing it statically reaches imports antd, @ant-design/*, ./antd, echarts or a *.wide module', () => {
     expect(read('Tabs.tsx')).toContain("import './Tabs.css'");
-    // Yürüyücünün kendisi: antd çeken bir sarmalayıcıda (Select) antd.ts'yi bulmalı; yoksa bu test boşuna geçer.
-    expect(staticGraph('Select.tsx').files).toContain('src/admin/ui/antd.ts');
+    // Yürüyücünün kendisi: antd'yi gerçekten statik çeken bir modülde ui/antd.ts'yi ve antd paketlerini bulmalı; yoksa
+    // bu test boşuna geçer. Tanık W0 sözleşmesindeki tek onaylı antd içe aktarıcısı adaptive/WideProviders.tsx'tir
+    // (Select a03'te yerelleşti; artık antd çekmediği için tanık olamaz).
+    const witness = staticGraph('../adaptive/WideProviders.tsx');
+    expect(witness.files).toContain('src/admin/ui/antd.ts');
+    expect(witness.packages.map(({ spec }) => spec)).toEqual(expect.arrayContaining(['antd', '@ant-design/pro-components']));
     const graph = staticGraph('Tabs.tsx');
     expect(graph.files).toEqual(expect.arrayContaining([
       'src/admin/ui/Tabs.tsx', 'src/admin/ui/Tabs.secim.tsx', 'src/admin/ui/Tabs.gezinme.ts', 'src/admin/ui/icons.tsx', 'src/admin/device.ts',
