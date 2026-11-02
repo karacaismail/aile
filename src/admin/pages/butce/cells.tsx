@@ -1,4 +1,5 @@
-import { Money, Tag } from '../../ui';
+import { Money } from '../../ui/Money';
+import { Tag } from '../../ui/Tag';
 import { RECORDED_IN_SOURCE_TEXT, RECORDED_NOT_YET_TEXT, type Money as MoneyValue, type RecordedValue } from '../../data';
 import { BILINMIYOR, type BudgetRow } from './model';
 

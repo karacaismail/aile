@@ -1,6 +1,15 @@
 import { useCallback, useEffect, useId, useMemo, useState, type ReactNode } from 'react';
 import { lazyWide, useProfile } from '../adaptive';
-import { Button, DataStatus, EmptyState, ErrorState, LoadingShell, Money, ResponsiveTable, Select, StatusText } from '../ui';
+// Doğrudan modül importları: '../ui' barrel'ı Chart'ı da dışa aktarır ve telefon grafiği istemez (Chart.tsx + Chart.css).
+import { Button } from '../ui/Button';
+import { DataStatus } from '../ui/DataStatus';
+import { EmptyState } from '../ui/EmptyState';
+import { ErrorState } from '../ui/ErrorState';
+import { LoadingShell } from '../ui/LoadingShell';
+import { Money } from '../ui/Money';
+import { ResponsiveTable } from '../ui/ResponsiveTable';
+import { Select } from '../ui/Select';
+import { StatusText } from '../ui/StatusText';
 import type { DataStatusState, PageHeaderAction, PageHeaderSummary, ResponsiveColumn, Tone } from '../shell/contracts';
 import { PageHeader } from '../shell/PageHeader';
 import {

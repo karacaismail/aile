@@ -233,8 +233,9 @@ test.describe('Raporlar › matris', () => {
       if (p === 'desktop') {
         await expect(aylik.getByRole('table', { name: 'Aylık plan ve gerçek' })).toBeVisible();
         await expect(aylik.getByRole('columnheader', { name: 'Gerçekleşen' })).toBeVisible();
-        const nav = main.getByRole('navigation', { name: 'Raporlar' });
-        await expect(nav.getByRole('menuitem', { name: 'Aylık plan ve gerçek' })).toBeVisible();
+        // Rapor seçimi sayfa içi seçimdir: menü/gezinme değil, "Rapor seçimi" düğme listesi; seçili rapor aria-current="true".
+        const secim = main.getByRole('list', { name: 'Rapor seçimi' });
+        await expect(secim.getByRole('button', { name: 'Aylık plan ve gerçek' })).toHaveAttribute('aria-current', 'true');
       } else {
         // Tablet: sütunlar sıkıştırılmaz; tablo içerik genişliğine sığmazsa ResponsiveTable akordeona iner. Değerler
         // grafiğin altında ya tabloda ya akordeondadır. Rapor seçimi menü değil, "Rapor" alanıdır.
@@ -255,7 +256,7 @@ test.describe('Raporlar › matris', () => {
     const { main } = await ac(page);
     const p = await profil(page);
     if (p === 'desktop') {
-      await main.getByRole('navigation', { name: 'Raporlar' }).getByRole('menuitem', { name: 'Veri güveni özeti' }).click();
+      await main.getByRole('list', { name: 'Rapor seçimi' }).getByRole('button', { name: 'Veri güveni özeti' }).click();
     } else if (p === 'phone') {
       await main.getByRole('combobox', { name: 'Rapor' }).click();
       const sayfa = page.getByRole('dialog', { name: 'Rapor' });
