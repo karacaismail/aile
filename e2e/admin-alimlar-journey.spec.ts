@@ -8,9 +8,11 @@ import { accentEdges, focusRing, overflow, selfCheckDetectors, smallText } from 
 // Alımlar ve eşyalar — uçtan uca kullanıcı yolculuğu (sentetik nesil). Tasarım: README › Sayfa iskeleti, ekranlar.md
 // (EkranListe/Tablo/Kanban/Zaman, EkranAyrinti + dar biçimler), bundle.js Aile.Pages.Alimlar.
 //
-// Veri: playwright.admin.config.ts webServer env'ine AILE_GENERATION_DIR eklenemediği için /__aile/generation/** istekleri
-// burada fixtures/generation-synthetic dosyalarından karşılanır (dev middleware ile aynı sözleşme: _meta, yalnız .json,
-// '..'/mutlak yol reddi, {error:'…'} gövdesi). Gerçek nesil, kasa yolu ve Sheet kimliği okunmaz.
+// Veri: webServer (playwright.admin.config.ts › syntheticServerEnv) AILE_GENERATION_DIR ile sentetik nesli zaten servis
+// eder. Bu yolculuk yine de /__aile/generation/** isteklerini page.route ile aynı fixtures/generation-synthetic
+// dosyalarından karşılar: page.route sahtesi sunucudan önceliklidir ve hangi dosyaların istendiğini kaydetmenin tek
+// yoludur (manifest, purchase_needs; source_cells/source_rows asla). Sözleşme dev middleware ile aynı: _meta, yalnız
+// .json, '..'/mutlak yol reddi, {error:'…'} gövdesi. Gerçek nesil, kasa yolu ve Sheet kimliği okunmaz.
 //
 // Beklenen kümeler fixture'dan hesaplanır (sabit sayı yazılmaz). Silinmiş (deleted_at) iki sentetik kayıt seçilen
 // filtrelerin dışında tutulur: panelin silinmiş kayıtları gösterip göstermemesi bu yolculuğun konusu değildir.
