@@ -1,5 +1,6 @@
 import type { AylikModeliAdi, EmeklilikProfili, SecenekAnahtari, TlMetni, Varsayimlar } from '../contract';
 import { OranAlani, ParaAlani, TamSayiAlani, TutarBilgisiAlani, type Araclar, type Erisim, type FormAlani } from './alanlar';
+import { BORC_ALANI, ELLE_BOS_HATA, ELLE_BOS_NEDENI } from './borcKaynagi';
 import type { AlanAnahtari, AlanGrubuAnahtari, AylikModeliSecenegi, BayrakAnahtari, IhyaAlanAnahtari } from './ekran';
 
 // Varsayım formu kataloğu: hangi alanın hangi grupta, hangi etiket/yardım/aralıkla durduğunu ve değerin Varsayimlar
@@ -71,7 +72,9 @@ export class VarsayimFormu {
       new TamSayiAlani({ anahtar: 'askerlikGun', etiket: 'Askerlikten eklenecek gün', yardim: `En çok ${bicimleyici.gun(azamiAskerlik)}; SSK ile çakışan gün ikinci kez eklenmez.`, grup: 'gunVeTutar' }, secenekGirdisi('askerlik', 'gun'), araclar, 0, azamiAskerlik, 'gün'),
       new ParaAlani({ anahtar: 'askerlikGunlukBedel', etiket: 'Askerlik için günlük bedel', yardim: `${resmiBedel} SGK tebliğindeki bedeli girebilirsiniz.`, grup: 'gunVeTutar' }, secenekGirdisi('askerlik', 'gunlukBedelTl'), araclar),
       new TamSayiAlani({ anahtar: 'bagkurGun', etiket: 'Kabul edilecek Bağ-Kur günü', yardim: 'Çakışan dönemler düşüldükten sonraki gün.', grup: 'gunVeTutar' }, secenekGirdisi('bagkur', 'gun'), araclar, 0, hedef, 'gün'),
-      new TutarBilgisiAlani({ anahtar: 'bagkurBorc', etiket: 'Düzeltilmiş Bağ-Kur borcu', yardim: 'Tek tutar ya da aralık (300.000,00 – 450.000,00). Boşsa borç bilinmiyor sayılır; tutar uydurulmaz.', grup: 'gunVeTutar' }, secenekGirdisi('bagkur', 'borc'), araclar, 'Düzeltilmiş Bağ-Kur borcu girilmedi'),
+      // Borç tutarı grubun düz alanı değildir (grup yok): "Bağ-Kur borcunun kaynağı" radyo grubunda "Tutarı gir" seçiliyken
+      // kaynağın altında çizilir (borcKaynagi.ts). Orada zorunludur; bilinmiyorsa kullanıcı ilk kaynağı seçer.
+      new TutarBilgisiAlani({ anahtar: BORC_ALANI, etiket: 'Düzeltilmiş Bağ-Kur borcu', yardim: 'Tek tutar (350.000,00) ya da aralık (300.000,00 – 450.000,00).' }, secenekGirdisi('bagkur', 'borc'), araclar, ELLE_BOS_NEDENI, ELLE_BOS_HATA),
       new TutarBilgisiAlani({ anahtar: 'bagkurOrtakOdeme', etiket: 'Yalnız SSK yolunda da ödenecek Bağ-Kur tutarı', yardim: 'İki yolda da ödenecek tutar; hiç ödenmeyecekse 0. Boşsa bilinmiyor sayılır.', grup: 'gunVeTutar' }, secenekGirdisi('bagkur', 'yalnizSskYolundaOdenecek'), araclar, 'Ortak ödenecek Bağ-Kur tutarı girilmedi'),
       new OranAlani({ anahtar: 'bagkurGecikmeOrani', etiket: 'Bağ-Kur borcuna aylık gecikme oranı', yardim: `Boşsa gecikme tahmini yapılmaz. En çok ${bicimleyici.oran(GECIKME_ORANI_UST)}.`, grup: 'gunVeTutar' }, kok('bagkurGecikmeAylikOran'), araclar, 0, GECIKME_ORANI_UST, true),
       new TamSayiAlani({ anahtar: 'ihyaGun', etiket: 'İhya edilecek gün', yardim: 'SGK’nın kabul edeceği durdurulmuş süre.', grup: 'gunVeTutar' }, secenekGirdisi('ihya', 'gun'), araclar, 0, hedef, 'gün'),

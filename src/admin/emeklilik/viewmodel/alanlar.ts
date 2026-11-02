@@ -167,13 +167,21 @@ export const ELLE_KAYNAK = 'Elle girildi';
 /** "a – b" (uzun/kısa tire) ya da rakamdan sonra gelen "-" aralık ayırıcısıdır; tutarlar eksi olamaz. */
 const ARALIK = /^(.*\d)\s*(?:[–—]|-)\s*(.+)$/;
 
-/** Tutar bilgisi: boş → bilinmiyor (neden adıyla; tutar uydurulmaz), tek tutar → bilinen, "a – b" → aralık. */
+/**
+ * Tutar bilgisi: boş → bilinmiyor (neden adıyla; tutar uydurulmaz), tek tutar → bilinen, "a – b" → aralık. bosHata
+ * verilirse alan zorunludur: boş metin hatadır (durum değişmez) ve durumdaki tutar bilinmiyorsa alanın yanında yazılır.
+ */
 export class TutarBilgisiAlani<S, K extends HerhangiAlanAnahtari = HerhangiAlanAnahtari> extends FormAlani<S, TutarBilgisi, K> {
   readonly girisModu = 'decimal' as const;
-  readonly zorunlu = false;
+  readonly zorunlu: boolean;
 
-  constructor(tanim: AlanTanimi<S, K>, erisim: Erisim<S, TutarBilgisi>, araclar: Araclar, private readonly bosNedeni: string) {
+  constructor(tanim: AlanTanimi<S, K>, erisim: Erisim<S, TutarBilgisi>, araclar: Araclar, private readonly bosNedeni: string, private readonly bosHata?: string) {
     super(tanim, erisim, araclar);
+    this.zorunlu = Boolean(bosHata);
+  }
+
+  override durumHatasi(durum: S): string | null {
+    return this.bosHata && this.gorunur(durum) && this.taslakMetni(durum) === '' ? onekli(this.bosHata) : null;
   }
 
   private tutar(metin: string): AyristirmaSonucu<TlMetni> {
@@ -183,7 +191,7 @@ export class TutarBilgisiAlani<S, K extends HerhangiAlanAnahtari = HerhangiAlanA
 
   protected ayristir(metin: string): AyristirmaSonucu<TutarBilgisi> {
     const temiz = metin.trim();
-    if (!temiz) return { tamam: true, deger: { tur: 'bilinmiyor', neden: this.bosNedeni } };
+    if (!temiz) return this.bosHata ? { tamam: false, hata: this.bosHata } : { tamam: true, deger: { tur: 'bilinmiyor', neden: this.bosNedeni } };
     const aralik = ARALIK.exec(temiz);
     if (!aralik) {
       const tek = this.tutar(temiz);
