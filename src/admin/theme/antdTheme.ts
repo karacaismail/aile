@@ -2,6 +2,7 @@ import { designTokens as d, tokens } from '../../design/tokens.ts';
 import type { ThemeConfig } from '../ui/antd';
 
 // Ant Design 6 eşlemesi: aile-tasarim/tasarim-sistemi/README.md › "Ant Design 6 eşlemesi".
+// Yalnız geniş profilin sağlayıcısı (adaptive/WideProviders) kullanır; telefon profili antd'siz çalışır. antd yalnız tür olarak.
 // Her değer designTokens'tan türer; sabit renk yok. Odak halkası yok (admin.css alt çizgiyi çizer),
 // Menu etkin şeridi yok, 14 px altı metin yok, tek 240 ms süre ve tek eğri.
 const sure = `${d.sure / 1000}s`;
@@ -25,7 +26,9 @@ export const aileTema: ThemeConfig = {
     padding: d.bosluk4, paddingSM: d.bosluk3, paddingXS: d.bosluk2, paddingXXS: d.bosluk1, paddingLG: d.bosluk6, paddingXL: d.bosluk8,
     boxShadow: 'none',
     boxShadowSecondary: d.golgeYukseltilmis,
-    controlOutline: 'transparent', controlOutlineWidth: 0, lineWidthFocus: 0,
+    // antd 6 tohum anahtarı focusOutline=false: bileşenlerin genFocusOutline çizgisi kapalı (alias lineWidthFocus 0 türetir);
+    // açık 0 değerleri ileride türetme değişse de halkayı kapalı tutar.
+    focusOutline: false, controlOutline: 'transparent', controlOutlineWidth: 0, lineWidthFocus: 0,
     motionDurationFast: sure, motionDurationMid: sure, motionDurationSlow: sure,
     motionEaseInOut: d.egri, motionEaseOut: d.egri, motionEaseInOutCirc: d.egri, motionEaseOutCirc: d.egri,
     motionEaseOutBack: d.egri, motionEaseInBack: d.egri, motionEaseInQuint: d.egri, motionEaseOutQuint: d.egri,
