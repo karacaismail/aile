@@ -19,7 +19,8 @@ import { EmeklilikPage, type EmeklilikPageProps } from './EmeklilikPage';
 
 const PROFIL_METNI = readFileSync(resolve(__dirname, '../../../fixtures/emeklilik/profil-sentetik.json'), 'utf8');
 const PROFIL = JSON.parse(PROFIL_METNI) as EmeklilikProfili;
-const AMAC = 'Üç seçimin emeklilik ayını, ödemeyi ve aylığı nasıl değiştirdiğini görün.';
+// Amaç cümlesinin tek kaynağı shell/navigation.ts (emeklilik sayfa kaydı).
+const AMAC = 'Askerlik, Bağ-Kur ve ihya seçeneklerinin emeklilik tarihine ve maliyetine etkisini karşılaştırın.';
 const BUGUN = () => new Date('2026-11-02T12:00:00+03:00');
 
 /** Bellekte profil kaynağı (repository sözleşmesi); dosya JSON olarak okunur, kalıcı depolama yok. */

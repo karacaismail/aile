@@ -28,6 +28,7 @@ const ROUTES: readonly SmokeRoute[] = [
   { path: '/butce', label: 'Bütçe ve nakit' },
   { path: '/odemeler', label: 'Ödemeler' },
   { path: '/hesaplar', label: 'Hesaplar ve borçlar' },
+  { path: '/emeklilik', label: 'Emeklilik planı' },
   { path: '/alimlar', label: 'Alımlar ve eşyalar' },
   { path: '/ev', label: 'Ev ve odalar' },
   { path: '/projeler', label: 'Projeler ve görevler' },

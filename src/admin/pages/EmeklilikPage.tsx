@@ -5,6 +5,7 @@ import { varsayilanProfilKaynagi } from '../emeklilik/data';
 import { MEVZUAT_2026, emeklilikPlanlayicisiOlustur } from '../emeklilik/model';
 import { EmeklilikPlaniViewModel } from '../emeklilik/viewmodel';
 import { PageHeader } from '../shell/PageHeader';
+import { currentAdminLink } from '../shell/navigation';
 import { ErrorState } from '../ui/ErrorState';
 import { LoadingShell } from '../ui/LoadingShell';
 import { EmeklilikTelefon } from './emeklilik/EmeklilikTelefon';
@@ -24,9 +25,11 @@ import './EmeklilikPage.css';
 // Kişisel profil Git'e ve dist'e girmez: geliştirmede kaynak Git dışı dosyayı okur, üretimde kullanıcı dosya içe aktarır.
 
 const YOL = '/emeklilik';
-export const BOLUM = 'Para';
-export const BASLIK = 'Emeklilik planı';
-export const AMAC = 'Üç seçimin emeklilik ayını, ödemeyi ve aylığı nasıl değiştirdiğini görün.';
+// Bölüm, başlık ve amaç tek kaynaktan: shell/navigation.ts (menü = h1 = belge başlığı; amaç cümlesi orada).
+const GEZINME = currentAdminLink('/emeklilik');
+export const BOLUM = GEZINME.section;
+export const BASLIK = GEZINME.label;
+export const AMAC = GEZINME.purpose;
 
 const EmeklilikGenis = lazyWide<EmeklilikSunumProps>('emeklilik-genis', () => import('./emeklilik/EmeklilikGenis.wide'));
 

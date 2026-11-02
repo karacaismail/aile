@@ -30,7 +30,7 @@ const TABLET = { width: 820, height: 1180, coarse: true };
 const DESKTOP = { width: 1440, height: 900, fine: true, hover: true };
 
 const PAGES = [
-  'Genel durum', 'Bütçe ve nakit', 'Ödemeler', 'Hesaplar ve borçlar', 'Alımlar ve eşyalar', 'Ev ve odalar',
+  'Genel durum', 'Bütçe ve nakit', 'Ödemeler', 'Hesaplar ve borçlar', 'Emeklilik planı', 'Alımlar ve eşyalar', 'Ev ve odalar',
   'Projeler ve görevler', 'Taraflar ve teklifler', 'Raporlar', 'Sözlükler ve iş akışları', 'Veri kalitesi ve içe aktarma',
 ];
 
@@ -66,7 +66,7 @@ describe('WorkspaceShell · masaüstü ilk açılış (geniş gezinme tembel)', 
 describe('WorkspaceShell · masaüstü (≥1024)', () => {
   beforeEach(() => { wideGate.release(); installViewport(DESKTOP); });
 
-  it('side navigation: brand, Sayfalar nav with the 11 pages as hash links, current page marked', async () => {
+  it('side navigation: brand, Sayfalar nav with the 12 pages as hash links, current page marked', async () => {
     render(<WorkspaceShell location="/alimlar/123"><p>İçerik</p></WorkspaceShell>);
     const aside = await sideNav();
     expect(within(aside).getByText('aile')).toBeInTheDocument();
@@ -74,7 +74,7 @@ describe('WorkspaceShell · masaüstü (≥1024)', () => {
     const links = within(nav).getAllByRole('link');
     expect(links.map(link => link.textContent?.trim())).toEqual(PAGES);
     expect(links.map(link => link.getAttribute('href'))).toEqual([
-      '#/genel', '#/butce', '#/odemeler', '#/hesaplar', '#/alimlar', '#/ev', '#/projeler', '#/taraflar', '#/raporlar', '#/sozlukler', '#/veri',
+      '#/genel', '#/butce', '#/odemeler', '#/hesaplar', '#/emeklilik', '#/alimlar', '#/ev', '#/projeler', '#/taraflar', '#/raporlar', '#/sozlukler', '#/veri',
     ]);
     expect(within(nav).getByRole('link', { name: 'Alımlar ve eşyalar' })).toHaveAttribute('aria-current', 'page');
     expect(links.filter(link => link.hasAttribute('aria-current'))).toHaveLength(1);

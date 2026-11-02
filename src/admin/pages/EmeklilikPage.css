@@ -309,3 +309,7 @@
   align-items: flex-start;
   gap: var(--aile-bosluk-2) var(--aile-bosluk-4);
 }
+
+/* ₺ tutarı taşıyan açıklama ve gerekçe metinleri: rakamlar hizalı (₺8.500,00, tabular-nums). */
+.aile-em-soru__aciklama,
+.aile-em-oneri__gerekce { font-variant-numeric: tabular-nums; }

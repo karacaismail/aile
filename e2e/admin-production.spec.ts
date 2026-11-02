@@ -884,7 +884,7 @@ test('/__aile/generation dev-only ara katmanı üretim önizlemesinde 404 döner
 
 // #region telefon
 /** navigation.ts sırası + Ayarlar; her rota önce soğuk açılır (derin bağlantı, veri yok), sonra veriyle yeniden açılır. */
-const ADMIN_ROUTES = ['/alimlar', '/genel', '/butce', '/odemeler', '/hesaplar', '/ev', '/projeler', '/taraflar', '/raporlar', '/sozlukler', '/veri', '/ayarlar'] as const;
+const ADMIN_ROUTES = ['/alimlar', '/genel', '/butce', '/odemeler', '/hesaplar', '/emeklilik', '/ev', '/projeler', '/taraflar', '/raporlar', '/sozlukler', '/veri', '/ayarlar'] as const;
 
 test.describe('telefon profili soğuk açılış: antd, pro, icons, echarts ve wide istenmez', () => {
   for (const route of ADMIN_ROUTES) {
@@ -1173,7 +1173,7 @@ test.describe('geniş 1440×900', () => {
     await net.settle();
     const requested = new Set(net.records.map(record => distPath(record.url, base) ?? ''));
     const pages = Object.keys(build.manifest).filter(key => ROUTE_PAGE.test(key));
-    expect(pages, 'manifestte 12 rota sayfası').toHaveLength(12);
+    expect(pages, 'manifestte 13 rota sayfası').toHaveLength(13);
     const genel = 'src/admin/pages/GenelPage.tsx';
     expect(chunkFiles(build.manifest, genel).filter(file => requested.has(file)).length, 'Genel sayfası parçası istendi').toBeGreaterThan(0);
     expect(classRequests(net.records, base, index, ['wide']).length, 'geniş profil wide parçasını ister').toBeGreaterThan(0);

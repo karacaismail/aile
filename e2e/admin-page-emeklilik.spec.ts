@@ -17,7 +17,8 @@ import { accentEdges, focusRing, overflow, smallText, touchTargets } from './adm
 
 const PROFIL_YOLU = '**/__aile/emeklilik/profil.json';
 const SENTETIK_PROFIL = readFileSync(new URL('../fixtures/emeklilik/profil-sentetik.json', import.meta.url), 'utf8');
-const AMAC = 'Üç seçimin emeklilik ayını, ödemeyi ve aylığı nasıl değiştirdiğini görün.';
+// Amaç cümlesinin tek kaynağı shell/navigation.ts (emeklilik sayfa kaydı).
+const AMAC = 'Askerlik, Bağ-Kur ve ihya seçeneklerinin emeklilik tarihine ve maliyetine etkisini karşılaştırın.';
 const SORULAR = {
   askerlik: 'Askerliği borçlanacak mısınız?',
   bagkur: 'Bağ-Kur borcunu ödeyecek misiniz?',

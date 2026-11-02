@@ -26,7 +26,7 @@ import { densityFor, densityVarNames, designTokens, targetTokens, type DensityPr
 // openAdmin, hareket bitişi transitionend/animationend sayacı ve document.getAnimations(), kare sınırı rAF.
 // Dedektörlerin kör olmadığı en alttaki öz denetimde kanıtlanır (bilinçli ihlal enjekte edilir, yakalanmazsa FAIL).
 
-const ROUTES = ['/genel', '/butce', '/odemeler', '/hesaplar', '/alimlar', '/ev', '/projeler', '/taraflar', '/raporlar', '/sozlukler', '/veri', '/ayarlar'] as const;
+const ROUTES = ['/genel', '/butce', '/odemeler', '/hesaplar', '/emeklilik', '/alimlar', '/ev', '/projeler', '/taraflar', '/raporlar', '/sozlukler', '/veri', '/ayarlar'] as const;
 const MATRIX = { tag: '@matrix' };
 
 const PHONE = { width: 320, height: 568 };

@@ -41,7 +41,8 @@ export function ProfilIceAktar({ etiket = 'Profil dosyasını içe aktar', onDos
 export function ProfilSatiri({ profil, kaynak }: { profil: ProfilGorunumu; kaynak: ProfilKaynakAdi }) {
   return (
     <div className="aile-em-profil">
-      <p className="aile-kucuk aile-ikincil">{`${profil.etiket} · ${profil.kayit} · ${KAYNAK_ADI[kaynak]}`}</p>
+      {/* Sayfanın tek tazelik satırı (başlık sözleşmesi: başlıkta role=status bir satır): profilin kaydı ve kaynağı. */}
+      <p role="status" aria-live="polite" className="aile-kucuk aile-ikincil">{`${profil.etiket} · ${profil.kayit} · ${KAYNAK_ADI[kaynak]}`}</p>
       {profil.tazelik.durum === 'eski' ? <p className="aile-kucuk"><StatusText label={profil.tazelik.metin} tone="uyari" /></p> : null}
     </div>
   );

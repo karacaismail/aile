@@ -48,7 +48,7 @@ import { accentEdges, focusRing, selfCheckDetectors } from './admin-detectors';
 // test atlanır (not_applicable); telefonda katmanın olmaması hatadır.
 
 const ROUTES = [
-  '/genel', '/butce', '/odemeler', '/hesaplar', '/alimlar', '/ev',
+  '/genel', '/butce', '/odemeler', '/hesaplar', '/emeklilik', '/alimlar', '/ev',
   '/projeler', '/taraflar', '/raporlar', '/sozlukler', '/veri', '/ayarlar',
 ] as const;
 const MATRIX = { tag: '@matrix' };

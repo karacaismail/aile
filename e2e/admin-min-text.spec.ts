@@ -36,7 +36,7 @@ const MATRIX = { tag: '@matrix' } as const;
 
 /** navigation.ts adminPages sırası + Ayarlar. "rota listesi" testi kabuktaki menüyle eşitliği denetler. */
 const PAGE_ROUTES = [
-  '/genel', '/butce', '/odemeler', '/hesaplar', '/alimlar', '/ev',
+  '/genel', '/butce', '/odemeler', '/hesaplar', '/emeklilik', '/alimlar', '/ev',
   '/projeler', '/taraflar', '/raporlar', '/sozlukler', '/veri',
 ] as const;
 const ROUTES = [...PAGE_ROUTES, '/ayarlar'] as const;
@@ -541,7 +541,7 @@ test.describe('admin görünür metin en az 14 CSS px', () => {
       .evaluateAll((links) => links.map((a) => (a.getAttribute('href') ?? '').slice(1)));
     expect(hrefs.filter((href) => href !== '/ayarlar')).toEqual([...PAGE_ROUTES]);
     await expect(scope.getByRole('link', { name: 'Ayarlar' }).first()).toHaveAttribute('href', '#/ayarlar');
-    expect(ROUTES).toHaveLength(12);
+    expect(ROUTES).toHaveLength(13);
   });
 });
 

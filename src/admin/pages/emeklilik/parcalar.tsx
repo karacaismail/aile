@@ -89,7 +89,7 @@ export function OneriBolumu({ oneri, komutlar }: { oneri: OneriGorunumu; komutla
         <span className="aile-ikincil">{oneri.etiket}: </span>
         <strong>{oneri.secimAdi}</strong>
       </p>
-      <p className="aile-kucuk aile-ikincil">{oneri.gerekce} {oneri.saglamlik}</p>
+      <p className="aile-em-oneri__gerekce aile-kucuk aile-ikincil">{oneri.gerekce} {oneri.saglamlik}</p>
       <div className="aile-em-oneri__eylem">
         <Button
           variant="primary"

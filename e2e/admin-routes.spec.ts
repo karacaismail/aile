@@ -26,6 +26,7 @@ const ROUTES: readonly RouteCase[] = [
   { path: '/butce', label: 'Bütçe ve nakit', section: 'Para', purpose: 'Ayın gelirini, planlanan giderlerini ve kalan nakdi kalem kalem izleyin.' },
   { path: '/odemeler', label: 'Ödemeler', section: 'Para', purpose: 'Planlanan, yapılan ve geciken ödemeleri tarihleriyle izleyin.' },
   { path: '/hesaplar', label: 'Hesaplar ve borçlar', section: 'Para', purpose: 'Hesap bakiyelerini ve kalan borçları, taksit planıyla birlikte görün.' },
+  { path: '/emeklilik', label: 'Emeklilik planı', section: 'Para', purpose: 'Askerlik, Bağ-Kur ve ihya seçeneklerinin emeklilik tarihine ve maliyetine etkisini karşılaştırın.' },
   { path: '/alimlar', label: 'Alımlar ve eşyalar', section: 'Alım ve envanter', purpose: 'Ev için alınacak ve alınmış her şeyi plan ve gerçek tutarıyla izleyin.' },
   { path: '/ev', label: 'Ev ve odalar', section: 'Ev', purpose: 'Her odanın alımlarını, görevlerini ve plan ile gerçek tutarını oda oda izleyin.' },
   { path: '/projeler', label: 'Projeler ve görevler', section: 'İşler', purpose: 'Ev projelerini ve görevlerini kim, ne zaman ve hangi sırayla yapacak, görün.' },

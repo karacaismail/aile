@@ -25,9 +25,9 @@ import { ADMIN_MAIN, openAdmin } from './admin-helpers';
 
 const WCAG_TAGS = ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'];
 
-/** navigation.ts adminPages sırası + Ayarlar (diğer admin kapılarıyla aynı 12 rota). */
+/** navigation.ts adminPages sırası + Ayarlar (diğer admin kapılarıyla aynı 13 rota). */
 const ROUTES = [
-  '/genel', '/butce', '/odemeler', '/hesaplar', '/alimlar', '/ev',
+  '/genel', '/butce', '/odemeler', '/hesaplar', '/emeklilik', '/alimlar', '/ev',
   '/projeler', '/taraflar', '/raporlar', '/sozlukler', '/veri', '/ayarlar',
 ] as const;
 

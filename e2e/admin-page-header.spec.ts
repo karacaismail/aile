@@ -21,7 +21,8 @@ import { overflow, selfCheckDetectors } from './admin-detectors';
 // sentetik GViz yanıtına (src/dashboard/*Fixtures) bağlanır; fikstürdeki ayrılmış ".invalid" görsel adresleri sentetik
 // 1×1 PNG alır; başka her dış istek kesilir ve ihlal sayılır.
 
-interface RouteContract { path: string; label: string; section: string; purpose: string }
+/** status: sayfanın tazelik satırı nesil yerine kendi kaynağından geliyorsa beklenen metin (varsayılan FRESH_STATUS). */
+interface RouteContract { path: string; label: string; section: string; purpose: string; status?: RegExp }
 
 /** navigation.ts › adminPages + Ayarlar; metinler tasarım bundle.js Aile.Pages section/title/purpose ile aynı. */
 export const ROUTE_CONTRACTS: readonly RouteContract[] = [
@@ -29,6 +30,8 @@ export const ROUTE_CONTRACTS: readonly RouteContract[] = [
   { path: '/butce', label: 'Bütçe ve nakit', section: 'Para', purpose: 'Ayın gelirini, planlanan giderlerini ve kalan nakdi kalem kalem izleyin.' },
   { path: '/odemeler', label: 'Ödemeler', section: 'Para', purpose: 'Planlanan, yapılan ve geciken ödemeleri tarihleriyle izleyin.' },
   { path: '/hesaplar', label: 'Hesaplar ve borçlar', section: 'Para', purpose: 'Hesap bakiyelerini ve kalan borçları, taksit planıyla birlikte görün.' },
+  // Emeklilik nesil verisi kullanmaz: tazelik satırı profilin kaydı ve kaynağıdır (sentetik profil, geliştirme dosyası).
+  { path: '/emeklilik', label: 'Emeklilik planı', section: 'Para', purpose: 'Askerlik, Bağ-Kur ve ihya seçeneklerinin emeklilik tarihine ve maliyetine etkisini karşılaştırın.', status: /^Sentetik profil · Kayıt \d{1,2} \p{L}+ \d{4} · Geliştirme dosyası$/u },
   { path: '/alimlar', label: 'Alımlar ve eşyalar', section: 'Alım ve envanter', purpose: 'Ev için alınacak ve alınmış her şeyi plan ve gerçek tutarıyla izleyin.' },
   { path: '/ev', label: 'Ev ve odalar', section: 'Ev', purpose: 'Her odanın alımlarını, görevlerini ve plan ile gerçek tutarını oda oda izleyin.' },
   { path: '/projeler', label: 'Projeler ve görevler', section: 'İşler', purpose: 'Ev projelerini ve görevlerini kim, ne zaman ve hangi sırayla yapacak, görün.' },
@@ -384,7 +387,7 @@ test.describe('sayfa başlığı sözleşmesi', () => {
       await expect(status, 'başlıkta tek tazelik satırı').toHaveCount(1);
       await expect(status).toBeVisible();
       await expect(status).toHaveAttribute('aria-live', 'polite');
-      await expect(status, 'sentetik nesil okundu: taze durum').toHaveText(FRESH_STATUS);
+      await expect(status, 'sentetik kaynak okundu: taze durum').toHaveText(route.status ?? FRESH_STATUS);
 
       const summary = header.getByRole('list', { name: 'Özet' });
       const summaryCount = (await summary.count()) === 0 ? 0 : await summary.getByRole('listitem').count();
