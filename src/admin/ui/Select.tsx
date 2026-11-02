@@ -1,9 +1,10 @@
 import {
   useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState,
-  type FocusEvent, type KeyboardEvent, type ReactNode, type RefObject, type SyntheticEvent,
+  type FocusEvent, type KeyboardEvent, type ReactNode, type RefObject,
 } from 'react';
 import { useReducedMotion } from '../adaptive/useReducedMotion';
 import { useDevice } from '../device';
+import { BottomSheet } from './BottomSheet';
 import { Icon, type IconName } from './icons';
 import './Select.css';
 
@@ -14,9 +15,11 @@ import './Select.css';
 //    gösterilir. Liste tetiğe bağlı yerel popover (top layer; kesilmez). Oklar/Home/End/PageUp/PageDown gezer,
 //    Enter/Space/Alt+↑ seçer, Escape kapatır (olay üst katmana taşmaz), Tab seçmeden kapatır (yanlışlıkla durum
 //    değiştirmesin), dışarıya basmak kapatır. Yazarak arama (typeahead) etiket önekine gider.
-//  - Telefon: alttan açılan yerel modal <dialog> (showModal: arka plan inert, top layer). İçinde APG listbox, dolaşan
-//    tabindex; seçili seçenek odak alır. 8'den fazla seçenekte üstte süzme alanı. Escape, Kapat ve örtü kapatır;
-//    odak tetiğe döner.
+//  - Telefon: ortak alt sayfa ui/BottomSheet (BottomSheet README: "Select, Menu ve Dialog telefonda bunu kendileri
+//    kullanır"): kip, arka plan inert, Tab tuzağı, Kapat/Escape/örtü, sürükleyerek kapatma (Pointer Events, iptal),
+//    en çok %85, sanal klavye ve iç içe katman (diyalog içindeki alan diyalog kökünde açılır) oradadır. İçinde APG
+//    listbox, dolaşan tabindex; seçili seçenek odak alır. 8'den fazla seçenekte üstte süzme alanı. Escape listeyi
+//    kapatır (olay üst katmana taşmaz); odak tetiğe döner (returnFocusTo).
 // Hareket iki yönlü (giriş + çıkış, tek süre/eğri tokenı); semantik durum (aria-expanded, seçim, odak) hemen güncellenir,
 // katman çıkış geçişi bitince kaldırılır. reduced-motion'da geçiş yok. Seçim ve açık durum profil değişiminde korunur.
 // Odak göstergesi admin.css [data-focus-line] alt çizgisidir (yalnız klavye modu); burada halka yazılmaz.
@@ -59,7 +62,6 @@ const SEARCH_LABEL = 'Seçeneklerde ara';
 const SEARCH_PLACEHOLDER = 'Ara';
 const EMPTY_TEXT = 'Eşleşen seçenek yok';
 const DEFAULT_PLACEHOLDER = 'Seçin';
-const CLOSE_LABEL = 'Kapat';
 /** Yazarak aramada tuşlar arası bu süreyi aşan boşluk yeni aramayı başlatır (APG). */
 const TYPEAHEAD_MS = 500;
 const PAGE_STEP = 10;
@@ -105,14 +107,26 @@ const isPopoverOpen = (element: HTMLElement) => {
   try { return element.matches(':popover-open'); } catch { return false; }
 };
 
-/** Etkin seçeneği kaydırma kabında görünür tutar (offset tabanlı: giriş hareketindeki transform kaydırmayı bozmaz). */
+/** En yakın dikey kaydırma kabı (alt sayfa gövdesi): hesaplanmış overflow-y auto/scroll; yoksa null. */
+function scrollParent(element: HTMLElement | null): HTMLElement | null {
+  for (let node = element?.parentElement ?? null; node && node !== document.body; node = node.parentElement) {
+    const overflow = window.getComputedStyle(node).overflowY;
+    if (overflow === 'auto' || overflow === 'scroll') return node;
+  }
+  return null;
+}
+
+/**
+ * Etkin seçeneği kaydırma kabında görünür tutar; seçenekler arası boşluk (odak çizgisi payı) da görünür kalır. Dikdörtgen
+ * farkıyla ölçer: giriş hareketindeki transform kabı ve seçeneği birlikte taşır, fark değişmez.
+ */
 function keepVisible(container: HTMLElement | null, element: HTMLElement | null) {
   if (!container || !element || container.clientHeight === 0) return;
   const gap = Number.parseFloat(window.getComputedStyle(element.parentElement ?? element).rowGap) || 0;
-  const top = element.offsetTop - gap;
-  const bottom = element.offsetTop + element.offsetHeight + gap;
-  if (top < container.scrollTop) container.scrollTop = Math.max(0, top);
-  else if (bottom > container.scrollTop + container.clientHeight) container.scrollTop = bottom - container.clientHeight;
+  const area = container.getBoundingClientRect();
+  const box = element.getBoundingClientRect();
+  if (box.top - gap < area.top) container.scrollTop -= area.top - (box.top - gap);
+  else if (box.bottom + gap > area.bottom) container.scrollTop += box.bottom + gap - area.bottom;
 }
 
 /**
@@ -258,7 +272,10 @@ function PopoverLayer({ phase, onExited, triggerRef, containerRef, children }: P
       const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
       const below = viewportHeight - rect.bottom;
       const above = rect.top;
-      const up = below < Math.min(element.scrollHeight, above) && above > below;
+      // Gereken yükseklik: liste (kaydırma kabı) tümüyle açıkken katmanın içeriği.
+      const list = element.querySelector<HTMLElement>('[role="listbox"]');
+      const needed = element.scrollHeight + (list ? list.scrollHeight - list.clientHeight : 0);
+      const up = below < Math.min(needed, above) && above > below;
       element.dataset.yon = up ? 'ust' : 'alt';
       element.style.minWidth = `${rect.width}px`;
       element.style.top = up ? 'auto' : `${rect.bottom}px`;
@@ -311,109 +328,6 @@ function PopoverLayer({ phase, onExited, triggerRef, containerRef, children }: P
   );
 }
 
-interface SheetLayerProps extends LayerProps {
-  id: string;
-  title: string;
-  titleId: string;
-  triggerRef: RefObject<HTMLDivElement | null>;
-  bodyRef: RefObject<HTMLDivElement | null>;
-  /** Açılınca (ve çıkıştan geri dönünce) etkin seçeneğe odak. */
-  focusInitial(): void;
-  onDismiss(): void;
-  search?: ReactNode;
-}
-
-/**
- * Telefon: alttan açılan modal <dialog>. showModal arka planı inert yapar ve katmanı top layer'a alır (açan çekmecenin
- * içinden açılsa da üstte). Kapanışta önce modal bırakılır (tetik inert'ten çıkar), odak tetiğe döner; çıkış hareketi
- * süresince öğe popover olarak top layer'da kalır (inert, aria-hidden), geçiş bitince kaldırılır.
- */
-function SheetLayer({ id, title, titleId, phase, onExited, triggerRef, bodyRef, focusInitial, onDismiss, search, children }: SheetLayerProps) {
-  const dialogRef = useRef<HTMLDialogElement | null>(null);
-  const panelRef = useRef<HTMLDivElement | null>(null);
-  const closing = phase === 'cikis';
-  const focusRef = useRef(focusInitial);
-  focusRef.current = focusInitial;
-
-  useLayoutEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    if (!closing) {
-      if (isPopoverOpen(dialog)) dialog.hidePopover();
-      if (!dialog.hasAttribute('open')) {
-        if (typeof dialog.showModal === 'function') dialog.showModal();
-        else dialog.setAttribute('open', '');
-      }
-      focusRef.current();
-      if (phase === 'giris') void panelRef.current?.getBoundingClientRect();
-      return;
-    }
-    const active = document.activeElement;
-    const focusInside = !active || active === document.body || dialog.contains(active);
-    if (dialog.hasAttribute('open')) {
-      if (typeof dialog.close === 'function') dialog.close();
-      else dialog.removeAttribute('open');
-    }
-    if (dialog.hasAttribute('popover')) {
-      try { dialog.showPopover(); } catch { /* top layer dışı çıkış: sabit konumlu kalır */ }
-    }
-    if (focusInside) triggerRef.current?.focus({ preventScroll: true });
-    // phase yalnız giriş karesini zorlamak için okunur; modal/odak geçişi yalnız kapanış değişince.
-  }, [closing, triggerRef]);
-
-  useLayoutEffect(() => () => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    if (dialog.hasAttribute('open') && typeof dialog.close === 'function') dialog.close();
-    if (isPopoverOpen(dialog)) dialog.hidePopover();
-  }, []);
-
-  useExitTransition(closing, panelRef, onExited);
-
-  const onKeyDown = (event: KeyboardEvent<HTMLDialogElement>) => {
-    if (event.key !== 'Escape') return;
-    // Tarayıcının cancel'ı ve üst katmanların (çekmece) Escape'i çalışmasın: yalnız bu liste kapanır.
-    event.preventDefault();
-    event.stopPropagation();
-    onDismiss();
-  };
-  const onCancel = (event: SyntheticEvent<HTMLDialogElement>) => {
-    event.preventDefault();
-    onDismiss();
-  };
-
-  return (
-    <dialog
-      ref={dialogRef}
-      id={id}
-      popover={supportsPopover() ? 'manual' : undefined}
-      className="aile-select-sayfa"
-      aria-labelledby={titleId}
-      data-state={phase}
-      aria-hidden={closing || undefined}
-      inert={closing || undefined}
-      onKeyDown={onKeyDown}
-      onCancel={onCancel}
-    >
-      <div className="aile-select-sayfa-ortu" aria-hidden="true" onClick={onDismiss} />
-      <div ref={panelRef} className="aile-select-sayfa-panel">
-        <div className="aile-select-sayfa-ust">
-          <span className="aile-select-sayfa-tutamac" aria-hidden="true" />
-          <h2 id={titleId} className="aile-select-sayfa-baslik">{title}</h2>
-          <button type="button" className="aile-select-kapat" data-focus-line onClick={onDismiss}>
-            <Icon name="close" />
-            <span>{CLOSE_LABEL}</span>
-          </button>
-        </div>
-        <div ref={bodyRef} className="aile-select-sayfa-govde">
-          {search}
-          {children}
-        </div>
-      </div>
-    </dialog>
-  );
-}
-
 export function Select({
   label, options, value, onChange, placeholder = DEFAULT_PLACEHOLDER, help, error, disabled, icon, hideLabel,
   includeUnknown, open: initialOpen = false, id: givenId, className,
@@ -436,15 +350,17 @@ export function Select({
   const [activeValue, setActiveValue] = useState<string | undefined>(undefined);
   const [query, setQuery] = useState('');
   const [pressed, setPressed] = useState<string | null>(null);
-  const { present, phase, exited } = usePresence(open, reduced);
+  // Popover varlığı yalnız geniş sunumdadır; telefonda katman varlığını (giriş/çıkış) BottomSheet yönetir.
+  const { present, phase, exited } = usePresence(open && !phone, reduced);
 
   const rootRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLDivElement | null>(null);
   const popoverRef = useRef<HTMLDivElement | null>(null);
-  const sheetBodyRef = useRef<HTMLDivElement | null>(null);
   const searchRef = useRef<HTMLInputElement | null>(null);
   const optionElements = useRef(new Map<string, HTMLLIElement>());
   const typeahead = useRef<TypeaheadState>({ text: '', at: 0 });
+  /** Telefonda açılınca (ya da açıkken telefona geçince) etkin seçeneğe odak: alt sayfa içeriği bağlanınca yapılır. */
+  const pendingFocus = useRef(false);
 
   const allOptions = useMemo<readonly SelectOption[]>(() => {
     if (!includeUnknown || options.some(option => option.value === UNKNOWN_VALUE)) return options;
@@ -471,6 +387,7 @@ export function Select({
     if (disabled) return;
     setActiveValue(focusValue ?? (selected ? selected.value : allOptions[0]?.value));
     setQuery('');
+    pendingFocus.current = true;
     setOpen(true);
   };
   const closeList = () => {
@@ -486,18 +403,24 @@ export function Select({
     onChange?.(option.value);
   };
 
-  // Profil değişimi açıkken: telefondan genişe geçince diyalog kalkar, odak tetiğe taşınır (popover odak almaz).
+  // Profil değişimi açıkken: telefondan genişe geçince alt sayfa kalkar, odak tetiğe taşınır (popover odak almaz);
+  // genişten telefona geçince alt sayfa açılır ve odak etkin seçeneğe girer. Telefonda geniş popover hemen kalkar.
   const lastPhone = useRef(phone);
   useLayoutEffect(() => {
     if (lastPhone.current === phone) return;
     lastPhone.current = phone;
     if (open && !phone) triggerRef.current?.focus({ preventScroll: true });
+    if (open && phone) pendingFocus.current = true;
   }, [phone, open]);
+  useLayoutEffect(() => {
+    if (phone && present) exited();
+  }, [phone, present, exited]);
 
   // Geniş: etkin seçenek görünür kalır; dışarıya basmak kapatır (odak çalınmaz).
   useEffect(() => {
     if (!open || phone || !activeValue) return;
-    keepVisible(popoverRef.current, optionElements.current.get(activeValue) ?? null);
+    const element = optionElements.current.get(activeValue) ?? null;
+    keepVisible(scrollParent(element), element);
   }, [open, phone, activeValue, present]);
   useEffect(() => {
     if (!open || phone) return;
@@ -513,8 +436,10 @@ export function Select({
     if (list.length === 0) return;
     const next = list[Math.max(0, Math.min(list.length - 1, to))]!;
     setActiveValue(next.value);
-    if (focus) optionElements.current.get(next.value)?.focus({ preventScroll: true });
-    if (focus) keepVisible(sheetBodyRef.current, optionElements.current.get(next.value) ?? null);
+    if (!focus) return;
+    const element = optionElements.current.get(next.value) ?? null;
+    element?.focus({ preventScroll: true });
+    keepVisible(scrollParent(element), element);
   };
   const typeaheadActive = () => Date.now() - typeahead.current.at <= TYPEAHEAD_MS && typeahead.current.text.length > 0;
 
@@ -645,14 +570,28 @@ export function Select({
     }
   };
 
-  const focusInitial = () => {
-    const target = rovingValue ? optionElements.current.get(rovingValue) : undefined;
-    if (target) {
-      target.focus({ preventScroll: true });
-      keepVisible(sheetBodyRef.current, target);
-    } else {
-      searchRef.current?.focus({ preventScroll: true });
-    }
+  // Telefon açılış odağı: alt sayfa içeriği bağlandığı commit'in layout aşamasında (BottomSheet paneli odağı önce alır;
+  // bu effect üst bileşende olduğundan ondan sonra çalışır). İçerik henüz bağlı değilse (portal hedefi bir sonraki
+  // eşzamanlı render'da gelir) bekler; kare ya da zamanlayıcı yok.
+  useLayoutEffect(() => {
+    if (!pendingFocus.current) return;
+    if (!open) { pendingFocus.current = false; return; }
+    if (!phone) return;
+    const option = rovingValue ? optionElements.current.get(rovingValue) : undefined;
+    const target = option ?? searchRef.current;
+    if (!target?.isConnected) return;
+    pendingFocus.current = false;
+    target.focus({ preventScroll: true });
+    if (option) keepVisible(scrollParent(option), option);
+  });
+
+  // Telefonda Escape listeyi kapatır ve olay üst katmana (diyalog, çekmece, kabuk) taşmaz: alt sayfa React ağacında bu
+  // kökün altındadır (portal), tuşun her yerinden (seçenek, süzme alanı, Kapat) buraya gelir.
+  const onRootKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (!open || !phone || event.key !== 'Escape' || event.nativeEvent.isComposing) return;
+    event.preventDefault();
+    event.stopPropagation();
+    closeList();
   };
 
   const describedBy = error || help ? noteId : undefined;
@@ -709,7 +648,7 @@ export function Select({
   ) : null;
 
   return (
-    <div ref={rootRef} className={cx('aile-select', className)}>
+    <div ref={rootRef} className={cx('aile-select', className)} onKeyDown={onRootKeyDown}>
       <span
         id={labelId}
         className={cx('aile-select-etiket', hideLabel && 'aile-select-etiket--gizli')}
@@ -754,21 +693,19 @@ export function Select({
       ) : help ? (
         <p id={noteId} className="aile-select-yardim">{help}</p>
       ) : null}
-      {present && phone && (
-        <SheetLayer
+      {phone && (
+        <BottomSheet
           id={sheetId}
-          title={label}
           titleId={sheetTitleId}
-          phase={phase}
-          onExited={exited}
-          triggerRef={triggerRef}
-          bodyRef={sheetBodyRef}
-          focusInitial={focusInitial}
-          onDismiss={closeList}
-          search={search}
+          title={label}
+          open={open}
+          onClose={closeList}
+          returnFocusTo={triggerRef}
+          className="aile-select-sayfa"
         >
+          {search}
           {renderOptions(true)}
-        </SheetLayer>
+        </BottomSheet>
       )}
     </div>
   );

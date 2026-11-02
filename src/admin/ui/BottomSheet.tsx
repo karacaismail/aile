@@ -30,8 +30,13 @@ export interface BottomSheetProps {
   full?: boolean;
   /** Portal yerine yerinde, kipsiz çizim (önizleme ve yalıtık test): arka plan inert değil, aria-modal yok. */
   inline?: boolean;
-  /** Kapanınca odağın döneceği öğe; verilmezse açıldığı anda odaklı olan öğeye döner. */
+  /** Kapanınca odağın döneceği öğe; verilmezse açıldığı anda odaklı olan öğeye döner. Katman bu öğenin en yakın
+   *  yönetim köküne açılır (iç içe diyalogda diyaloğun kökü). */
   returnFocusTo?: RefObject<HTMLElement | null>;
+  /** role="dialog" yüzeyinin kimliği (açan denetimin aria-controls bağı, ör. Select). */
+  id?: string;
+  /** h2 başlığın kimliği; verilmezse üretilir (içerik başlığa aria-labelledby ile bağlanabilsin, ör. listbox). */
+  titleId?: string;
   className?: string;
 }
 
@@ -47,8 +52,9 @@ const INTERACTIVE = 'button, a[href], input, select, textarea, [role="button"], 
 
 interface Drag { id: number; startY: number; lastY: number; lastTime: number; offset: number; velocity: number; moved: boolean }
 
-export function BottomSheet({ title, children, footer, onClose, open = true, full, inline, returnFocusTo, className }: BottomSheetProps) {
-  const titleId = `aile-sheet-baslik${useId()}`;
+export function BottomSheet({ title, children, footer, onClose, open = true, full, inline, returnFocusTo, id, titleId: givenTitleId, className }: BottomSheetProps) {
+  const autoTitleId = `aile-sheet-baslik${useId()}`;
+  const titleId = givenTitleId ?? autoTitleId;
   const layer = useModalLayer({ open, modal: !inline, onClose, returnFocusTo });
   const drag = useRef<Drag | null>(null);
 
@@ -136,6 +142,7 @@ export function BottomSheet({ title, children, footer, onClose, open = true, ful
       <div ref={layer.motionRef} className="aile-sheet-sarmal" style={{ height: full ? '100%' : 'auto' }}>
         <div
           ref={layer.panelRef}
+          id={id}
           className="aile-sheet-yuzey"
           role="dialog"
           aria-modal={inline ? undefined : true}
@@ -157,7 +164,7 @@ export function BottomSheet({ title, children, footer, onClose, open = true, ful
               <span>{CLOSE_LABEL}</span>
             </button>
           </div>
-          <div className="aile-sheet-govde">{children}</div>
+          <div ref={layer.bodyRef} className="aile-sheet-govde">{children}</div>
           {footer != null && footer !== false ? <div className="aile-sheet-altlik">{footer}</div> : null}
         </div>
       </div>

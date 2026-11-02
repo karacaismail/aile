@@ -18,7 +18,12 @@ import {
 //    aria-hidden + inert olur, kapanış geçişi sürer, sarmalın kendi transitionend'i (ya da süre + pay) sonunda sökülür.
 //    Hesaplanmış süre 0 ise (reduced-motion ya da CSS yok) aynı commit içinde sökülür. Kapanırken yeniden açılırsa aynı
 //    düğüm bulunduğu yerden geri döner (CSS geçişi tersine yönelir).
-//  - Sanal klavye: visualViewport ile katman görünür alana sığdırılır (--katman-ust, --katman-alt; kök top/bottom).
+//  - Sanal klavye: visualViewport ile katman görünür alana sığdırılır (--katman-ust, --katman-alt; kök top/bottom). Klavye
+//    açıkken (görünür alanın altı düzen görünümünün altından yukarıda) kök data-klavye="acik" taşır (CSS: alanın tamamı ve
+//    sık yoğunluk) ve odaklı alan gövdenin görünür bölümüne kaydırılır (yatay telefonda görünür alan ~176 px).
+//  - Portal hedefi: açan öğenin (returnFocusTo) en yakın yönetim kökü (.aile-admin); yoksa son canlı (inert ya da
+//    aria-hidden olmayan) yönetim kökü, o da yoksa body. Diyalog (ui/Dialog) kendi kökünü body'ye açar ve uygulama kökünü
+//    inert yapar: içindeki seçim ya da menü alt sayfası diyalog kökünde açılmalıdır, yoksa inert ağaçta kalır.
 
 /** Görsel aşama. 'yok': çizilmez; 'giris': kapalı konumda çizildi (geçiş başlangıcı); 'acik'; 'cikis': kapanış geçişi. */
 export type LayerStage = 'yok' | 'giris' | 'acik' | 'cikis';
@@ -42,6 +47,8 @@ export interface Layer {
   panelRef: (element: HTMLDivElement | null) => void;
   /** Kapanış geçişi bu öğenin kendi transitionend'iyle biter (sarmal). */
   motionRef: (element: HTMLDivElement | null) => void;
+  /** Gövde (iç kaydırma alanı): sanal klavye açılınca odaklı alan burada görünür bölüme kaydırılır. */
+  bodyRef: (element: HTMLDivElement | null) => void;
   motion: RefObject<HTMLDivElement | null>;
   /** Kapatma isteği: arka planı bırakır, onClose çağırır; açık kalırsa arka planı yeniden kilitler. */
   requestClose: () => void;
@@ -54,9 +61,20 @@ const EXIT_SLACK_MS = 50;
 const SKIP_INERT = new Set(['SCRIPT', 'STYLE', 'LINK', 'META', 'TEMPLATE', 'NOSCRIPT']);
 const TABBABLE = 'a[href], area[href], button, input:not([type="hidden"]), select, textarea, iframe, summary, [contenteditable=""], [contenteditable="true"], [tabindex]';
 
-export function layerContainer(): HTMLElement | null {
+const ADMIN_ROOT = '.aile-admin';
+
+/**
+ * Portal hedefi. Açan öğe (anchor) belgedeyse onun en yakın yönetim kökü: iç içe diyalogdaki alan diyalog kökünü
+ * (body'ye portallanmış, .aile-admin taşıyan) verir. Yoksa son canlı yönetim kökü: açık diyalog varken o, yoksa uygulama
+ * kökü (diyalog uygulama kökünü inert yapar; kapanış kopyası inert + aria-hidden'dır). Hiçbiri yoksa body.
+ */
+export function layerContainer(anchor?: Element | null): HTMLElement | null {
   if (typeof document === 'undefined') return null;
-  return document.querySelector<HTMLElement>('.aile-admin') ?? document.body;
+  const own = anchor?.isConnected ? anchor.closest<HTMLElement>(ADMIN_ROOT) : null;
+  if (own) return own;
+  const roots = Array.from(document.querySelectorAll<HTMLElement>(ADMIN_ROOT));
+  const live = roots.filter(root => !root.closest('[inert], [aria-hidden="true"]'));
+  return live[live.length - 1] ?? roots[0] ?? document.body;
 }
 
 // --- Ortak durum (belge başına tek): katman yığını, inert sayımı, kaydırma kilidi -------------------------------------
@@ -128,6 +146,27 @@ function tabbables(panel: HTMLElement): HTMLElement[] {
   return Array.from(panel.querySelectorAll<HTMLElement>(TABBABLE)).filter(isTabbable);
 }
 
+/**
+ * Tab'ın gideceği durak; tarayıcıya bırakılacaksa null. Sınırda (son durakta Tab, ilk durakta ya da panelde Shift+Tab)
+ * karşı uca sarar. Odak durak olmayan bir iç öğedeyse (tabindex -1: APG menüsünün öğesi, dolaşan odaklı liste) sıradaki
+ * durak belge sırasıyla bulunur, yoksa karşı uca sarılır: tarayıcıya bırakılırsa odak tarayıcı arayüzüne ya da belgeye
+ * kaçar. Aradaki duraklarda tarayıcının kendi sırası korunur.
+ */
+function nextStop(dialog: HTMLElement, stops: HTMLElement[], active: Element | null, backward: boolean): HTMLElement | null {
+  const first = stops[0]!;
+  const last = stops[stops.length - 1]!;
+  if (!(active instanceof HTMLElement) || !dialog.contains(active)) return backward ? last : first;
+  if (active === dialog) return backward ? last : null;
+  const index = stops.indexOf(active);
+  if (index >= 0) {
+    if (backward) return index === 0 ? last : null;
+    return index === stops.length - 1 ? first : null;
+  }
+  const follows = (stop: HTMLElement) => Boolean(active.compareDocumentPosition(stop) & Node.DOCUMENT_POSITION_FOLLOWING);
+  if (backward) return [...stops].reverse().find(stop => !follows(stop)) ?? last;
+  return stops.find(follows) ?? first;
+}
+
 /** Hesaplanmış en uzun geçiş (süre + gecikme, ms). Liste değerleri dizinle eşlenir (kısa liste yinelenir). */
 function longestTransitionMs(element: Element): number {
   const style = window.getComputedStyle(element);
@@ -146,26 +185,66 @@ function longestTransitionMs(element: Element): number {
   return longest;
 }
 
-/** Sanal klavye ve görünür alan: katman kökünü görünür alanın dikey sınırlarına oturtur. İki parmak yakınlaştırmada kapalı. */
-function fitVisualViewport(root: HTMLElement): () => void {
+/**
+ * Odaklı alanı gövdenin (iç kaydırma alanı) görünür bölümüne getirir. Yalnız gövde kaydırılır (belge ve kök değil).
+ * Alan bölümden uzunsa üst kenarı hizalanır.
+ */
+function revealInBody(body: HTMLElement | null, element: Element | null) {
+  if (!body || !(element instanceof HTMLElement) || !body.contains(element) || element === body) return;
+  const area = body.getBoundingClientRect();
+  const box = element.getBoundingClientRect();
+  if (box.top < area.top || box.height > area.height) body.scrollTop -= area.top - box.top;
+  else if (box.bottom > area.bottom) body.scrollTop += box.bottom - area.bottom;
+}
+
+/**
+ * Sanal klavye ve görünür alan: katman kökünü görünür alanın dikey sınırlarına oturtur. İki parmak yakınlaştırmada
+ * kapalı. Klavye açıkken (alt pay ≥ 1 px) kök data-klavye="acik" taşır; açılırken ve klavye açıkken odak değişince
+ * odaklı alan gövdede görünür kalır: hemen ve bir sonraki karede (boyamadan önce) yeniden, çünkü alanın kendi klavye
+ * kaydırması (TextField; odakta bağlanır, bu dinleyiciden sonra çalışır) katmanın görünür bölümünü bilmez.
+ */
+function fitVisualViewport(root: HTMLElement, body: () => HTMLElement | null): () => void {
   const viewport = window.visualViewport;
+  let frame = 0;
+  const cancel = () => { if (frame && typeof window.cancelAnimationFrame === 'function') window.cancelAnimationFrame(frame); frame = 0; };
+  const reveal = (element: Element | null) => {
+    revealInBody(body(), element);
+    cancel();
+    if (typeof window.requestAnimationFrame !== 'function') return;
+    frame = window.requestAnimationFrame(() => {
+      frame = 0;
+      if (root.hasAttribute('data-klavye') && document.activeElement === element) revealInBody(body(), element);
+    });
+  };
   const write = (top: number, bottom: number) => {
     root.style.setProperty('--katman-ust', `${top}px`);
     root.style.setProperty('--katman-alt', `${bottom}px`);
+    if (bottom >= 1) root.setAttribute('data-klavye', 'acik');
+    else root.removeAttribute('data-klavye');
   };
   if (!viewport) return () => {};
+  let inset = 0;
   const update = () => {
-    if (Math.abs((viewport.scale ?? 1) - 1) > 0.01) { write(0, 0); return; }
+    if (Math.abs((viewport.scale ?? 1) - 1) > 0.01) { write(0, 0); inset = 0; return; }
     const top = Math.max(0, Math.round(viewport.offsetTop));
     const bottom = Math.max(0, Math.round(window.innerHeight - viewport.height - viewport.offsetTop));
     write(top, bottom);
+    // Klavye açıldı ya da büyüdü: yerleşim (sık yoğunluk, kısalan alan) okunarak odaklı alan görünür bölüme kaydırılır.
+    if (bottom > inset) reveal(document.activeElement);
+    inset = bottom;
+  };
+  const onFocusIn = (event: FocusEvent) => {
+    if (root.hasAttribute('data-klavye')) reveal(event.target instanceof Element ? event.target : null);
   };
   update();
   viewport.addEventListener('resize', update);
   viewport.addEventListener('scroll', update);
+  root.addEventListener('focusin', onFocusIn);
   return () => {
+    cancel();
     viewport.removeEventListener('resize', update);
     viewport.removeEventListener('scroll', update);
+    root.removeEventListener('focusin', onFocusIn);
   };
 }
 
@@ -180,18 +259,21 @@ export function useModalLayer({ open, modal, onClose, returnFocusTo }: LayerOpti
   // Portal hedefi layout aşamasında çözülür: katman uygulamayla birlikte (kapalı) bağlandığında ilk render'da yönetim kökü
   // henüz belgede değildir; layout aşamasında her zaman oradadır. Hedef yokken kipli katman çizilmez (bir sonraki eşzamanlı
   // render'da, boyamadan önce gelir).
+  // Açan öğe (returnFocusTo) bu aşamada bağlıdır: katmandan önce gelen kardeş ya da atadır, ref'i önce bağlanır.
   const [container, setContainer] = useState<HTMLElement | null>(null);
   useLayoutEffect(() => {
     if (!modal) return;
-    if (!container || !container.isConnected) setContainer(layerContainer());
-  }, [modal, container, open]);
+    if (!container || !container.isConnected) setContainer(layerContainer(returnFocusTo?.current));
+  }, [modal, container, open, returnFocusTo]);
   const ready = !modal || !!container;
   const root = useRef<HTMLDivElement | null>(null);
   const panel = useRef<HTMLDivElement | null>(null);
   const motion = useRef<HTMLDivElement | null>(null);
+  const body = useRef<HTMLDivElement | null>(null);
   const rootRef = useCallback((element: HTMLDivElement | null) => { root.current = element; }, []);
   const panelRef = useCallback((element: HTMLDivElement | null) => { panel.current = element; }, []);
   const motionRef = useCallback((element: HTMLDivElement | null) => { motion.current = element; }, []);
+  const bodyRef = useCallback((element: HTMLDivElement | null) => { body.current = element; }, []);
 
   const onCloseRef = useRef(onClose);
   const returnTarget = useRef(returnFocusTo);
@@ -264,7 +346,7 @@ export function useModalLayer({ open, modal, onClose, returnFocusTo }: LayerOpti
         if (hold.current === held) hold.current = null;
       });
       cleanups.push(lockScroll());
-      cleanups.push(fitVisualViewport(layer));
+      cleanups.push(fitVisualViewport(layer, () => body.current));
       stack.push(id);
       cleanups.push(() => {
         const index = stack.indexOf(id);
@@ -284,18 +366,15 @@ export function useModalLayer({ open, modal, onClose, returnFocusTo }: LayerOpti
         }
         if (event.key !== 'Tab' || event.ctrlKey || event.metaKey || !dialog) return;
         const stops = tabbables(dialog);
-        const active = document.activeElement;
-        const inside = active instanceof HTMLElement && dialog.contains(active);
         if (stops.length === 0) {
           event.preventDefault();
           dialog.focus({ preventScroll: true });
           return;
         }
-        const first = stops[0];
-        const last = stops[stops.length - 1];
-        if (event.shiftKey ? (!inside || active === dialog || active === first) : (!inside || active === last)) {
+        const next = nextStop(dialog, stops, document.activeElement, event.shiftKey);
+        if (next) {
           event.preventDefault();
-          (event.shiftKey ? last : first).focus();
+          next.focus();
         }
       };
       document.addEventListener('keydown', onKeyDown);
@@ -361,5 +440,5 @@ export function useModalLayer({ open, modal, onClose, returnFocusTo }: LayerOpti
     requestClose();
   }, [requestClose]);
 
-  return { stage: ready ? current : 'yok', open, container, rootRef, panelRef, motionRef, motion, requestClose, onKeyDown };
+  return { stage: ready ? current : 'yok', open, container, rootRef, panelRef, motionRef, bodyRef, motion, requestClose, onKeyDown };
 }

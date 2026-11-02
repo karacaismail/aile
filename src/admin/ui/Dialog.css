@@ -204,6 +204,12 @@
   background: var(--aile-yuzey);
 }
 
+/* Telefonda klavye açıkken sık yoğunluk: yatay telefonda (568×320) görünür alan ~176 px; yığılmış iki eylem ve odaklı
+   alan birlikte görünmeli. Altlığın iç boşluğu ve eylemler arası boşluk bosluk-2'ye iner (FormFooter dar düzeni
+   yığılmış kalır, DOM ve odak sırası değişmez); metin ve dokunma hedefi küçülmez. */
+.aile-dialog--sheet[data-klavye] .aile-dialog-altlik { padding: var(--aile-bosluk-2) var(--aile-bosluk-4); }
+.aile-dialog--sheet[data-klavye] .aile-dialog-altlik .aile-ff-actions { gap: var(--aile-bosluk-2); }
+
 /* Yerinde önizleme (inline): katman değil; kapsayıcıyı doldurur. */
 .aile-admin.aile-dialog.aile-dialog--inline {
   position: absolute;

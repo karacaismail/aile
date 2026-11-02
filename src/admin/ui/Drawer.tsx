@@ -82,7 +82,7 @@ export function Drawer({
               <span>{closeLabel}</span>
             </button>
           </div>
-          <div className="aile-drawer-body">{children}</div>
+          <div ref={layer.bodyRef} className="aile-drawer-body">{children}</div>
           {footer != null && footer !== false ? <div className="aile-drawer-footer">{footer}</div> : null}
         </div>
       </div>
