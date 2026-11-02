@@ -1,6 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { createElement, useRef, type ReactNode } from 'react';
 import { DeviceProvider, useContainerWidth, useDevice } from './device';
+import { installViewport } from './adaptive/testing';
 
 type Listener = (event: { matches: boolean; media: string }) => void;
 interface FakeQuery { matches: boolean; media: string; listeners: Set<Listener> }
@@ -69,6 +70,29 @@ describe('useDevice', () => {
     installMatchMedia(700);
     const { result } = renderHook(() => useDevice());
     expect(result.current).toBe('tablet');
+  });
+});
+
+// Uyarlamalı profil (adaptive/profile.ts): useDevice aynı API ile genişlik + yükseklik + kısa kenara bakar.
+describe('useDevice · uyarlamalı profil', () => {
+  it.each([[568, 320], [667, 375], [844, 390], [932, 430]] as const)('a landscape phone %i×%i stays on the phone profile', (width, height) => {
+    installViewport({ width, height, coarse: true });
+    const { result } = renderHook(() => useDevice(), { wrapper });
+    expect(result.current).toBe('phone');
+  });
+
+  it('a 500×900 desktop window with a fine pointer gets the phone layout', () => {
+    installViewport({ width: 500, height: 900, fine: true, hover: true });
+    const { result } = renderHook(() => useDevice(), { wrapper });
+    expect(result.current).toBe('phone');
+  });
+
+  it('tablet portrait 820×1180 is tablet; rotated 1180×820 has desktop space', () => {
+    const viewport = installViewport({ width: 820, height: 1180, coarse: true });
+    const { result } = renderHook(() => useDevice(), { wrapper });
+    expect(result.current).toBe('tablet');
+    act(() => viewport.set({ width: 1180, height: 820 }));
+    expect(result.current).toBe('desktop');
   });
 });
 

@@ -1,0 +1,3 @@
+/* Sahibi E03 font görevi. Yönetim girişinin Outfit @font-face tanımları ve yükleme stratejisi (sınırlı alt küme,
+   font-display, ön yükleme) bu dosyaya taşınacak. Şimdilik boş yer tutucu: geçerli @font-face kuralları admin.css'te.
+   main.tsx bu dosyayı admin.css'ten önce içe aktarır. */

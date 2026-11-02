@@ -82,6 +82,11 @@ export const designTokens = {
   sure: 240, egri: 'cubic-bezier(.65,0,.35,1)',
 } as const;
 
+// Uyarlamalı yerleşim eşiği (uygulama kararı; tokens.json'da yok, bu yüzden designTokens/--aile-* dışında):
+// kullanılabilir alanın kısa kenarı bundan küçükse yerleşim telefon kalır (yatay telefon 932×430 dahil).
+// Material pencere sınıflarındaki "compact height" (<480) ile aynı sınır. Okuyan: src/admin/adaptive/profile.ts.
+export const adaptiveTokens = { kirilimKisaKenar: 480 } as const;
+
 const kebab = (name: string) => name.replace(/([a-z])([A-Z0-9])/g, '$1-$2').toLowerCase();
 const cssValue = (name: string, value: string | number) => typeof value === 'number' ? `${value}${name === 'sure' ? 'ms' : 'px'}` : value;
 /** `--aile-<kebab>` custom properties for the `.aile-admin` root (App applies them; admin.css keeps :root fallbacks). */

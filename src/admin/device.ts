@@ -1,52 +1,23 @@
-import { createContext, createElement, useContext, useEffect, useLayoutEffect, useState, type ReactNode, type RefObject } from 'react';
-import { designTokens } from '../design/tokens.ts';
+import { createElement, useLayoutEffect, useState, type ReactNode, type RefObject } from 'react';
+import { AdaptiveProvider, ProfileContext, useProfile } from './adaptive/context';
 import type { Device } from './shell/contracts';
 
-// Cihaz sınıfı yerleşim alanına göre: phone (<600) | tablet (600–1023) | desktop (≥1024).
-// Kırılımlar tokens.json (kirilimTablet / kirilimGenis). matchMedia 'change' dinlenir; UA veya isMobile yok.
-const wideQuery = `(min-width: ${designTokens.kirilimGenis}px)`;
-const tabletQuery = `(min-width: ${designTokens.kirilimTablet}px)`;
+// Geriye uyumlu cihaz API'si. Kaynak artık src/admin/adaptive: tek üst düzey yerleşim profili genişlik + yükseklik +
+// kısa kenardan seçilir (phone: <600 ya da kısa kenar <480; tablet: 600–1023; desktop: ≥1024). Yatay telefon phone
+// kalır. Kırılımlar tokens.ts (kirilimTablet, kirilimGenis, adaptiveTokens.kirilimKisaKenar); UA veya isMobile yok.
+// Yeni kod useProfile / useInputLayers kullanır (../adaptive); useDevice aynı değeri verir.
+export { useInputLayers, useProfile } from './adaptive/context';
 
-function classify(wide: boolean, tablet: boolean): Device {
-  return wide ? 'desktop' : tablet ? 'tablet' : 'phone';
-}
-
-function readDevice(): Device {
-  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return 'desktop';
-  return classify(window.matchMedia(wideQuery).matches, window.matchMedia(tabletQuery).matches);
-}
-
-/** matchMedia tabanlı cihaz sınıfı; iki sorgunun change olayını dinler, unmount'ta bırakır. */
-function useMatchedDevice(): Device {
-  const [device, setDevice] = useState<Device>(readDevice);
-  useEffect(() => {
-    if (typeof window.matchMedia !== 'function') return;
-    const wide = window.matchMedia(wideQuery);
-    const tablet = window.matchMedia(tabletQuery);
-    const update = () => setDevice(classify(wide.matches, tablet.matches));
-    update();
-    wide.addEventListener('change', update);
-    tablet.addEventListener('change', update);
-    return () => {
-      wide.removeEventListener('change', update);
-      tablet.removeEventListener('change', update);
-    };
-  }, []);
-  return device;
-}
-
-export const DeviceContext = createContext<Device | null>(null);
+/** Eski ad; ProfileContext ile aynı nesne. Testler <DeviceContext.Provider value="phone"> ile profili zorlar. */
+export const DeviceContext = ProfileContext;
 
 export function DeviceProvider({ children }: { children: ReactNode }) {
-  const device = useMatchedDevice();
-  return createElement(DeviceContext.Provider, { value: device }, children);
+  return createElement(AdaptiveProvider, null, children);
 }
 
 /** Sağlayıcı varsa onun değeri; yoksa doğrudan matchMedia (test ve yalıtık bileşen için). */
 export function useDevice(): Device {
-  const fromContext = useContext(DeviceContext);
-  const matched = useMatchedDevice();
-  return fromContext ?? matched;
+  return useProfile();
 }
 
 /** Kapsayıcı genişliği (CSS px). İlk ölçüm layout effect'te; sonrası ResizeObserver. Ref boşken 0. */
