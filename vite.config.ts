@@ -81,11 +81,17 @@ const CHUNK_GROUPS: ChunkGroup[] = [
   // icons/pro outrank the antd group so `@ant-design/*` below cannot swallow them.
   { name: 'pro', priority: 15, test: (id: string) => id.includes('@ant-design/pro-') },
   { name: 'icons', priority: 15, test: (id: string) => id.includes('@ant-design/icons') },
-  // antd plus the helpers only antd/cssinjs consume (@babel/runtime, @ant-design/colors|fast-color,
-  // stylis, @emotion/hash|unitless, is-mobile, react-is). Left ungrouped they land in the admin entry
+  // Babel helpers in their own small chunk, above antd and below pro/icons. In the antd group they made every
+  // other consumer import the whole antd chunk: the main app's lazy LegacyApp (@mantine/notifications,
+  // react-transition-group) and, once the phone profile drops antd, any phone module that needs a helper
+  // (docs/ADMIN-DEPLOY-PROPOSAL.md §8). Not a forbidden phone class; never precached because the main shell never
+  // reaches it and adminPrecacheScope drops it from the admin graph (vite-config.test pins both).
+  { name: 'babel-runtime', priority: 11, test: (id: string) => /node_modules[\\/]@babel[\\/]runtime[\\/]/.test(id) },
+  // antd plus the helpers only antd/cssinjs consume (@ant-design/colors|fast-color, stylis,
+  // @emotion/hash|unitless, is-mobile, react-is). Left ungrouped they land in the admin entry
   // chunk (not precached, but antd then imports back from the app chunk) or in an automatic common chunk
   // that the precache glob would pick up.
-  { name: 'antd', priority: 10, test: (id: string) => /node_modules[\\/](antd|@ant-design|@rc-component|@babel[\\/]runtime|stylis|@emotion|is-mobile|react-is|classnames)[\\/]/.test(id) },
+  { name: 'antd', priority: 10, test: (id: string) => /node_modules[\\/](antd|@ant-design|@rc-component|stylis|@emotion|is-mobile|react-is|classnames)[\\/]/.test(id) },
   // wouter's router core: shared only by the lazy LegacyApp and admin, so never precached (see WOUTER_BOOT).
   { name: 'router', priority: 1, test: (id: string) => !WOUTER_BOOT.test(id) && /node_modules[\\/](wouter|regexparam)[\\/]/.test(id) },
   // Modules both entries import statically (React, wouter's hash-location hook and their deps, keyboard
@@ -206,7 +212,8 @@ export default defineConfig({
     {
       name: 'aile-startup-html',
       transformIndexHtml(html, ctx) {
-        // Startup shell belongs to the main entry only; admin.html gets just the keyboard-mode installer.
+        // Startup shell belongs to the main entry only; admin.html gets the keyboard-mode installer and its own plain-HTML
+        // "Uygulama yüklenemedi · Yenile" screen for a failed entry module (src/admin/startup.ts).
         if (ctx.filename.endsWith('admin.html')) return html.replace('<!--admin-startup-->', `<script>${adminStartupScript}</script>`);
         if (!ctx.filename.endsWith('index.html')) return html;
         return { html: html.replace('<!--app-startup-failure-->', `<script>${startupFailureScript}</script>`).replace('<!--app-startup-->', startupMarkup), tags: [{ tag: 'style', attrs: { 'data-app-startup': '' }, children: startupStyles, injectTo: 'head' }] };
@@ -244,7 +251,8 @@ export default defineConfig({
         // Yönetime ait, adı yukarıdaki globlara uymayan parçalar (sayfalar, ortak kabuk, ECharts alt parçaları) grafikten atılır.
         manifestTransforms: [precacheScope.manifestTransform],
         navigateFallback: '/aile/index.html',
-        navigateFallbackDenylist: [/\/admin\.html/],
+        // pathname + search üzerinde denenir: GitHub Pages uzantısız /aile/admin adresini de admin.html olarak çözer.
+        navigateFallbackDenylist: [/\/admin(?:\.html)?(?:\?|$)/],
         runtimeCaching: [{ urlPattern: ({url,request}) => url.origin === self.location.origin && url.pathname.includes('/assets/') && ['script','style'].includes(request.destination), handler: 'CacheFirst', options: { cacheName: 'aile-visited-modules', expiration: { maxEntries: 30, maxAgeSeconds: 604800 } } }],
       },
     }),
