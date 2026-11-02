@@ -1,13 +1,22 @@
 /* EmeklilikPage — telefon temel sunumu ve iki sunumun paylaştığı parçalar (pages/emeklilik/parcalar.tsx, profil.tsx).
    Renk, boşluk, köşe, dokunma hedefi ve hareket yalnız --aile-* tokenlarından (admin.css / src/design/tokens.ts).
-   Yazı ölçeği için --aile-* değişkeni olmadığından tokens.json type ölçüsü kullanılır (h1 32/40, h3 18/26, gövde 16/24,
-   küçük 14/20); 14 px altına inen metin yok. Kart yağmuru yok: bölümler boşlukla ayrılır; yalnız öneri (bilgi yüzeyi) ve
+   Yazı ölçeği için --aile-* değişkeni yoktur (tokens.ts yalnız renk, boşluk, köşe, gölge ve hareket taşır); sayfanın üç
+   yazı ölçüsü .aile-emeklilik üzerinde tek yerde adlandırılır (--em-*, aşağıda gerekçesiyle); 14 px altına inen metin yok. Kart yağmuru yok: bölümler boşlukla ayrılır; yalnız öneri (bilgi yüzeyi) ve
    sonuç (yüzey) kendi yüzeyindedir; kenarlık yalnız işlevsel (form kontrolü sınırı, liste ayırıcı). Renkli kenar şeridi yok.
    Odak çizgisini admin.css çizer ([data-focus-line] + :has(:focus-visible)); burada outline/box-shadow yok.
    Hareket: yalnız seçim yüzeyinin rengi tek süre/eğriyle (--aile-sure, --aile-egri); reduced-motion'da admin.css geçişleri
    kapatır, durum anında değişir. Dokunma hedefi --aile-dokunma-hedefi (44; kaba işaretçide 48). */
 
+/* Sayfa yazı ölçüleri (tek yer). Değerler tokens.json type ölçüsü, admin.css taban tipografisiyle aynı: bölüm başlığı
+   h2'dir ama h3 ölçüsünde (18/26; sayfada h1'den sonra tek başlık düzeyi, bölümler kısa), planlama ayı sayfanın tek iri
+   değeri h1 ölçüsünde (32/40), anlık sonuç duyurusu boşken de bir gövde satırı (24) yer tutar (sonuç gelince yerleşim
+   kaymaz). --aile-* yazı tokenı eklenirse bunlar ona bağlanır. */
 .aile-emeklilik {
+  --em-yazi-bolum: 18px;
+  --em-satir-bolum: 26px;
+  --em-yazi-ay: 32px;
+  --em-satir-ay: 40px;
+  --em-satir-govde: 24px;
   display: flex;
   flex-direction: column;
   gap: var(--aile-bosluk-6);
@@ -30,8 +39,8 @@
 }
 .aile-em-bolum p { margin: 0; }
 .aile-admin .aile-em-bolum__baslik {
-  font-size: 18px;
-  line-height: 26px;
+  font-size: var(--em-yazi-bolum);
+  line-height: var(--em-satir-bolum);
 }
 
 /* Değerler: tutar tabular (aile-tutar bölünmez); sözcüklü değer doğal sarılır. Ton yalnız destekler (yön metinde). */
@@ -125,7 +134,7 @@
   cursor: pointer;
 }
 .aile-em-duyuru {
-  min-height: 24px;
+  min-height: var(--em-satir-govde);
   font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
@@ -147,8 +156,8 @@
   box-shadow: var(--aile-golge-yukseltilmis);
 }
 .aile-em-sonuc__ay {
-  font-size: 32px;
-  line-height: 40px;
+  font-size: var(--em-yazi-ay);
+  line-height: var(--em-satir-ay);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }

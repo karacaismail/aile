@@ -5,6 +5,7 @@
 import type { EmeklilikProfili, Varsayimlar } from '../contract';
 import { Ay, TakvimGunu } from './Ay';
 import type { HizmetTakvimi } from './HizmetTakvimi';
+import { kuralHatasi } from './bicim';
 
 export interface TarihSonucu {
   emeklilikAyi: Ay | null;
@@ -37,11 +38,13 @@ export class EmeklilikTarihiHesabi {
     this.dogum = TakvimGunu.metinden(profil.dogumTarihi);
     this.giris = TakvimGunu.metinden(profil.ilkSigortaGirisi);
     this.kayitAyi = Ay.tarihten(profil.kayitTarihi);
-    if (!Number.isSafeInteger(profil.hedefGun) || profil.hedefGun <= 0) throw new RangeError(`Hedef gün pozitif tamsayı olmalı: ${profil.hedefGun}`);
-    if (!Number.isSafeInteger(profil.sigortalilikYili) || profil.sigortalilikYili < 0) throw new RangeError(`Sigortalılık yılı geçersiz: ${profil.sigortalilikYili}`);
+    if (!Number.isSafeInteger(profil.hedefGun) || profil.hedefGun <= 0) throw kuralHatasi('Hedef gün pozitif tamsayı olmalı.', { hedefGun: profil.hedefGun });
+    if (!Number.isSafeInteger(profil.sigortalilikYili) || profil.sigortalilikYili < 0) {
+      throw kuralHatasi('Sigortalılık yılı sıfır ya da pozitif tamsayı olmalı.', { sigortalilikYili: profil.sigortalilikYili });
+    }
     const yas = profil.asgariYas;
     if (yas !== undefined && (!Number.isSafeInteger(yas) || yas < 0 || yas > ASGARI_YAS_UST)) {
-      throw new RangeError(`Asgari yaş 0–${ASGARI_YAS_UST} arasında tamsayı olmalı: ${yas}`);
+      throw kuralHatasi(`Asgari yaş 0–${ASGARI_YAS_UST} arasında tamsayı olmalı.`, { asgariYas: yas });
     }
   }
 

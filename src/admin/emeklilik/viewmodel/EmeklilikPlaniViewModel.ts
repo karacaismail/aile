@@ -75,6 +75,8 @@ function borcYaz(v: Varsayimlar, borc: TutarBilgisi): Varsayimlar {
 /** Çapraz kurala giren çift: düzeltilmiş borç ve yalnız SSK yolunda da ödenecek tutar. */
 type BorcCifti = Pick<Varsayimlar['secenekGirdileri']['bagkur'], 'borc' | 'yalnizSskYolundaOdenecek'>;
 const ORTAK_ALANI: AlanAnahtari = 'bagkurOrtakOdeme';
+/** Başlangıç çifti kuralı bozarsa (son geçerli çift yokken) ortak ödemenin planlayıcıya giden bilinmiyor nedeni. */
+const BASLANGIC_CAPRAZ_NEDENI = 'Yalnız SSK yolunda da ödenecek tutar düzeltilmiş borcu aşıyor';
 
 function ciftOku(v: Varsayimlar): BorcCifti {
   const { borc, yalnizSskYolundaOdenecek } = v.secenekGirdileri.bagkur;
@@ -297,15 +299,23 @@ export class EmeklilikPlaniViewModel implements EmeklilikPlaniKomutlari, Emeklil
   /**
    * Varsayımlar yoksa planlayıcıdan alır (hata atabilir); Bağ-Kur borcu seçili kaynağın borcudur (varsayılan: bilinmiyor).
    * İhya süresi varsayımdaki karşılaştırma süresiyle başlar.
+   * Başlangıç çifti de alanlar arası kurala göre form.caprazHata ile denetlenir: profil şeması "ortak ödeme ≤ borç"
+   * kuralını denetlemez. Varsayılan borç kaynağı 'bilinmiyor' olduğundan kural başlangıçta bugün uygulanmaz; yine de ihlal
+   * olursa son geçerli çift yoktur: hata ortak ödeme alanında yazılır, planlayıcıya ortak tutar adıyla bilinmiyor gider
+   * (tutar uydurulmaz, sayfa hata durumuna düşmez). Sonraki komutlar adayla denetlenir (adayUygula).
    */
   private varsayimlariAl(): Varsayimlar {
     if (this.varsayim) return this.varsayim;
-    const varsayim = borcYaz(this.planlayici.varsayilanVarsayimlar(), this.borcKaynagi.deger());
-    // Planlayıcının varsayılanları geçerli kabul edilir (profil şeması denetler); sonraki komutlar adayla denetlenir.
-    this.aday = varsayim;
+    const aday = borcYaz(this.planlayici.varsayilanVarsayimlar(), this.borcKaynagi.deger());
+    const hata = this.form.caprazHata(aday);
+    const varsayim = hata
+      ? ciftYaz(aday, { borc: aday.secenekGirdileri.bagkur.borc, yalnizSskYolundaOdenecek: { tur: 'bilinmiyor', neden: BASLANGIC_CAPRAZ_NEDENI } })
+      : aday;
+    this.aday = aday;
     this.varsayim = varsayim;
     this.sonGecerliCift = ciftOku(varsayim);
-    this.caprazHata = null;
+    this.caprazHata = hata;
+    this.caprazAlan = ORTAK_ALANI;
     this.ihyaGirdileri ??= { ihyaliTl: null, ihyasizTl: null, sureYil: varsayim.karsilastirmaSuresiYil };
     return varsayim;
   }

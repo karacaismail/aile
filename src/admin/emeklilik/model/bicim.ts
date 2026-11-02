@@ -1,15 +1,22 @@
 // Türkçe sayı yazımı (yerel ayardan bağımsız, belirlenimci): binlik ayırıcı nokta, ondalık ayırıcı virgül.
+// Kural hatası: model hataları ekranda "Hesap yapılamadı: …" olarak gösterilir. İleti alan adı ve kuralı söyler, girilen ya
+// da profilden gelen değeri yankılamaz; hatalı değer yalnız geliştirici için Error.cause'dadır (hataIletisi.test.ts).
+
+/** Kullanıcıya gösterilebilir RangeError: ileti değer içermez, ayrıntı cause'dadır (BigInt değil, metin/sayı). */
+export function kuralHatasi(ileti: string, ayrinti: Record<string, unknown>): RangeError {
+  return new RangeError(ileti, { cause: ayrinti });
+}
 
 /** 3500 → '3.500'. */
 export function tamSayi(n: number): string {
-  if (!Number.isSafeInteger(n)) throw new RangeError(`Tamsayı bekleniyor: ${n}`);
+  if (!Number.isSafeInteger(n)) throw kuralHatasi('Tamsayı bekleniyor.', { n });
   const mutlak = String(Math.abs(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   return n < 0 ? `−${mutlak}` : mutlak;
 }
 
 /** 0.45 → '%45', 0.105 → '%10,5'. */
 export function yuzde(oran: number): string {
-  if (!Number.isFinite(oran)) throw new RangeError(`Oran sonlu olmalı: ${oran}`);
+  if (!Number.isFinite(oran)) throw kuralHatasi('Oran sonlu olmalı.', { oran });
   const deger = Number((oran * 100).toPrecision(12));
   return `%${String(deger).replace('.', ',')}`;
 }

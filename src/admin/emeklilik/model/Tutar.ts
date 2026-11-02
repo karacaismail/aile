@@ -6,7 +6,7 @@
 // aynı sonuca inerse tutar bilinen olur. Bilinmiyor, girdiği her işlemde yayılır ve nedenini taşır.
 import type { TutarBilgisi } from '../contract';
 import { Para } from './Para';
-import { nedenleriBirlestir } from './bicim';
+import { kuralHatasi, nedenleriBirlestir } from './bicim';
 
 type Durum =
   | { tur: 'bilinen'; deger: Para; kaynaklar: readonly string[] }
@@ -45,7 +45,7 @@ export class Tutar {
       case 'aralik': {
         const alt = Para.tlden(b.altTl);
         const ust = Para.tlden(b.ustTl);
-        if (alt.karsilastir(ust) > 0) throw new RangeError(`Aralığın alt ucu üst ucundan büyük: ${b.altTl} > ${b.ustTl}`);
+        if (alt.karsilastir(ust) > 0) throw kuralHatasi('Aralığın alt ucu üst ucundan büyük olamaz.', { altTl: b.altTl, ustTl: b.ustTl });
         return Tutar.aralik(alt, ust, b.kaynak);
       }
       case 'bilinmiyor':

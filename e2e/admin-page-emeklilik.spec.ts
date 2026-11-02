@@ -12,8 +12,10 @@ import { accentEdges, focusRing, overflow, smallText, touchTargets } from './adm
 // telefonda akordeon (ilk satır açık) → "Gün ve tutarları düzenle" içinde aralık dışı gün hatası alanın yanında → bütün
 // bölümler açıkken sayfadaki her etkileşimli denetim dokunma hedefini (44; kaba girişte 48) karşılar.
 // Alanlar arası kural: borç ortak ödemeden az yazılınca ("4") alan hatası; sayfa hata durumuna geçmez, odak ve açık bölüm
-// korunur. Geniş sunum dar kapsayıcıda (768×1024 ve 1024×768 çevresi, N−1/N/N+1): sonuç seçimlerin hemen altında.
-// Durumlar: profil yok (üretim varsayılanı: dosya içe aktarma, yalnız bellekte) ve hata, adlarıyla.
+// korunur. Geniş sunumun kırılımı kapsayıcı genişliğidir: kapsayıcı 759/760/761 (N−1/N/N+1) olacak görünüm genişlikleri
+// ölçülür; ≥ 760 tam iki sütun, altında tek sütun (sonuç seçimlerin hemen altında); 768×1024 ve 1024×768 çevresi de.
+// Hesap hatası ekranı (aşırı tutar → planlayıcı RangeError): adıyla, değer yankılanmadan; ağaç, odak ve açık bölüm korunur.
+// Durumlar: profil yok (üretim varsayılanı: dosya içe aktarma, yalnız bellekte) ve hata, adlarıyla. Eksi işareti U+2212.
 // Veri: yalnız sentetik profil (fixtures/emeklilik/profil-sentetik.json) /__aile/emeklilik/profil.json yolundan
 // page.route ile verilir; kişisel profil ve geliştirme ortam değişkeni kullanılmaz. Google'a istek gitmez (kesilir).
 // Hesap doğruluğu model birim testlerinin işidir; burada değerler biçim ve değişim olarak doğrulanır (ay adı + yıl,
@@ -142,10 +144,15 @@ test.describe('Emeklilik planı › telefon', () => {
     await expect(gun).toHaveAttribute('aria-invalid', 'true');
     const hata = main.getByText(/^Hata: 0 ile \d+(?:\.\d{3})* arasında bir gün girin\.$/);
     await expect(hata).toBeVisible();
-    const alanKutusu = await gun.boundingBox();
-    const hataKutusu = await hata.boundingBox();
-    expect(hataKutusu!.y, 'hata alanın altında').toBeGreaterThan(alanKutusu!.y);
-    expect(hataKutusu!.y - (alanKutusu!.y + alanKutusu!.height), 'hata alana bitişik').toBeLessThan(48);
+    // İki kutu aynı karede ölçülür: ayrı boundingBox çağrıları arasında Disclosure açılış hareketi ya da kaydırma
+    // ilerlerse aradaki mesafe yanlış ölçülür (yük altında görülen kararsızlık). Eşik değişmedi.
+    const kutular = await gun.evaluate((alan, hataOgesi) => {
+      const a = alan.getBoundingClientRect();
+      const h = (hataOgesi as Element).getBoundingClientRect();
+      return { alanUst: a.top, alanAlt: a.bottom, hataUst: h.top };
+    }, await hata.elementHandle());
+    expect(kutular.hataUst, 'hata alanın altında').toBeGreaterThan(kutular.alanUst);
+    expect(kutular.hataUst - kutular.alanAlt, 'hata alana bitişik').toBeLessThan(48);
     await gun.fill('0');
     await gun.blur();
     await expect(gun).not.toHaveAttribute('aria-invalid', 'true');
@@ -203,36 +210,143 @@ test('Bağ-Kur borcu ortak ödemeden az ("4"): alan hatası; sayfa hata durumuna
   await kurallar(page);
 });
 
-// Geniş sunumun dar kapsayıcısı: tablet dikey (768) ve masaüstü kırılımı (1024) çevresinde N−1/N/N+1. Sonuç ya sağ
-// sütunda (iki sütun) ya da seçimlerin hemen altında (tek sütun, paylardan önce); hiçbir genişlikte sayfanın sonuna düşmez.
-const KIRILIMLAR = [
+// Geniş sunumun kırılımı kapsayıcı genişliğidir, görünüm genişliği değil: .aile-em-genis kapsayıcısı ≥ 760 px iken ızgara
+// tam iki sütundur (sonuç sağda, ayrıntı paneli genişliğinde), altında tek sütundur (sonuç seçimlerin hemen altında,
+// paylardan önce; sayfanın sonuna düşmez) — EmeklilikGenis.wide.css @container (min-width: 760px). Hesaplanmış
+// grid-template-columns ve kapsayıcı genişliği okunur. Görünüm genişliği kapsayıcıyı 759/760/761 yapacak biçimde ölçülerek
+// bulunur (N−1/N/N+1): tablet bandında (yan gezinme yok) ve masaüstü bandında (yan gezinme var) ayrı ayrı. Ayrıca tablet
+// dikey 768 ve masaüstü kırılımı 1024 çevresi (N−1/N/N+1) aynı kuralla denetlenir.
+const KAPSAYICI_KIRILIMI = 760;
+
+interface GenisYerlesim { kapsayici: number; sutun: number }
+
+async function genisAc(page: Page, boyut: { width: number; height: number }): Promise<{ main: Locator; yerlesim: GenisYerlesim }> {
+  await page.setViewportSize(boyut);
+  const main = await openAdmin(page, '/emeklilik');
+  await expect(sonuc(main)).toBeVisible();
+  await expect(main.locator('[data-emeklilik-yerlesim]')).toHaveAttribute('data-emeklilik-yerlesim', 'genis');
+  const yerlesim = await main.locator('.aile-em-genis__izgara').evaluate(izgara => ({
+    kapsayici: (izgara.closest('.aile-em-genis') as HTMLElement).getBoundingClientRect().width,
+    sutun: getComputedStyle(izgara).gridTemplateColumns.trim().split(/\s+/).length,
+  }));
+  return { main, yerlesim };
+}
+
+/** Kapsayıcı ≥ 760 ise tam iki sütun ve sonuç sağda; değilse tek sütun ve sonuç seçimlerin altında, paylardan önce. */
+async function genisYerlesimDenetle(page: Page, main: Locator, yerlesim: GenisYerlesim, ad: string) {
+  const kutu = async (bolum: string) => (await main.getByRole('region', { name: bolum, exact: true }).boundingBox())!;
+  const secimler = await kutu('Seçimler');
+  const s = await kutu('Sonuç');
+  const paylar = await kutu('Her seçimin payı');
+  const ihya = await kutu('İhya karşılaştırması');
+  if (yerlesim.kapsayici >= KAPSAYICI_KIRILIMI) {
+    expect(yerlesim.sutun, `${ad}: kapsayıcı ${yerlesim.kapsayici} ≥ 760 → iki sütun`).toBe(2);
+    expect(s.x, `${ad}: sonuç sağ sütunda`).toBeGreaterThanOrEqual(secimler.x + secimler.width - 1);
+    expect(s.y, `${ad}: sağ sütunda sonuç seçimlerle aynı hizada başlar`).toBeLessThan(secimler.y + secimler.height);
+  } else {
+    expect(yerlesim.sutun, `${ad}: kapsayıcı ${yerlesim.kapsayici} < 760 → tek sütun`).toBe(1);
+    expect(s.y, `${ad}: sonuç seçimlerin altında`).toBeGreaterThanOrEqual(secimler.y + secimler.height - 1);
+    expect(s.y + s.height, `${ad}: sonuç paylardan önce`).toBeLessThanOrEqual(paylar.y + 1);
+  }
+  expect(s.y, `${ad}: sonuç ihya karşılaştırmasından önce`).toBeLessThan(ihya.y);
+  expect(await horizontalOverflow(page), `${ad}: sayfa düzeyinde yatay taşma yok`).toEqual([]);
+}
+
+test('geniş sunum kırılımı kapsayıcı genişliğinde: kapsayıcı 759/760/761 (N−1/N/N+1) tablet ve masaüstü bandında; ≥ 760 tam iki sütun, altında tek sütun', { tag: '@matrix' }, async ({ page }) => {
+  await googleKapisi(page);
+  await sentetikProfil(page);
+  // Ölçüm başlangıcı: tablet bandı (yan gezinme yok) ve masaüstü bandı (yan gezinme var); kapsayıcı görünümle birlikte büyür.
+  for (const baslangic of [{ ad: 'tablet', width: 800, height: 1024 }, { ad: 'masaüstü', width: 1100, height: 800 }]) {
+    const { yerlesim: olcum } = await genisAc(page, baslangic);
+    const fark = baslangic.width - olcum.kapsayici;
+    for (const hedef of [KAPSAYICI_KIRILIMI - 1, KAPSAYICI_KIRILIMI, KAPSAYICI_KIRILIMI + 1]) {
+      const boyut = { width: Math.round(hedef + fark), height: baslangic.height };
+      const ad = `${baslangic.ad} ${boyut.width}×${boyut.height}`;
+      const { main, yerlesim } = await genisAc(page, boyut);
+      expect(yerlesim.kapsayici, `${ad}: kapsayıcı genişliği`).toBe(hedef);
+      expect(yerlesim.sutun, `${ad}: sütun sayısı`).toBe(hedef >= KAPSAYICI_KIRILIMI ? 2 : 1);
+      await genisYerlesimDenetle(page, main, yerlesim, ad);
+    }
+  }
+});
+
+const GORUNUM_KIRILIMLARI = [
   { width: 767, height: 1024 }, { width: 768, height: 1024 }, { width: 769, height: 1024 },
   { width: 1023, height: 768 }, { width: 1024, height: 768 }, { width: 1025, height: 768 },
 ] as const;
 
-test('geniş sunum dar kapsayıcıda: sonuç seçimlerin hemen altında ya da sağ sütunda (768×1024, 1024×768; N−1/N/N+1)', async ({ page }) => {
+test('geniş sunum tablet dikey (768×1024) ve masaüstü kırılımı (1024×768) çevresinde N−1/N/N+1: sütun sayısı kapsayıcı kuralına uyar; sonuç sayfanın sonuna düşmez', { tag: '@matrix' }, async ({ page }) => {
   await googleKapisi(page);
   await sentetikProfil(page);
-  for (const boyut of KIRILIMLAR) {
-    const ad = `${boyut.width}×${boyut.height}`;
-    await page.setViewportSize(boyut);
-    const main = await openAdmin(page, '/emeklilik');
-    await expect(sonuc(main), ad).toBeVisible();
-    await expect(main.locator('[data-emeklilik-yerlesim]'), ad).toHaveAttribute('data-emeklilik-yerlesim', 'genis');
-    const kutu = async (bolum: string) => (await main.getByRole('region', { name: bolum, exact: true }).boundingBox())!;
-    const secimler = await kutu('Seçimler');
-    const s = await kutu('Sonuç');
-    const paylar = await kutu('Her seçimin payı');
-    const ihya = await kutu('İhya karşılaştırması');
-    if (s.x >= secimler.x + secimler.width - 1) {
-      expect(s.y, `${ad}: sağ sütunda sonuç seçimlerle aynı hizada başlar`).toBeLessThan(secimler.y + secimler.height);
-    } else {
-      expect(s.y, `${ad}: sonuç seçimlerin altında`).toBeGreaterThanOrEqual(secimler.y + secimler.height - 1);
-      expect(s.y + s.height, `${ad}: sonuç paylardan önce`).toBeLessThanOrEqual(paylar.y + 1);
-    }
-    expect(s.y, `${ad}: sonuç ihya karşılaştırmasından önce`).toBeLessThan(ihya.y);
-    expect(await horizontalOverflow(page), `${ad}: sayfa düzeyinde yatay taşma yok`).toEqual([]);
+  for (const boyut of GORUNUM_KIRILIMLARI) {
+    const { main, yerlesim } = await genisAc(page, boyut);
+    await genisYerlesimDenetle(page, main, yerlesim, `${boyut.width}×${boyut.height}`);
   }
+});
+
+// Hesap hatası ekranı (planlayıcı RangeError): "Diğer aylık kesintiler" alanına güvenli kuruş aralığını aşan tutar
+// yazılır (Para). Telefon (chromium 320×568, webkit 390×844), masaüstü ve @matrix projelerinde: ErrorState başlığı alan adı
+// ve kuralı söyler, girilen değeri yankılamaz; tek "Varsayımları sıfırla" (erişilebilir ad benzersiz); açık bölümler, odak
+// ve seçimler bölgesi (aynı düğüm) korunur; sonuç tutarları gösterilmez. Kurallar (taşma yok, metin ≥ 14 px, kavisli
+// vurgu kenarı yok), klavye odağında tek alt çizgi (halka yok) ve sayfadaki bütün dokunma hedefleri (koşullu Bağ-Kur borcu
+// alanı ve hata durumunun düğmesi dahil; 44, kaba girişte 48). Sıfırla hesabı geri getirir.
+const ASIRI_TUTAR = '987654321987654';
+
+test('hesap hatası: aşırı tutar ErrorState’i adıyla gösterir (değer yankılanmaz); tek sıfırla; açık bölüm, odak ve ağaç korunur; kurallar, odak çizgisi ve dokunma hedefleri; sıfırla hesabı geri getirir', { tag: '@matrix' }, async ({ page, browserName }) => {
+  const { main, google } = await emeklilikAc(page);
+  const gunVeTutar = main.getByRole('button', { name: 'Gün ve tutarları düzenle' });
+  await gunVeTutar.scrollIntoViewIfNeeded();
+  await gunVeTutar.click();
+  await main.getByRole('radiogroup', { name: 'Bağ-Kur borcunun kaynağı' }).getByRole('radio', { name: 'Tutarı gir' }).click();
+  const borc = main.getByLabel('Düzeltilmiş Bağ-Kur borcu');
+  await expect(borc).toBeVisible();
+  const maas = main.getByRole('button', { name: 'Maaş ve aylık varsayımları' });
+  await maas.scrollIntoViewIfNeeded();
+  await maas.click();
+  await expect(maas).toHaveAttribute('aria-expanded', 'true');
+  const secimler = await main.getByRole('region', { name: 'Seçimler', exact: true }).elementHandle();
+
+  // Hata yazarken oluşur: odak alanda kalır, bölümler açık, seçimler aynı düğüm; sonuç bölümü yok.
+  const kesinti = main.getByLabel('Diğer aylık kesintiler');
+  await kesinti.scrollIntoViewIfNeeded();
+  // Para alanı odak dışında "₺0,00", odakta düzenlenebilir "0,00" gösterir: önce odak görünümü yerleşsin, sonra silinip yazılsın.
+  await kesinti.focus();
+  await expect(kesinti).toHaveValue('0,00');
+  await kesinti.fill('');
+  await kesinti.pressSequentially(ASIRI_TUTAR);
+  const uyari = main.getByRole('alert');
+  await expect(uyari).toContainText('Hata: Hesap yapılamadı: Diğer kesintiler hesaplanamıyor');
+  expect(await uyari.textContent(), 'hata metni değeri yankılamaz').not.toMatch(/\d{5,}/);
+  await expect(kesinti).toBeFocused();
+  await expect(kesinti).toHaveValue(ASIRI_TUTAR);
+  await expect(gunVeTutar).toHaveAttribute('aria-expanded', 'true');
+  await expect(maas).toHaveAttribute('aria-expanded', 'true');
+  await expect(borc).toBeVisible();
+  expect(await secimler!.evaluate(dugum => dugum.isConnected), 'seçimler yeniden kurulmadı').toBe(true);
+  await expect(sonuc(main)).toHaveCount(0);
+  await expect(main.getByRole('region', { name: 'Her seçimin payı' })).toHaveCount(0);
+  await expect(main.getByRole('region', { name: 'Sekiz bileşim' })).toHaveCount(0);
+  const sifirla = main.getByRole('button', { name: 'Varsayımları sıfırla' });
+  await expect(sifirla).toHaveCount(1);
+
+  // Kurallar ve dokunma hedefleri (hata durumu düğmesi ve koşullu borç alanı dahil).
+  await kurallar(page);
+  const kaba = await page.evaluate(() => matchMedia('(any-pointer: coarse)').matches);
+  expect(await touchTargets(page, { root: 'main#admin-content' }), `hata durumunda bütün dokunma hedefleri ≥ ${kaba ? HEDEF_KABA : HEDEF}`).toEqual([]);
+
+  // Klavye odağı: hata düğmesinde ve hatalı alanda tek alt çizgi, halka yok; Enter sıfırlar.
+  await enterKeyboardMode(page, browserName);
+  await kesinti.focus();
+  expect(await focusRing(page), 'hatalı alanda tek alt çizgi').toEqual([]);
+  await sifirla.focus();
+  expect(await focusRing(page), 'sıfırla düğmesinde tek alt çizgi').toEqual([]);
+  await page.keyboard.press('Enter');
+  await expect(main.getByRole('alert')).toHaveCount(0);
+  await expect(sonuc(main)).toBeVisible();
+  await expect(planlamaAyi(main)).toHaveText(AY);
+  await expect(main.getByRole('button', { name: 'Varsayımları sıfırla' })).toHaveCount(1);
+  expect(await secimler!.evaluate(dugum => dugum.isConnected), 'seçimler sıfırlamada da yeniden kurulmadı').toBe(true);
+  expect(google, "Google'a istek").toEqual([]);
 });
 
 test.describe('Emeklilik planı › profil durumları', () => {
@@ -297,7 +411,7 @@ test('Emeklilik planı uyarlanır yerleşim: başlık, öneri eylemi ve sorular 
 // tutar bilinmezken mali sıralama yapılamaz → "En erken tarih senaryosu"; aralık ya da girilen tutarla → "Senaryo önerisi".
 // Seçim sonucu, öneriyi ve bileşim tablosunu anında günceller; aralık "alt – üst" yazılır; sıfırla varsayılana döner.
 // Telefon (chromium 320×568, webkit 390×844) ve masaüstü (chromium-desktop); @matrix ile dar/kısa/yatay/tablet de.
-const ARALIK_FARK = /[+-]?₺\d{1,3}(?:\.\d{3})*,\d{2} – [+-]?₺\d{1,3}(?:\.\d{3})*,\d{2}/;
+const ARALIK_FARK = /[+−]?₺\d{1,3}(?:\.\d{3})*,\d{2} – [+−]?₺\d{1,3}(?:\.\d{3})*,\d{2}/;
 const KAYNAK_GRUBU = 'Bağ-Kur borcunun kaynağı';
 
 test('Bağ-Kur borcunun kaynağı: varsayılan "bilinmiyor" en erken tarih senaryosu; sade araç aralığı ve girilen tutar senaryo önerisi; sonuç, öneri ve bileşimler anında; sıfırla varsayılana döner', { tag: '@matrix' }, async ({ page, browserName }) => {
@@ -353,7 +467,7 @@ test('Bağ-Kur borcunun kaynağı: varsayılan "bilinmiyor" en erken tarih senar
   await expect(tutar).not.toHaveAttribute('aria-invalid', 'true');
   await expect(bagkurAciklamasi).toHaveText('600 gün · ₺350.000,00');
   await expect(oneri).toContainText('Senaryo önerisi');
-  await expect(donemFarki).toHaveText(/^[+-]?₺\d{1,3}(?:\.\d{3})*,\d{2}$/);
+  await expect(donemFarki).toHaveText(/^[+−]?₺\d{1,3}(?:\.\d{3})*,\d{2}$/);
   await tutar.fill('');
   await tutar.blur();
   await expect(tutar).toHaveAttribute('aria-invalid', 'true');

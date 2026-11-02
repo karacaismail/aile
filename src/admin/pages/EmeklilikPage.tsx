@@ -18,8 +18,9 @@ import './EmeklilikPage.css';
 // src/admin/emeklilik/contract.ts. Burada yalnız bağlama yapılır: profil kaynağı (data, repository) → planlayıcı (model,
 // EmeklilikPlanlayici) → EmeklilikPlaniViewModel → görünüm (pages/emeklilik/*). Görünüm hesap yapmaz; ViewModel'in
 // değişmez anlık görüntüsünü çizer ve komutlarını çağırır. Testler kaynak ve planlayıcıyı enjekte eder (sahte sınıflar).
-// Profil durumları ayrı ve adıyla: yükleniyor (iskelet), yok (dosya içe aktar; yalnız bellekte), hata (ErrorState +
-// yeniden dene + içe aktar), hazır; kayıt 30 günden eskiyse "Eski veri". Profili depo okur (geliştirmede ilk abonelikte);
+// Profil durumları ayrı ve adıyla: yükleniyor (iskelet), yok (dosya içe aktar; yalnız bellekte), hata (ErrorState + içe
+// aktar; "Yeniden dene" yalnız yenilenebilir kaynakta, yani geliştirme sunucusunda; üretimde eylem "Profil dosyasını yeniden
+// içe aktar"dır), hazır; kayıt 30 günden eskiyse "Eski veri". Profili depo okur (geliştirmede ilk abonelikte);
 // sayfa ayrıca yenilemez, profil bir kez istenir. Hesap hatası (planlayıcı kurulamaz ya da hata atar) adıyla gösterilir;
 // sayfa çökmez, tutar gösterilmez. Hazır sayfada hesap hatası tek sabit ağaçta çizilir: ErrorState üstte, sunum (Adaptive)
 // yerinde kalır; seçimler ve form yeniden kurulmaz (açık bölüm ve odak korunur). Eylem "Varsayımları sıfırla"dır.
@@ -105,10 +106,16 @@ export function EmeklilikPage({
             <p className="aile-ikincil">Emeklilik profili (JSON) seçin; gün, kazanç ve borç bilgileri hesap için yalnız bu sekmede okunur.</p>
             <ProfilIceAktar onDosya={dosyadanYukle} />
           </section>
-        ) : (
+        ) : profilKaynagi.yenilenebilir === true ? (
           <>
             <ErrorState title="Profil okunamadı" message={durum.neden} detail={BELLEK_NOTU} onRetry={() => { profilKaynagi.yenile().catch(yut); }} />
             <ProfilIceAktar onDosya={dosyadanYukle} />
+          </>
+        ) : (
+          // Yenilenemez kaynak (üretim): yenile() bir şey yapmaz; tek çözüm yolu dosyayı yeniden içe aktarmaktır.
+          <>
+            <ErrorState title="Profil okunamadı" message={durum.neden} detail={BELLEK_NOTU} />
+            <ProfilIceAktar etiket="Profil dosyasını yeniden içe aktar" onDosya={dosyadanYukle} />
           </>
         )}
       </div>
@@ -156,7 +163,8 @@ function HazirSayfa({ location, vm, kaynak, onDosya, onKaldir }: {
 
   // Tek sabit ağaç: hesap hatası yalnız üstte ErrorState ekler; sunum (seçimler, form) aynı yerde kalır, tutarlı bölümler
   // (öneri, sonuç, paylar, bileşimler) anlık görüntüde yoktur. "Yeniden dene" yok: hesap girdiye bağlıdır, eylem
-  // varsayımları sıfırlamaktır ve adı budur.
+  // varsayımları sıfırlamaktır ve adı budur. Bu sırada Varsayımlar bölümünün kendi sıfırla düğmesi gösterilmez (erişilebilir
+  // ad sayfada tek).
   const hata = ekran.hesap.durum === 'hata' ? (
     <div className="aile-em-hata">
       <ErrorState

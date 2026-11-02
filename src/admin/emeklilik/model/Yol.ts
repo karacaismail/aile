@@ -6,6 +6,7 @@ import type { TarihSonucu } from './EmeklilikTarihiHesabi';
 import type { KesintiPlani } from './KesintiPlani';
 import { Para } from './Para';
 import { Tutar } from './Tutar';
+import { kuralHatasi } from './bicim';
 import type { KarsilastirilabilirYol } from './YolKarsilastirici';
 
 /** Sözleşmedeki YolSonucu + görünüm için ek alanlar (geriye uyumlu üst küme). */
@@ -51,11 +52,20 @@ export class YolHesabi implements KarsilastirilabilirYol {
    * (net aylık eksiye düşmez). Borç kesintisi borç bitince durur.
    */
   emekliGeliri(n: number): Tutar {
-    if (!Number.isSafeInteger(n) || n < 0) throw new RangeError(`Ay sayısı geçersiz: ${n}`);
+    if (!Number.isSafeInteger(n) || n < 0) throw kuralHatasi('Ay sayısı sıfır ya da pozitif tamsayı olmalı.', { n });
     if (n === 0) return Tutar.sifir('Aylık yok');
     const kullanilabilir = this.g.digerKesinti.sifirMi() ? this.g.aylik : this.g.aylik.cikar(Tutar.bilinen(this.g.digerKesinti, 'Diğer kesintiler'));
     if (this.g.kesinti === null) return kullanilabilir.donustur((p) => Para.enBuyuk(p, Para.sifir()).carpTam(n));
     return this.g.kesinti.netToplam(n, kullanilabilir);
+  }
+
+  /**
+   * Aylık net gelirin değişebildiği emeklilik ayları (1 tabanlı, artan): kesinti yoksa yalnız 1 (her ay aynı net);
+   * kesinti varsa borcun bittiği ay ve sonrası da (KesintiPlani.gelirKirilimlari). Karşılaştırıcı geri kazanmayı yalnız
+   * bu parçaların uçlarında hesaplar.
+   */
+  gelirKirilimlari(): readonly number[] {
+    return this.g.kesinti === null ? [1] : this.g.kesinti.gelirKirilimlari();
   }
 
   sonuc(): YolSonucuAyrintili {

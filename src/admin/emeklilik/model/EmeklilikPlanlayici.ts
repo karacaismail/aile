@@ -1,5 +1,8 @@
 // Model cephesi: EmeklilikPlanlayici sözleşmesinin uygulaması. Seçenekler, takvim, tarih hesabı ve aylık modeli
 // fabrikası bağımlılık olarak verilebilir (testte ya da yeni seçenek eklerken); varsayılanlar profilden kurulur.
+// Sekiz bileşim varsayım anahtarlı küçük bir önbellekte tutulur: görünüm modeli aynı tuşta tumBilesimler(v) ve oneri(v)
+// sorar; öneri aynı varsayımın bileşimlerini yeniden hesaplamaz, yalnız duyarlılık varsayımlarını (kesintisiz, borcun
+// üst ucu) hesaplar. Sonuçlar varsayımın saf işlevidir (profil ve mevzuat değişmez), önbellek doğruluğu etkilemez.
 import {
   BILESIM_SIRASI,
   SECENEK_ANAHTARLARI,
@@ -26,12 +29,14 @@ import { Para } from './Para';
 import { Tutar, TutarIslemleri } from './Tutar';
 import { YolHesabi, type YolSonucuAyrintili } from './Yol';
 import { YolKarsilastirici, type KarsilastirmaAyrintisi, type KarsilastirmaKosullari } from './YolKarsilastirici';
-import { nedenleriSirala, yuzde } from './bicim';
+import { kuralHatasi, nedenleriSirala, yuzde } from './bicim';
 
 export const HICBIRI: Readonly<Secim> = Object.freeze({ askerlik: false, bagkur: false, ihya: false });
 /** Varsayılan karşılaştırma süresi: geç yolun emekliliğinden sonra 10 yıl. */
 export const VARSAYILAN_KARSILASTIRMA_YILI = 10;
 const AYLIK_MODELLERI: readonly AylikModeliAdi[] = ['sgkReferans', 'kazancTahmini', 'elle'];
+/** Bileşim önbelleğinin boyu: bir tuşta en çok üç varsayım (asıl, kesintisiz, borcun üst ucu) + bir önceki. */
+const BILESIM_ONBELLEGI = 4;
 
 /** 'Askerlik borçlanması + İhya' ya da 'Hiçbir şey ödememek'. */
 export function bilesimAdi(secim: Secim): string {
@@ -43,9 +48,16 @@ const ayAdi = (ay: AyMetni | null) => (ay === null ? 'bilinmiyor' : Ay.metinden(
 const secimSayisi = (s: Secim) => SECENEK_ANAHTARLARI.filter((k) => s[k]).length;
 const ayniSecim = (a: Secim, b: Secim) => SECENEK_ANAHTARLARI.every((k) => a[k] === b[k]);
 
-function tlGecerli(metin: TlMetni, ad: string, negatifOlabilir = false): Para {
-  const p = Para.tlden(metin);
-  if (!negatifOlabilir && p.negatifMi()) throw new RangeError(`${ad} negatif olamaz: ${metin}`);
+/** Varsayımdaki TL metni; hata iletisi alanın adını söyler (değer cause'da). */
+function tlGecerli(metin: TlMetni, ad: string): Para {
+  let p: Para;
+  try {
+    p = Para.tlden(metin);
+  } catch (hata) {
+    const neden = hata instanceof Error ? hata.message : '';
+    throw kuralHatasi(`${ad} hesaplanamıyor: ${neden.charAt(0).toLocaleLowerCase('tr-TR')}${neden.slice(1)}`, { alan: ad, metin, hata });
+  }
+  if (p.negatifMi()) throw kuralHatasi(`${ad} negatif olamaz.`, { alan: ad, metin });
   return p;
 }
 
@@ -62,6 +74,8 @@ export class EmeklilikPlanlayiciImpl implements EmeklilikPlanlayici {
   private readonly tarihHesabi: EmeklilikTarihiHesabi;
   private readonly aylikModeliFabrikasi: PlanlayiciBagimliliklari['aylikModeliFabrikasi'];
   private readonly kayitAyi: Ay;
+  /** Varsayım anahtarı (JSON) → sekiz bileşim; en son kullanılan sonda (Map ekleme sırası). */
+  private readonly bilesimOnbellegi = new Map<string, readonly KarsilastirmaAyrintisi[]>();
 
   constructor(
     private readonly profil: EmeklilikProfili,
@@ -83,7 +97,7 @@ export class EmeklilikPlanlayiciImpl implements EmeklilikPlanlayici {
       throw new RangeError('Her seçenek anahtarı için tam bir hizmet seçeneği gerekir.');
     }
     if (!Number.isFinite(profil.kazanc.ucretZamOrani) || profil.kazanc.ucretZamOrani < -1) {
-      throw new RangeError(`Ücret zam oranı geçersiz: ${profil.kazanc.ucretZamOrani}`);
+      throw kuralHatasi('Ücret zam oranı −%100 ya da daha büyük olmalı.', { ucretZamOrani: profil.kazanc.ucretZamOrani });
     }
   }
 
@@ -131,11 +145,9 @@ export class EmeklilikPlanlayiciImpl implements EmeklilikPlanlayici {
     return karsilastirici.karsilastir(this.yolHesabi(a, varsayim, elleAylik?.a), this.yolHesabi(b, varsayim, elleAylik?.b));
   }
 
+  /** Sekiz bileşim; dönen dizi her çağrıda yenidir (içerik önbellekten paylaşılır, değiştirilmez). */
   tumBilesimler(varsayim: Varsayimlar): KarsilastirmaAyrintisi[] {
-    this.dogrula(varsayim);
-    const karsilastirici = new YolKarsilastirici(this.kosullar(varsayim));
-    const referans = this.yolHesabi(HICBIRI, varsayim);
-    return BILESIM_SIRASI.map((s) => karsilastirici.karsilastir(this.yolHesabi(s, varsayim), referans));
+    return [...this.bilesimler(varsayim)];
   }
 
   secimEtkileri(secim: Secim, varsayim: Varsayimlar): SecimEtkisi[] {
@@ -227,8 +239,29 @@ export class EmeklilikPlanlayiciImpl implements EmeklilikPlanlayici {
     });
   }
 
+  /**
+   * Sekiz bileşim, varsayım anahtarlı önbellekten. Önce doğrulanır (geçersiz varsayım önbelleğe girmez ve JSON'da aynı
+   * yazılan NaN/null gibi değerler karışmaz); eşit varsayım (kopya da olsa) aynı sonucu verir.
+   */
+  private bilesimler(v: Varsayimlar): readonly KarsilastirmaAyrintisi[] {
+    this.dogrula(v);
+    const anahtar = JSON.stringify(v);
+    const hazir = this.bilesimOnbellegi.get(anahtar);
+    if (hazir) {
+      this.bilesimOnbellegi.delete(anahtar);
+      this.bilesimOnbellegi.set(anahtar, hazir);
+      return hazir;
+    }
+    const karsilastirici = new YolKarsilastirici(this.kosullar(v));
+    const referans = this.yolHesabi(HICBIRI, v);
+    const sonuc = Object.freeze(BILESIM_SIRASI.map((s) => karsilastirici.karsilastir(this.yolHesabi(s, v), referans)));
+    this.bilesimOnbellegi.set(anahtar, sonuc);
+    if (this.bilesimOnbellegi.size > BILESIM_ONBELLEGI) this.bilesimOnbellegi.delete(this.bilesimOnbellegi.keys().next().value!);
+    return sonuc;
+  }
+
   private oneriSec(v: Varsayimlar): { tur: Oneri['tur']; secim: Secim; gerekce: string } {
-    const tum = this.tumBilesimler(v);
+    const tum = this.bilesimler(v);
     const sira = (k: KarsilastirmaAyrintisi) => BILESIM_SIRASI.findIndex((s) => ayniSecim(s, k.yol.secim));
     const ay = (k: KarsilastirmaAyrintisi) => (k.yol.emeklilikAyi === null ? Number.POSITIVE_INFINITY : Ay.metinden(k.yol.emeklilikAyi).sira);
 
@@ -264,25 +297,25 @@ export class EmeklilikPlanlayiciImpl implements EmeklilikPlanlayici {
 
   /** Varsayımları doğrular; geçersizse RangeError (Türkçe ileti). */
   private dogrula(v: Varsayimlar): void {
-    if (!AYLIK_MODELLERI.includes(v.aylikModeli)) throw new RangeError(`Bilinmeyen aylık modeli: ${String(v.aylikModeli)}`);
+    if (!AYLIK_MODELLERI.includes(v.aylikModeli)) throw kuralHatasi('Bilinmeyen aylık modeli.', { aylikModeli: String(v.aylikModeli) });
     if (v.elleAylikTl !== null) tlGecerli(v.elleAylikTl, 'Elle aylık');
     const tavan = this.mevzuat.borcKesintiTavani;
     if (!Number.isFinite(v.borcKesintiOrani) || v.borcKesintiOrani < 0 || v.borcKesintiOrani > tavan) {
-      throw new RangeError(`Borç kesinti oranı 0 ile ${yuzde(tavan)} arasında olmalı: ${v.borcKesintiOrani}`);
+      throw kuralHatasi(`Borç kesinti oranı %0 ile ${yuzde(tavan)} arasında olmalı.`, { borcKesintiOrani: v.borcKesintiOrani });
     }
     tlGecerli(v.digerKesintilerTl, 'Diğer kesintiler');
     if (!Number.isSafeInteger(v.karsilastirmaSuresiYil) || v.karsilastirmaSuresiYil < 0 || v.karsilastirmaSuresiYil > 40) {
-      throw new RangeError(`Karşılaştırma süresi 0–40 yıl arasında tamsayı olmalı: ${v.karsilastirmaSuresiYil}`);
+      throw kuralHatasi('Karşılaştırma süresi 0–40 yıl arasında tamsayı olmalı.', { karsilastirmaSuresiYil: v.karsilastirmaSuresiYil });
     }
     if (typeof v.isUcretiDevam !== 'boolean' || typeof v.gunDuzeltmesiUygula !== 'boolean') {
       throw new RangeError('İş ücreti ve gün düzeltmesi seçimleri Evet/Hayır olmalı.');
     }
     if (!Number.isSafeInteger(v.gelecekAyBasinaGun) || v.gelecekAyBasinaGun < 0 || v.gelecekAyBasinaGun > 30) {
-      throw new RangeError(`Gelecekte ay başına gün 0–30 arasında tamsayı olmalı: ${v.gelecekAyBasinaGun}`);
+      throw kuralHatasi('Gelecekte ay başına gün 0–30 arasında tamsayı olmalı.', { gelecekAyBasinaGun: v.gelecekAyBasinaGun });
     }
     const gecikme = v.bagkurGecikmeAylikOran;
     if (gecikme !== null && (!Number.isFinite(gecikme) || gecikme < 0 || gecikme > 1)) {
-      throw new RangeError(`Gecikme oranı 0 ile 1 arasında olmalı: ${gecikme}`);
+      throw kuralHatasi('Gecikme oranı %0 ile %100 arasında olmalı.', { bagkurGecikmeAylikOran: gecikme });
     }
     // Gün sayıları (askerlikte azami gün dahil), günlük bedeller ve borç metinleri seçenek sınıflarında doğrulanır.
     for (const s of this.secenekler) {

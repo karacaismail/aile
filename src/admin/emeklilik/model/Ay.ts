@@ -1,6 +1,7 @@
 // Takvim değer nesneleri. Ay: 'YYYY-MM' planlama ayı (ay sonu kabul edilir). TakvimGunu: 'YYYY-MM-DD'.
 // Hesaplar saat dilimsiz takvim aritmetiğidir; "bugün" yalnız Ay.istanbulda ile Europe/Istanbul'a göre okunur.
 import type { AyMetni, TarihMetni } from '../contract';
+import { kuralHatasi } from './bicim';
 
 const AY_ADLARI = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
 const AY_DESENI = /^(\d{4})-(\d{2})$/;
@@ -18,7 +19,7 @@ export class Ay {
     const e = typeof metin === 'string' ? AY_DESENI.exec(metin) : null;
     const yil = e ? Number(e[1]) : 0;
     const ay = e ? Number(e[2]) : 0;
-    if (!e || yil < 1 || ay < 1 || ay > 12) throw new RangeError(`Geçersiz ay: "${metin}" (YYYY-MM beklenir)`);
+    if (!e || yil < 1 || ay < 1 || ay > 12) throw kuralHatasi('Geçersiz ay (YYYY-MM beklenir).', { metin });
     return new Ay(yil, ay);
   }
 
@@ -53,7 +54,7 @@ export class Ay {
   }
 
   ekle(ay: number): Ay {
-    if (!Number.isSafeInteger(ay)) throw new RangeError(`Ay sayısı tamsayı olmalı: ${ay}`);
+    if (!Number.isSafeInteger(ay)) throw kuralHatasi('Ay sayısı tamsayı olmalı.', { ay });
     return Ay.siradan(this.sira + ay);
   }
 
@@ -101,14 +102,14 @@ export class TakvimGunu {
 
   static olustur(yil: number, ay: number, gun: number): TakvimGunu {
     if (!Number.isInteger(yil) || yil < 1 || yil > 9999 || ay < 1 || ay > 12 || gun < 1 || gun > aydakiGun(yil, ay)) {
-      throw new RangeError(`Geçersiz tarih: ${yil}-${ay}-${gun}`);
+      throw kuralHatasi('Geçersiz tarih (takvimde yok).', { yil, ay, gun });
     }
     return new TakvimGunu(yil, ay, gun);
   }
 
   static metinden(metin: TarihMetni): TakvimGunu {
     const e = typeof metin === 'string' ? GUN_DESENI.exec(metin) : null;
-    if (!e) throw new RangeError(`Geçersiz tarih: "${metin}" (YYYY-MM-DD beklenir)`);
+    if (!e) throw kuralHatasi('Geçersiz tarih (YYYY-MM-DD beklenir).', { metin });
     return TakvimGunu.olustur(Number(e[1]), Number(e[2]), Number(e[3]));
   }
 
@@ -118,7 +119,7 @@ export class TakvimGunu {
 
   /** Yıl ekler; hedef yılda olmayan 29 Şubat 1 Mart'a taşar. */
   yilEkle(yil: number): TakvimGunu {
-    if (!Number.isSafeInteger(yil)) throw new RangeError(`Yıl sayısı tamsayı olmalı: ${yil}`);
+    if (!Number.isSafeInteger(yil)) throw kuralHatasi('Yıl sayısı tamsayı olmalı.', { yil });
     const hedef = this.yil + yil;
     if (this.gun > aydakiGun(hedef, this.ayNo)) return TakvimGunu.olustur(hedef, this.ayNo + 1, 1);
     return TakvimGunu.olustur(hedef, this.ayNo, this.gun);

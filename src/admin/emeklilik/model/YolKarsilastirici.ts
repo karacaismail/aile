@@ -6,15 +6,17 @@
 // henüz emekli olmayan yol zamlı ücreti almaya devam eder. Ek ödeme = yolun ödemesi − referansın ödemesi;
 // Bağ-Kur yalnız bir yolda seçiliyse, Bağ-Kur'u seçmeyen yolda da ödenecek ortak tutar farktan düşülür.
 // Geri kazanma (başa baş, Codex aracının tanımı): referansa göre birikimli fark(t) = gelir farkı − ek ödeme (vazgeçilen
-// ücret dahil) senaryo başına ilk kez ≥ 0 olduğu ay; dönem başından (erken emeklilik ayı) sayılır. Dönem içinde
-// yoksa null ve neden yoktur ("geri dönmüyor"); girdi bilinmiyorsa null ve neden hesaplanamayanNeden'dedir.
+// ücret dahil) senaryo başına eksiye düştükten sonra ilk kez ≥ 0 olduğu ay; dönem başından (erken emeklilik ayı) sayılır.
+// Fark dönem boyunca hiç eksiye düşmüyorsa 0 ("gerekmez"; ek ödeme yoksa ve vazgeçilen ücret farkı eksiye itmiyorsa).
+// Eksiye düşüp dönem içinde dönmüyorsa null ve neden yoktur ("geri dönmüyor"); girdi bilinmiyorsa null ve neden
+// hesaplanamayanNeden'dedir. Tarama yolların gelir kırılımlarıyla parça parça yapılır (parça içinde fark doğrusaldır).
 // Bilinmeyen herhangi bir girdi sonucu 'bilinmiyor' yapar ve nedenini taşır; aralık girdiler aralık sonuç verir.
 // Faiz, enflasyon ve ileride aylık/ücret zamları hesaba katılmaz.
 import type { AyMetni, KarsilastirmaSonucu, SecenekAnahtari, Secim, TutarBilgisi, YolSonucu } from '../contract';
 import { Ay } from './Ay';
 import type { Para } from './Para';
 import { Tutar } from './Tutar';
-import { nedenleriBirlestir } from './bicim';
+import { kuralHatasi, nedenleriBirlestir } from './bicim';
 
 /** Karşılaştırıcının yoldan beklediği. */
 export interface KarsilastirilabilirYol {
@@ -28,6 +30,13 @@ export interface KarsilastirilabilirYol {
   readonly kalemler?: ReadonlyArray<{ readonly anahtar: SecenekAnahtari; readonly tutar: Tutar }>;
   /** Emekliliğin ilk n ayında eline geçen net aylık toplamı. */
   emekliGeliri(n: number): Tutar;
+  /**
+   * İsteğe bağlı: emekliliğin hangi aylarından (1 tabanlı, artan) başlayarak aylık net gelir değişebilir; iki kırılım
+   * arasında aylık net sabittir (ör. borç kesintisinin son ayı ve sonrası). Verilirse geri kazanma yalnız parça uçlarında
+   * hesaplanır; verilmezse her ay ayrı taranır. Eksik bildirilen kırılım sonucu bozmaz: parça doğrusal çıkmazsa
+   * karşılaştırıcı ay ay taramaya döner.
+   */
+  gelirKirilimlari?(): readonly number[];
   sonuc(): YolSonucu;
 }
 
@@ -58,12 +67,20 @@ export interface KarsilastirmaAyrintisi extends KarsilastirmaSonucu {
 
 const UCRET_KAYNAGI = 'Zamlı net iş ücreti';
 
+/** ⌈pay / payda⌉; pay ≥ 0, payda > 0, kuruş tamsayıları (BigInt: büyük tutarda kayan nokta bölme hatası yok). */
+const tavanBol = (pay: number, payda: number) => Number((BigInt(pay) + BigInt(payda) - 1n) / BigInt(payda));
+/** ⌊pay / payda⌋; pay ≥ 0, payda > 0. */
+const tabanBol = (pay: number, payda: number) => Number(BigInt(pay) / BigInt(payda));
+
+/** Senaryonun tarama durumu: önceki ayın farkı (kuruş), fark eksiye düştü mü, sonuç (undefined: henüz karar yok). */
+interface TaramaDurumu { onceki: number; eksi: boolean; sonuc: number | null | undefined }
+
 export class YolKarsilastirici {
   private readonly ortak: Tutar;
 
   constructor(private readonly k: KarsilastirmaKosullari) {
     if (!Number.isSafeInteger(k.karsilastirmaSuresiYil) || k.karsilastirmaSuresiYil < 0 || k.karsilastirmaSuresiYil > 40) {
-      throw new RangeError(`Karşılaştırma süresi 0–40 yıl arasında tamsayı olmalı: ${k.karsilastirmaSuresiYil}`);
+      throw kuralHatasi('Karşılaştırma süresi 0–40 yıl arasında tamsayı olmalı.', { karsilastirmaSuresiYil: k.karsilastirmaSuresiYil });
     }
     if (k.ucret.negatifMi()) throw new RangeError('İş ücreti negatif olamaz.');
     this.ortak = Tutar.bilgiden(k.ortakOdeme);
@@ -92,7 +109,8 @@ export class YolKarsilastirici {
     const fark = (t: Ay) => this.gelir(yol, yAy, baslangic, t).cikar(this.gelir(referans, rAy, baslangic, t)).cikar(ekOdeme);
     const gecYolEmekliOlunca = fark(gec);
     const donemSonunda = fark(bitis);
-    const geri = this.geriKazanma(fark, baslangic, bitis);
+    const son = bitis.fark(baslangic);
+    const geri = this.geriKazanma(fark, baslangic, son, this.parcaBaslari(yol, yAy.fark(baslangic), referans, rAy.fark(baslangic), son));
     const nedenler = [...new Set([...gecYolEmekliOlunca.nedenler(), ...donemSonunda.nedenler()])];
 
     return {
@@ -136,19 +154,54 @@ export class YolKarsilastirici {
   }
 
   /**
-   * Başa baş: dönem başından kaç ay sonra birikimli fark (ödeme ve vazgeçilen ücret dahil) ilk kez ≥ 0 olur; senaryo
-   * başına, dönem sonuna kadar aranır. Fark bilinmiyorsa null.
+   * Birikimli farkın aylık artışının sabit olduğu parçaların ilk ayları (dönem başından, 1 … son): 1, her yolun emeklilik
+   * ayından sonraki ay (aylık başlar, ücret biter) ve yolun gelir kırılımları. Yollardan biri kırılım bildirmezse null
+   * (her ay ayrı parça).
    */
-  private geriKazanma(fark: (t: Ay) => Tutar, baslangic: Ay, bitis: Ay): { alt: number | null; ust: number | null } | null {
-    const sonuc: [number | null, number | null] = [null, null];
-    const son = bitis.fark(baslangic);
-    for (let n = 0; n <= son && (sonuc[0] === null || sonuc[1] === null); n += 1) {
-      const deger = fark(baslangic.ekle(n)).senaryolar();
-      if (deger === null) return null;
-      for (const i of [0, 1] as const) {
-        if (sonuc[i] === null && !deger[i].negatifMi()) sonuc[i] = n;
-      }
+  private parcaBaslari(yol: KarsilastirilabilirYol, yolOfseti: number, referans: KarsilastirilabilirYol, refOfseti: number, son: number): number[] | null {
+    if (!yol.gelirKirilimlari || !referans.gelirKirilimlari) return null;
+    const aylar = new Set<number>([1, yolOfseti + 1, refOfseti + 1]);
+    for (const i of yol.gelirKirilimlari()) aylar.add(yolOfseti + i);
+    for (const i of referans.gelirKirilimlari()) aylar.add(refOfseti + i);
+    return [...aylar].filter((ay) => ay >= 1 && ay <= son).sort((a, b) => a - b);
+  }
+
+  /**
+   * Başa baş, senaryo başına (dönem başından ay): birikimli fark (ödeme ve vazgeçilen ücret dahil) dönem boyunca hiç
+   * eksiye düşmüyorsa 0 (gerekmez); düşüyorsa eksiye düştükten sonra ilk kez ≥ 0 olduğu ay; dönem sonuna kadar dönmüyorsa
+   * null. Taranan bir ayda fark bilinmiyorsa bütünü null.
+   * Tarama parça parça: parça içinde aylık artış sabit, fark doğrusaldır; yalnız parça uçları kesin hesaplanır, eşik geçişi
+   * tamsayı bölmeyle bulunur (her ayı hesaplamakla bit düzeyinde aynı). Bir parçanın uç değeri doğrusal tahminle tutmazsa
+   * (kırılım eksik bildirilmiş) ay ay taramaya dönülür. parcalar null: her ay ayrı parça.
+   */
+  private geriKazanma(fark: (t: Ay) => Tutar, baslangic: Ay, son: number, parcalar: readonly number[] | null): { alt: number | null; ust: number | null } | null {
+    const deger = (ay: number) => fark(baslangic.ekle(ay)).senaryolar();
+    const ilk = deger(0);
+    if (ilk === null) return null;
+    const durum: TaramaDurumu[] = ilk.map((p) => ({ onceki: p.kurus, eksi: p.negatifMi(), sonuc: undefined }));
+    const baslar = parcalar ?? Array.from({ length: son }, (_, i) => i + 1);
+    for (let k = 0; k < baslar.length && durum.some((d) => d.sonuc === undefined); k += 1) {
+      const ilkAy = baslar[k]!;
+      const sonAy = k + 1 < baslar.length ? baslar[k + 1]! - 1 : son;
+      const bas = deger(ilkAy);
+      const bit = sonAy === ilkAy ? bas : deger(sonAy);
+      if (bas === null || bit === null) return null;
+      const uzunluk = sonAy - ilkAy + 1;
+      const artislar = durum.map((d, i) => bas[i]!.kurus - d.onceki);
+      // Ay ay taramada (parcalar null) her parça tek aydır ve bu denetim kendiliğinden tutar.
+      const dogrusal = durum.every((d, i) => d.sonuc !== undefined || d.onceki + artislar[i]! * uzunluk === bit[i]!.kurus);
+      if (!dogrusal && parcalar !== null) return this.geriKazanma(fark, baslangic, son, null);
+      durum.forEach((d, i) => {
+        if (d.sonuc !== undefined) return;
+        const artis = artislar[i]!;
+        // Eksiye ilk düşüş: önceki ≥ 0, azalan parça; parça içinde (azalırken) geri dönüş olmaz.
+        if (!d.eksi && artis < 0 && tabanBol(d.onceki, -artis) + 1 <= uzunluk) d.eksi = true;
+        // Geri dönüş: önceki < 0, artan parça; ilk ≥ 0 ay.
+        else if (d.eksi && artis > 0 && tavanBol(-d.onceki, artis) <= uzunluk) d.sonuc = ilkAy - 1 + tavanBol(-d.onceki, artis);
+        d.onceki = bit[i]!.kurus;
+      });
     }
-    return { alt: sonuc[0], ust: sonuc[1] };
+    const sonuc = (d: TaramaDurumu) => (d.sonuc !== undefined ? d.sonuc : d.eksi ? null : 0);
+    return { alt: sonuc(durum[0]!), ust: sonuc(durum[1]!) };
   }
 }

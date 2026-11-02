@@ -5,7 +5,8 @@
 // Durum geçişleri (ProfilDurumu):
 //   başlangıç ─ varsayılan yükleyicinin başlangıcı ('yukleniyor' dev, 'yok' üretim) ya da verilmişse sentetik profil.
 //   ilk abonelik ─ yükleyici istek yapıyorsa ve henüz hiçbir işlem başlamadıysa yenile() kendiliğinden çağrılır.
-//   yenile() ─ 'yukleniyor' → yükleyicinin sonucu. Yükleyici istek yapmıyorsa (üretim) durum değişmez.
+//   yenile() ─ 'yukleniyor' → yükleyicinin sonucu. Yükleyici istek yapmıyorsa (üretim) durum değişmez; bu yüzden
+//            yenilenebilir = yükleyici.istekYapar ve görünüm üretimde "Yeniden dene" sunmaz (yeniden içe aktarma ister).
 //   dosyadanYukle() ─ 'yukleniyor' → 'hazir' (kaynak 'dosya') ya da 'hata'.
 //   temizle() ─ 'yok'.
 // En son başlayan işlem kazanır: yeni işlem uçuştaki isteği iptal eder; geç gelen yanıt durumu değiştirmez.
@@ -35,9 +36,12 @@ export class BellekProfilKaynagi implements EmeklilikProfilKaynagi {
   /** Herhangi bir işlem (yenile, içe aktarma, temizleme) başladı mı; başladıysa abonelik kendiliğinden okumaz. */
   private basladi = false;
   private readonly dosyaSiniriBayt: number;
+  /** yenile() varsayılan kaynaktan yeniden okur mu: yalnız istek yapan yükleyicide (geliştirme). */
+  readonly yenilenebilir: boolean;
 
   constructor(private readonly yukleyici: VarsayilanProfilYukleyicisi, secenekler: BellekProfilKaynagiSecenekleri = {}) {
     this.dosyaSiniriBayt = secenekler.dosyaSiniriBayt ?? PROFIL_DOSYA_SINIRI_BAYT;
+    this.yenilenebilir = yukleyici.istekYapar;
     if (secenekler.sentetikProfil === undefined) {
       this.mevcut = yukleyici.baslangicDurumu();
       return;

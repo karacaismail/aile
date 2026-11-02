@@ -181,6 +181,22 @@ describe('üretim modu', () => {
   });
 });
 
+describe('yenilenebilir', () => {
+  it('geliştirme kaynağı yenilenebilir (yenile() dev ara katmanından okur); üretim kaynağı yenilenemez (yenile() bir şey yapmaz)', async () => {
+    const fetch = fetchYaniti(async () => json(200, SENTETIK));
+    expect(profilKaynagiOlustur({ mod: 'gelistirme', fetch }).yenilenebilir).toBe(true);
+    const uretim = profilKaynagiOlustur({ mod: 'uretim', fetch });
+    expect(uretim.yenilenebilir).toBe(false);
+    // Üretimde bozuk dosya 'hata' bırakır; yenile() bu durumu değiştirmez (görünüm "Yeniden dene" sunmamalı).
+    await uretim.dosyadanYukle(dosya('{"surum": 1'));
+    const hata = uretim.durum();
+    expect(hata.tur).toBe('hata');
+    await uretim.yenile();
+    expect(uretim.durum()).toBe(hata);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+});
+
 describe('dosyadanYukle', () => {
   it("JSON olmayan, şemaya uymayan ve çok büyük dosya 'hata' olur; neden içeriği yazmaz", async () => {
     const kaynak = profilKaynagiOlustur({ mod: 'uretim' });
