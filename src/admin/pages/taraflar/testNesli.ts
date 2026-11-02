@@ -94,6 +94,12 @@ export function kaynak(overrides: Record<string, string | null> = {}): FixtureGe
   return new FixtureGenerationSource(files, 'sentetik');
 }
 
+/**
+ * Usta satırlarının kaynağı: normalize.mjs base() her kalem satırına tablonun source_id'sini yazar; usta satırları alımlarla
+ * aynı app_kalemler tablosundan gelir. Sözleşme (AppRecord) bu kimliği zorunlu tutar.
+ */
+const KALEM_KAYNAGI = kayitlar('purchase_needs')[0]!.source_id;
+
 /** Sentetik usta kaydı (normalize.mjs biçimi: PurchaseNeed gövdesi, kind 'provider'). */
 export function usta(id: number, attributes: Record<string, unknown>, quote: string | null = null): PurchaseNeedRecord {
   return {
@@ -101,6 +107,7 @@ export function usta(id: number, attributes: Record<string, unknown>, quote: str
     tenant_id: TENANT_ID,
     kind: 'provider',
     label: typeof attributes.ad === 'string' ? attributes.ad : `kalem-9${String(id).padStart(2, '0')}`,
+    source_id: KALEM_KAYNAGI,
     source_record_id: `kalem-9${String(id).padStart(2, '0')}`,
     attributes: { deleted_at: null, ...attributes },
     source_attributes: { tip: 'usta', id: `kalem-9${String(id).padStart(2, '0')}` },

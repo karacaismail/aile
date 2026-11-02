@@ -98,12 +98,15 @@ const TEKLIFLI: Degisiklik = {
   },
 };
 
-/** normalize.mjs biçiminde usta (provider) kaydı. */
+/**
+ * normalize.mjs biçiminde usta (provider) kaydı. base() her kalem satırına tablonun source_id'sini yazar; usta satırları
+ * alımlarla aynı app_kalemler tablosundan gelir ve sözleşme (AppRecord) bu kimliği zorunlu tutar.
+ */
 function usta(n: number, attributes: Record<string, unknown>, quote: string | null): Kayit {
   const kod = `kalem-9${String(n).padStart(2, '0')}`;
   return {
     id: `7a000000-0000-4000-8000-${String(n).padStart(12, '0')}`, tenant_id: MANIFEST.tenant_id, kind: 'provider',
-    label: typeof attributes.ad === 'string' ? attributes.ad : kod, source_record_id: kod,
+    label: typeof attributes.ad === 'string' ? attributes.ad : kod, source_id: ALIM[0]!.source_id, source_record_id: kod,
     attributes: { deleted_at: null, ...attributes }, source_attributes: { tip: 'usta', id: kod },
     category_term_id: null, phase_term_id: null, context_term_ids: [],
     state_snapshot: { decision: null, fulfillment: null, inspection: null, payment: null },

@@ -52,6 +52,17 @@ const VERI = { timeout: 5_000 };
 const bolum = (name: string) => screen.getByRole('region', { name });
 const ozet = (label: string) => within(screen.getByRole('list', { name: 'Özet' })).getByText(label).closest('li')!;
 
+describe('TaraflarPage › usta kaydı (test nesli)', () => {
+  it('normalize.mjs biçimindeki usta kaydı sözleşmenin PurchaseNeed gövdesine uyar (kaynak kimliği dahil)', async () => {
+    const { PurchaseNeed } = await import('../../data/contract');
+    for (const kayit of [ALI, MUTFAK, ADSIZ]) {
+      const sonuc = PurchaseNeed.safeParse(kayit);
+      expect(sonuc.success ? [] : sonuc.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`)).toEqual([]);
+    }
+    expect(ALI.source_id).toBe(ALIM.source_id);
+  });
+});
+
 describe('TaraflarPage › providers okunabildiğinde (telefon)', () => {
   it('taraflar akordeonu ada göre, ilk satır açık; tel: ve WhatsApp bağlantıları erişilebilir adlı; eksik bilgi "Bilinmiyor"', async () => {
     renderPage('phone', await ustaliNesil());
