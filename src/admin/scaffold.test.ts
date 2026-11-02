@@ -1,9 +1,23 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
-// Statik import: barrel antd + Pro + Phosphor modül grafiğini yükler. Dinamik `await import` test gövdesinde
-// kalırsa bu soğuk yükleme testin kendi süre sınırına sayılır ve tam koşuda zaman aşımına düşer; statik import
-// yüklemeyi dosya toplama aşamasına taşır (bileşen testleri de böyle yükler).
-import * as ui from './ui';
+// Hafif modüller statik yüklenir (antd yok): test gövdesinde dinamik import soğuk dönüşümü 5 sn test süresine yazar.
+import { VIEW_LABELS, VIEW_MODES } from './shell/contracts';
+import { adminGroups, adminLeads, currentAdminLink, settingsLink } from './shell/navigation';
+// Barrel adları ui/index.ts kaynak metninden çözülür; antd + Pro + Phosphor grafiğini çalışma zamanında yüklemek bu
+// iskelet kapısı için gereksizdi ve tam pakette yük altında zaman aşımına yol açıyordu. Her adın gerçekten bileşen
+// (fonksiyon) olduğunu ui/barrel.test.ts çalışma zamanında doğrular.
+
+/** ui/index.ts değer ihracatları (kaynak metinden). Yalnız `export { A } from './A'` ve `export type {…}` kabul edilir.
+ *  Aynı çözümleyici ui/barrel.test.ts'te çalışma zamanı ihracatlarıyla birebir karşılaştırılır. */
+function barrelValueExports(source: string): string[] {
+  const statements = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '').split(';').map((s) => s.trim()).filter(Boolean);
+  return statements.flatMap((statement) => {
+    if (/^export\s+type\s*\{[^}]*\}\s*from\s*['"][^'"]+['"]$/.test(statement)) return [];
+    const match = /^export\s*\{([^}]*)\}\s*from\s*['"][^'"]+['"]$/.exec(statement);
+    if (!match) throw new Error(`ui/index.ts desteklenmeyen deyim: ${statement}`);
+    return match[1].split(',').map((part) => part.trim()).filter((part) => part && !/^type\s/.test(part)).map((part) => part.split(/\s+as\s+/).pop()!);
+  });
+}
 
 // A3 iskeleti: giriş noktası, Vite çoklu giriş, ui barrel, sözleşmeler ve bilgi mimarisi.
 const root = resolve(__dirname, '../..');
@@ -40,18 +54,15 @@ describe('admin scaffold', () => {
     const names = [...scaffoldNames, ...p0bNames];
     expect(names).toHaveLength(32);
     expect(new Set(names).size).toBe(32);
-    expect(Object.keys(ui).sort()).toEqual([...names].sort());
-    for (const name of names) expect(typeof (ui as Record<string, unknown>)[name]).toBe('function');
+    expect(barrelValueExports(read('src/admin/ui/index.ts')).sort()).toEqual([...names].sort());
   });
 
-  it('contracts expose six view modes with Turkish labels', async () => {
-    const { VIEW_MODES, VIEW_LABELS } = await import('./shell/contracts');
+  it('contracts expose six view modes with Turkish labels', () => {
     expect(VIEW_MODES).toEqual(['listing', 'table', 'timeline', 'kanban', 'gantt_chart', 'pivot']);
     expect(VIEW_LABELS).toEqual({ listing: 'Liste', table: 'Tablo', timeline: 'Zaman çizelgesi', kanban: 'Kanban', gantt_chart: 'Gantt', pivot: 'Pivot' });
   });
 
-  it('navigation has 11 groups, a settings link and longest-match lookup', async () => {
-    const { adminGroups, settingsLink, currentAdminLink, adminLeads } = await import('./shell/navigation');
+  it('navigation has 11 groups, a settings link and longest-match lookup', () => {
     expect(adminGroups).toHaveLength(11);
     expect(adminGroups.map(group => group.title)).toEqual(['Genel durum', 'Bütçe ve nakit', 'Ödemeler', 'Hesaplar ve borçlar', 'Alımlar ve eşyalar', 'Ev ve odalar', 'Projeler ve görevler', 'Taraflar ve teklifler', 'Raporlar', 'Sözlükler ve iş akışları', 'Veri kalitesi ve içe aktarma']);
     expect(settingsLink).toEqual({ path: '/ayarlar', label: 'Ayarlar' });
