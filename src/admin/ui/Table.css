@@ -44,6 +44,15 @@ html[data-keyboard='true'] .aile-table-kaydirici:focus-visible::after {
   background: var(--aile-odak);
   pointer-events: none;
 }
+/* Son satırın odak çizgisi (admin.css tr:focus-visible::after, bottom 0) kabın alt kenarına oturur; kap radiuslu ve
+   taşmayı kırpar, çizginin uçları köşe eğrisinde kesilirdi (kavisli vurgu kenarı). Yalnız çizgi görünürken (klavye modu
+   + :focus-visible) kabın çizginin değdiği iki alt köşesi radiussuz. Dikey kaydırmada (maxHeight) odak satırı en yakın
+   kenara kaydırır: odaktaki her satır alt kenara oturabilir. Üst köşeler ve işaretçi modu korunur; geçiş yok (anında). */
+html[data-keyboard='true'] .aile-table-kaydirici:has(> .aile-table > tbody > tr:last-child:focus-visible),
+html[data-keyboard='true'] .aile-table-kaydirici[data-dikey-kaydirma]:has(> .aile-table > tbody > tr:focus-visible) {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
 
 /* Alan genişliği sütunlara paylaşılır; sütunların en küçük genişliği aşılırsa tablo kabın içinde taşar. separate:
    yapışkan hücreler kendi kenarlarını taşır (collapse'ta kenar kayan içerikte kalırdı). */
