@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useId, type ReactNode } from 'react';
 import { useProfile } from '../../adaptive';
 import type { ActiveFilter, FilterFacet, ResponsiveColumn, SortOption, ViewMode } from '../../shell/contracts';
 import { FilterPanel } from '../../shell/FilterPanel';
@@ -12,10 +12,12 @@ import './OdemelerGenis.wide.css';
 // Geniş (tablet + masaüstü) sunum; yalnız geniş profilde lazyWide('odemeler-genis') ile yüklenir, telefon indirmez.
 // Tasarım: bundle.js Pages.Odemeler — sorgu şeridi (görünüm modu Tablo · Zaman çizelgesi; Gantt devre dışı: "ödemelerin
 // tek tarihi var, süresi yok"), masaüstünde FilterArea (Tabloda 56 px şerit, Zaman çizelgesinde açık panel), tablet'te
-// Filtreler çekmecesi (sayfa çizer). Tablo: Tarih · Ödeme · Planlanan · Gerçekleşen · Durum (ilk sütun yapışkan Table'da),
-// tablette sığmazsa ResponsiveTable akordeona iner (grup başlıkları h2: başlık sırası h1'den atlamaz). Zaman çizelgesi:
-// ui/Timeline aylık bölgeler. Plan ve gerçek ayrı sütun; gerçekleşen "Ödeme kaydı yok" (tahmin olayı ödeme değildir).
-// Satır sayısı sayfa düzeyinde 50'şer açılır.
+// Filtreler çekmecesi (sayfa çizer). Liste telefondaki gibi h2 "Tahmini ödemeler" bölgesidir; altındaki gruplar h3
+// (tablette sığmayan tablonun akordeon grupları, Zaman çizelgesi ayları): başlık sırası h1 → h2 → h3, atlamaz. Durum
+// (yükleniyor, boş, hata) listenin yerini alır; FilterArea yerinde kalır (panel durumu korunur). Tablo: Tarih · Ödeme ·
+// Planlanan · Gerçekleşen · Durum (ilk sütun yapışkan Table'da), tablette sığmazsa ResponsiveTable akordeona iner.
+// Zaman çizelgesi: ui/Timeline aylık bölgeler. Plan ve gerçek ayrı sütun; gerçekleşen "Ödeme kaydı yok" (tahmin olayı
+// ödeme değildir). Satır sayısı sayfa düzeyinde 50'şer açılır.
 
 const DESTEKLENEN: readonly ViewMode[] = ['table', 'timeline'];
 const DESTEKLENMEYEN: Partial<Record<ViewMode, string>> = {
@@ -71,9 +73,11 @@ export default function OdemelerGenis({
 }: OdemelerGenisProps) {
   const masaustu = useProfile() === 'desktop';
   const anahtar = siralama.key === 'tutar' ? 'tutar' : 'tarih';
+  const baslikId = useId();
 
   const icerik = durum ?? (
-    <div className="aile-odemeler-genis">
+    <section className="aile-odemeler-genis" aria-labelledby={baslikId}>
+      <h2 id={baslikId}>{LISTE_ADI}</h2>
       <p className="aile-odemeler-sayim">{sayim}</p>
       {mod === 'timeline' ? (
         <Timeline items={satirlar.map(toRecordRow)} dateField="paid" />
@@ -84,12 +88,10 @@ export default function OdemelerGenis({
           columns={SUTUNLAR}
           rows={satirlar}
           groupBy={row => grupOf(row, anahtar).label}
-          // Geniş sunumda liste h1'in hemen altındadır (telefondaki h2 "Tahmini ödemeler" yok): grup başlıkları h2.
-          headingLevel={2}
         />
       )}
       <Sayfalama gosterilen={satirlar.length} toplam={toplam} adim={adim} onDahaFazla={onDahaFazla} />
-    </div>
+    </section>
   );
 
   return (

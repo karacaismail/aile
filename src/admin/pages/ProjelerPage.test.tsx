@@ -17,7 +17,7 @@ import { fileURLToPath } from 'node:url';
 import type { ReactNode } from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { importsOf } from '../adaptive/sourceRules';
 import { FixtureGenerationSource, GenerationProvider, type GenerationSource, type TaskTemplate } from '../data';
 import { DeviceContext } from '../device';
@@ -454,6 +454,66 @@ describe('ProjelerPage › geniş görünüm (lazyWide)', () => {
     expect(satirAdlari.slice(12)).toEqual(['Örnek kilometre taşı 3', 'Örnek kilometre taşı 4']);
     expect(within(cizelge).queryByText(/Örnek kontrol/)).not.toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Tarihsiz' })).toHaveTextContent('Tarihsiz kayıt yok');
+  }, TEST_MS);
+});
+
+/** Belge sırasıyla başlık düzeyi atlamaları (h1 → h3 gibi); boş liste = başlık sırası atlamıyor. */
+function baslikAtlamalari(): string[] {
+  const basliklar = Array.from(document.querySelectorAll<HTMLElement>('h1, h2, h3, h4, h5, h6'));
+  const ad = (h: HTMLElement) => `${h.tagName.toLowerCase()} "${h.textContent?.trim()}"`;
+  return basliklar.slice(1).flatMap((h, i) => {
+    const once = basliklar[i]!;
+    return Number(h.tagName[1]) > Number(once.tagName[1]) + 1 ? [`${ad(once)} → ${ad(h)}`] : [];
+  });
+}
+
+/** jsdom yerleşim yapmaz: ResponsiveTable kabı (.aile-rtable) verilen genişlikte ölçülür; tablette tablo sığmaz → akordeon. */
+function rtableGenisligi(width: number) {
+  const asil = HTMLElement.prototype.getBoundingClientRect;
+  return vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+    if (!this.classList.contains('aile-rtable')) return asil.call(this);
+    return { x: 0, y: 0, top: 0, left: 0, right: width, bottom: 0, width, height: 0, toJSON: () => ({}) } as DOMRect;
+  });
+}
+
+describe('ProjelerPage › geniş: başlık yapısı (görev çalışma alanı h2 "Görevler" bölümünde)', () => {
+  it('tablet: görev tablosu sığmayınca akordeon; grup başlıkları h3, h2 "Görevler" altında; sayfanın başlık sırası atlamaz', async () => {
+    const olcu = rtableGenisligi(700);
+    try {
+      renderPage({ device: 'tablet' });
+      await sayfaHazir();
+      await screen.findByRole('radiogroup', { name: 'Görünüm modu' }, { timeout: VERI_BEKLEME_MS });
+      const bolum = screen.getByRole('region', { name: 'Görevler' });
+      expect(within(bolum).getByRole('heading', { level: 2, name: 'Görevler' })).toBeInTheDocument();
+      const akordeon = bolum.querySelector<HTMLElement>('[data-layout="accordion"]');
+      expect(akordeon, 'tablette görev tablosu sığmaz, akordeon').not.toBeNull();
+      expect(within(akordeon!).getByRole('heading', { level: 3, name: /^Kuruldu/ })).toBeInTheDocument();
+      expect(within(akordeon!).queryAllByRole('heading', { level: 2 })).toHaveLength(0);
+      expect(baslikAtlamalari()).toEqual([]);
+    } finally {
+      olcu.mockRestore();
+    }
+  }, TEST_MS);
+
+  it('masaüstü: Tablo, Kanban ve Gantt "Görevler" bölümünde; Kanban sütun ve Tarihsiz başlıkları h3, sıra atlamaz', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    const tablo = await genisHazir();
+    const bolum = screen.getByRole('region', { name: 'Görevler' });
+    expect(within(bolum).getByRole('heading', { level: 2, name: 'Görevler' })).toBeInTheDocument();
+    expect(bolum).toContainElement(tablo);
+    expect(baslikAtlamalari()).toEqual([]);
+
+    await user.click(screen.getByText('Kanban'));
+    const pano = await screen.findByRole('region', { name: 'Duruma göre görevler' });
+    expect(bolum).toContainElement(pano);
+    expect(within(pano).getAllByRole('heading', { level: 3 }).length).toBeGreaterThan(0);
+    expect(baslikAtlamalari()).toEqual([]);
+
+    await user.click(screen.getByText('Gantt'));
+    const tarihsiz = await screen.findByRole('region', { name: 'Tarihsiz' });
+    expect(bolum).toContainElement(tarihsiz);
+    expect(baslikAtlamalari()).toEqual([]);
   }, TEST_MS);
 });
 

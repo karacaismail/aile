@@ -17,6 +17,12 @@
 [data-profile='desktop'] .aile-sz-bolum,
 [data-profile='tablet'] .aile-sz-bolum { margin-top: var(--aile-bosluk-8); }
 
+/* Geniş profilde bölümler "Sözlük" sekmelerinin panelindedir (role=tabpanel). Şerit ile panel arasındaki Tabs aralığı
+   (bosluk-3) ilk bölümün üst boşluğundan düşülür: şerit → ilk bölüm aralığı yine bosluk-8. */
+.aile-sz-panel { min-width: 0; }
+[data-profile='desktop'] .aile-sz-panel > .aile-sz-bolum:first-child,
+[data-profile='tablet'] .aile-sz-panel > .aile-sz-bolum:first-child { margin-top: calc(var(--aile-bosluk-8) - var(--aile-bosluk-3)); }
+
 .aile-sz-bolum-ust {
   display: flex;
   flex-wrap: wrap;

@@ -275,6 +275,23 @@ describe('EvPage › masaüstü: oda tablosu ve iki bölme', () => {
     expect(within(panel).queryByRole('region', { name: 'Alımlar' })).not.toBeInTheDocument();
   });
 
+  it('bağlı kayıtlar "Oda bölümleri" sekmelerinin panelindedir: tabpanel seçili sekmeyle adlanır ve ona bağlıdır (APG Tabs)', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(within(await odalarTablosunuBekle()).getByText(ODA_3.label!));
+    const panel = screen.getByRole('region', { name: ODA_3.label! });
+    const sekmeler = within(panel).getByRole('group', { name: 'Oda bölümleri' });
+    const alimlar = within(sekmeler).getByRole('tabpanel', { name: 'Alımlar' });
+    expect(within(sekmeler).getByRole('tab', { name: 'Alımlar' })).toHaveAttribute('aria-controls', alimlar.id);
+    expect(within(alimlar).getByRole('region', { name: 'Alımlar' })).toBeInTheDocument();
+
+    await user.click(within(panel).getByRole('tab', { name: 'İşler' }));
+    const isler = within(sekmeler).getByRole('tabpanel', { name: 'İşler' });
+    expect(within(sekmeler).getByRole('tab', { name: 'İşler' })).toHaveAttribute('aria-controls', isler.id);
+    expect(within(isler).getByRole('region', { name: 'İşler' })).toBeInTheDocument();
+    expect(within(panel).getAllByRole('tabpanel')).toHaveLength(1);
+  });
+
   it('Eşyalar sekmesi zamanlı yerleşim yoksa "Henüz yok", Aydınlatma sekmesi lümen ve renk sıcaklığını yazar', async () => {
     const user = userEvent.setup();
     renderPage();
@@ -317,6 +334,15 @@ describe('EvPage › tablet: tablo ve tam sayfa ayrıntı', () => {
 
     await user.click(within(sayfa).getByRole('button', { name: 'Listeye dön' }));
     expect(within(odalarTablosu()).getByText(ODA_3.label!).closest('tr')).toHaveFocus();
+  });
+
+  it('tam sayfa ayrıntıda bağlı kayıt tablosu "Oda bölümleri" sekme panelindedir (tabpanel seçili sekmeyle adlı)', async () => {
+    const user = userEvent.setup();
+    renderPage('tablet');
+    await user.click(within(await odalarTablosunuBekle()).getByText(ODA_3.label!));
+    const sayfa = screen.getByRole('region', { name: ODA_3.label! });
+    const sekmePaneli = within(within(sayfa).getByRole('group', { name: 'Oda bölümleri' })).getByRole('tabpanel', { name: 'Alımlar' });
+    expect(within(sekmePaneli).getByRole('table', { name: 'Alımlar' })).toBeInTheDocument();
   });
 });
 

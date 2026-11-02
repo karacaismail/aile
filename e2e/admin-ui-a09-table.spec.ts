@@ -6,9 +6,9 @@ import { fileURLToPath } from 'node:url';
 import { accentEdges, focusRing, motion, overflow, smallText } from './admin-detectors';
 import { enterKeyboardMode, horizontalOverflow, openAdmin } from './admin-helpers';
 
-// a09-table: ResponsiveTable / Table / AccordionList gerçek rotalarda (Ödemeler, Bütçe). Telefon (chromium 320×568,
-// webkit 390×844; @matrix ile 360/375/320×480/568×320) akordeondur: ilk satır açık, başlık düğmesi aria-expanded,
-// etiket–değer çiftleri, uzun adlar kelime arasından sarılır. Geniş profil (setViewportSize 1024) yerel <table>:
+// a09-table: ResponsiveTable / Table / AccordionList gerçek rotalarda (Ödemeler, Bütçe; gövdedeki düğmeden odak dönüşü
+// Ev oda listesinde). Telefon (chromium 320×568, webkit 390×844; @matrix ile 360/375/320×480/568×320) akordeondur:
+// ilk satır açık, başlık düğmesi aria-expanded, etiket–değer çiftleri, uzun adlar kelime arasından sarılır. Geniş profil (setViewportSize 1024) yerel <table>:
 // kendi kapsayıcısında kayar (taşarken tabindex=0 + caption adlı grup, klavyeyle kayar), ilk sütun yapışkan, başlık ve ilk
 // sütun kelime ortasından bölünmez, sayfa yatay taşmaz. Veri: sentetik nesil (dev sunucusu); uzun adlar yalnız bu
 // testte forecast_events parçalarına eklenir ve manifest hash'leri yeniden hesaplanır (nesil bütünlük denetimi geçer).
@@ -71,6 +71,15 @@ async function telefonAkordeonu(page: Page, rota: '/odemeler' | '/butce', secene
   await hazirla(page, secenek);
   await openAdmin(page, rota);
   const alan = page.locator(AKORDEON);
+  await expect(alan).toHaveCount(1);
+  return alan;
+}
+
+/** Ev oda listesi (telefon): gövdesinde "Odayı aç" düğmesi olan akordeon; kök, "Odalar" bölgesini taşıyan liste. */
+async function telefonOdaAkordeonu(page: Page): Promise<Locator> {
+  await hazirla(page);
+  await openAdmin(page, '/ev');
+  const alan = page.locator('.aile-acc').filter({ has: page.getByRole('region', { name: 'Odalar', exact: true }) });
   await expect(alan).toHaveCount(1);
   return alan;
 }
@@ -299,12 +308,14 @@ test.describe('telefon akordeon (ResponsiveTable → AccordionList)', () => {
     await expect(hedef).toHaveAttribute('aria-expanded', once ?? 'false');
   });
 
-  test('odak dönüşü: gövdedeki düğmede odak varken satır kapanırsa odak satır başlığına döner, body\'ye düşmez (Bütçe)', async ({ page, browserName }) => {
-    const alan = await telefonAkordeonu(page, '/butce');
+  test('odak dönüşü: gövdedeki düğmede odak varken satır kapanırsa odak satır başlığına döner, body\'ye düşmez (Ev)', async ({ page, browserName }) => {
+    // Gövdesinde düğme taşıyan telefon akordeonu: Ev oda listesi ("Odayı aç"). Bütçe telefonda gövde düğmesi taşımaz
+    // (seçim yalnız geniş aylık eğilimi sürer; telefonda işlevsiz "Ayrıntıyı aç" kaldırıldı).
+    const alan = await telefonOdaAkordeonu(page);
     const ilk = alan.locator('button[aria-expanded]').first();
     await expect(ilk).toHaveAttribute('aria-expanded', 'true');
     const panel = page.locator(`[id="${await ilk.getAttribute('aria-controls')}"]`);
-    const ayrinti = panel.getByRole('button', { name: 'Ayrıntıyı aç' });
+    const ayrinti = panel.getByRole('button', { name: 'Odayı aç' });
     await expect(ayrinti).toBeVisible();
     await alan.getByRole('button', { name: 'Tümünü aç' }).click();
     await enterKeyboardMode(page, browserName);
@@ -313,7 +324,9 @@ test.describe('telefon akordeon (ResponsiveTable → AccordionList)', () => {
     // Odağı taşımayan etkinleştirme (WebKit'te düğmeye tıklama odak vermez): "Tümünü kapat" gövdeyi kapatır.
     await alan.getByRole('button', { name: 'Tümünü kapat' }).dispatchEvent('click');
     await expect(ilk).toHaveAttribute('aria-expanded', 'false');
+    await expect(panel).toBeHidden();
     await expect(ilk).toBeFocused();
+    expect(await page.evaluate(() => document.activeElement === document.body), 'odak body\'ye düştü').toBe(false);
   });
 
   test('hareket: tek süre ve eğri; reduced-motion açıkken geçiş yok, durum anında değişir', async ({ page }) => {

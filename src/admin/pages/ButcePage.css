@@ -31,10 +31,8 @@
    bırakır (320 px'te "Fark Hesaplanmadı" yan yana başlığı sıkıştırmaz). */
 .aile-butce-fark { display: inline-flex; flex-direction: column; align-items: flex-end; }
 
-/* Seçili akordeon satırı (tablette tablo sığmayınca; seçim eğilimi sürer) secili yüzeydedir: metin-ikincil orada 4,0:1'de
-   kalır (WCAG 1.4.3 için 4,5:1 gerekir). Başlıktaki ikincil yazılar ("Fark" etiketi, "%N harcandı", "Kaynakta yazılı")
-   ana metin rengine döner; tablo seçili satırı (Table.css) ve akordeon metası (AccordionList.css) ile aynı kural. */
-.aile-butce .aile-acc-item[data-selected='true'] > .aile-acc-head .aile-ikincil { color: var(--aile-metin); }
+/* Seçili akordeon satırının başlığındaki ikincil yazılar ("Fark" etiketi, "%N harcandı", "Kaynakta yazılı") secili
+   yüzeyde ana metin rengine döner: kural bileşendedir (AccordionList.css; Table.css ile aynı), burada yinelenmez. */
 
 /* Gerçekleşen değeri + "Kaynakta yazılı" notu alt alta; hizayı kapsayıcının metin hizası verir (tabloda sağ). */
 .aile-butce-deger { display: inline-block; }

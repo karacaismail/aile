@@ -16,8 +16,10 @@ import { ADMIN_MAIN, openAdmin } from './admin-helpers';
 //     etkileşimli öğe adlı, diyalog adlı; kip sözleşmesi: modal katman aria-modal="true", kipsiz yan panel (masaüstü
 //     ayrıntı, DetailPanel inline) aria-modal taşımaz ve arkasındaki sonuç bölgesi inert/aria-hidden olmaz.
 // Projeler: görev koşusu chromium (320×568, telefon profili) ve webkit (390×844, telefon profili). İlk görünüm axe ve
-// yapı testleri @matrix etiketlidir (entegrasyonda 360/375/320×480/568×320/tablet/masaüstü). Emülasyon gerçek cihaz
-// değildir. Sabit bekleme yok: hazır sinyali openAdmin, katman yerleşmesi animasyon/kutu/opaklık kararlılığı.
+// yapı testleri @matrix etiketlidir (entegrasyonda 360/375/320×480/568×320/tablet/masaüstü). Geniş görünüm modları
+// (Ödemeler Zaman çizelgesi, Projeler Kanban/Gantt) yapı testi görünüm alanını kendisi kurar (tablet ve masaüstü).
+// Emülasyon gerçek cihaz değildir. Sabit bekleme yok: hazır sinyali openAdmin, katman yerleşmesi animasyon/kutu/
+// opaklık kararlılığı.
 // Öz denetim en altta: bilinçli enjekte edilen ihlaller yakalanmazsa kapı FAIL olur (axe etiketleri, katman kapsamı,
 // yapı dedektörü bilinen belgelerde ve gerçek sayfada, kip denetimi bilinen belgelerde).
 
@@ -608,6 +610,46 @@ test.describe('yapı: landmark, tek h1, başlık sırası, form alanı adları (
       if (found.length) await attachAria(testInfo, `${slug(route)}-aria.yaml`, body);
       expect(found, `${route} (${profile}) yapı`).toEqual([]);
     });
+  }
+});
+
+/**
+ * Geniş görünüm modları: sorgu çubuğunun görünüm modu (segment radyosu) ilk görünüm dışındaki sunumu getirir; o sunumun
+ * başlıkları (Zaman çizelgesi ayları, Kanban sütunları, Gantt "Tarihsiz", tablet akordeon grupları h3) sayfanın başlık
+ * sırasına uyar. Görünüm alanı testte kurulur (tablet 820×1180, masaüstü 1440×900): görev projelerinde de koşar.
+ */
+const WIDE_MODES: readonly { route: (typeof ROUTES)[number]; modes: readonly string[] }[] = [
+  { route: '/odemeler', modes: ['Tablo', 'Zaman çizelgesi'] },
+  { route: '/projeler', modes: ['Tablo', 'Kanban', 'Gantt'] },
+];
+const WIDE_SIZES = [
+  { name: 'tablet', width: 820, height: 1180 },
+  { name: 'masaüstü', width: 1440, height: 900 },
+] as const;
+
+test.describe('yapı: geniş görünüm modları başlık sırasını ve landmark sözleşmesini korur', () => {
+  for (const { route, modes } of WIDE_MODES) {
+    for (const size of WIDE_SIZES) {
+      test(`${route} ${size.name} ${size.width}×${size.height}: ${modes.join(' · ')}`, async ({ page }, testInfo) => {
+        await page.setViewportSize({ width: size.width, height: size.height });
+        await openRoute(page, route);
+        const profile = await profileOf(page);
+        expect(profile, 'görünüm alanı profili').toBe(size.name === 'tablet' ? 'tablet' : 'desktop');
+        const modeGroup = page.locator(ADMIN_MAIN).getByRole('radiogroup', { name: 'Görünüm modu' });
+        const found: string[] = [];
+        for (const mode of modes) {
+          const radio = modeGroup.getByRole('radio', { name: mode, exact: true });
+          // Segment radyosu görsel gizli olabilir; etiketine basılır (birim testleriyle aynı yol).
+          await modeGroup.getByText(mode, { exact: true }).click();
+          await expect(radio).toHaveAttribute('aria-checked', 'true');
+          await settle(page);
+          const violations = pageStructureViolations(await ariaTree(page.locator('body')), profile);
+          if (violations.length) await attachAria(testInfo, `${slug(route)}-${slug(size.name)}-${slug(mode)}-aria.yaml`, page.locator('body'));
+          found.push(...violations.map((v) => `${mode}: ${v}`));
+        }
+        expect(found, `${route} (${profile}) geniş modlar yapı`).toEqual([]);
+      });
+    }
   }
 });
 

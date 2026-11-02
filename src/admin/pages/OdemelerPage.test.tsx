@@ -10,6 +10,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ReactNode } from 'react';
+import { vi } from 'vitest';
 import { wideManifest } from '../adaptive';
 import { FixtureGenerationSource, GenerationProvider, type GenerationSource } from '../data';
 import { DeviceContext } from '../device';
@@ -315,6 +316,61 @@ describe('OdemelerPage › geniş (masaüstü)', () => {
     await user.click(screen.getByText('Zaman çizelgesi'));
     expect(await screen.findByRole('region', { name: 'Kasım 2026 1 kayıt' })).toBeInTheDocument();
     expect(screen.queryByRole('table', { name: 'Tahmini ödemeler' })).not.toBeInTheDocument();
+  }, 20000);
+});
+
+/** Belge sırasıyla başlık düzeyi atlamaları (h1 → h3 gibi); boş liste = başlık sırası atlamıyor. */
+function baslikAtlamalari(): string[] {
+  const basliklar = Array.from(document.querySelectorAll<HTMLElement>('h1, h2, h3, h4, h5, h6'));
+  const ad = (h: HTMLElement) => `${h.tagName.toLowerCase()} "${h.textContent?.trim()}"`;
+  return basliklar.slice(1).flatMap((h, i) => {
+    const once = basliklar[i]!;
+    return Number(h.tagName[1]) > Number(once.tagName[1]) + 1 ? [`${ad(once)} → ${ad(h)}`] : [];
+  });
+}
+
+/** jsdom yerleşim yapmaz: ResponsiveTable kabı (.aile-rtable) verilen genişlikte ölçülür; tablette tablo sığmaz → akordeon. */
+function rtableGenisligi(width: number) {
+  const asil = HTMLElement.prototype.getBoundingClientRect;
+  return vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+    if (!this.classList.contains('aile-rtable')) return asil.call(this);
+    return { x: 0, y: 0, top: 0, left: 0, right: width, bottom: 0, width, height: 0, toJSON: () => ({}) } as DOMRect;
+  });
+}
+
+describe('OdemelerPage › geniş: başlık yapısı (liste h2 bölgesinde, gruplar h3)', () => {
+  it('tablet: tablo sığmayınca tarih gruplu akordeon; liste h2 "Tahmini ödemeler" bölgesinde, grup başlıkları h3; sıra atlamaz', async () => {
+    const olcu = rtableGenisligi(700);
+    try {
+      renderPage({ device: 'tablet' });
+      const bolge = await screen.findByRole('region', { name: 'Tahmini ödemeler' }, { timeout: 15000 });
+      // Geniş sunum gelmiş olmalı (telefon yedeği değil): görünüm modu seçimi geniş sorgu şeridindedir.
+      await screen.findByRole('radiogroup', { name: 'Görünüm modu' }, { timeout: 15000 });
+      expect(within(bolge).getByRole('heading', { level: 2, name: 'Tahmini ödemeler' })).toBeInTheDocument();
+      const akordeon = bolge.querySelector<HTMLElement>('[data-layout="accordion"]');
+      expect(akordeon, 'tablette tablo sığmaz, akordeon').not.toBeNull();
+      expect(within(akordeon!).queryAllByRole('heading', { level: 2 })).toHaveLength(0);
+      expect(grupAdlari(akordeon!)[0]).toBe('Tarihi geçenler');
+      expect(baslikAtlamalari()).toEqual([]);
+    } finally {
+      olcu.mockRestore();
+    }
+  }, 20000);
+
+  it('masaüstü: tablo ve Zaman çizelgesi h2 "Tahmini ödemeler" bölgesinde; ay başlıkları h3, sıra atlamaz', async () => {
+    const user = userEvent.setup();
+    renderPage({ device: 'desktop' });
+    await screen.findByRole('table', { name: 'Tahmini ödemeler' }, { timeout: 15000 });
+    const bolge = screen.getByRole('region', { name: 'Tahmini ödemeler' });
+    expect(within(bolge).getByRole('heading', { level: 2, name: 'Tahmini ödemeler' })).toBeInTheDocument();
+    expect(within(bolge).getByRole('table', { name: 'Tahmini ödemeler' })).toBeInTheDocument();
+    expect(baslikAtlamalari()).toEqual([]);
+
+    await user.click(screen.getByText('Zaman çizelgesi'));
+    const ay = await screen.findByRole('region', { name: 'Kasım 2026 1 kayıt' });
+    expect(screen.getByRole('region', { name: 'Tahmini ödemeler' })).toContainElement(ay);
+    expect(within(ay).getByRole('heading', { level: 3 })).toHaveTextContent('Kasım 2026');
+    expect(baslikAtlamalari()).toEqual([]);
   }, 20000);
 });
 

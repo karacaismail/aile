@@ -45,7 +45,8 @@ import './SozluklerPage.css';
 // SayfaSozlukler / SayfaSozluklerDar. Uyarlamalı teslim (W0): telefon temel sunumdur ve her profilde önce o çizilir —
 // "Sözlük" seçimi ui Select (telefonda alt sayfa, role=dialog), terim ağacı iç içe açılır liste (sozlukler/TermTree,
 // yerel HTML + APG disclosure, ilk kök açık), geçişler ve görünümler ResponsiveTable (telefonda liste/akordeon).
-// Geniş (tablet/masaüstü): sekme şeridi + ağaç tablosu sozlukler/TermTable.wide (lazyWide; telefon indirmez).
+// Geniş (tablet/masaüstü): sekme şeridi + ağaç tablosu sozlukler/TermTable.wide (lazyWide; telefon indirmez); bölüm
+// içeriği sekmelerin panelidir (role=tabpanel).
 // Veri: vocabularies/terms/workflows/view_definitions nesilden; "kullanan kayıt" yedi tür koleksiyonunun terim
 // alanlarından, üst terim alt dallarını kapsar. Bir tür koleksiyonu okunamazsa kullanım "Bilinmiyor"dur, 0 sayılmaz.
 // Yazma yok: "Terim ekle" ve "Pasifleştir" yalnız yerel değişiklik kümesine `note` op'u (öneri) ekler, çünkü Sheets'te
@@ -435,13 +436,8 @@ export function SozluklerPage({ location = '/sozlukler' }: SozluklerPageProps) {
   } else if (vocabularies.rows.length === 0) {
     content = <EmptyState title="Kaynakta sözlük kaydı yok" message="Nesilde sözlük (vocabularies) koleksiyonu boş; terim, iş akışı ve görünüm gösterilemez." />;
   } else {
-    content = (
-      <div className="aile-sz-icerik">
-        {phone ? (
-          <Select label="Sözlük" options={options.map(({ key, label }) => ({ value: key, label }))} value={activeSection} onChange={setSection} className="aile-sz-secim" />
-        ) : (
-          <Tabs label="Sözlük" items={options} activeKey={activeSection} onChange={setSection} />
-        )}
+    const sectionContent = (
+      <>
         {activeGroup
           ? activeGroup.vocabs.map((vocab) => (
               <VocabularySection
@@ -463,6 +459,23 @@ export function SozluklerPage({ location = '/sozlukler' }: SozluklerPageProps) {
               ))
           : null}
         {activeSection === VIEWS_SECTION ? <ViewsSection views={views.rows} /> : null}
+      </>
+    );
+    // Telefonda "Sözlük" seçimi alt sayfadır, bölüm içeriği seçimin altında akar. Geniş profilde içerik sekmelerin
+    // panelidir (APG Tabs: role=tabpanel seçili sekmeyle adlı, sekme aria-controls ile bağlı). Bekleyen öneriler
+    // sekmeye bağlı değildir, panelin dışında kalır.
+    content = (
+      <div className="aile-sz-icerik">
+        {phone ? (
+          <>
+            <Select label="Sözlük" options={options.map(({ key, label }) => ({ value: key, label }))} value={activeSection} onChange={setSection} className="aile-sz-secim" />
+            {sectionContent}
+          </>
+        ) : (
+          <Tabs label="Sözlük" items={options} activeKey={activeSection} onChange={setSection}>
+            <div className="aile-sz-panel">{sectionContent}</div>
+          </Tabs>
+        )}
         <Proposals ops={proposalRows} onUndo={undo} />
       </div>
     );
