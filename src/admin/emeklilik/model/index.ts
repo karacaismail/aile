@@ -1,17 +1,55 @@
-// TASLAK — sahibi em-model görevi. Dışa aktarılan adlar sabittir; gövde gerçek modelle değişecek.
+// Emeklilik planı — model katmanı (saf alan sınıfları; React ve DOM yok). Tek giriş noktası
+// emeklilikPlanlayicisiOlustur: sözleşmedeki EmeklilikPlanlayici arayüzünü uygular.
 import type { EmeklilikPlanlayici, EmeklilikProfili, MevzuatParametreleri } from '../contract';
+import { EmeklilikPlanlayiciImpl, type PlanlayiciBagimliliklari } from './EmeklilikPlanlayici';
+import { MEVZUAT_2026 } from './mevzuat';
 
-export const MEVZUAT_2026: MevzuatParametreleri = {
-  yil: 2026,
-  asgariUcretBrutTl: '33030.00',
-  gunlukKazancAltSiniriTl: '1101.00',
-  borclanmaOrani: 0.45,
-  enDusukAylikTl: '23552.00',
-  borcKesintiOrani: 0.1,
-  borcKesintiTavani: 0.25,
-  kaynaklar: ['TASLAK'],
-};
+export { MEVZUAT_2026 } from './mevzuat';
+export { Para } from './Para';
+export { Ay, TakvimGunu } from './Ay';
+export { Tutar, TutarIslemleri } from './Tutar';
+export {
+  HizmetSecenegi,
+  GunlukBedelliSecenek,
+  AskerlikBorclanmasi,
+  BagkurBorcOdemesi,
+  Ihya,
+  SECENEK_ADLARI,
+  DONEM_ACIKLAMASI,
+  type HizmetDonemi,
+} from './HizmetSecenegi';
+export {
+  SgkReferansAylikModeli,
+  KazancTahminiAylikModeli,
+  ElleAylikModeli,
+  aylikModeliOlustur,
+  type AylikModeli,
+  type AylikGirdisi,
+} from './AylikModeli';
+export { HizmetTakvimi } from './HizmetTakvimi';
+export { EmeklilikTarihiHesabi, type TarihSonucu } from './EmeklilikTarihiHesabi';
+export { KesintiPlani, type KesintiGirdisi, type KesintiOzeti } from './KesintiPlani';
+export { YolHesabi, type YolSonucuAyrintili } from './Yol';
+export {
+  YolKarsilastirici,
+  type KarsilastirilabilirYol,
+  type KarsilastirmaKosullari,
+  type KarsilastirmaAyrintisi,
+} from './YolKarsilastirici';
+export {
+  EmeklilikPlanlayiciImpl,
+  HICBIRI,
+  VARSAYILAN_KARSILASTIRMA_YILI,
+  bilesimAdi,
+  type PlanlayiciBagimliliklari,
+} from './EmeklilikPlanlayici';
+export { tamSayi, yuzde, nedenleriBirlestir } from './bicim';
 
-export function emeklilikPlanlayicisiOlustur(_profil: EmeklilikProfili, _mevzuat: MevzuatParametreleri = MEVZUAT_2026): EmeklilikPlanlayici {
-  throw new Error('Emeklilik modeli henüz uygulanmadı (taslak).');
+/** Profil + mevzuattan planlayıcı kurar. Bağımlılıklar (seçenekler, takvim, aylık modeli fabrikası) değiştirilebilir. */
+export function emeklilikPlanlayicisiOlustur(
+  profil: EmeklilikProfili,
+  mevzuat: MevzuatParametreleri = MEVZUAT_2026,
+  bagimliliklar: Partial<PlanlayiciBagimliliklari> = {},
+): EmeklilikPlanlayici {
+  return new EmeklilikPlanlayiciImpl(profil, mevzuat, bagimliliklar);
 }
