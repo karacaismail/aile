@@ -1,18 +1,20 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ReactNode } from 'react';
-import { FixtureGenerationSource, GenerationProvider, type BudgetObservation } from '../data';
+import { FixtureGenerationSource, GenerationProvider, type BudgetObservation, type GenerationSource } from '../data';
 import { DeviceContext } from '../device';
 import type { Device } from '../shell/contracts';
 import { RaporlarPage, REPORTS, periodLabel, toCsv } from './RaporlarPage';
 
-// Tasarım: README.md "Sayfa iskeleti" + bundle.js Aile.Pages.Raporlar (masaüstünde solda rapor menüsü, dar ekranda
-// "Rapor" seçimi; Dönem seçimi; "Raporu dışa aktar"; plan acik-mavi / gerçek eylem çubukları + yanında tablo).
-// Veri: budget_observations (basis planned | recorded_aggregate; period YYYY-MM). Plan ve gerçek ayrı sütun ve ayrı
-// özet ölçüsüdür; eksik değer adıyla söylenir; tahminler (forecast_*) toplanmaz. Seçiciler role/label ile.
+// Tasarım: SayfaRaporlar / SayfaRaporlarDar + bundle.js Aile.Pages.Raporlar (masaüstünde solda rapor menüsü, dar
+// ekranda "Rapor" seçimi; Dönem seçimi "Son 6 ay"; "Raporu dışa aktar"; plan acik-mavi / gerçek eylem çubukları ve
+// yanında tablo). Veri: budget_observations. Gerçekleşen actuals.ts anlamıyla: gelecek dönem "Henüz yok", kanıtsız
+// yazılı değer "Kaynakta yazılı" (oran yok); toplamlar yalnız katalogdaki sahipliği belirlenmiş ölçülerle (pivotMeasures)
+// ve kesin (bigint); plan ve gerçek tek sayıda birleşmez. Geniş yetenekler (rapor menüsü, ECharts grafiği) lazyWide ile
+// yalnız geniş profilde gelir; telefon onları hiç yüklemez. Saat sabit: 2 Kasım 2026 İstanbul.
 
 // Chart: echarts tembel yüklenir; burada yalnız sözleşmesi (role=img + aria-label, açıklama görünür) taklit edilir.
 vi.mock('../ui/Chart', () => ({
@@ -23,7 +25,7 @@ vi.mock('../ui/Chart', () => ({
     </div>
   ),
 }));
-// Telefonda Select ve OverflowActions alttan sayfada açılır; burada yalnız sözleşmesi (dialog + Kapat) taklit edilir.
+// Telefonda Select alttan sayfada açılır; burada yalnız sözleşmesi (dialog + Kapat) taklit edilir.
 vi.mock('../ui/BottomSheet', () => ({
   BottomSheet: (p: { title: string; children?: ReactNode; onClose?: () => void; open?: boolean }) =>
     p.open === false ? null : (
@@ -61,18 +63,22 @@ const OBS: BudgetObservation[] = MANIFEST.files
   .filter((file) => file.collection === 'budget_observations')
   .flatMap((file) => (JSON.parse(FILES[file.path]!) as { records: BudgetObservation[] }).records);
 
-const TRY = new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const YEARS = [...new Set(OBS.map((o) => o.period.slice(0, 4)))].sort();
-const LATEST_YEAR = YEARS[YEARS.length - 1]!;
-/** Beklenen toplam: kuruş tam sayısıyla; panelle aynı yuvarlama kuralı (ondalık metin → kuruş). */
-function sumOf(rows: readonly BudgetObservation[], basis: string, year?: string): number {
-  let kurus = 0;
-  for (const row of rows) {
-    if (row.basis !== basis || row.value.decimal === null) continue;
-    if (year && !row.period.startsWith(year)) continue;
-    kurus += Math.round(Number(row.value.decimal) * 100);
+const TODAY = new Date('2026-11-02T10:00:00+03:00');
+const now = () => TODAY;
+const SON_ALTI_AY = ['2026-06', '2026-07', '2026-08', '2026-09', '2026-10', '2026-11'];
+const YIL_2027 = Array.from({ length: 12 }, (_, i) => `2027-${String(i + 1).padStart(2, '0')}`);
+
+/** Beklenen toplam: kuruş bigint ile (kayan nokta yok) → "₺8.500,00". */
+function tl(basis: string, periods: readonly string[], label?: string): string {
+  let kurus = 0n;
+  for (const row of OBS) {
+    if (row.deleted_at || row.basis !== basis || !periods.includes(row.period) || row.value.decimal === null) continue;
+    if (label && row.label !== label) continue;
+    const [whole, fraction = ''] = row.value.decimal.split('.');
+    kurus += BigInt(whole!) * 100n + BigInt(`${fraction}00`.slice(0, 2));
   }
-  return kurus / 100;
+  const text = `${kurus / 100n}.${String(kurus % 100n).padStart(2, '0')}`;
+  return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(text as `${number}`);
 }
 
 function fixtureSource(overrides: Record<string, string | null> = {}): FixtureGenerationSource {
@@ -84,32 +90,63 @@ function fixtureSource(overrides: Record<string, string | null> = {}): FixtureGe
   return new FixtureGenerationSource(files, 'sentetik');
 }
 
-/** Nesilde budget_observations hiç yokmuş gibi: manifestten parça girdileri düşer, koleksiyon boş ve hatasız gelir. */
-function withoutBudgetObservations(): FixtureGenerationSource {
+function withoutCollection(collection: string): FixtureGenerationSource {
   const manifest: ManifestLike = {
     ...MANIFEST,
-    files: MANIFEST.files.filter((file) => file.collection !== 'budget_observations'),
-    counts: { ...MANIFEST.counts, budget_observations: 0 },
+    files: MANIFEST.files.filter((file) => file.collection !== collection),
+    counts: { ...MANIFEST.counts, [collection]: 0 },
   };
   return fixtureSource({ 'manifest.json': JSON.stringify(manifest) });
 }
 
-function renderPage(device: Device = 'desktop', source: FixtureGenerationSource = fixtureSource()) {
+/** İlk okuma başarılı, sonra her okuma başarısız: refresh → stale (son iyi nesil korunur). */
+class FlakySource implements GenerationSource {
+  readonly kind = 'fixture' as const;
+  readonly label = 'kesintili';
+  failing = false;
+  private readonly inner = fixtureSource();
+  async readText(path: string): Promise<string> {
+    if (this.failing) throw new Error('bağlantı kesildi');
+    return this.inner.readText(path);
+  }
+}
+
+/** Oda koleksiyonu kapı açılana kadar gelmez: alımlar oda adları olmadan önce okunur (yük altındaki tarayıcı gibi). */
+const ROOM_PATHS = new Set(MANIFEST.files.filter((file) => file.collection === 'rooms').map((file) => file.path));
+class SlowRoomsSource implements GenerationSource {
+  readonly kind = 'fixture' as const;
+  readonly label = 'yavaş odalar';
+  private readonly inner = fixtureSource();
+  release: () => void = () => {};
+  private readonly gate = new Promise<void>((resolve) => { this.release = resolve; });
+  async readText(path: string): Promise<string> {
+    if (ROOM_PATHS.has(path)) await this.gate;
+    return this.inner.readText(path);
+  }
+}
+
+function renderPage(device: Device = 'desktop', source: GenerationSource = fixtureSource()) {
   return render(
     <DeviceContext.Provider value={device}>
       <GenerationProvider source={source} cache={null} changeSet={null}>
-        <RaporlarPage location="/raporlar" />
+        <RaporlarPage location="/raporlar" now={now} />
       </GenerationProvider>
     </DeviceContext.Provider>,
   );
 }
 
+const WAIT = { timeout: 4000 };
+/** Çok adımlı kullanıcı yolculuğu (antd + tembel geniş modül, yüklü makinede): routes.test.tsx ile aynı süre bütçesi. */
+const JOURNEY_MS = 20_000;
 async function waitForReport(name: string) {
-  return await screen.findByRole('table', { name }, { timeout: 4000 });
+  return await screen.findByRole('table', { name }, WAIT);
 }
+const region = (name: string) => screen.getByRole('region', { name });
 /** antd Table yapışkan başlıkta başlık satırını ayrı tabloda çizer; sütun başlıkları ekran kapsamında, gövde satırları tabloda. */
 const headerTitles = () => screen.getAllByRole('columnheader').map((th) => th.textContent);
 const bodyRows = (table: HTMLElement) => within(table).getAllByRole('row');
+const summaryItem = (label: string) =>
+  within(screen.getByRole('list', { name: 'Özet' })).getAllByRole('listitem').find((li) => li.textContent?.includes(label))!;
 
 // --- Saf yardımcılar -----------------------------------------------------------------------------------
 describe('Raporlar › yardımcılar', () => {
@@ -130,18 +167,27 @@ describe('Raporlar › yardımcılar', () => {
     expect(csv.charCodeAt(0)).toBe(0xfeff);
     expect(csv.slice(1)).toBe('Ay;Planlanan\r\nKasım 2026;8500.00 TRY\r\n"Not; ""a""";Henüz yok');
   });
+
+  it('telefon yolu geniş-özel kodu statik içe aktarmaz: grafik ve rapor menüsü yalnız *.wide modülünde', () => {
+    const source = readFileSync(join(here, 'RaporlarPage.tsx'), 'utf8');
+    const model = readFileSync(join(here, 'raporlar/model.ts'), 'utf8');
+    const specifiers = [...`${source}\n${model}`.matchAll(/^\s*import\s[^'"]*['"]([^'"]+)['"]/gm)].map((m) => m[1]);
+    expect(specifiers.filter((s) => /(^|\/)ui$|ui\/(Chart|Menu|Table|antd)$|^antd|^@ant-design|echarts|\.wide$/.test(s!))).toEqual([]);
+    expect(source).toMatch(/lazyWide\('raporlar-grafik', \(\) => import\('\.\/raporlar\/RaporGrafik\.wide'\)\)/);
+    expect(source).toMatch(/lazyWide\('raporlar-menu', \(\) => import\('\.\/raporlar\/RaporMenu\.wide'\)\)/);
+  });
 });
 
 // --- Sayfa ---------------------------------------------------------------------------------------------
 describe('RaporlarPage › başlık ve durumlar', () => {
-  it('bölüm, h1, amaç ve rapor menüsü; tazelik satırı nesil kimliğiyle dolar', async () => {
+  it('bölüm, h1, amaç ve masaüstü rapor menüsü (geniş modül); tazelik satırı nesil kimliğiyle dolar', async () => {
     renderPage();
     expect(screen.getByRole('heading', { level: 1, name: 'Raporlar' })).toBeInTheDocument();
-    expect(screen.getByText('Rapor')).toBeInTheDocument();
+    expect(screen.getByText('Rapor', { selector: 'p' })).toBeInTheDocument();
     expect(screen.getByText('Hazır raporları açın; her rakamın hangi kayıtlardan geldiğini görün.')).toBeInTheDocument();
 
     const nav = screen.getByRole('navigation', { name: 'Raporlar' });
-    const menu = within(nav).getByRole('menu');
+    const menu = await within(nav).findByRole('menu', {}, WAIT);
     for (const report of REPORTS) expect(within(menu).getByRole('menuitem', { name: report.label })).toBeInTheDocument();
     expect(within(menu).getByRole('menuitem', { name: 'Aylık plan ve gerçek' })).toHaveAttribute('aria-current', 'page');
 
@@ -149,14 +195,14 @@ describe('RaporlarPage › başlık ve durumlar', () => {
     const status = screen.getAllByRole('status').find((el) => el.getAttribute('data-state'))!;
     expect(status).toHaveAttribute('data-state', 'fresh');
     expect(status.textContent).toContain('Nesil');
-  });
+  }, JOURNEY_MS);
 
   it('yüklenirken iskelet gösterir; döner simge yok', () => {
     renderPage();
     const loading = screen.getAllByRole('status').find((el) => el.getAttribute('aria-busy') === 'true');
     expect(loading).toBeDefined();
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
-  });
+  }, JOURNEY_MS);
 
   it('manifest bozuksa hata durumu "Hata: …" ve "Yeniden dene" sunar; eski tutar gösterilmez', async () => {
     renderPage('desktop', fixtureSource({ 'manifest.json': '{bozuk' }));
@@ -165,63 +211,104 @@ describe('RaporlarPage › başlık ve durumlar', () => {
     expect(within(alert).getByRole('button', { name: 'Yeniden dene' })).toBeInTheDocument();
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
     expect(screen.queryByText(/₺/)).not.toBeInTheDocument();
-  });
+  }, JOURNEY_MS);
+
+  it('ilk okuma başarısızsa "Yeniden dene" kaynak düzelince raporu getirir; hata kalmaz', async () => {
+    const source = new FlakySource();
+    source.failing = true;
+    renderPage('desktop', source);
+    const alert = await screen.findByRole('alert', {}, WAIT);
+    expect(screen.queryByText(/₺/)).not.toBeInTheDocument();
+    source.failing = false;
+    await userEvent.click(within(alert).getByRole('button', { name: 'Yeniden dene' }));
+    await waitForReport('Aylık plan ve gerçek');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(summaryItem('Planlanan').textContent).toContain(tl('planned', SON_ALTI_AY));
+  }, JOURNEY_MS);
 
   it('nesilde bütçe gözlemi yoksa dürüstçe "Kaynakta bütçe gözlemi kaydı yok" der', async () => {
-    renderPage('desktop', withoutBudgetObservations());
-    await screen.findByRole('heading', { level: 2, name: 'Kaynakta bütçe gözlemi kaydı yok' }, { timeout: 4000 });
+    renderPage('desktop', withoutCollection('budget_observations'));
+    await screen.findByRole('heading', { level: 2, name: 'Kaynakta bütçe gözlemi kaydı yok' }, WAIT);
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
     expect(screen.queryByRole('list', { name: 'Özet' })).not.toBeInTheDocument();
-  });
+  }, JOURNEY_MS);
+
+  it('yenileme başarısızsa eski veri kalır; tazelik satırı "yenilenemedi" der', async () => {
+    const source = new FlakySource();
+    renderPage('desktop', source);
+    await waitForReport('Aylık plan ve gerçek');
+    source.failing = true;
+    await userEvent.click(screen.getByRole('button', { name: 'Yenile' }));
+    const status = () => screen.getAllByRole('status').find((el) => el.getAttribute('data-state'))!;
+    await waitFor(() => expect(status()).toHaveAttribute('data-state', 'stale'));
+    expect(status().textContent).toContain('yenilenemedi');
+    expect(screen.getByRole('table', { name: 'Aylık plan ve gerçek' })).toBeInTheDocument();
+  }, JOURNEY_MS);
 });
 
 describe('RaporlarPage › Aylık plan ve gerçek', () => {
-  it('özet plan ve gerçeği ayrı ölçü olarak verir; tablo + grafik birlikte; fark sözcükle söylenir', async () => {
+  it('varsayılan Son 6 ay; plan ve gerçek ayrı sütun ve ayrı özet; durum actuals anlamıyla, oran yok; grafik genişte', async () => {
     renderPage();
     const table = await waitForReport('Aylık plan ve gerçek');
 
-    expect(headerTitles()).toEqual(['Ay', 'Planlanan', 'Gerçekleşen', 'Fark', 'Kayıt']);
-    // Varsayılan dönem: verideki son yıl (12 ay).
-    expect(bodyRows(table)).toHaveLength(12);
-    expect(within(table).getByText(periodLabel(`${LATEST_YEAR}-01`))).toBeInTheDocument();
+    expect(headerTitles()).toEqual(['Ay', 'Planlanan', 'Gerçekleşen', 'Durum', 'Kayıt']);
+    expect(bodyRows(table)).toHaveLength(SON_ALTI_AY.length);
+    expect(within(region('Aylık plan ve gerçek')).getByText('Haziran – Kasım 2026 · Kasım sürüyor')).toBeInTheDocument();
 
-    const summary = screen.getByRole('list', { name: 'Özet' });
-    const items = within(summary).getAllByRole('listitem').map((li) => li.textContent ?? '');
-    expect(items).toHaveLength(3);
-    expect(items[0]).toContain('Planlanan');
-    expect(items[0]).toContain(TRY.format(sumOf(OBS, 'planned', LATEST_YEAR)));
-    expect(items[1]).toContain('Gerçekleşen');
-    expect(items[1]).toContain(TRY.format(sumOf(OBS, 'recorded_aggregate', LATEST_YEAR)));
-    expect(items[0]).not.toContain(TRY.format(sumOf(OBS, 'recorded_aggregate', LATEST_YEAR)));
-    expect(items[2]).toContain('Gözlem');
+    const kasim = within(table).getByRole('row', { name: /Kasım 2026/ });
+    expect(kasim.textContent).toContain(tl('planned', ['2026-11']));
+    expect(kasim.textContent).toContain(tl('recorded_aggregate', ['2026-11']));
+    expect(kasim.textContent).toContain('Kaynakta yazılı');
+    expect(table.textContent).not.toMatch(/%\d|harcandı|Plan üstü|Plan altı/);
 
-    expect(screen.getByRole('img', { name: /planlanan ve gerçekleşen/i })).toBeInTheDocument();
+    const plan = summaryItem('Planlanan').textContent!;
+    const gercek = summaryItem('Gerçekleşen').textContent!;
+    expect(plan).toContain(tl('planned', SON_ALTI_AY));
+    expect(gercek).toContain(tl('recorded_aggregate', SON_ALTI_AY));
+    expect(plan).not.toContain(tl('recorded_aggregate', SON_ALTI_AY));
+    // Kayıt sayısı da plan ve gerçek için ayrı yazılır; ikisi tek sayıda toplanmaz.
+    const live = OBS.filter((o) => !o.deleted_at && SON_ALTI_AY.includes(o.period));
+    const planKayit = live.filter((o) => o.basis === 'planned').length;
+    const gercekKayit = live.filter((o) => o.basis === 'recorded_aggregate').length;
+    expect(summaryItem('Kayıt').textContent).toContain(`${planKayit} plan · ${gercekKayit} gerçekleşen`);
+    expect(screen.getByRole('list', { name: 'Özet' }).textContent).not.toContain(`${planKayit + gercekKayit} kayıt`);
+
+    expect(await screen.findByRole('img', { name: /planlanan ve gerçekleşen/i }, WAIT)).toBeInTheDocument();
     expect(screen.getByText(/Tahminler .*toplanmaz/)).toBeInTheDocument();
-    const fark = within(table).getAllByText(/^(Plan üstü|Plan altı|Planda)/);
-    expect(fark.length).toBeGreaterThan(0);
-  });
+  }, JOURNEY_MS);
 
-  it('Dönem seçimi tabloyu ve özeti daraltır: Tüm dönemler → 24 ay, 2026 → 12 ay', async () => {
+  it('gelecek yıl: Gerçekleşen her ayda "Henüz yok", özet de "Henüz yok"; plan yazılı', async () => {
     const user = userEvent.setup();
     renderPage();
     await waitForReport('Aylık plan ve gerçek');
 
     await user.click(screen.getByRole('combobox', { name: 'Dönem' }));
-    await user.click(await screen.findByRole('option', { name: 'Tüm dönemler' }));
-    await waitFor(() => expect(bodyRows(screen.getByRole('table', { name: 'Aylık plan ve gerçek' }))).toHaveLength(OBS.length / 8 / 2));
-    let summary = screen.getByRole('list', { name: 'Özet' });
-    expect(summary.textContent).toContain(TRY.format(sumOf(OBS, 'planned')));
-
-    await user.click(screen.getByRole('combobox', { name: 'Dönem' }));
-    await user.click(await screen.findByRole('option', { name: YEARS[0]! }));
+    await user.click(await screen.findByRole('option', { name: '2027' }));
     await waitFor(() => expect(bodyRows(screen.getByRole('table', { name: 'Aylık plan ve gerçek' }))).toHaveLength(12));
-    summary = screen.getByRole('list', { name: 'Özet' });
-    expect(summary.textContent).toContain(TRY.format(sumOf(OBS, 'planned', YEARS[0])));
-  });
+    const table = screen.getByRole('table', { name: 'Aylık plan ve gerçek' });
+    for (const row of bodyRows(table)) expect(row.textContent).toContain('Henüz yok');
+    expect(table.textContent).not.toContain('Kaynakta yazılı');
+    expect(table.textContent).not.toContain(tl('recorded_aggregate', ['2027-01']));
+    expect(summaryItem('Gerçekleşen').textContent).toContain('Henüz yok');
+    expect(summaryItem('Planlanan').textContent).toContain(tl('planned', YIL_2027));
+  }, JOURNEY_MS);
 
-  it('"Raporu dışa aktar" yalnız görünen satırları CSV olarak istemci tarafında indirir', async () => {
+  it('Tüm dönemler 24 ay; Gerçekleşen toplamı yalnız gelecek olmayan aylardan', async () => {
     const user = userEvent.setup();
-    const createObjectURL = vi.fn((_blob: Blob) => 'blob:aile-rapor');
+    renderPage();
+    await waitForReport('Aylık plan ve gerçek');
+    await user.click(screen.getByRole('combobox', { name: 'Dönem' }));
+    await user.click(await screen.findByRole('option', { name: 'Tüm dönemler' }));
+    await waitFor(() => expect(bodyRows(screen.getByRole('table', { name: 'Aylık plan ve gerçek' }))).toHaveLength(24));
+    const gecmis = [...new Set(OBS.map((o) => o.period))].filter((p) => p <= '2026-11');
+    expect(summaryItem('Gerçekleşen').textContent).toContain(tl('recorded_aggregate', gecmis));
+    expect(summaryItem('Planlanan').textContent).toContain(tl('planned', [...new Set(OBS.map((o) => o.period))]));
+  }, JOURNEY_MS);
+
+  it('"Raporu dışa aktar" yalnız görünen satırları CSV olarak istemci tarafında indirir; gelecek ay "Henüz yok"', async () => {
+    const user = userEvent.setup();
+    const blobs: Blob[] = [];
+    const createObjectURL = vi.fn((blob: Blob) => { blobs.push(blob); return 'blob:aile-rapor'; });
     const revokeObjectURL = vi.fn();
     Object.defineProperty(URL, 'createObjectURL', { configurable: true, writable: true, value: createObjectURL });
     Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, writable: true, value: revokeObjectURL });
@@ -232,17 +319,37 @@ describe('RaporlarPage › Aylık plan ve gerçek', () => {
     try {
       renderPage();
       await waitForReport('Aylık plan ve gerçek');
+      await user.click(screen.getByRole('combobox', { name: 'Dönem' }));
+      await user.click(await screen.findByRole('option', { name: '2026' }));
+      await waitFor(() => expect(bodyRows(screen.getByRole('table', { name: 'Aylık plan ve gerçek' }))).toHaveLength(12));
+      // Görünen satırların kaydı etkide yenilenir; tıklamadan önce bekleyen etkiler işlenir.
+      await act(async () => {});
       await user.click(screen.getByRole('button', { name: 'Raporu dışa aktar' }));
       expect(createObjectURL).toHaveBeenCalledTimes(1);
-      const blob = createObjectURL.mock.calls[0]![0];
-      expect(blob).toBeInstanceOf(Blob);
-      expect(blob.type).toBe('text/csv;charset=utf-8');
+      expect(blobs[0]!.type).toBe('text/csv;charset=utf-8');
+      const text = await blobs[0]!.text();
+      const lines = text.replace(/^﻿/, '').split('\r\n');
+      expect(lines[0]).toBe('Ay;Planlanan;Gerçekleşen;Durum;Plan kaydı;Gerçekleşen kaydı');
+      expect(lines).toHaveLength(13);
+      expect(lines.find((line) => line.startsWith('Aralık 2026;'))).toMatch(/;Henüz yok;Henüz yok;8;0$/);
+      expect(lines.find((line) => line.startsWith('Kasım 2026;'))).toMatch(/;Kaynakta yazılı;8;8$/);
       expect(click).toHaveBeenCalledTimes(1);
-      expect(revokeObjectURL).toHaveBeenCalledWith('blob:aile-rapor');
+      // İndirme başlamadan bağlantı geri alınmaz (WebKit): revoke ertelenir.
+      expect(revokeObjectURL).not.toHaveBeenCalled();
+      await waitFor(() => expect(revokeObjectURL).toHaveBeenCalledWith('blob:aile-rapor'), { timeout: 3000 });
     } finally {
       click.mockRestore();
     }
-  });
+  }, JOURNEY_MS);
+
+  it('view_definitions yoksa toplam ölçüsü sahipsizdir: tutar sütunu ve özet tutarı yok, gerekçe yazılı', async () => {
+    renderPage('desktop', withoutCollection('view_definitions'));
+    const table = await waitForReport('Aylık plan ve gerçek');
+    expect(headerTitles()).toEqual(['Ay', 'Kayıt']);
+    expect(table.textContent).not.toContain('₺');
+    expect(within(region('Aylık plan ve gerçek')).getByText(/^Toplam kullanılamaz: /)).toBeInTheDocument();
+    expect(screen.queryByText(/₺/)).not.toBeInTheDocument();
+  }, JOURNEY_MS);
 });
 
 describe('RaporlarPage › Kaleme göre harcama (pivot)', () => {
@@ -250,47 +357,68 @@ describe('RaporlarPage › Kaleme göre harcama (pivot)', () => {
     const user = userEvent.setup();
     renderPage();
     await waitForReport('Aylık plan ve gerçek');
-    await user.click(screen.getByRole('menuitem', { name: 'Kaleme göre harcama' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Kaleme göre harcama' }, WAIT));
 
     const table = await waitForReport('Kaleme göre harcama');
     const headers = headerTitles();
     expect(headers[0]).toBe('Kalem');
-    expect(headers).toContain(periodLabel(`${LATEST_YEAR}-01`));
+    expect(headers).toContain(periodLabel('2026-11'));
     expect(headers[headers.length - 1]).toBe('Toplam');
-    // 8 kalem + genel toplam satırı
     expect(bodyRows(table)).toHaveLength(8 + 1);
 
-    const kalem1 = OBS.filter((o) => o.label === 'Örnek gider satırı 1');
-    const planToplam = TRY.format(sumOf(kalem1, 'planned', LATEST_YEAR));
-    const gercekToplam = TRY.format(sumOf(kalem1, 'recorded_aggregate', LATEST_YEAR));
-    const row1 = within(table).getByRole('row', { name: /Örnek gider satırı 1/ });
-    expect(row1.textContent).toContain(planToplam);
-    expect(row1.textContent).not.toContain(gercekToplam);
+    const KALEM = 'Örnek gider satırı 1';
+    const row1 = within(table).getByRole('row', { name: new RegExp(KALEM) });
+    expect(row1.textContent).toContain(tl('planned', SON_ALTI_AY, KALEM));
 
     await user.click(screen.getByRole('combobox', { name: 'Ölçü' }));
     const list = await screen.findByRole('listbox');
     expect(within(list).getByRole('option', { name: 'Kayıt sayısı' })).toBeInTheDocument();
     expect(within(list).getByRole('option', { name: 'Plan toplamı' })).toHaveAttribute('aria-selected', 'true');
     await user.click(within(list).getByRole('option', { name: 'Gerçekleşen toplamı' }));
-    await waitFor(() => expect(screen.getByRole('row', { name: /Örnek gider satırı 1/ }).textContent).toContain(gercekToplam));
+    await waitFor(() => expect(screen.getByRole('row', { name: new RegExp(KALEM) }).textContent).toContain(tl('recorded_aggregate', SON_ALTI_AY, KALEM)));
 
-    expect(screen.getByRole('img', { name: /kalem/i })).toBeInTheDocument();
+    expect(await screen.findByRole('img', { name: /kalem/i }, WAIT)).toBeInTheDocument();
     expect(screen.getByText(/Tahminler .*toplanmaz/)).toBeInTheDocument();
-  });
+  }, JOURNEY_MS);
+
+  it('gelecek dönemde Gerçekleşen toplamı ölçüsü "Henüz yok"; tutar yazılmaz', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await waitForReport('Aylık plan ve gerçek');
+    await user.click(screen.getByRole('combobox', { name: 'Dönem' }));
+    await user.click(await screen.findByRole('option', { name: '2027' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Kaleme göre harcama' }, WAIT));
+    await waitForReport('Kaleme göre harcama');
+    expect(headerTitles()).toContain(periodLabel('2027-12'));
+    await user.click(screen.getByRole('combobox', { name: 'Ölçü' }));
+    await user.click(await screen.findByRole('option', { name: 'Gerçekleşen toplamı' }));
+    const KALEM = 'Örnek gider satırı 1';
+    await waitFor(() => expect(screen.getByRole('row', { name: new RegExp(KALEM) }).textContent).toContain('Henüz yok'));
+    expect(screen.getByRole('row', { name: new RegExp(KALEM) }).textContent).not.toContain('₺');
+  }, JOURNEY_MS);
+
+  it('rapor değişince dışa aktarma yeni raporun satırlarıyla etkin kalır', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await waitForReport('Aylık plan ve gerçek');
+    // Rapor satırlarını tablo çizildikten sonra (etkide) kaydeder; düğme bir sonraki çizimde etkinleşir.
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Raporu dışa aktar' })).toBeEnabled());
+    await user.click(await screen.findByRole('menuitem', { name: 'Kaleme göre harcama' }, WAIT));
+    await waitForReport('Kaleme göre harcama');
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Raporu dışa aktar' })).toBeEnabled());
+    await user.click(screen.getByRole('menuitem', { name: 'Oda bazında alımlar' }));
+    await waitForReport('Oda bazında alımlar');
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Raporu dışa aktar' })).toBeEnabled());
+  }, JOURNEY_MS);
 
   it('view_definitions nesilde yoksa pivot gerekçesiyle kullanılamaz', async () => {
     const user = userEvent.setup();
-    const manifest: ManifestLike = {
-      ...MANIFEST,
-      files: MANIFEST.files.filter((file) => file.collection !== 'view_definitions'),
-      counts: { ...MANIFEST.counts, view_definitions: 0 },
-    };
-    renderPage('desktop', fixtureSource({ 'manifest.json': JSON.stringify(manifest) }));
+    renderPage('desktop', withoutCollection('view_definitions'));
     await waitForReport('Aylık plan ve gerçek');
-    await user.click(screen.getByRole('menuitem', { name: 'Kaleme göre harcama' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Kaleme göre harcama' }, WAIT));
     await screen.findByText(/^Pivot kullanılamaz: /);
     expect(screen.queryByRole('combobox', { name: 'Ölçü' })).not.toBeInTheDocument();
-  });
+  }, JOURNEY_MS);
 });
 
 describe('RaporlarPage › diğer raporlar', () => {
@@ -298,27 +426,35 @@ describe('RaporlarPage › diğer raporlar', () => {
     const user = userEvent.setup();
     renderPage();
     await waitForReport('Aylık plan ve gerçek');
-    await user.click(screen.getByRole('menuitem', { name: 'Borç ödeme planı' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Borç ödeme planı' }, WAIT));
     expect(await screen.findByRole('heading', { level: 2, name: 'Kaynakta ödeme kaydı yok' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Raporu dışa aktar' })).not.toBeInTheDocument();
-  });
+  }, JOURNEY_MS);
 
-  it('Oda bazında alımlar: oda satırları plan ve gerçeği ayrı sütunda toplar; odasız alımlar "Bilinmiyor"', async () => {
+  it('Oda bazında alımlar: odaya göre sayar, tutar toplamaz (sahipliği belirlenmiş ölçü yok); odasız "Bilinmiyor"', async () => {
     const user = userEvent.setup();
     renderPage();
     await waitForReport('Aylık plan ve gerçek');
-    await user.click(screen.getByRole('menuitem', { name: 'Oda bazında alımlar' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Oda bazında alımlar' }, WAIT));
     const table = await waitForReport('Oda bazında alımlar');
-    expect(headerTitles()).toEqual(['Oda', 'Planlanan', 'Gerçekleşen', 'Alım']);
+    expect(headerTitles()).toEqual(['Oda', 'Alım', 'Plan tutarı yazılı', 'Gerçekleşen tutarı yazılı']);
     expect(bodyRows(table).length).toBeGreaterThan(0);
-    expect(within(table).getAllByText(/^(₺|Fiyat yok|Henüz yok)/).length).toBeGreaterThan(0);
-  });
+    expect(table.textContent).not.toContain('₺');
+    expect(within(table).getByRole('row', { name: /Bilinmiyor/ })).toBeInTheDocument();
+    expect(within(region('Oda bazında alımlar')).getByText(/^Tutar toplanmaz: alımların sahipliği belirlenmiş toplanabilir ölçüsü yok/)).toBeInTheDocument();
+    const purchases = MANIFEST.files
+      .filter((file) => file.collection === 'purchase_needs')
+      .flatMap((file) => (JSON.parse(FILES[file.path]!) as { records: { deleted_at?: string | null }[] }).records)
+      .filter((record) => !record.deleted_at);
+    const counts = bodyRows(table).map((row) => Number(/^(\d+) alım$/.exec(within(row).getAllByRole('cell')[1]!.textContent ?? '')?.[1] ?? 'NaN'));
+    expect(counts.reduce((a, b) => a + b, 0)).toBe(purchases.length);
+  }, JOURNEY_MS);
 
   it('Veri güveni özeti: sorun kayıtlarını kod ve önemle sayar', async () => {
     const user = userEvent.setup();
     renderPage();
     await waitForReport('Aylık plan ve gerçek');
-    await user.click(screen.getByRole('menuitem', { name: 'Veri güveni özeti' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Veri güveni özeti' }, WAIT));
     const table = await waitForReport('Veri güveni özeti');
     expect(headerTitles()).toEqual(['Kod', 'Önem', 'Kayıt']);
     const issues = MANIFEST.files
@@ -326,16 +462,68 @@ describe('RaporlarPage › diğer raporlar', () => {
       .flatMap((file) => (JSON.parse(FILES[file.path]!) as { records: { code: string; severity: string }[] }).records);
     const distinct = new Set(issues.map((issue) => `${issue.code}|${issue.severity}`)).size;
     expect(bodyRows(table)).toHaveLength(distinct);
-  });
+  }, JOURNEY_MS);
 });
 
 describe('RaporlarPage › telefon', () => {
-  it('rapor menüsü yerine "Rapor" seçimi; dışa aktarma başlıkta tek birincil eylem; tablo akordeona iner', async () => {
+  it('rapor menüsü ve grafik yok; "Rapor" seçimi alt sayfada; sonuç akordeon, ilk satır açık', async () => {
+    const user = userEvent.setup();
     renderPage('phone');
     expect(screen.queryByRole('navigation', { name: 'Raporlar' })).not.toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: 'Rapor' })).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Raporu dışa aktar' })).toBeInTheDocument(), { timeout: 4000 });
-    await waitFor(() => expect(screen.getByText(periodLabel(`${LATEST_YEAR}-01`))).toBeInTheDocument(), { timeout: 4000 });
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Raporu dışa aktar' })).toBeEnabled(), WAIT);
+    const aylik = region('Aylık plan ve gerçek');
+    const first = await within(aylik).findByRole('button', { name: /^Haziran 2026/ }, WAIT);
+    expect(first).toHaveAttribute('aria-expanded', 'true');
+    expect(within(aylik).getByRole('button', { name: /^Kasım 2026/ }).textContent).toContain('Kaynakta yazılı');
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
-  });
+    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('combobox', { name: 'Rapor' }));
+    const sheet = screen.getByRole('dialog', { name: 'Rapor' });
+    await user.click(within(sheet).getByRole('option', { name: 'Kaleme göre harcama' }));
+    const kalem = await screen.findByRole('region', { name: 'Kaleme göre harcama' }, WAIT);
+    expect(await within(kalem).findByRole('button', { name: /^Örnek gider satırı 1/ }, WAIT)).toHaveAttribute('aria-expanded', 'true');
+    // Telefon profilinde geniş modül hiç istenmez (yükleme bitse de gelmez): grafik ve menü yok.
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 50)); });
+    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+  }, JOURNEY_MS);
+
+  it('dönem değişince yeni sonucun ilk satırı açık gelir (akordeon önceki açık satırı taşımaz)', async () => {
+    const user = userEvent.setup();
+    renderPage('phone');
+    const aylik = await screen.findByRole('region', { name: 'Aylık plan ve gerçek' }, WAIT);
+    expect(await within(aylik).findByRole('button', { name: /^Haziran 2026/ }, WAIT)).toHaveAttribute('aria-expanded', 'true');
+
+    await user.click(screen.getByRole('combobox', { name: 'Dönem' }));
+    await user.click(within(screen.getByRole('dialog', { name: 'Dönem' })).getByRole('option', { name: '2027' }));
+    const ocak = await within(region('Aylık plan ve gerçek')).findByRole('button', { name: /^Ocak 2027/ }, WAIT);
+    expect(ocak).toHaveAttribute('aria-expanded', 'true');
+    expect(ocak.textContent).toContain('Henüz yok');
+    const acik = within(region('Aylık plan ve gerçek')).getAllByRole('button', { expanded: true });
+    expect(acik.map((b) => b.textContent?.slice(0, 9))).toEqual(['Ocak 2027']);
+  }, JOURNEY_MS);
+
+  it('Oda raporu oda adları gelmeden çizilmez; ilk oda açık, odasız "Bilinmiyor" sonda', async () => {
+    const user = userEvent.setup();
+    const source = new SlowRoomsSource();
+    expect(ROOM_PATHS.size).toBeGreaterThan(0);
+    renderPage('phone', source);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Raporu dışa aktar' })).toBeEnabled(), WAIT);
+    await user.click(screen.getByRole('combobox', { name: 'Rapor' }));
+    await user.click(within(screen.getByRole('dialog', { name: 'Rapor' })).getByRole('option', { name: 'Oda bazında alımlar' }));
+    // Odalar okunmadan sonuç yok: her alım "Bilinmiyor" odada sayılmaz, dışa aktarma da beklemede.
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 100)); });
+    expect(screen.queryByRole('region', { name: 'Oda bazında alımlar' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Raporu dışa aktar' })).toBeDisabled();
+
+    await act(async () => { source.release(); });
+    const oda = await screen.findByRole('region', { name: 'Oda bazında alımlar' }, WAIT);
+    const odalar = await within(oda).findAllByRole('button', { name: / alım/ }, WAIT);
+    expect(odalar.length).toBeGreaterThan(1);
+    expect(odalar[0]).toHaveAttribute('aria-expanded', 'true');
+    expect(odalar[0]!.textContent).not.toMatch(/^Bilinmiyor/);
+    expect(odalar.at(-1)!.textContent).toMatch(/^Bilinmiyor/);
+  }, JOURNEY_MS);
 });
