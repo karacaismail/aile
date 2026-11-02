@@ -6,11 +6,15 @@
 //  - Kanıtsız (payment_evidence false) değer "Kaynakta yazılı"dır: yüzde, "harcandı" ve "kalan" türetilmez; metin ve
 //    oran yalnız spendLabel'dan. Plan ve gerçek tek sayıda birleşmez.
 //  - Toplamlar sumMoney ile kesin ondalık (bigint); farklı para birimleri toplanmaz ("Birden çok para birimi").
+//  - Aylık plan ve gerçek: bir ayın bütçe gözlemleri tek Planlanan/Gerçekleşen sayısında toplanmaz. Satırlar gelir, ara
+//    toplam ("… toplamı"), genel toplam ("Toplam …") ve adet satırlarını da taşır; nesilde satır düzeyinde yaprak sahipliği
+//    haritası yok (views.sumUnavailableReason). Ay satırı kayıtları sayar, tutar yerine "Toplam kullanılamaz" yazar.
 import {
   BUDGET_TIME_ZONE,
   MIRRORS_PLAN_NOTE,
   MIXED_CURRENCY_TEXT,
   currentPeriod,
+  isFuturePeriod,
   mirrorsPlan,
   plannedTotal,
   recordedTotal,
@@ -28,6 +32,8 @@ import {
   type RecordedTotal,
   type SpendLabel,
 } from '../../data';
+// Doğrudan views.sums: telefon ilk rotası görünüm kataloğunu (views.ts) indirmez; metin katalogla aynı kaynaktan.
+import { BUDGET_SUM_UNAVAILABLE_REASON, TOTAL_UNAVAILABLE_TEXT } from '../../data/views.sums';
 import type { StatusLabel } from '../../shell/contracts';
 import { BILINMIYOR, HENUZ_YOK, formatMoney } from '../../ui/Money';
 
@@ -355,12 +361,20 @@ export function planAynasiNotu(gozlemler: readonly BudgetObservation[], donem: s
 // --- Aylık plan ve gerçek ------------------------------------------------------------------------------
 export interface GenelAy {
   donem: string;
-  planned: MoneyTotal;
-  recorded: RecordedTotal | null;
+  /** Silinmemiş plan kaydı sayısı (tutar toplanmaz). */
+  planKaydi: number;
+  /** Silinmemiş Gerçekleşen kaydı sayısı; gelecek ayda sayılmaz (0). */
+  gerceklesenKaydi: number;
+  /** İçinde bulunulan aydan (Europe/Istanbul) sonra. */
+  gelecek: boolean;
+  /** Durum: gelecek ay ya da kayıt yok "Henüz yok"; kanıtsız "Kaynakta yazılı"; kanıtlı "Harcandı" (oran yok: toplam yok). */
   spend: SpendLabel;
 }
 
-/** Bugüne kadarki son N ay (yoksa en erken N ay); her ay plan ve Gerçekleşen ayrı, gelecek ay "Henüz yok". */
+/** Aylık blokta toplamın neden yazılmadığı (views ortak metni). */
+export const AYLIK_TOPLAM_NOTU = BUDGET_SUM_UNAVAILABLE_REASON;
+
+/** Bugüne kadarki son N ay (yoksa en erken N ay); her ay plan ve Gerçekleşen kayıtları ayrı sayılır, tutar toplanmaz. */
 export function aylikSatirlar(gozlemler: readonly BudgetObservation[], bugun: Date, adet: number = GRAFIK_AY): GenelAy[] {
   const buDonem = currentPeriod(bugun);
   const gecerli = gozlemler.filter(butceGozlemi);
@@ -368,18 +382,28 @@ export function aylikSatirlar(gozlemler: readonly BudgetObservation[], bugun: Da
   const gecmis = aylar.filter(donem => donem <= buDonem);
   const secili = gecmis.length > 0 ? gecmis.slice(-adet) : aylar.slice(0, adet);
   return secili.map(donem => {
-    const planned = plannedTotal(gecerli, donem);
-    const recorded = gercekleseni(gecerli, donem, bugun);
-    return { donem, planned, recorded, spend: spendLabel(planned.money ?? undefined, recorded) };
+    const ayin = gecerli.filter(gozlem => gozlem.period === donem);
+    const gelecek = isFuturePeriod(donem, bugun);
+    return {
+      donem,
+      planKaydi: ayin.filter(gozlem => gozlem.basis === 'planned').length,
+      gerceklesenKaydi: gelecek ? 0 : ayin.filter(gozlem => gozlem.basis === 'recorded_aggregate').length,
+      gelecek,
+      // Durum yalnız kaydın varlığından ve kanıttan: plan verilmez, oran üretilmez; toplam tutar modele girmez.
+      spend: spendLabel(undefined, gercekleseni(ayin, donem, bugun)),
+    };
   });
 }
 
-/** Grafik değeri: kesin ondalık metninden sayı (yalnız çizim için; toplam metinleri sumMoney'den). */
-export function grafikDegeri(money: Money): number | null {
-  if (!money) return null;
-  const sayi = Number(money.amount);
-  return Number.isFinite(sayi) ? sayi : null;
-}
+/** Ayın Planlanan hücresi: plan kaydı yoksa "Plan yok"; varsa "Toplam kullanılamaz" (satırlar toplanmaz). */
+export const ayPlanMetni = (ay: GenelAy): string => (ay.planKaydi > 0 ? TOTAL_UNAVAILABLE_TEXT : PLAN_YOK);
+
+/** Ayın Gerçekleşen hücresi: gelecek ay ya da kayıt yoksa "Henüz yok"; varsa "Toplam kullanılamaz". */
+export const ayGerceklesenMetni = (ay: GenelAy): string => (ay.gelecek || ay.gerceklesenKaydi === 0 ? HENUZ_YOK : TOTAL_UNAVAILABLE_TEXT);
+
+/** "8 plan · 8 gerçekleşen"; gelecek ayda "8 plan kaydı" (Gerçekleşen sayılmaz). */
+export const ayKayitMetni = (ay: GenelAy): string =>
+  ay.gelecek ? `${sayiMetni(ay.planKaydi)} plan kaydı` : `${sayiMetni(ay.planKaydi)} plan · ${sayiMetni(ay.gerceklesenKaydi)} gerçekleşen`;
 
 // --- Sunum modeli (telefon ve geniş aynı veriyi çizer) ------------------------------------------------------
 export interface GenelBaglanti { label: string; href: string }
@@ -397,7 +421,8 @@ export interface GenelGorunum {
   /** note: plan aynası notu (MIRRORS_PLAN_NOTE) ya da null. */
   butce: GenelBolum<GenelButceSatiri> & { note: string | null };
   gorevler: GenelBolum<GenelGorev>;
-  aylik: GenelBolum<GenelAy>;
+  /** note: toplamın neden yazılmadığı (AYLIK_TOPLAM_NOTU). */
+  aylik: GenelBolum<GenelAy> & { note: string };
 }
 
 export interface GenelSunumProps {

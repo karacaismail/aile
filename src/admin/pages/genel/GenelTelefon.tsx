@@ -4,6 +4,9 @@ import { AccordionList } from '../../ui/AccordionList';
 import { Icon } from '../../ui/icons';
 import { formatMoney } from '../../ui/Money';
 import {
+  ayGerceklesenMetni,
+  ayKayitMetni,
+  ayPlanMetni,
   donemAdi,
   gerceklesenMetni,
   gorevMetaMetni,
@@ -24,14 +27,15 @@ import {
 // Genel durum › telefon temel sunumu (W0: yerel HTML + ARIA APG + --aile-* tokenları; antd, ECharts ve *.wide yok).
 // Sıra telefon yolculuğuna göre: özet ölçüler başlıkta (PageHeader) → Yaklaşan ödemeler (7 gün) → Dikkat isteyenler →
 // Bütçe (akordeon, ilk satır açık; plan aynası notu) → Bekleyen işler (yerel onay kutusu) → Aylık plan ve gerçek
-// (grafik yerine tablo karşılığı: ay başına akordeon). Her blok bir bölgedir (section + h2) ve başlık satırında ilgili
+// (ay başına akordeon: kayıt sayıları ve durum; satırlar toplanmaz, tutar yerine "Toplam kullanılamaz" ve nedeni yazılı).
+// Her blok bir bölgedir (section + h2) ve başlık satırında ilgili
 // sayfaya bağlantı taşır. Liste satırları kart değil: tek yüzey, satırlar çizgiyle ayrılır. Eksik bilgi adıyla.
 // Gerçekleşen metni ve durum yalnız model (data/actuals.ts spendLabel) üzerinden; yüzde/"harcandı" burada üretilmez.
 
 const TARIH_YOK = 'Tarih yok';
 const TUTAR_YOK = 'Tutar yok';
 const TARAF_BILINMIYOR = 'Taraf bilinmiyor';
-const ETIKET = { plan: 'Planlanan', gercek: 'Gerçekleşen', kalan: 'Kalan' } as const;
+const ETIKET = { plan: 'Planlanan', gercek: 'Gerçekleşen', kalan: 'Kalan', kayit: 'Kayıt' } as const;
 
 function Blok({ title, link, children }: { title: string; link: GenelBaglanti; children: ReactNode }) {
   const id = useId();
@@ -48,6 +52,8 @@ function Blok({ title, link, children }: { title: string; link: GenelBaglanti; c
 
 const Bos = ({ text }: { text: string }) => <p className="aile-genel-bos aile-ikincil">{text}</p>;
 const Tutar = ({ children }: { children: ReactNode }) => <span className="aile-tutar">{children}</span>;
+/** Tutar yerine eksik bilginin adı ("Toplam kullanılamaz", "Henüz yok", "Plan yok"): ikincil metin, tutar biçimi değil. */
+const Eksik = ({ children }: { children: ReactNode }) => <span className="aile-ikincil">{children}</span>;
 
 function OdemeSatiri({ odeme }: { odeme: GenelOdeme }) {
   const tarih = tarihMetni(odeme.date);
@@ -127,8 +133,9 @@ function ayOgesi(ay: GenelAy): AccordionItem {
     title: donemAdi(ay.donem, 'kisa'),
     status: <Durum text={ay.spend.text} />,
     body: [
-      [ETIKET.plan, <Tutar key="p">{planMetni(ay.planned)}</Tutar>],
-      [ETIKET.gercek, <Tutar key="g">{gerceklesenMetni(ay.recorded)}</Tutar>],
+      [ETIKET.plan, <Eksik key="p">{ayPlanMetni(ay)}</Eksik>],
+      [ETIKET.gercek, <Eksik key="g">{ayGerceklesenMetni(ay)}</Eksik>],
+      [ETIKET.kayit, ayKayitMetni(ay)],
     ],
   };
 }
@@ -160,7 +167,10 @@ export function GenelTelefon({ gorunum, onToggleTask }: GenelSunumProps) {
       </Blok>
       <Blok title={aylik.title} link={aylik.link}>
         {aylik.items.length ? (
-          <AccordionList items={aylik.items.map(ayOgesi)} caption={`${sayiMetni(aylik.items.length)} ay · Planlanan ve Gerçekleşen`} />
+          <>
+            <p className="aile-genel-not aile-kucuk">{aylik.note}</p>
+            <AccordionList items={aylik.items.map(ayOgesi)} caption={`${sayiMetni(aylik.items.length)} ay · Planlanan ve Gerçekleşen`} />
+          </>
         ) : <Bos text={aylik.empty} />}
       </Blok>
     </div>

@@ -1,32 +1,29 @@
-// Raporlar saf modeli: dönem seçimi, ay/kalem/oda satırları ve toplamlar. React, antd ve echarts yok; telefon yolu
+// Raporlar saf modeli: dönem seçimi, ay/kalem/oda satırları ve sayımlar. React, antd ve echarts yok; telefon yolu
 // bunu doğrudan kullanır. Kurallar (W0 actuals sözleşmesi):
 //  - Gerçekleşen yalnız actuals.ts anlamıyla: içinde bulunulan aydan (Europe/Istanbul) sonraki dönem "Henüz yok";
-//    oran ve "harcandı" metni yalnız spendLabel'dan (kanıtsız yazılı değer "Kaynakta yazılı", oran yok).
-//  - Para kesin: sumMoney (bigint); kayan nokta yok. Birden çok para birimi toplanmaz: MIXED_CURRENCY_TEXT.
-//  - Plan ve gerçek asla tek sayıda birleşmez: ayrı toplam, ayrı metin; fark ya da oran burada üretilmez.
-//  - Toplanan ölçüler yalnız katalogdaki sahipliği belirlenmiş ölçülerdir (views.pivotMeasures); alımların
-//    (purchase_need) böyle bir ölçüsü yok: oda raporu tutar toplamaz, yalnız sayar.
+//    "harcandı" metni yalnız spendLabel'dan (kanıtsız yazılı değer "Kaynakta yazılı").
+//  - Bütçe gözlemleri toplanmaz: satırlar yaprak gider kalemlerinin yanında gelir, ara toplam ("… toplamı"), genel
+//    toplam ("Toplam …") ve adet satırlarını da taşır; nesilde satır düzeyinde yaprak sahipliği haritası yok
+//    (views.pivotMeasures yalnız sayım verir). Tutar yerine TOTAL_UNAVAILABLE_TEXT ("Toplam kullanılamaz") ve nedeni
+//    (views.sumUnavailableReason) yazılır; oran üretilmez (oran plan ve gerçek toplamı ister). Kayıtlar sayılır.
+//  - Plan ve gerçek asla tek sayıda birleşmez: plan ve Gerçekleşen kaydı ayrı sayılır, ayrı metin.
+//  - Alımların (purchase_need) sahipliği belirlenmiş ölçüsü yok: oda raporu tutar toplamaz, yalnız sayar.
 //  - Silinmiş, 'unclassified' ve bilinmeyen basis hiçbir sayıya katılmaz.
 import {
-  MIXED_CURRENCY_TEXT,
   RECORDED_NOT_YET_TEXT,
   currentPeriod,
   isFuturePeriod,
   mirrorsPlan,
-  observationMoney,
-  plannedTotal,
   recordedFor,
-  recordedTotal,
   spendLabel,
-  sumMoney,
-  type MoneyTotal,
-  type RecordedTotal,
+  type RecordedValue,
   type SpendLabel,
 } from '../../data/actuals';
-import type { BudgetObservation, Issue, Money } from '../../data/types';
-import type { PivotMeasure } from '../../data/views';
+import { toCsv, type CsvRows } from '../../data/csv';
+import type { BudgetObservation, Issue } from '../../data/types';
+import { TOTAL_UNAVAILABLE_TEXT, type PivotMeasure } from '../../data/views';
 import type { RecordRow } from '../../shell/contracts';
-import { BILINMIYOR, formatMoney } from '../../ui/Money';
+import { BILINMIYOR } from '../../ui/Money';
 
 export { BILINMIYOR };
 export const PLAN_YOK = 'Plan yok';
@@ -120,103 +117,31 @@ export function rangeText(periods: readonly string[], current: string): string {
   return text;
 }
 
-// --- Sahiplik -----------------------------------------------------------------------------------------------
-export type SumMeasure = Extract<PivotMeasure, { aggregate: 'sum' }>;
-export interface OwnedMeasures {
-  planned: SumMeasure | undefined;
-  recorded: SumMeasure | undefined;
-  count: PivotMeasure | undefined;
-}
-
-/** Katalogdaki sahipliği belirlenmiş ölçülerden plan ve gerçek toplamı; yoksa undefined (o tutar gösterilmez). */
-export function ownedMeasures(measures: readonly PivotMeasure[]): OwnedMeasures {
-  const sum = (basis: string) => measures.find((m): m is SumMeasure => m.aggregate === 'sum' && m.basis === basis);
-  return { planned: sum('planned'), recorded: sum('recorded_aggregate'), count: measures.find((m) => m.aggregate === 'count') };
-}
-
-// --- Toplamlar ----------------------------------------------------------------------------------------------
+// --- Ay satırları -------------------------------------------------------------------------------------------
 const isLive = (o: BudgetObservation) => !o.deleted_at;
-
-/** Seçili dönemlerin plan toplamı (yalnız silinmemiş basis 'planned'). */
-export function plannedOver(observations: readonly BudgetObservation[], periods: readonly string[]): MoneyTotal {
-  const set = new Set(periods);
-  return sumMoney(observations.filter((o) => isLive(o) && o.basis === 'planned' && set.has(o.period)).map(observationMoney));
-}
+type Recorded = Extract<RecordedValue, { kind: 'recorded' }>;
 
 /**
- * Seçili dönemlerin Gerçekleşen toplamı: her gözlem recordedFor ile okunur; gelecek dönem sayılmaz. Seçimde
- * gelecek olmayan dönem yoksa "Henüz yok". evidence yalnız sayılan her kayıtta ödeme kanıtı varsa true.
+ * Gözlemlerin Gerçekleşen durumu tutar toplamadan: seçimde gelecek olmayan dönem yoksa "Henüz yok"; gelecek olmayan
+ * dönemde canlı Gerçekleşen kaydı yoksa "Henüz yok"; varsa "Kaynakta yazılı" (kanıtsız) ya da "Harcandı" (her kayıt
+ * kanıtlı). Oran yok: oran plan ve gerçek toplamı ister.
  */
-export function recordedOver(observations: readonly BudgetObservation[], periods: readonly string[], today: Date): RecordedTotal {
+function recordedStatus(observations: readonly BudgetObservation[], periods: readonly string[], today: Date): SpendLabel {
+  if (periods.length > 0 && periods.every((p) => isFuturePeriod(p, today))) return spendLabel(undefined, { kind: 'not_yet' });
   const set = new Set(periods);
-  if (periods.length > 0 && periods.every((p) => isFuturePeriod(p, today))) return { kind: 'not_yet' };
   const values = observations
     .filter((o) => set.has(o.period))
     .map((o) => recordedFor(o, today))
-    .filter((v): v is Extract<NonNullable<typeof v>, { kind: 'recorded' }> => v?.kind === 'recorded');
-  const total = sumMoney(values.map((v) => v.money));
-  return { kind: 'recorded', money: total.money, evidence: values.length > 0 && values.every((v) => v.evidence), total };
+    .filter((v): v is Recorded => v?.kind === 'recorded');
+  if (values.length === 0) return spendLabel(undefined, null);
+  return spendLabel(undefined, { kind: 'recorded', money: null, evidence: values.every((v) => v.evidence) });
 }
 
-/** Gerçekleşen kaydı hiç yoksa spendLabel'a "kayıt yok" (null) gider: "Kaynakta yazılı" uydurulmaz. */
-const forLabel = (recorded: RecordedTotal) =>
-  recorded.kind === 'recorded' && recorded.total.counted + recorded.total.missing === 0 ? null : recorded;
-
-export function spendOf(planned: MoneyTotal, recorded: RecordedTotal): SpendLabel {
-  return spendLabel(planned.money, forLabel(recorded));
-}
-
-/** Toplamın gösterimi: tutar (Money) ya da eksik bilginin adı; kısmen okunamayan değer ayrı not. */
-export interface TotalDisplay { money: Money; missing: string; note: string | null }
-
-function display(total: MoneyTotal, empty: string): TotalDisplay {
-  if (total.currencies.length > 1) return { money: null, missing: MIXED_CURRENCY_TEXT, note: null };
-  if (!total.money) return { money: null, missing: total.missing > 0 ? BILINMIYOR : empty, note: null };
-  return { money: total.money, missing: empty, note: total.missing > 0 ? `${total.missing} değer okunamadı` : null };
-}
-const textOf = (d: TotalDisplay): string => (d.money ? `${formatMoney(d.money)}${d.note ? ` · ${d.note}` : ''}` : d.missing);
-
-/** Plan toplamı: tutar | "Birden çok para birimi" | "Bilinmiyor" | "Plan yok". */
-export function plannedDisplay(total: MoneyTotal): TotalDisplay {
-  return display(total, PLAN_YOK);
-}
-/** Gerçekleşen: gelecek ya da kayıt yok "Henüz yok"; aksi hâlde tutar | karışık | "Bilinmiyor". */
-export function recordedDisplay(total: RecordedTotal): TotalDisplay {
-  return total.kind === 'not_yet' ? { money: null, missing: HENUZ_YOK, note: null } : display(total.total, HENUZ_YOK);
-}
-
-/** Plan toplamı metni: "₺8.500,00" | "Birden çok para birimi" | "Bilinmiyor" | "Plan yok". */
-export function plannedText(total: MoneyTotal): string {
-  return textOf(plannedDisplay(total));
-}
-
-/** Gerçekleşen metni: gelecek ya da kayıt yok "Henüz yok"; aksi hâlde tutar / karışık / "Bilinmiyor". */
-export function recordedText(total: RecordedTotal): string {
-  return textOf(recordedDisplay(total));
-}
-
-/** CSV için makine biçimi ("8500.00 TRY") ya da eksik bilginin adı. */
-export function plannedCsv(total: MoneyTotal): string {
-  return total.money && total.missing === 0 ? `${total.money.amount} ${total.money.currency}` : plannedText(total);
-}
-export function recordedCsv(total: RecordedTotal): string {
-  if (total.kind === 'recorded' && total.money && total.total.missing === 0) return `${total.money.amount} ${total.money.currency}`;
-  return recordedText(total);
-}
-
-/** Grafik için tutar metni (tek para birimi ve eksiksiz); yoksa null (sıfır çizilmez). */
-export function chartAmount(total: MoneyTotal | RecordedTotal): string | null {
-  if ('kind' in total) return total.kind === 'recorded' ? chartAmount(total.total) : null;
-  return total.money && total.missing === 0 ? total.money.amount : null;
-}
-
-// --- Ay satırları -------------------------------------------------------------------------------------------
 export interface MonthRow {
   key: string;
   period: string;
   label: string;
-  planned: MoneyTotal;
-  recorded: RecordedTotal;
+  /** Durum metni (Henüz yok / Kaynakta yazılı / Harcandı); oran yok. */
   spend: SpendLabel;
   /** Silinmemiş plan / Gerçekleşen kaydı sayısı; gelecek ayda Gerçekleşen kaydı sayılmaz (0). */
   planCount: number;
@@ -239,16 +164,12 @@ export function monthRows(observations: readonly BudgetObservation[], periods: r
   return validPeriods(periods).map((period) => {
     const rows = groups.get(period) ?? [];
     const future = isFuturePeriod(period, today);
-    const planned = plannedTotal(rows, period);
-    const recorded = recordedTotal(rows, period, today);
     const live = rows.filter(isLive);
     return {
       key: period,
       period,
       label: periodLabel(period),
-      planned,
-      recorded,
-      spend: spendOf(planned, recorded),
+      spend: recordedStatus(rows, [period], today),
       planCount: live.filter((o) => o.basis === 'planned').length,
       recordedCount: future ? 0 : live.filter((o) => o.basis === 'recorded_aggregate').length,
       current: period === current,
@@ -256,6 +177,20 @@ export function monthRows(observations: readonly BudgetObservation[], periods: r
       mirrors: !future && mirrorsPlan(rows),
     };
   });
+}
+
+/** Ayın Planlanan hücresi: plan kaydı yoksa "Plan yok"; varsa "Toplam kullanılamaz" (satırlar toplanmaz). */
+export const monthPlannedText = (row: MonthRow): string => (row.planCount > 0 ? TOTAL_UNAVAILABLE_TEXT : PLAN_YOK);
+/** Ayın Gerçekleşen hücresi: gelecek ay ya da kayıt yoksa "Henüz yok"; varsa "Toplam kullanılamaz". */
+export const monthRecordedText = (row: MonthRow): string => (row.future || row.recordedCount === 0 ? HENUZ_YOK : TOTAL_UNAVAILABLE_TEXT);
+
+/** Özet "Planlanan": seçimde plan kaydı varsa "Toplam kullanılamaz", yoksa "Plan yok". */
+export function summaryPlannedText(observations: readonly BudgetObservation[]): string {
+  return observations.some((o) => isLive(o) && o.basis === 'planned') ? TOTAL_UNAVAILABLE_TEXT : PLAN_YOK;
+}
+/** Özet "Gerçekleşen": seçim yalnız gelecekteyse ya da kayıt yoksa "Henüz yok"; varsa "Toplam kullanılamaz". */
+export function summaryRecordedText(observations: readonly BudgetObservation[], periods: readonly string[], today: Date): string {
+  return recordedStatus(observations, periods, today).kind === 'not_yet' ? HENUZ_YOK : TOTAL_UNAVAILABLE_TEXT;
 }
 
 // --- Kalem × dönem ------------------------------------------------------------------------------------------
@@ -297,10 +232,8 @@ export function kalemRows(observations: readonly BudgetObservation[], periods: r
 export interface MeasureValue {
   text: string;
   csv: string;
-  /** Grafik için ondalık metin; değer yoksa ya da ölçü sayımsa null (plan ve gerçek kayıt sayısı tek sayıda birleşmez). */
+  /** Grafik için ondalık metin; bütçe gözlemleri toplanmadığından her zaman null (sayım grafiği recordCounts'tan). */
   amount: string | null;
-  /** Toplam ölçüsünde gösterim; sayımda null. */
-  display: TotalDisplay | null;
 }
 
 /** Plan ve (gelecek olmayan) Gerçekleşen kayıt sayısı; silinmiş kayıt sayılmaz. */
@@ -315,25 +248,19 @@ export function recordCounts(observations: readonly BudgetObservation[], today: 
   return { plan, recorded };
 }
 
-const NO_RECORD: MeasureValue = { text: KAYIT_YOK, csv: KAYIT_YOK, amount: null, display: null };
+const NO_RECORD: MeasureValue = { text: KAYIT_YOK, csv: KAYIT_YOK, amount: null };
+const NO_TOTAL: MeasureValue = { text: TOTAL_UNAVAILABLE_TEXT, csv: TOTAL_UNAVAILABLE_TEXT, amount: null };
 
-/** Bir hücrenin (tek dönem) ya da toplamın (seçili dönemler) ölçü değeri. count: kayıt sayısı. */
-export function measureValue(measure: PivotMeasure, observations: readonly BudgetObservation[] | undefined, periods: readonly string[], today: Date): MeasureValue {
+/**
+ * Bir hücrenin (tek dönem) ya da satır toplamının (seçili dönemler) ölçü değeri. count: kayıt sayısı. Toplam ölçüsü
+ * (views bugün üretmez) satır düzeyinde yaprak sahipliği olmadan tutar üretmez: "Toplam kullanılamaz".
+ */
+export function measureValue(measure: PivotMeasure, observations: readonly BudgetObservation[] | undefined, _periods: readonly string[], today: Date): MeasureValue {
   if (!observations || observations.length === 0) return NO_RECORD;
-  if (measure.aggregate === 'count') {
-    const { plan, recorded } = recordCounts(observations, today);
-    const text = `${plan} plan · ${recorded} gerçekleşen`;
-    return { text, csv: text, amount: null, display: null };
-  }
-  if (measure.basis === 'planned') {
-    const total = plannedOver(observations, periods);
-    return { text: plannedText(total), csv: plannedCsv(total), amount: chartAmount(total), display: plannedDisplay(total) };
-  }
-  if (measure.basis === 'recorded_aggregate') {
-    const total = recordedOver(observations, periods, today);
-    return { text: recordedText(total), csv: recordedCsv(total), amount: chartAmount(total), display: recordedDisplay(total) };
-  }
-  return { text: BILINMIYOR, csv: BILINMIYOR, amount: null, display: null };
+  if (measure.aggregate !== 'count') return NO_TOTAL;
+  const { plan, recorded } = recordCounts(observations, today);
+  const text = `${plan} plan · ${recorded} gerçekleşen`;
+  return { text, csv: text, amount: null };
 }
 
 // --- Oda (alımlar): yalnız sayım -----------------------------------------------------------------------------
@@ -372,13 +299,8 @@ export function issueRows(issues: readonly Issue[]): IssueRow[] {
 }
 
 // --- CSV ----------------------------------------------------------------------------------------------------
-export type CsvRows = readonly (readonly string[])[];
-
-/** Satırları ';' ile ayırır (tr-TR Excel), gerekirse tırnaklar, CRLF ve UTF-8 BOM ile başlar. */
-export function toCsv(rows: CsvRows): string {
-  const cell = (value: string) => (/[;"\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value);
-  return `﻿${rows.map((row) => row.map(cell).join(';')).join('\r\n')}`;
-}
+// Ortak yardımcı (data/csv): ';' ayırıcı, CRLF, BOM; formül başlangıcı ("=", "+", "-", "@", TAB, CR) metne çevrilir.
+export { toCsv, type CsvRows };
 
 /** Dosya adı parçası: "Aylık plan ve gerçek" → "aylik-plan-ve-gercek". */
 export function slug(text: string): string {
@@ -397,16 +319,10 @@ export function dayStamp(today: Date): string {
   return `${get('year')}${get('month')}${get('day')}`;
 }
 
-export function monthCsv(rows: readonly MonthRow[], owned: OwnedMeasures): CsvRows {
-  const header = ['Ay', ...(owned.planned ? ['Planlanan'] : []), ...(owned.recorded ? ['Gerçekleşen', 'Durum'] : []), 'Plan kaydı', 'Gerçekleşen kaydı'];
+/** Aylık raporun CSV'si: tutar yerine eksik toplamın adı, durum ve kayıt sayıları ayrı sütunlarda. */
+export function monthCsv(rows: readonly MonthRow[]): CsvRows {
   return [
-    header,
-    ...rows.map((row) => [
-      row.label,
-      ...(owned.planned ? [plannedCsv(row.planned)] : []),
-      ...(owned.recorded ? [recordedCsv(row.recorded), row.spend.text] : []),
-      String(row.planCount),
-      String(row.recordedCount),
-    ]),
+    ['Ay', 'Planlanan', 'Gerçekleşen', 'Durum', 'Plan kaydı', 'Gerçekleşen kaydı'],
+    ...rows.map((row) => [row.label, monthPlannedText(row), monthRecordedText(row), row.spend.text, String(row.planCount), String(row.recordedCount)]),
   ];
 }

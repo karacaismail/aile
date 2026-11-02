@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import dictionary from '../../../data-platform/dictionaries/views.json';
 import fixturePartition from '../../../fixtures/generation-synthetic/d062d4882617b40bffe4d2b0b603125a949c8795992611af1be08f6ef6b7ed10/data/view_definitions/global/00000.json';
 import { VIEW_MODES } from '../shell/contracts';
-import { createViewCatalog, defaultFilterOpen, readViewDefinitions, type PivotMeasure, type ViewDefinitionInput } from './views';
+import { TOTAL_UNAVAILABLE_TEXT, createViewCatalog, defaultFilterOpen, readViewDefinitions, type PivotMeasure, type ViewDefinitionInput } from './views';
 
 // Sözlük (data-platform/dictionaries/views.json) ile nesildeki view_definitions aynı altı tanımı taşır; ikisi de okunur.
 const catalog = createViewCatalog(dictionary as ViewDefinitionInput[]);
@@ -89,19 +89,11 @@ describe('pivotMeasures', () => {
   const measures = catalog.pivotMeasures('budget_observation');
   const sums = measures.filter((m): m is PivotMeasure & { aggregate: 'sum' } => m.aggregate === 'sum');
 
-  it('bütçe gözlemlerinde sayım ve basis başına ayrı toplam vardır', () => {
-    expect(measures.some((m) => m.aggregate === 'count')).toBe(true);
-    expect(sums.map((m) => m.basis).sort()).toEqual(['planned', 'recorded_aggregate']);
-    for (const sum of sums) expect(sum.field).toBe('value.decimal');
-  });
-
-  it('plan ve gerçek tek toplamda birleşmez; basis belirsiz ölçü yok', () => {
-    expect(sums.every((m) => typeof m.basis === 'string' && m.basis.length > 0)).toBe(true);
-    expect(sums.some((m) => m.basis === 'unclassified')).toBe(false);
-    const planned = sums.find((m) => m.basis === 'planned');
-    const recorded = sums.find((m) => m.basis === 'recorded_aggregate');
-    expect(planned?.id).not.toBe(recorded?.id);
-    expect(planned?.label).not.toBe(recorded?.label);
+  it('bütçe gözlemlerinde yalnız sayım var; toplam ölçüsü yok (nesilde satır düzeyinde yaprak sahipliği haritası yok)', () => {
+    // budget_observation satırları kaynak sekmenin sayı taşıyan her satırıdır: yaprak gider kalemi, gelir, ara toplam
+    // ("… toplamı"), genel toplam ("Toplam …") ve adet satırı aynı türdedir. Tür düzeyinde sahiplik bunları ayıramaz.
+    expect(measures).toEqual([{ id: 'count', label: 'Kayıt sayısı', aggregate: 'count' }]);
+    expect(sums).toEqual([]);
   });
 
   it('tahminler toplanmaz; ödemelerin kaynakta kaydı yok; alımlar pivotta değil', () => {
@@ -111,12 +103,39 @@ describe('pivotMeasures', () => {
     expect(catalog.pivotMeasures('purchase_need')).toEqual([]);
   });
 
-  it('sözlük sum_measures alanı sahiplik haritasını genişletemez', () => {
+  it('sözlük sum_measures alanı tür düzeyinde toplama izni veremez (ownership_rule: yalnız açık yaprak-satır haritası)', () => {
     const widened = createViewCatalog([
       { key: 'pivot', version: 1, supported_kinds: ['budget_observation', 'forecast_event'], aggregation: { allowed: ['count', 'sum'], sum_measures: { forecast_event: 'cash_change.amount', budget_observation: 'value.decimal' } } },
     ]);
     expect(widened.pivotMeasures('forecast_event').filter((m) => m.aggregate === 'sum')).toEqual([]);
-    expect(widened.pivotMeasures('budget_observation').filter((m) => m.aggregate === 'sum')).toHaveLength(2);
+    expect(widened.pivotMeasures('budget_observation').filter((m) => m.aggregate === 'sum')).toEqual([]);
+    expect(widened.pivotMeasures('budget_observation').map((m) => m.id)).toEqual(['count']);
+  });
+
+  it('sayım da yalnız tanım izin veriyorsa', () => {
+    const countless = createViewCatalog([{ key: 'pivot', version: 1, supported_kinds: ['budget_observation'], aggregation: { allowed: ['sum'] } }]);
+    expect(countless.pivotMeasures('budget_observation')).toEqual([]);
+  });
+});
+
+describe('sumUnavailableReason', () => {
+  it('bütçe gözlemleri: "Toplam kullanılamaz: …" ve toplamı bozacak satırları adıyla sayar', () => {
+    const reason = catalog.sumUnavailableReason('budget_observation');
+    expect(reason.startsWith(`${TOTAL_UNAVAILABLE_TEXT}: bütçe gözlemlerinin `)).toBe(true);
+    expect(reason).toMatch(/yaprak/);
+    expect(reason).toMatch(/gelir/);
+    expect(reason).toMatch(/… toplamı/);
+    expect(reason).toMatch(/Toplam …/);
+    expect(reason).toMatch(/adet/);
+    expect(reason.endsWith('.')).toBe(true);
+  });
+
+  it('başka türler için sahipliği belirlenmiş ölçünün yokluğunu söyler', () => {
+    expect(catalog.sumUnavailableReason('purchase_need')).toBe('Toplam kullanılamaz: alımların sahipliği belirlenmiş toplanabilir ölçüsü yok.');
+  });
+
+  it('pivot (sayım) desteklendiği için mod gerekçesi değişmez', () => {
+    expect(catalog.unsupportedReason('budget_observation', 'pivot')).toBeNull();
   });
 });
 

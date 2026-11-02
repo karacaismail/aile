@@ -20,6 +20,7 @@ import { LoadingShell } from '../ui/LoadingShell';
 import { GenelTelefon } from './genel/GenelTelefon';
 import {
   AYLIK_BASLIK,
+  AYLIK_TOPLAM_NOTU,
   BAGLANTI,
   KAYNAKTA_YOK,
   PENCERE_GUN,
@@ -46,9 +47,12 @@ import './GenelPage.css';
 // Genel durum sayfası. Tasarım: README.md "Sayfa iskeleti" 1–2 (başlık → en çok üç ölçü, kutusuz), components/Overview/
 // README.md (dört blok; her blok başlığında ilgili sayfaya bağlantı) ve bundle.js Aile.Pages.Genel. W0 uyarlamalı teslim:
 //  - Telefon profili (temel sunum, genel/GenelTelefon): yerel HTML; özet ölçüler (başlıkta), yaklaşan ödemeler ve dikkat
-//    isteyenler önce, bütçe tablosu akordeon, bekleyen işler yerel onay kutusu, aylık grafik yerine tablo karşılığı.
-//    antd, ECharts ve *.wide modülü telefonda indirilmez.
-//  - Tablet/masaüstü: GenelPage.wide (lazyWide 'genel-genis'): Overview + aylık grafik ve yanında aynı değerler tablosu.
+//    isteyenler önce, bütçe tablosu akordeon, bekleyen işler yerel onay kutusu, aylık blok ay akordeonu.
+//    antd ve *.wide modülü telefonda indirilmez.
+//  - Tablet/masaüstü: GenelPage.wide (lazyWide 'genel-genis'): Overview + aylık tablo.
+//  - Aylık plan ve gerçek: ayın bütçe gözlemleri tek sayıda toplanmaz (nesilde satır düzeyinde yaprak sahipliği haritası
+//    yok; gelir, "… toplamı", "Toplam …" ve adet satırları gider kalemlerinden ayrılamaz). Ay satırı kayıtları sayar,
+//    tutar yerine "Toplam kullanılamaz" ve nedenini (views.sumUnavailableReason) yazar; çizilecek tutar yok, grafik yok.
 //    Modül veriyle paralel istenir (sayfa açılır açılmaz). Yüklenirken ya da yüklenemezse telefon sunumu kullanılabilir
 //    kalır (Adaptive); modül beklenirken sayfa kökü aria-busy taşır: yedek sunum birazdan geniş sunumla değişecektir ve
 //    hazır sinyali (e2e openAdmin) onu bitmiş saymamalı. Yüklenemezse meşgul kalmaz (bildirim + telefon sunumu kalıcıdır).
@@ -191,7 +195,8 @@ export function GenelPage({ location = YOL, now }: GenelPageProps) {
         title: AYLIK_BASLIK,
         link: BAGLANTI.butce,
         items: aylik,
-        empty: gozlemler.rows.length === 0 ? KAYNAKTA_YOK.budget_observations : 'Aylık bütçe toplamı yok',
+        empty: gozlemler.rows.length === 0 ? KAYNAKTA_YOK.budget_observations : 'Aylık bütçe kaydı yok',
+        note: AYLIK_TOPLAM_NOTU,
       },
     }),
     [odemeler, olayKaydiYok, dikkat, ayAdi, butce, gozlemler.rows.length, aynaNotu, gorevler, isler.rows.length, aylik],

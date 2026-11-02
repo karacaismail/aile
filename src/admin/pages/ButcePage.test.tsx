@@ -188,15 +188,15 @@ describe('ButcePage › saf yardımcılar', () => {
     expect(defaultPeriod(periods, new Date('2026-10-31T20:59:00.000Z'))).toBe('2026-10');
   });
 
-  it('budgetRowsFor: plan ve gerçek ayrı alanlar; fark planlanan − gerçekleşen; yinelenen gözlem toplanmaz, "Bilinmiyor"', () => {
+  it('budgetRowsFor: plan ve gerçek ayrı alanlar; kanıtsız Gerçekleşende fark yok; yinelenen gözlem toplanmaz, "Bilinmiyor"', () => {
     const rows = budgetRowsFor(ALL, PERIOD, null, TODAY);
     expect(rows).toHaveLength(8);
     const row = rows.find(r => r.label === LABEL_1)!;
     expect(row.planned).toEqual({ amount: plannedOf(LABEL_1).value.decimal, currency: 'TRY' });
     expect(row.actual).toEqual({ amount: actualOf(LABEL_1).value.decimal, currency: 'TRY' });
     expect(row.planned).not.toEqual(row.actual);
-    const diff = (Number(row.planned!.amount) * 100 - Number(row.actual!.amount) * 100) / 100;
-    expect(row.difference).toEqual({ amount: diff.toFixed(2), currency: 'TRY' });
+    // Ürün kararı: Fark yalnız ödeme kanıtı olan Gerçekleşenle; kaynakta yazılı değer harcama sayılmaz → "Hesaplanmadı".
+    expect(row.difference).toBeNull();
     expect(row.ownership).toBe('unknown');
     // Yinelenen plan gözlemi (aynı etiket, dönem, basis): toplanmaz; değer bilinmiyor olur.
     const dup = { ...plannedOf(LABEL_1), id: 'dup-1', value: { decimal: '1.00', currency: 'TRY' } };
@@ -219,12 +219,15 @@ describe('ButcePage › saf yardımcılar', () => {
     expect(row.planned).toEqual({ amount: plannedOf(LABEL_1, FUTURE).value.decimal, currency: 'TRY' });
   });
 
-  it('budgetRowsFor: ödeme kanıtı olmayan Gerçekleşen "Kaynakta yazılı"; durum oran üretmez, fark iki bilinen değerden', () => {
+  it('budgetRowsFor: ödeme kanıtı olmayan Gerçekleşen "Kaynakta yazılı"; durum oran üretmez, Fark hesaplanmaz (aşım iddiası yok)', () => {
     const row = budgetRowsFor(ALL, PERIOD, null, TODAY).find(r => r.label === LABEL_1)!;
     expect(row.recorded).toEqual({ kind: 'recorded', money: { amount: actualOf(LABEL_1).value.decimal, currency: 'TRY' }, evidence: false });
     expect(row.status).toEqual({ label: 'Kaynakta yazılı', tone: 'bilgi' });
     expect(row.spend).toEqual({ kind: 'in_source', percent: null, text: 'Kaynakta yazılı' });
-    expect(row.difference).not.toBeNull();
+    // Fixture'da Gerçekleşen planın üstünde (eksi fark olurdu): kanıtsızken "kalem aşıldı" denmez.
+    expect(Number(actualOf(LABEL_1).value.decimal)).toBeGreaterThan(Number(plannedOf(LABEL_1).value.decimal));
+    expect(row.difference).toBeNull();
+    for (const other of budgetRowsFor(ALL, PERIOD, null, TODAY)) expect(other.difference).toBeNull();
     for (const other of budgetRowsFor(ALL, PERIOD, null, TODAY)) expect(['Tamamlandı', 'Aşıldı', 'Sınıra yakın', 'Planda']).not.toContain(other.status.label);
   });
 
@@ -359,6 +362,45 @@ describe('ButcePage › başlık ve özet', () => {
     expect(screen.getByText('Bu dilimde kalem eklenmez; Sheets\'e yazma yok.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Dışa aktar' })).toBeInTheDocument();
   });
+
+  it('"Dışa aktar" ortak CSV yardımcısını kullanır: formül başlangıçlı etiket metne çevrilir, eksi tutar sayı kalır; blob URL indirmeden sonra bırakılır', async () => {
+    const FORMUL = '=HYPERLINK("https://ornek.test";"x")';
+    const files = await withPartitions({
+      [PLAN_PATH]: PLAN.map(r => (r.period !== PERIOD ? r : r.label === LABEL_1 ? { ...r, label: FORMUL } : r.label === LABEL_2 ? { ...r, value: { decimal: '-1250.00', currency: 'TRY' } } : r)),
+      [ACTUAL_PATH]: ACTUAL.map(r => (r.period === PERIOD && r.label === LABEL_1 ? { ...r, label: FORMUL } : r)),
+    });
+    const blobs: Blob[] = [];
+    const createObjectURL = vi.fn((blob: Blob) => { blobs.push(blob); return 'blob:aile-butce'; });
+    const revokeObjectURL = vi.fn();
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, writable: true, value: createObjectURL });
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, writable: true, value: revokeObjectURL });
+    let connected = false;
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+      connected = this.isConnected;
+      expect(this.download).toBe('butce-2026-11.csv');
+    });
+    try {
+      const user = userEvent.setup();
+      renderPage({}, { files });
+      await screen.findByRole('table', { name: 'Bütçe kalemleri' });
+      await user.click(screen.getByRole('button', { name: 'Dışa aktar' }));
+      expect(click).toHaveBeenCalledTimes(1);
+      // WebKit: bağlantı belgede tıklanır; URL indirme başlamadan bırakılmaz.
+      expect(connected).toBe(true);
+      expect(revokeObjectURL).not.toHaveBeenCalled();
+      const lines = (await blobs[0]!.text()).replace(/^\uFEFF/, '').split('\r\n');
+      expect(lines[0]).toBe('Kalem;Dönem;Planlanan;Gerçekleşen;Fark;Para birimi;Durum;Tür');
+      const formul = lines.find(line => line.includes('HYPERLINK'))!;
+      expect(formul.startsWith(`"'=HYPERLINK(""https://ornek.test"";""x"")";2026-11;`)).toBe(true);
+      // Kanıtsız Gerçekleşen: Fark sütunu boş (hesaplanmadı).
+      expect(formul).toMatch(/;;TRY;Kaynakta yazılı;Bilinmiyor$/);
+      expect(lines.find(line => line.startsWith(`${LABEL_2};`))).toMatch(new RegExp(`^${LABEL_2};2026-11;-1250\\.00;`));
+      expect(lines.some(line => /(^|;)"?=/.test(line))).toBe(false);
+      await waitFor(() => expect(revokeObjectURL).toHaveBeenCalledWith('blob:aile-butce'), { timeout: 3000 });
+    } finally {
+      click.mockRestore();
+    }
+  });
 });
 
 describe('ButcePage › dönem ve tablo', () => {
@@ -377,14 +419,19 @@ describe('ButcePage › dönem ve tablo', () => {
     expect(cells).toContain('Bilinmiyor'); // sahiplik canlı eşleme olmadan bilinmez
   });
 
-  it('Gerçekleşen hücresi kaynak değerini "Kaynakta yazılı" ile yazar; durum "Kaynakta yazılı", oran yok', async () => {
+  it('Gerçekleşen hücresi kaynak değerini "Kaynakta yazılı" ile yazar; durum "Kaynakta yazılı", oran yok; Fark "Hesaplanmadı"', async () => {
     renderPage();
     await screen.findByRole('table', { name: 'Bütçe kalemleri' });
     const actual = cellAt(LABEL_1, 'Gerçekleşen');
     expect(actual).toHaveTextContent(tl(actualOf(LABEL_1).value.decimal!));
     expect(actual).toHaveTextContent('Kaynakta yazılı');
     expect(cellAt(LABEL_1, 'Durum')).toHaveTextContent('Kaynakta yazılı');
+    expect(cellAt(LABEL_1, 'Fark')).toHaveTextContent(/^Hesaplanmadı$/);
     expect(document.body.textContent).not.toMatch(/harcandı/);
+    // Not: Fark yalnız ödeme kanıtı olan Gerçekleşenle hesaplanır; "aşıldı" yorumu yalnız onun için.
+    const not = screen.getByText(/^Fark = Planlanan − Gerçekleşen/);
+    expect(not).toHaveTextContent('yalnız ödeme kanıtı olan Gerçekleşen için hesaplanır');
+    expect(not).not.toHaveTextContent(/Fark = Planlanan − Gerçekleşen; eksi ise kalem aşılmıştır/);
   });
 
   it('varsayılan dönem İstanbul takviminden: 31 Ekim 21:30 UTC → "Kasım 2026"', async () => {
@@ -475,15 +522,16 @@ describe('ButcePage › dönem ve tablo', () => {
     expect(screen.queryByText(MIRRORS_PLAN_NOTE)).toBeNull();
   });
 
-  it('telefonda kalem kalem akordeon: ilk satır açık, Planlanan ve Gerçekleşen gövdede ayrı etiketlerdir, "Kaynakta yazılı" görünür', async () => {
+  it('telefonda kalem kalem akordeon: ilk satır açık, Planlanan başlıkta, Gerçekleşen ve Fark gövdede ayrı etiketlerdir, "Kaynakta yazılı" görünür', async () => {
     renderPage({}, { device: 'phone' });
     const heads = await screen.findAllByRole('button', { expanded: true });
     expect(heads).toHaveLength(1);
     const first = heads.find(h => h.textContent?.includes(LABEL_1)) ?? heads[0];
     const panel = panelOf(first);
-    expect(panel).toHaveTextContent('Planlanan');
+    expect(first).toHaveTextContent(`Planlanan ${tl(plannedOf(LABEL_1).value.decimal!)}`);
     expect(panel).toHaveTextContent('Gerçekleşen');
-    expect(panel).toHaveTextContent(tl(plannedOf(LABEL_1).value.decimal!));
+    expect(panel).toHaveTextContent(tl(actualOf(LABEL_1).value.decimal!));
+    expect(panel).toHaveTextContent('FarkHesaplanmadı');
     expect(panel).toHaveTextContent('Kaynakta yazılı');
     expect(screen.queryByRole('table', { name: 'Bütçe kalemleri' })).toBeNull();
     // 8 kalem, her biri ayrı akordeon satırı.
@@ -500,26 +548,45 @@ describe('ButcePage › dönem ve tablo', () => {
     expect(screen.queryByRole('button', { name: 'Ayrıntıyı aç' })).toBeNull();
   });
 
-  it('telefonda akordeon başlığı: kalem adı + tür (meta) başlıkta; tür gövdede yinelenmez', async () => {
+  it('telefonda akordeon başlığı: kalem adı + tür (meta) + Planlanan (lead) + durum; plan ve gerçek tek başlık tutarında birleşmez', async () => {
     renderPage({}, { device: 'phone' });
     const first = await headOf(LABEL_1);
-    // Tasarım (SayfaButceDar): başlıkta Kalem title, Kategori/Tür meta, Fark lead, Durum status. Etiketsiz başlıkta
-    // "Bilinmiyor" neyin bilinmediğini söylemez: meta "Tür bilinmiyor", lead "Fark" etiketiyle okunur.
+    // Ürün kararı (r4): kapalı satırda görülen tek tutar Planlanan'dır; Fark (plan − gerçek) başlıkta değil gövdededir ve
+    // kanıtsız Gerçekleşende hesaplanmaz. Etiketsiz başlıkta "Bilinmiyor" neyin bilinmediğini söylemez: meta "Tür bilinmiyor".
     expect(first).toHaveTextContent('Tür bilinmiyor');
     expect(panelOf(first)).not.toHaveTextContent('Tür');
-    const row = budgetRowsFor(ALL, PERIOD, null, TODAY).find(r => r.label === LABEL_1)!;
-    expect(first).toHaveTextContent(`Fark ${tl(row.difference!.amount)}`);
-    // Fark gövdede yinelenmez; Planlanan ve Gerçekleşen gövdede ayrı etiketlerle kalır.
-    expect(panelOf(first)).not.toHaveTextContent('Fark');
+    expect(first).toHaveTextContent(`Planlanan ${tl(plannedOf(LABEL_1).value.decimal!)}`);
+    expect(first).toHaveTextContent('Kaynakta yazılı');
+    expect(first).not.toHaveTextContent('Fark');
+    expect(first).not.toHaveTextContent(tl(actualOf(LABEL_1).value.decimal!));
+    // Planlanan gövdede yinelenmez; Gerçekleşen ve Fark gövdede ayrı etiketlerle.
+    expect(panelOf(first)).not.toHaveTextContent('Planlanan');
+    expect(panelOf(first)).toHaveTextContent('FarkHesaplanmadı');
   });
 
-  it('telefonda gelecek ayda başlıktaki Fark "Fark Hesaplanmadı" diye etiketlidir', async () => {
+  it('telefonda gelecek ayda başlık Planlanan tutarını, gövde Gerçekleşen "Henüz yok" ve Fark "Hesaplanmadı" yazar', async () => {
     const user = userEvent.setup();
     renderPage({}, { device: 'phone' });
     await headOf(LABEL_1);
     await choosePeriod(user, 'Aralık 2026');
     await waitFor(() => expect(countText('8 kalem · Aralık 2026')).toBeInTheDocument());
-    expect(await headOf(LABEL_1)).toHaveTextContent('Fark Hesaplanmadı');
+    const head = await headOf(LABEL_1);
+    expect(head).toHaveTextContent(`Planlanan ${tl(plannedOf(LABEL_1, FUTURE).value.decimal!)}`);
+    expect(head).toHaveTextContent('Henüz yok');
+    expect(panelOf(head)).toHaveTextContent('GerçekleşenHenüz yok');
+    expect(panelOf(head)).toHaveTextContent('FarkHesaplanmadı');
+  });
+
+  it('telefonda canlı eşlemeyle grup başlıkları h2: sayfa başlığından (h1) sonra düzey atlanmaz', async () => {
+    const live = liveOk({
+      groups: [{ id: 'g1', label: LABEL_1, group: '', kind: 'expense', planned: {}, actual: {} }],
+      categories: [{ id: 'c2', label: LABEL_2, group: LABEL_1, kind: 'expense', planned: {}, actual: {} }],
+    });
+    renderPage({ liveBudgetImpl: vi.fn(async () => live) }, { device: 'phone' });
+    await waitFor(() => expect(screen.getByRole('heading', { level: 2, name: new RegExp(`^${LABEL_1}`) })).toBeInTheDocument());
+    expect(screen.queryAllByRole('heading', { level: 3 })).toHaveLength(0);
+    const levels = screen.getAllByRole('heading').map(h => Number(h.tagName.slice(1)));
+    for (let i = 1; i < levels.length; i += 1) expect(levels[i]! - levels[i - 1]!, `başlık sırası ${levels.join(' → ')}`).toBeLessThanOrEqual(1);
   });
 
   it('telefonda dönem seçimi alttan açılan "Dönem" diyaloğunda; seçim akordeonu o döneme çevirir ve diyaloğu kapatır', async () => {
