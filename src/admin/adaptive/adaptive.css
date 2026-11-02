@@ -1,0 +1,36 @@
+/* Uyarlamalı teslim bildirimi (loader.ts WideNotice): geniş görünüm yüklenemedi ya da yeni sürüm var.
+   Temel (telefon) sunum altında kullanılabilir kalır. Değerler yalnız --aile-* tokenlarından; kenarlık yok, ayrım yüzey
+   tonuyla. Odak çizgisini admin.css [data-focus-line] kuralı çizer (çevreleyen halka yok); burada outline yazılmaz. */
+.aile-wide-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--aile-bosluk-2) var(--aile-bosluk-3);
+  margin: 0 0 var(--aile-bosluk-3);
+  padding: var(--aile-bosluk-3) var(--aile-bosluk-4);
+  border-radius: var(--aile-kose-kontrol);
+  background: var(--aile-bilgi-yuzey);
+  color: var(--aile-metin);
+}
+.aile-wide-notice[data-kind='error'] { background: var(--aile-hata-yuzey); }
+.aile-wide-notice__text { margin: 0; overflow-wrap: break-word; }
+.aile-wide-notice__action {
+  min-height: var(--aile-hedef-asgari);
+  padding: 0 var(--aile-bosluk-4);
+  border: 0;
+  border-radius: var(--aile-kose-kontrol);
+  background: var(--aile-eylem);
+  color: var(--aile-yuzey);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--aile-sure) var(--aile-egri);
+}
+/* Yalnız birincil işaretçi hover destekliyorsa: hibrit dokunmatik cihazda dokunuş sonrası takılı hover olmaz. */
+@media (hover: hover) {
+  .aile-wide-notice__action:hover { background: var(--aile-nav); }
+}
+.aile-wide-notice__action:active { background: var(--aile-nav); }
+@media (prefers-reduced-motion: reduce) {
+  .aile-wide-notice__action { transition-duration: 0s; }
+}

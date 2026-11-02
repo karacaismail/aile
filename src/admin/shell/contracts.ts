@@ -11,6 +11,12 @@ export interface NavGroup { title: string; links: readonly NavLink[] }
 
 // --- Cihaz, ton, para (tasarım index.d.ts) -----------------------------------------------------------
 export type Device = 'phone' | 'tablet' | 'desktop';
+/** Tek üst düzey yerleşim profili (src/admin/adaptive/profile.ts); Device ile aynı birleşim, yeni kod bu adı kullanır.
+ *  Genişlik + yükseklik + kısa kenardan seçilir: yatay telefon phone kalır, dar masaüstü penceresi phone yerleşimi alır. */
+export type Profile = Device;
+/** Eklemeli giriş katmanları: coarse = (any-pointer: coarse), fine = (any-pointer: fine), hover = (any-hover: hover).
+ *  Hibrit cihazda birden çoğu aynı anda açıktır; profil bunlardan seçilmez, klavye varlığı bunlardan çıkarılmaz. */
+export interface InputLayers { readonly coarse: boolean; readonly fine: boolean; readonly hover: boolean }
 export type Tone = 'notr' | 'bilgi' | 'olumlu' | 'uyari' | 'hata';
 /** Veri platformu para zarfı: ondalık metin ("8500.00") + ISO 4217. Biçimleme ui/Money yapar (₺8.500,00). */
 export interface Money { amount: string; currency: string }

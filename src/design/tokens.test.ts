@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { tokens, budgetEasing, chartMotion, cssTokens, dropdownTransition, designTokens, aileCssVars } from './tokens';
+import { tokens, budgetEasing, chartMotion, cssTokens, dropdownTransition, designTokens, aileCssVars, adaptiveTokens } from './tokens';
 import * as legacy from '../dashboard/tokens';
 
 describe('design tokens', () => {
@@ -97,5 +97,19 @@ describe('aileCssVars', () => {
     const css = readFileSync(resolve(__dirname, '../admin/admin.css'), 'utf8');
     const root = css.match(/:root\s*\{([^}]*)\}/)?.[1] ?? '';
     for (const [key, value] of Object.entries(aileCssVars)) expect(root, key).toContain(`${key}: ${value};`);
+  });
+});
+
+// Uyarlamalı yerleşim eşiği: tokens.json'da yok (uygulama kararı, src/admin/adaptive/profile.ts). Tasarım eşlemesine ve
+// --aile-* değişkenlerine karışmaz; admin.css :root yedekleri bu yüzden değişmez.
+describe('adaptiveTokens (kısa kenar eşiği)', () => {
+  it('is 480 CSS px, below the tablet breakpoint', () => {
+    expect(adaptiveTokens.kirilimKisaKenar).toBe(480);
+    expect(adaptiveTokens.kirilimKisaKenar).toBeLessThan(designTokens.kirilimTablet);
+    expect(Object.keys(adaptiveTokens)).toEqual(['kirilimKisaKenar']);
+  });
+  it('stays out of the tokens.json mapping and the --aile-* custom properties', () => {
+    expect(designTokens).not.toHaveProperty('kirilimKisaKenar');
+    expect(Object.keys(aileCssVars).filter(key => key.includes('kisa-kenar'))).toEqual([]);
   });
 });

@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { installKeyboardMode } from '../dashboard/keyboard.ts';
 import { App } from './App';
+import './fonts.css';
 import './admin.css';
 
 installKeyboardMode();
