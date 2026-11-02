@@ -53,7 +53,10 @@
   text-underline-offset: 3px;
   transition: background-color var(--aile-sure) var(--aile-egri), color var(--aile-sure) var(--aile-egri);
 }
-.aile-genel-bag:hover { background: var(--aile-bilgi-yuzey); }
+/* Hover yalnız hover destekleyen birincil işaretçide (dokunmatikte takılı kalmaz); basılı yüzey her girişte. */
+@media (hover: hover) {
+  .aile-genel-bag:hover { background: var(--aile-bilgi-yuzey); }
+}
 .aile-genel-bag:active { background: var(--aile-secili); color: var(--aile-nav); }
 
 /* Boş blok ve plan aynası notu: gizlenmez, adıyla yazılır; aynı yüzey alanında, kenarlıksız. */
@@ -190,5 +193,14 @@
 .aile-genel-liste > li > :is(a.aile-genel-satir, label.aile-genel-gorev) {
   padding-bottom: calc(var(--aile-bosluk-3) - var(--aile-odak-aralik) - var(--aile-odak-kalinlik));
 }
-.aile-genel-liste > li:has(> :is(a, label):hover) { background: var(--aile-bilgi-yuzey); }
+@media (hover: hover) {
+  .aile-genel-liste > li:has(> :is(a, label):hover) { background: var(--aile-bilgi-yuzey); }
+}
 .aile-genel-liste > li:has(> a:active) { background: var(--aile-secili); }
+/* Son satırın çizgisi listenin radiuslu alt kenarına oturur (li alt kenarı = liste alt kenarı, overflow hidden):
+   yalnız çizgi görünürken (klavye modu + :focus-visible) listenin değdiği iki alt köşesi radiussuz, çizgi uçlarından
+   kırpılmaz (kavisli vurgu kenarı yok). Üst köşeler ve işaretçi görünümü korunur; geçiş yok (odak anında). */
+html[data-keyboard='true'] .aile-genel-liste:has(> li:last-child :focus-visible) {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}

@@ -71,6 +71,15 @@
   min-width: 0;
 }
 
+/* Terim ağacı (sozlukler/TermTree.css): kapalı son düğümün başlık çizgisi listenin radiuslu alt kenarına 1 px kala
+   oturur (overflow hidden ile uçları köşe eğrisinde kırpılırdı). Yalnız çizgi görünürken (klavye modu + :focus-visible)
+   o listenin (dış ya da iç) değdiği iki alt köşesi radiussuz; açık düğümde çizgi gövdenin üstünde kalır, köşeler
+   değişmez. Üst köşeler ve işaretçi görünümü korunur, geçiş yok. */
+html[data-keyboard='true'] .aile-sz-agac-liste:has(> .aile-sz-dugum:last-child[data-open='false'] > .aile-sz-dugum-ust :focus-visible) {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
 /* Bekleyen öneriler: tek yüzey, satırlar çizgiyle ayrılır; kart yok. Satır yüksekliği dokunma hedefi (44 / coarse 48). */
 .aile-sz-oneriler {
   list-style: none;

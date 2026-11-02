@@ -16,7 +16,8 @@ import './AccordionList.css';
 // antd Collapse kullanılmaz (envanter eşlemesi bilgi amaçlı): Collapse başlığı tek düğme değildir, panel region
 // ve ikon konumu tasarımla örtüşmez. Görsel kurallar AccordionList.css (yalnız --aile tokenları); kapalı gövde
 // hidden + inert; kapanırken odak gövdedeyse satır başlığına döner (Disclosure ile aynı). Klavye: Enter/Space satır,
-// Yukarı/Aşağı/Home/End satır başlıkları arasında (APG accordion, isteğe bağlı tuşlar).
+// Yukarı/Aşağı/Home/End satır başlıkları arasında (APG accordion, isteğe bağlı tuşlar). Gövdedeki ayrıntı düğmesi her
+// satırda aynı görünür adı taşır; aria-describedby satır başlığındaki adı gösterir (düğme listesinde ayırt edilir).
 export interface AccordionListProps {
   items: readonly AccordionItem[];
   /** Üst satır metni ("12 alım"); grupsuz listede bölge adı. Verilmezse 3'ten çok kayıtta "N kayıt" yazılır. */
@@ -124,10 +125,12 @@ export function AccordionList({
     heads[next]?.focus();
   };
 
-  const renderHead = ({ item, expandable: canExpand }: Row) => (
+  const titleId = (index: number) => `${id}-ad-${index}`;
+
+  const renderHead = ({ item, index, expandable: canExpand }: Row) => (
     <>
       <span className="aile-acc-main">
-        <span className="aile-acc-title"><span className="aile-acc-ul">{item.title}</span></span>
+        <span className="aile-acc-title"><span id={titleId(index)} className="aile-acc-ul">{item.title}</span></span>
         {present(item.meta) ? <span className="aile-acc-meta aile-kucuk">{item.meta}</span> : null}
         {present(item.status) ? <span className="aile-acc-status">{item.status}</span> : null}
       </span>
@@ -168,7 +171,8 @@ export function AccordionList({
                     </div>
                   ))}
                 </dl>
-                {item.onOpen ? <Button variant="secondary" onClick={item.onOpen}>{openLabel}</Button> : null}
+                {/* Her satırda aynı görünür ad ("Ayrıntıyı aç"); hangi kayda ait olduğu satır başlığındaki adla açıklanır. */}
+                {item.onOpen ? <Button variant="secondary" onClick={item.onOpen} aria-describedby={titleId(index)}>{openLabel}</Button> : null}
               </div>
             </div>
           </div>

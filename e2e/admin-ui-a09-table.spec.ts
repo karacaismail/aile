@@ -4,7 +4,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { accentEdges, focusRing, motion, overflow, smallText } from './admin-detectors';
-import { enterKeyboardMode, horizontalOverflow, openAdmin } from './admin-helpers';
+import { enterKeyboardMode, horizontalOverflow, openAdmin, shiftTabKey, tabKey } from './admin-helpers';
 
 // a09-table: ResponsiveTable / Table / AccordionList gerçek rotalarda (Ödemeler, Bütçe; gövdedeki düğmeden odak dönüşü
 // Ev oda listesinde). Telefon (chromium 320×568, webkit 390×844; @matrix ile 360/375/320×480/568×320) akordeondur:
@@ -165,6 +165,40 @@ function basliktakiCizgi(dugme: Element) {
     renk: after.backgroundColor,
     outline: `${ds.outlineStyle} ${ds.outlineWidth}`,
     boxShadow: ds.boxShadow,
+  };
+}
+
+/**
+ * Odaklı öğenin odak çizgisi (kendisinin ya da `sinir`a dek atasının görünür 3 px ::after'ı; mutlak konum, taşıyıcının
+ * dolgu kutusuna göre) ve `sinir` kutusunun ölçüleri. Çizgi yoksa null.
+ */
+function odakCizgisi(sinir: Element) {
+  const aktif = document.activeElement;
+  let cizgi: { ust: number; alt: number; sol: number; sag: number } | null = null;
+  for (let el: Element | null = aktif; el && el !== sinir.parentElement; el = el.parentElement) {
+    const a = getComputedStyle(el, '::after');
+    if (['none', 'normal', ''].includes(a.content) || a.display === 'none' || a.opacity === '0') continue;
+    if (Math.abs(parseFloat(a.height) - 3) > 0.5) continue;
+    const s = getComputedStyle(el);
+    const r = el.getBoundingClientRect();
+    const alt = r.bottom - parseFloat(s.borderBottomWidth) - parseFloat(a.bottom);
+    cizgi = {
+      ust: alt - parseFloat(a.height),
+      alt,
+      sol: r.left + parseFloat(s.borderLeftWidth) + parseFloat(a.left),
+      sag: r.right - parseFloat(s.borderRightWidth) - parseFloat(a.right),
+    };
+    break;
+  }
+  const ss = getComputedStyle(sinir);
+  const sr = sinir.getBoundingClientRect();
+  return {
+    cizgi,
+    ust: sr.top,
+    alt: sr.bottom,
+    icAlt: sr.bottom - parseFloat(ss.borderBottomWidth),
+    altRadius: [ss.borderBottomLeftRadius, ss.borderBottomRightRadius],
+    ustRadius: [ss.borderTopLeftRadius, ss.borderTopRightRadius],
   };
 }
 // #endregion
@@ -329,6 +363,25 @@ test.describe('telefon akordeon (ResponsiveTable → AccordionList)', () => {
     expect(await page.evaluate(() => document.activeElement === document.body), 'odak body\'ye düştü').toBe(false);
   });
 
+  test('gövdedeki eylem düğmeleri satırın adıyla açıklanır: aynı görünür ad ("Odayı aç"), ayırt edici açıklama (Ev)', async ({ page }) => {
+    const alan = await telefonOdaAkordeonu(page);
+    await alan.getByRole('button', { name: 'Tümünü aç' }).click();
+    const satirlar = alan.locator('li.aile-acc-item').filter({ has: page.getByRole('button', { name: 'Odayı aç' }) });
+    const sayi = await satirlar.count();
+    expect(sayi).toBeGreaterThan(1);
+    const aciklamalar: string[] = [];
+    for (let i = 0; i < sayi; i++) {
+      const satir = satirlar.nth(i);
+      const ad = ((await satir.locator('.aile-acc-title').textContent()) ?? '').trim();
+      expect(ad).not.toBe('');
+      const dugme = satir.getByRole('button', { name: 'Odayı aç', exact: true });
+      await expect(dugme).toHaveAccessibleName('Odayı aç');
+      await expect(dugme).toHaveAccessibleDescription(ad);
+      aciklamalar.push(ad);
+    }
+    expect(new Set(aciklamalar).size, 'her düğme kendi satırını adlandırır').toBe(sayi);
+  });
+
   test('hareket: tek süre ve eğri; reduced-motion açıkken geçiş yok, durum anında değişir', async ({ page }) => {
     const alan = await telefonAkordeonu(page, '/odemeler');
     expect(await motion(page, EGRI, 240, { root: AKORDEON })).toEqual([]);
@@ -347,6 +400,106 @@ test.describe('telefon akordeon (ResponsiveTable → AccordionList)', () => {
     await expect(panel).toBeVisible();
     expect(await motion(page, EGRI, 240, { root: AKORDEON, reduced: true })).toEqual([]);
   });
+});
+
+// --- Telefon: odak çizgisinin sınırları (hareket, lacivert çubuk, radiuslu liste kenarı) ---------------------------
+// Kesin kurallar: odak işareti hemen görünür (zorla fade yok); çizgi komşu yüzeye ≥ 3:1 (lacivert çubukta odak-nav
+// yalnız lacivertin içinde); radiuslu kutunun kenarına oturan çizginin değdiği köşeler radiussuz (kavisli vurgu kenarı yok).
+
+test.describe('telefon odak çizgisi sınırları', () => {
+  test.beforeEach(({ page }) => {
+    test.skip(!telefonmu(page.viewportSize()?.width), 'telefon kuralı: 600 px altı projeler');
+  });
+
+  test('akordeon başlığı: odak çizgisi tuştan sonraki ilk karede tam opak (solarak belirmez); geçişi yok', { tag: '@matrix' }, async ({ page, browserName }) => {
+    const alan = await telefonAkordeonu(page, '/odemeler');
+    const basliklar = alan.locator('button[aria-expanded]');
+    await enterKeyboardMode(page, browserName);
+    await basliklar.first().focus();
+    await expect.poll(() => basliklar.first().evaluate(basliktakiCizgi).then(c => c?.opacity)).toBe('1');
+    // Her tuş vuruşundan sonraki ilk karede (rAF, boyamadan önce) odaklı başlığın çizgisinin opaklığı kaydedilir.
+    await page.evaluate(() => {
+      const w = window as unknown as { __ilkKare: string[] };
+      w.__ilkKare = [];
+      document.addEventListener('keydown', () => {
+        requestAnimationFrame(() => {
+          const cizgi = document.activeElement?.querySelector('.aile-acc-ul');
+          w.__ilkKare.push(cizgi ? getComputedStyle(cizgi, '::after').opacity : 'çizgi yok');
+        });
+      }, true);
+    });
+    for (const tus of ['ArrowDown', 'ArrowDown', 'End', 'Home']) await page.keyboard.press(tus);
+    await expect.poll(() => page.evaluate(() => (window as unknown as { __ilkKare: string[] }).__ilkKare.length)).toBe(4);
+    expect(await page.evaluate(() => (window as unknown as { __ilkKare: string[] }).__ilkKare)).toEqual(['1', '1', '1', '1']);
+    // Gösterge geçiş taşımaz (yalnız reduced-motion'da değil, her zaman): opaklık için süre yok.
+    const gecis = await basliklar.first().evaluate(d => {
+      const after = getComputedStyle(d.querySelector('.aile-acc-ul')!, '::after');
+      return { ozellik: after.transitionProperty, sure: after.transitionDuration };
+    });
+    const opaklikSuresi = gecis.ozellik.split(',').map(s => s.trim()).flatMap((ozellik, i) =>
+      (ozellik === 'opacity' || ozellik === 'all') ? [gecis.sure.split(',')[i]?.trim() ?? gecis.sure.split(',')[0]!.trim()] : []);
+    expect(opaklikSuresi.filter(sure => sure !== '0s'), JSON.stringify(gecis)).toEqual([]);
+  });
+
+  test('üst çubuk: "Sayfalar" odak çizgisi lacivert çubuğun içinde (kaba işaretçide 48 px hedefle de), çubuk 56 px kalır', { tag: '@matrix' }, async ({ page, browserName }) => {
+    await hazirla(page);
+    await openAdmin(page, '/odemeler');
+    const sayfalar = page.getByRole('button', { name: 'Sayfalar', exact: true });
+    const cubuk = page.locator('.aile-admin-shell > header').filter({ has: sayfalar });
+    await enterKeyboardMode(page, browserName);
+    await sayfalar.focus();
+    await expect(sayfalar).toBeFocused();
+    const kaba = await page.evaluate(() => document.documentElement.hasAttribute('data-input-coarse'));
+    const olcu = await cubuk.evaluate(odakCizgisi);
+    expect(olcu.cizgi, 'Sayfalar odak çizgisi').not.toBeNull();
+    const dugme = (await sayfalar.boundingBox())!;
+    expect(dugme.height, 'dokunma hedefi').toBeGreaterThanOrEqual((kaba ? 48 : 44) - 0.5);
+    expect(olcu.alt - olcu.ust, 'üst çubuk yüksekliği').toBeCloseTo(56, 0);
+    // Çizginin tamamı lacivert çubuğun içinde: açık zemine taşan parça (odak-nav ≈ 1,8:1) yok.
+    expect(olcu.cizgi!.ust, JSON.stringify({ kaba, olcu })).toBeGreaterThanOrEqual(olcu.ust - 0.5);
+    expect(olcu.cizgi!.alt, JSON.stringify({ kaba, olcu })).toBeLessThanOrEqual(olcu.alt + 0.5);
+    // Çizgi kontrolün altında (içine binmez), aralığı korunur.
+    expect(olcu.cizgi!.ust).toBeGreaterThanOrEqual(dugme.y + dugme.height + 2.5);
+    expect(await focusRing(page, { keyboard: true })).toEqual([]);
+  });
+
+  for (const durum of [
+    { rota: '/genel' as const, ad: 'Genel › Dikkat isteyenler (bağlantı satırı)', liste: '.aile-genel-liste:has(> li > a)', hedef: ':scope > li:last-child > a' },
+    { rota: '/projeler' as const, ad: 'Projeler › proje listesi (satır düğmesi)', liste: '.aile-projeler-liste', hedef: ':scope > li:last-child > button' },
+    { rota: '/sozlukler' as const, ad: 'Sözlükler › kategori ağacı (kapalı son düğüm)', liste: '.aile-sz-agac > .aile-sz-agac-liste', hedef: ':scope > li:last-child[data-open="false"] > .aile-sz-dugum-ust > button' },
+  ]) {
+    test(`son satır odakta: çizgi radiuslu liste kenarına oturur, değdiği alt köşeler radiussuz; üst köşeler ve işaretçi görünümü korunur — ${durum.ad}`, { tag: '@matrix' }, async ({ page, browserName }) => {
+      await hazirla(page);
+      await openAdmin(page, durum.rota);
+      const liste = page.locator(durum.liste).first();
+      await expect(liste).toBeVisible();
+      const hedef = liste.locator(durum.hedef);
+      await expect(hedef).toHaveCount(1);
+      const once = await liste.evaluate(odakCizgisi);
+      expect(once.altRadius, 'liste radiuslu (kose-kart)').toEqual(['12px', '12px']);
+
+      await enterKeyboardMode(page, browserName);
+      await hedef.focus();
+      await expect(hedef).toBeFocused();
+      const klavye = await liste.evaluate(odakCizgisi);
+      expect(klavye.cizgi, 'son satırın odak çizgisi').not.toBeNull();
+      // Çizgi listenin alt kenarına (köşe radiusu bölgesine) oturur: senaryo gerçekten sınanıyor.
+      expect(klavye.cizgi!.alt, JSON.stringify(klavye)).toBeGreaterThan(klavye.icAlt - 12);
+      expect(klavye.cizgi!.alt, JSON.stringify(klavye)).toBeLessThanOrEqual(klavye.icAlt + 0.5);
+      expect(klavye.altRadius, 'değdiği alt köşeler radiussuz').toEqual(['0px', '0px']);
+      expect(klavye.ustRadius, 'üst köşeler korunur').toEqual(['12px', '12px']);
+      expect(await focusRing(page, { keyboard: true })).toEqual([]);
+
+      // İşaretçi kipinde (gösterge yok) köşeler yerinde; odak programatik olarak satırda kalsa da.
+      const baslik = (await page.locator('main#admin-content h1').boundingBox())!;
+      await page.mouse.click(baslik.x + 4, baslik.y + 4);
+      await expect.poll(() => page.evaluate(() => document.documentElement.dataset.keyboard ?? 'yok')).not.toBe('true');
+      await hedef.focus();
+      const isaretci = await liste.evaluate(odakCizgisi);
+      expect(isaretci.cizgi).toBeNull();
+      expect(isaretci.altRadius).toEqual(['12px', '12px']);
+    });
+  }
 });
 
 // --- Geniş profil: yerel tablo ---------------------------------------------------------------------------------
@@ -405,8 +558,11 @@ test.describe('geniş profil tablo (ResponsiveTable → Table)', () => {
 
   test('satırlar: Enter ve Space açar, oklar satırlar arasında; odak çizgisi satırın altında, yapışkan ilk hücrenin üstünde (Bütçe)', async ({ page, browserName }) => {
     const bolge = await genisTablo(page, '/butce', BUTCE_TABLO);
-    const satirlar = bolge.locator('tbody tr[tabindex="0"]');
+    const satirlar = bolge.locator('tbody tr[tabindex]');
     expect(await satirlar.count()).toBeGreaterThan(2);
+    // Tek sekme durağı (dolaşan tabindex); açılabilirlik tek ipucuyla duyurulur, satırın adı hücrelerden gelir.
+    await expect(bolge.locator('tbody tr[tabindex="0"]')).toHaveCount(1);
+    await expect(satirlar.nth(1)).toHaveAccessibleDescription('Enter ya da Boşluk ile açılır.');
     await enterKeyboardMode(page, browserName);
     await satirlar.nth(1).focus();
     await page.keyboard.press('Enter');
@@ -420,6 +576,15 @@ test.describe('geniş profil tablo (ResponsiveTable → Table)', () => {
     await page.keyboard.press('Home');
     await expect(satirlar.first()).toBeFocused();
     expect(await page.evaluate(() => window.scrollX)).toBe(0);
+    // Durak odaklanan satırla gezer: Tab tablodan tek adımda çıkar, Shift+Tab aynı satıra döner.
+    await page.keyboard.press('ArrowDown');
+    await expect(satirlar.nth(1)).toBeFocused();
+    await expect(bolge.locator('tbody tr[tabindex="0"]')).toHaveCount(1);
+    await expect(satirlar.nth(1)).toHaveAttribute('tabindex', '0');
+    await page.keyboard.press(tabKey(browserName));
+    expect(await bolge.evaluate(b => b.querySelector('tbody')!.contains(document.activeElement)), 'Tab tablodan çıkar').toBe(false);
+    await page.keyboard.press(shiftTabKey(browserName));
+    await expect(satirlar.nth(1)).toBeFocused();
 
     await satirlar.nth(2).focus();
     expect(await focusRing(page, { keyboard: true })).toEqual([]);
@@ -432,7 +597,7 @@ test.describe('geniş profil tablo (ResponsiveTable → Table)', () => {
 
   test('dokunma: satıra dokunuş açar; yatay kaydırma hareketi (pointercancel) satır seçmez, kapsayıcıyı kaydırır', async ({ page, browserName }) => {
     const bolge = await genisTablo(page, '/butce', BUTCE_TABLO);
-    const satirlar = bolge.locator('tbody tr[tabindex="0"]');
+    const satirlar = bolge.locator('tbody tr[tabindex]');
     const hasTouch = await page.evaluate(() => navigator.maxTouchPoints > 0);
     test.skip(!hasTouch, 'dokunma yalnız dokunmatik projelerde (chromium, webkit)');
     await satirlar.nth(1).locator('td').nth(1).tap();

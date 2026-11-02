@@ -87,7 +87,8 @@ describe('Table', () => {
     const onRowClick = vi.fn();
     render(<Table columns={columns} rows={rows} caption="Alımlar" onRowClick={onRowClick} />);
     const row = rowOf('Salon halısı');
-    expect(row).toHaveAttribute('tabindex', '0');
+    // Satırlar odaklanabilir; sekme durağı tektir (dolaşan tabindex, ayrı testte).
+    expect(row).toHaveAttribute('tabindex');
 
     await user.click(within(row).getByText('Salon halısı'));
     expect(onRowClick).toHaveBeenCalledTimes(1);
@@ -260,15 +261,69 @@ describe('Table › klavye ve dokunma', () => {
     expect(onRowClick).toHaveBeenCalledTimes(1);
   });
 
-  it('Tab ve Shift+Tab satırlar arasında sırayla gezer', async () => {
+  it('tıklanabilir satırlar tek sekme durağıdır (dolaşan tabindex): Tab tablodan tek adımda çıkar, oklar durağı taşır, dönüşte son odaklanan satır', async () => {
     const user = userEvent.setup();
-    render(<Table columns={columns} rows={rows} caption="Alımlar" onRowClick={() => {}} />);
+    const three = [...rows, { ...rows[0]!, id: 'r3', code: 'AL-003', label: 'Bebek karyolası' }];
+    render(
+      <>
+        <button type="button">Önce</button>
+        <Table columns={columns} rows={three} caption="Alımlar" onRowClick={() => {}} />
+        <button type="button">Sonra</button>
+      </>,
+    );
+    const [first, second, third] = ['Mutfak dolabı', 'Salon halısı', 'Bebek karyolası'].map(rowOf);
+    const duraklar = () => [first, second, third].map(row => row!.getAttribute('tabindex'));
+    expect(duraklar()).toEqual(['0', '-1', '-1']);
     await user.tab();
-    expect(rowOf('Mutfak dolabı')).toHaveFocus();
+    expect(screen.getByRole('button', { name: 'Önce' })).toHaveFocus();
     await user.tab();
-    expect(rowOf('Salon halısı')).toHaveFocus();
+    expect(first).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole('button', { name: 'Sonra' })).toHaveFocus();
     await user.tab({ shift: true });
-    expect(rowOf('Mutfak dolabı')).toHaveFocus();
+    expect(first).toHaveFocus();
+    await user.keyboard('{ArrowDown}');
+    expect(second).toHaveFocus();
+    expect(duraklar()).toEqual(['-1', '0', '-1']);
+    await user.tab();
+    expect(screen.getByRole('button', { name: 'Sonra' })).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(second).toHaveFocus();
+    // İşaretçiyle odaklanan satır da durak olur (tıklanan satır sonraki Tab dönüşünün hedefi).
+    await user.click(within(third!).getByText('Bebek karyolası'));
+    expect(third).toHaveFocus();
+    expect(duraklar()).toEqual(['-1', '-1', '0']);
+  });
+
+  it('seçili satır, odaklanmadan önce sekme durağıdır; seçim değişince durak seçili satıra geçer', () => {
+    const three = [...rows, { ...rows[0]!, id: 'r3', code: 'AL-003', label: 'Bebek karyolası' }];
+    const { rerender } = render(<Table columns={columns} rows={three} caption="Alımlar" selectedKey="r2" onRowClick={() => {}} />);
+    const durak = () => ['Mutfak dolabı', 'Salon halısı', 'Bebek karyolası'].map(rowOf).map(row => row.getAttribute('tabindex'));
+    expect(durak()).toEqual(['-1', '0', '-1']);
+    act(() => rowOf('Mutfak dolabı').focus());
+    expect(durak()).toEqual(['0', '-1', '-1']);
+    rerender(<Table columns={columns} rows={three} caption="Alımlar" selectedKey="r3" onRowClick={() => {}} />);
+    expect(durak()).toEqual(['-1', '-1', '0']);
+  });
+
+  it('satırın açılabildiği duyurulur: tıklanabilir satır tek ipucuyla açıklanır (ad değişmez); ipucu değiştirilebilir', () => {
+    const { unmount } = render(<Table columns={columns} rows={rows} caption="Alımlar" onRowClick={() => {}} />);
+    for (const label of ['Mutfak dolabı', 'Salon halısı']) {
+      const row = screen.getByRole('row', { name: new RegExp(label) });
+      expect(row).toHaveAccessibleDescription('Enter ya da Boşluk ile açılır.');
+      expect(row).toHaveAccessibleName(new RegExp(`^AL-00\\d ${label}`));
+    }
+    // İpucu görünür değildir ama tek kopyadır (her satıra ayrı metin yok) ve 14 px kuralına takılmaz (görsel gizli).
+    expect(document.querySelectorAll('.aile-table-ipucu')).toHaveLength(1);
+    unmount();
+
+    const { unmount: kaldir } = render(<Table columns={columns} rows={rows} caption="Alımlar" onRowClick={() => {}} rowHint="Enter ya da Boşluk ile seçilir." />);
+    expect(screen.getByRole('row', { name: /Mutfak dolabı/ })).toHaveAccessibleDescription('Enter ya da Boşluk ile seçilir.');
+    kaldir();
+
+    render(<Table columns={columns} rows={rows} caption="Alımlar" />);
+    expect(screen.getByRole('row', { name: /Mutfak dolabı/ })).not.toHaveAttribute('aria-describedby');
+    expect(document.querySelector('.aile-table-ipucu')).toBeNull();
   });
 
   it('iptal edilen dokunuş (pointercancel: kaydırma başladı) satırı açmaz; dokunup bırakma açar', () => {
