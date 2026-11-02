@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "entry": "admin.html",
+  "profile": "phone",
+  "recorded": "2026-11-02, taban d481e18 (W0 w0-delivery)",
+  "policy": "Ratchet: bu liste yalnız küçülür. Bir ihlal giderilince kimliğini silin (check-delivery 'baseline daraltılabilir' der). Yeni kimlik eklemek kuralı gevşetir; yalnız entegrasyon sahibinin açık kararıyla. Entegrasyon sonunda liste boşalır ve kapı --strict ile koşar.",
+  "violations": [
+    "antd <- src/admin/ui/antd.ts",
+    "icons <- antd"
+  ]
+}

@@ -2,13 +2,14 @@ import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import { fileURLToPath, URL } from 'node:url';
+import { realpathSync } from 'node:fs';
 import { startupFailureScript, startupMarkup, startupStyles } from './src/app/startup.ts';
 import { adminStartupScript } from './src/admin/startup.ts';
 import { privateDataPlugin } from './src/admin/devServer/privateData.ts';
 
 // PWA ön belleğinin dışında kalan dosyalar. İlk 12 glob ana uygulamanın bilinçli tembel parçalarıdır (ana kabuk
-// bunlara inmez); son 5'i yönetim girişi ve adıyla yönetime ait sağlayıcı parçalarıdır.
-const PRECACHE_IGNORES = ['**/Charts-*', '**/PaymentChart-*', '**/VehiclePage-*', '**/TimelinePage-*', '**/FinancePage-*', '**/timelineStore-*', '**/financeStore-*', '**/LegacyApp-*', '**/HomePlanPage-*', '**/NumberInput-*', '**/Collapse-*', '**/Tabs-*', '**/admin.html', '**/admin-*', '**/antd-*', '**/pro-*', '**/icons-*'];
+// bunlara inmez); son 6'sı yönetim girişi, adıyla yönetime ait sağlayıcı parçaları ve geniş-özel `wide` parçasıdır.
+const PRECACHE_IGNORES = ['**/Charts-*', '**/PaymentChart-*', '**/VehiclePage-*', '**/TimelinePage-*', '**/FinancePage-*', '**/timelineStore-*', '**/financeStore-*', '**/LegacyApp-*', '**/HomePlanPage-*', '**/NumberInput-*', '**/Collapse-*', '**/Tabs-*', '**/admin.html', '**/admin-*', '**/antd-*', '**/pro-*', '**/icons-*', '**/wide-*'];
 
 // Ad listesi tek başına yetmez: ikinci giriş (admin.html) eklenince rolldown, yönetim sayfalarını ve yönetimle tembel
 // ana parçalar arasında paylaşılan modülleri (ECharts alt parçaları, Phosphor/idb-keyval, ortak kabuk) modül adından
@@ -60,6 +61,145 @@ const precacheScope = adminPrecacheScope(PRECACHE_IGNORES);
 // precached `shared` chunk; the `router` group below keeps it out of the shell and away from an `index-*` name.
 const WOUTER_BOOT = /node_modules[\\/]wouter[\\/]src[\\/](use-hash-location|react-deps|use-sync-external-store)\.js$/;
 
+type ChunkGroup = { name: string; priority: number; test: (id: string) => boolean };
+
+// Geniş-özel (tablet/masaüstü) modüller: src/ altında `*.wide.{ts,tsx,js,jsx,css}` adı veya `wide/` klasörü. Hepsi tek
+// `wide` parçasında toplanır; telefon profili bu parçayı statik olarak hiç istemez (kapı: scripts/check-delivery.mjs).
+// Sorgu eki (?used, ?inline) kabul edilir; node_modules içindeki `src/wide` gibi yollar sayılmaz. Geniş-özel bir
+// modülün yalnız onun kullandığı yardımcıları da `.wide.` adı veya `wide/` klasörüyle işaretlenir; işaretsiz ortak
+// modüller bilerek wide parçasına alınmaz (includeDependenciesRecursively: false).
+const WIDE_MODULE = /[\\/]src[\\/](?:[^?]*[\\/])?(?:wide[\\/][^?]+|[^\\/?]+\.wide\.(?:[cm]?[jt]sx?|css))(?:\?.*)?$/;
+const isWideModule = (id: string) => !/[\\/]node_modules[\\/]/.test(id) && WIDE_MODULE.test(id);
+
+// codeSplitting grupları için tek liste; deliveryGraph aynı testlerle modül → grup üyeliğini yazar. Bir modül en yüksek
+// öncelikli eşleşen gruba girer (rolldown kuralı).
+const CHUNK_GROUPS: ChunkGroup[] = [
+  // Geniş-özel modüller en yüksek öncelikte: shared/tokens dahil hiçbir grup onları alamaz.
+  { name: 'wide', priority: 30, test: isWideModule },
+  // Both token modules (source + legacy re-export) stay in one chunk, as before the second entry.
+  { name: 'tokens', priority: 20, test: (id: string) => /src[\\/](design|dashboard)[\\/]tokens\.ts$/.test(id) },
+  // icons/pro outrank the antd group so `@ant-design/*` below cannot swallow them.
+  { name: 'pro', priority: 15, test: (id: string) => id.includes('@ant-design/pro-') },
+  { name: 'icons', priority: 15, test: (id: string) => id.includes('@ant-design/icons') },
+  // antd plus the helpers only antd/cssinjs consume (@babel/runtime, @ant-design/colors|fast-color,
+  // stylis, @emotion/hash|unitless, is-mobile, react-is). Left ungrouped they land in the admin entry
+  // chunk (not precached, but antd then imports back from the app chunk) or in an automatic common chunk
+  // that the precache glob would pick up.
+  { name: 'antd', priority: 10, test: (id: string) => /node_modules[\\/](antd|@ant-design|@rc-component|@babel[\\/]runtime|stylis|@emotion|is-mobile|react-is|classnames)[\\/]/.test(id) },
+  // wouter's router core: shared only by the lazy LegacyApp and admin, so never precached (see WOUTER_BOOT).
+  { name: 'router', priority: 1, test: (id: string) => !WOUTER_BOOT.test(id) && /node_modules[\\/](wouter|regexparam)[\\/]/.test(id) },
+  // Modules both entries import statically (React, wouter's hash-location hook and their deps, keyboard
+  // mode): one precached chunk instead of several automatic common chunks. React cannot live in two chunks of one build, so
+  // this chunk is the whole cost of the second entry to the main precache. An explicit test, not
+  // `minShareCount: 2`: a share count also matches modules that two *lazy* chunks share (NumberInput,
+  // Tabs, financeStore) and would pull those globIgnored chunks into the precache.
+  // `clsx` (Mantine and antd) and Vite's modulepreload polyfill and preload helper (both entries) ride along
+  // instead of becoming more sub-kilobyte precache entries. The rolldown runtime cannot be grouped.
+  { name: 'shared', priority: 0, test: (id: string) => /node_modules[\\/](react|react-dom|scheduler|use-sync-external-store|clsx)[\\/]/.test(id) || WOUTER_BOOT.test(id) || /src[\\/]dashboard[\\/]keyboard\.ts$/.test(id) || /vite\/(modulepreload-polyfill|preload-helper)/.test(id) },
+];
+
+type DeliveryChunk = { modules: number; groups: Record<string, number>; packages: Record<string, number> };
+type DeliveryEdge = { fromChunk: string; from: string; fromGroup: string | null; toChunk: string; to: string; toGroup: string | null };
+
+// Uyarlamalı teslim kanıtı. Vite manifesti (build.manifest → .vite/manifest.json) parça grafiğini verir, parçanın hangi
+// modüllerden oluştuğunu vermez; bu eklenti son paket grafiğinden .vite/delivery-graph.json yazar (schema 1):
+//  - chunks[dosya] = { modules, groups: { codeSplitting grubu: modül sayısı }, packages: { paket | '.' | 'virtual': n } };
+//    grup üyeliği CHUNK_GROUPS testleriyle, öncelik sırasıyla hesaplanır (parça adından tahmin edilmez).
+//  - edges = tekilleştirilmiş statik import kenarları { fromChunk, from, fromGroup, toChunk, to, toGroup }: paket sınırını
+//    ya da parça sınırını geçen her modül → modül kenarı. Yalnız yeniden dışa aktaran ya da ağaç sarsmayla düşen ara
+//    modüllerin (barrel) içinden geçilerek çözülür; parça sınırını geçen kenar, kaynak parça hedef parçayı gerçekten
+//    import ediyorsa yazılır.
+// Anahtarlar köke görelidir; node_modules modülleri paket adına indirgenir. Mutlak yol ve .pnpm sürüm yolu yazılmaz.
+// scripts/check-delivery.mjs telefon statik kapanışını manifestten, sınıfları ve içe aktaran modülleri buradan çıkarır.
+function deliveryGraph(groups: readonly ChunkGroup[]): Plugin {
+  const ordered = [...groups].sort((a, b) => b.priority - a.priority);
+  const groupOf = (id: string) => ordered.find((group) => group.test(id))?.name ?? null;
+  let roots: string[] = [];
+  const normalize = (id: string) => id.replace(/^\0/, '').replace(/\\/g, '/').replace(/\?.*$/, '');
+  const packageOf = (id: string) => {
+    const at = id.lastIndexOf('/node_modules/');
+    if (at < 0) return null;
+    const [scope, name] = id.slice(at + '/node_modules/'.length).split('/');
+    return scope.startsWith('@') ? `${scope}/${name}` : scope;
+  };
+  const keyOf = (raw: string) => {
+    const id = normalize(raw);
+    const pkg = packageOf(id);
+    if (pkg) return pkg;
+    const virtual = /^\/?(virtual:.*)$/.exec(id);
+    if (virtual) return virtual[1];
+    for (const base of roots) if (id.startsWith(`${base}/`)) return id.slice(base.length + 1);
+    if (/^(?:[A-Za-z]:)?\//.test(id)) return `<outside>/${id.split('/').pop()}`;
+    return `virtual:${id}`;
+  };
+  const packageKey = (raw: string) => {
+    const id = normalize(raw);
+    return packageOf(id) ?? (keyOf(raw).startsWith('virtual:') ? 'virtual' : '.');
+  };
+  return {
+    name: 'aile-delivery-graph',
+    apply: 'build',
+    configResolved(config) {
+      const base = config.root.replace(/\\/g, '/');
+      let real = base;
+      try { real = realpathSync(config.root).replace(/\\/g, '/'); } catch { /* kök yoksa yalnız verilen yol */ }
+      roots = [...new Set([base, real])];
+    },
+    generateBundle(_options, bundle) {
+      const owner = new Map<string, string>();
+      const chunkImports = new Map<string, Set<string>>();
+      const chunks: Record<string, DeliveryChunk> = {};
+      for (const output of Object.values(bundle)) {
+        if (output.type !== 'chunk') continue;
+        chunkImports.set(output.fileName, new Set(output.imports));
+        const entry: DeliveryChunk = { modules: 0, groups: {}, packages: {} };
+        for (const id of Object.keys(output.modules)) {
+          owner.set(id, output.fileName);
+          entry.modules += 1;
+          const group = groupOf(id);
+          if (group) entry.groups[group] = (entry.groups[group] ?? 0) + 1;
+          const pkg = packageKey(id);
+          entry.packages[pkg] = (entry.packages[pkg] ?? 0) + 1;
+        }
+        chunks[output.fileName] = entry;
+      }
+      // getModuleInfo modül başına bir kez: barrel modülleri birçok başlangıçtan geçilir.
+      const importsCache = new Map<string, readonly string[]>();
+      const importsOf = (id: string) => {
+        let ids = importsCache.get(id);
+        if (!ids) importsCache.set(id, (ids = [...(this.getModuleInfo(id)?.importedIds ?? [])]));
+        return ids;
+      };
+      const edges = new Map<string, DeliveryEdge>();
+      for (const [id, fromChunk] of owner) {
+        const from = keyOf(id);
+        const fromGroup = groupOf(id);
+        const fromPackage = packageOf(normalize(id)) !== null;
+        const seen = new Set([id]);
+        const stack = [...importsOf(id)];
+        while (stack.length) {
+          const dep = stack.pop()!;
+          if (seen.has(dep)) continue;
+          seen.add(dep);
+          const toChunk = owner.get(dep);
+          if (!toChunk) { stack.push(...importsOf(dep)); continue; }
+          if (toChunk !== fromChunk && !chunkImports.get(fromChunk)?.has(toChunk)) continue;
+          const to = keyOf(dep);
+          const toGroup = groupOf(dep);
+          if (to === from && toGroup === fromGroup) continue;
+          if (toChunk === fromChunk && !fromPackage && packageOf(normalize(dep)) === null) continue;
+          const key = [fromChunk, from, fromGroup, toChunk, to, toGroup].join('\0');
+          if (!edges.has(key)) edges.set(key, { fromChunk, from, fromGroup, toChunk, to, toGroup });
+        }
+      }
+      const order = (edge: DeliveryEdge) => [edge.fromChunk, edge.from, edge.toChunk, edge.to, edge.fromGroup ?? '', edge.toGroup ?? ''].join('\0');
+      const sorted = [...edges.values()].sort((a, b) => (order(a) < order(b) ? -1 : order(a) > order(b) ? 1 : 0));
+      const sortedChunks = Object.fromEntries(Object.entries(chunks).sort(([a], [b]) => (a < b ? -1 : 1)));
+      this.emitFile({ type: 'asset', fileName: '.vite/delivery-graph.json', source: `${JSON.stringify({ schema: 1, groups: ordered.map((group) => group.name), chunks: sortedChunks, edges: sorted })}\n` });
+    },
+  };
+}
+
 export default defineConfig({
   base: '/aile/',
   plugins: [
@@ -77,6 +217,7 @@ export default defineConfig({
     // apply:'serve' olduğu için build çıktısına hiçbir şey eklemez.
     privateDataPlugin(),
     precacheScope.plugin,
+    deliveryGraph(CHUNK_GROUPS),
     VitePWA({
       registerType: 'autoUpdate',
       // public/icon.svg is copied to dist and precached by workbox.globPatterns. includeAssets and the default
@@ -116,6 +257,7 @@ export default defineConfig({
   },
   build: {
     sourcemap: false,
+    manifest: true, // dist/.vite/manifest.json: parça grafiği (check-delivery, vite-config.test); json, ön belleğe girmez
     // Vite 8 bundles with rolldown; `rollupOptions`/`manualChunks` are deprecated aliases. The input key
     // `index` keeps the main entry's `index-*.js` basename.
     rolldownOptions: {
@@ -125,28 +267,7 @@ export default defineConfig({
           // Admin-only vendor code gets its own chunks (never precached). Dependencies are NOT pulled in
           // recursively: the default would drag React into the antd chunk and break the main entry offline.
           includeDependenciesRecursively: false,
-          groups: [
-            // Both token modules (source + legacy re-export) stay in one chunk, as before the second entry.
-            { name: 'tokens', priority: 20, test: (id: string) => /src[\\/](design|dashboard)[\\/]tokens\.ts$/.test(id) },
-            // icons/pro outrank the antd group so `@ant-design/*` below cannot swallow them.
-            { name: 'pro', priority: 15, test: (id: string) => id.includes('@ant-design/pro-') },
-            { name: 'icons', priority: 15, test: (id: string) => id.includes('@ant-design/icons') },
-            // antd plus the helpers only antd/cssinjs consume (@babel/runtime, @ant-design/colors|fast-color,
-            // stylis, @emotion/hash|unitless, is-mobile, react-is). Left ungrouped they land in the admin entry
-            // chunk (not precached, but antd then imports back from the app chunk) or in an automatic common chunk
-            // that the precache glob would pick up.
-            { name: 'antd', priority: 10, test: (id: string) => /node_modules[\\/](antd|@ant-design|@rc-component|@babel[\\/]runtime|stylis|@emotion|is-mobile|react-is|classnames)[\\/]/.test(id) },
-            // wouter's router core: shared only by the lazy LegacyApp and admin, so never precached (see WOUTER_BOOT).
-            { name: 'router', priority: 1, test: (id: string) => !WOUTER_BOOT.test(id) && /node_modules[\\/](wouter|regexparam)[\\/]/.test(id) },
-            // Modules both entries import statically (React, wouter's hash-location hook and their deps, keyboard
-            // mode): one precached chunk instead of several automatic common chunks. React cannot live in two chunks of one build, so
-            // this chunk is the whole cost of the second entry to the main precache. An explicit test, not
-            // `minShareCount: 2`: a share count also matches modules that two *lazy* chunks share (NumberInput,
-            // Tabs, financeStore) and would pull those globIgnored chunks into the precache.
-            // `clsx` (Mantine and antd) and Vite's modulepreload polyfill and preload helper (both entries) ride along
-            // instead of becoming more sub-kilobyte precache entries. The rolldown runtime cannot be grouped.
-            { name: 'shared', priority: 0, test: (id: string) => /node_modules[\\/](react|react-dom|scheduler|use-sync-external-store|clsx)[\\/]/.test(id) || WOUTER_BOOT.test(id) || /src[\\/]dashboard[\\/]keyboard\.ts$/.test(id) || /vite\/(modulepreload-polyfill|preload-helper)/.test(id) },
-          ],
+          groups: CHUNK_GROUPS,
         },
       },
     },
