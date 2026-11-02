@@ -13,7 +13,10 @@ import { overflow, smallText } from './admin-detectors';
 //    ECharts ya da *.wide modülü hiç indirilmez. Sayfa düzeyinde yatay taşma yok.
 //  - Gerçekleşen actuals.ts anlamındadır: içinde bulunulan aydan (Europe/Istanbul) sonraki dönem "Henüz yok";
 //    ödeme kanıtı olmayan yazılı değer "Kaynakta yazılı" (oran yok). Plan ve gerçek ayrı değerdir.
-//  - Saat sabit: 2 Kasım 2026 (İstanbul). Beklenen tutarlar fixture'dan bigint ile hesaplanır, sabit sayı yazılmaz.
+//  - Bütçe gözlemleri toplanmaz: nesilde satır düzeyinde yaprak sahipliği haritası yok (gelir, "… toplamı", "Toplam …"
+//    ve adet satırları gider kalemlerinden ayrılamaz). Tutar yerine "Toplam kullanılamaz" ve nedeni; kayıtlar sayılır.
+//    Fixture toplamları (bigint) yalnız "görünmemeli" denetiminde kullanılır.
+//  - Saat sabit: 2 Kasım 2026 (İstanbul).
 // Matris (@matrix): proje görünümünde çalışır (entegrasyonda 360/375/320×480/568×320/tablet/masaüstü); profil
 // html[data-profile]'dan okunur: telefon akordeon ve grafik yok; tablet ECharts grafiği + tablo (sığmazsa akordeon);
 // masaüstü rapor menüsü + ECharts grafiği + tablo.
@@ -62,6 +65,8 @@ function toplam(basis: string, periods: readonly string[], label?: string): stri
 const GENIS_ISTEK = /echarts|zrender|\.wide\.|\/wide\//;
 /** Rapor grafiklerinin erişilebilir adı (role="img"): "…; değerler aşağıdaki tabloda". */
 const GRAFIK_ADI = /değerler aşağıdaki tabloda/;
+const TOPLAM_KULLANILAMAZ = 'Toplam kullanılamaz';
+const TOPLAM_NEDENI = /^Toplam kullanılamaz: bütçe gözlemlerinin satır düzeyinde yaprak sahipliği haritası yok/;
 
 function istekleriKaydet(page: Page): string[] {
   const urls: string[] = [];
@@ -130,16 +135,25 @@ test.describe('Raporlar › telefon yolculuğu 320×568', () => {
     await expect(aylar.first()).toHaveAttribute('aria-expanded', 'true');
     for (const period of SON_ALTI_AY) await expect(aylik.getByRole('button', { name: new RegExp(`^${ayAdi(period)}`) })).toBeVisible();
 
-    // İçinde bulunulan ay: Gerçekleşen yazılı ama ödeme kanıtı yok → "Kaynakta yazılı", oran yok.
+    // İçinde bulunulan ay: Gerçekleşen yazılı ama ödeme kanıtı yok → "Kaynakta yazılı", oran yok. Ayın satırları tek
+    // Planlanan/Gerçekleşen sayısında toplanmaz: gövdede "Toplam kullanılamaz", başlıkta kayıt sayısı; nedeni yazılı.
     const kasim = aylik.getByRole('button', { name: /^Kasım 2026/ });
     await expect(kasim).toContainText('Kaynakta yazılı');
-    await expect(kasim).toContainText(toplam('recorded_aggregate', ['2026-11']));
+    await expect(kasim).toContainText('8 plan · 8 gerçekleşen');
+    await kasim.click();
+    const kasimGovde = page.locator(`[id="${await kasim.getAttribute('aria-controls')}"]`);
+    await expect(kasimGovde).toContainText(`Planlanan${TOPLAM_KULLANILAMAZ}`);
+    await expect(kasimGovde).toContainText(`Gerçekleşen${TOPLAM_KULLANILAMAZ}`);
+    await expect(aylik.getByText(TOPLAM_NEDENI)).toBeVisible();
+    await expect(aylik).not.toContainText('₺');
+    await expect(aylik).not.toContainText(toplam('recorded_aggregate', ['2026-11']));
     await expect(aylik).not.toContainText(/%\d/);
 
-    // Özet: plan ve gerçek ayrı ölçü.
-    await expect(ozetGirdisi(main, 'Planlanan')).toContainText(toplam('planned', SON_ALTI_AY));
-    await expect(ozetGirdisi(main, 'Gerçekleşen')).toContainText(toplam('recorded_aggregate', SON_ALTI_AY));
-    await expect(ozetGirdisi(main, 'Planlanan')).not.toContainText(toplam('recorded_aggregate', SON_ALTI_AY));
+    // Özet: plan ve gerçek ayrı girdi; tutar yok, eksik toplam adıyla.
+    await expect(ozetGirdisi(main, 'Planlanan')).toContainText(TOPLAM_KULLANILAMAZ);
+    await expect(ozetGirdisi(main, 'Gerçekleşen')).toContainText(TOPLAM_KULLANILAMAZ);
+    await expect(ozet(main)).not.toContainText('₺');
+    await expect(ozet(main)).not.toContainText(toplam('planned', SON_ALTI_AY));
 
     // Gelecek yıl: Gerçekleşen "Henüz yok"; plan ayrı ve yazılı.
     await alttanSec(page, main, 'Dönem', '2027');
@@ -150,7 +164,8 @@ test.describe('Raporlar › telefon yolculuğu 320×568', () => {
     await expect(aylik).not.toContainText('Kaynakta yazılı');
     await expect(aylik).not.toContainText(toplam('recorded_aggregate', ['2027-01']));
     await expect(ozetGirdisi(main, 'Gerçekleşen')).toContainText('Henüz yok');
-    await expect(ozetGirdisi(main, 'Planlanan')).toContainText(toplam('planned', YIL_2027));
+    await expect(ozetGirdisi(main, 'Planlanan')).toContainText(TOPLAM_KULLANILAMAZ);
+    await expect(ozet(main)).not.toContainText(toplam('planned', YIL_2027));
 
     // Rapor seçimi alt sayfada: Kaleme göre harcama → kalem akordeonu, ilk satır açık.
     await alttanSec(page, main, 'Rapor', 'Kaleme göre harcama');
@@ -160,7 +175,10 @@ test.describe('Raporlar › telefon yolculuğu 320×568', () => {
     const kalemler = kalem.getByRole('button', { name: /^Örnek gider satırı \d/ });
     await expect(kalemler).toHaveCount(8);
     await expect(kalemler.first()).toHaveAttribute('aria-expanded', 'true');
-    await expect(kalem.getByRole('button', { name: /^Örnek gider satırı 1/ })).toContainText(toplam('planned', YIL_2027, 'Örnek gider satırı 1'));
+    // Kalem satırı tutar değil kayıt sayısı taşır (toplam ölçüsü sahipsiz; nedeni yazılı).
+    await expect(kalem.getByRole('button', { name: /^Örnek gider satırı 1/ })).toContainText('12 plan · 0 gerçekleşen');
+    await expect(kalem.getByText(TOPLAM_NEDENI)).toBeVisible();
+    await expect(kalem).not.toContainText('₺');
 
     // Dışa aktarma: görünen satırlar, istemci tarafı CSV; Sheets'e yazma yok.
     const indirme = page.waitForEvent('download');
@@ -170,7 +188,8 @@ test.describe('Raporlar › telefon yolculuğu 320×568', () => {
     const icerik = readFileSync((await dosya.path())!, 'utf8');
     expect(icerik.charCodeAt(0)).toBe(0xfeff);
     expect(icerik).toContain('Kalem;Ocak 2027;');
-    expect(icerik).toContain('Örnek gider satırı 1;');
+    expect(icerik).toContain('Örnek gider satırı 1;1 plan · 0 gerçekleşen;');
+    expect(icerik).not.toContain('TRY');
 
     await tasmaYok(page);
     expect(await smallText(page, { root: '.aile-raporlar' })).toEqual([]);
@@ -209,7 +228,8 @@ test.describe('Raporlar › matris', () => {
       await expect(main.getByRole('img', { name: GRAFIK_ADI })).toHaveCount(0);
       await expect(aylik.getByRole('button', { name: /^Haziran 2026/ })).toHaveAttribute('aria-expanded', 'true');
     } else {
-      await expect(aylik.getByRole('img', { name: /Aylara göre planlanan ve gerçekleşen/ })).toBeVisible();
+      // Geniş: grafik tutar değil kayıt sayısını çizer (tutar toplanmaz).
+      await expect(aylik.getByRole('img', { name: /Aylara göre planlanan ve gerçekleşen kayıt sayısı/ })).toBeVisible();
       if (p === 'desktop') {
         await expect(aylik.getByRole('table', { name: 'Aylık plan ve gerçek' })).toBeVisible();
         await expect(aylik.getByRole('columnheader', { name: 'Gerçekleşen' })).toBeVisible();
@@ -222,6 +242,8 @@ test.describe('Raporlar › matris', () => {
         await expect(main.getByRole('combobox', { name: 'Rapor' })).toBeVisible();
       }
     }
+    await expect(aylik.getByText(TOPLAM_NEDENI)).toBeVisible();
+    await expect(aylik).not.toContainText('₺');
     await tasmaYok(page);
     expect(await smallText(page, { root: '.aile-raporlar' })).toEqual([]);
     const genis = istekler.filter(url => GENIS_ISTEK.test(url));

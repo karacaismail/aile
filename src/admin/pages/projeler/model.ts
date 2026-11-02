@@ -1,10 +1,13 @@
-import { toneForCode, type PurchaseNeedRecord, type TaskTemplate, type Term, type WorkflowDefinition } from '../../data';
-import type { RecordRow, StatusLabel, SortOption, Tone } from '../../shell/contracts';
+import { BUDGET_TIME_ZONE, sumMoney, toneForCode, type PurchaseNeedRecord, type TaskTemplate, type Term, type WorkflowDefinition } from '../../data';
+import type { Money, RecordRow, StatusLabel, SortOption, Tone } from '../../shell/contracts';
+import { formatMoney } from '../../ui/Money';
 
 // Projeler ve görevler sayfasının saf modeli (React yok): telefon sunumu ve geniş modül (lazyWide) aynı veriyi buradan
 // alır. Veri: nesilde proje koleksiyonu yok; görev = work_orders + milestones (app_kalemler gövdesi). "Proje" kaynakta
 // ayrı kayıt olmadığından görevlerin proje aşaması (phase sözlüğü, ör. "Taşınma öncesi") ile toplanır; aşaması
 // olmayan görevler "Bilinmiyor" projesindedir (eksik bilgi adıyla). Plan ve gerçek hiçbir yerde tek sayıda birleşmez.
+// Para toplamı kesin ondalıkla (actuals.sumMoney, bigint; Number×100 ve Math.round yok), biçim ui/Money formatMoney.
+// "Bugün" ve "Gecikti" Europe/Istanbul takvim günüyle (Genel ve Ödemeler ile aynı; cihazın saat dilimi değil).
 
 export const BILINMIYOR = 'Bilinmiyor';
 export const FIYAT_YOK = 'Fiyat yok';
@@ -23,7 +26,6 @@ const IPTAL_KODLARI = new Set(['cancelled', 'iptal']);
 
 export const sayi = new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 0 });
 const DECIMAL = /^-?[0-9]+(\.[0-9]+)?$/;
-const CURRENCY_CODE = /^[A-Z]{3}$/;
 
 // --- Tarih -------------------------------------------------------------------------------------------
 const GUN_MS = 86_400_000;
@@ -54,9 +56,14 @@ export function aralikMetni(start: string | null, end: string | null): string {
   return `${start ? tarihVeyaYok(start) : 'Başlangıç yok'} – ${end ? tarihVeyaYok(end) : 'Bitiş yok'}`;
 }
 
-/** Yerel takvim günü → UTC gün (now'un saatine değil gününe bakılır). */
+const istanbulGunu = new Intl.DateTimeFormat('en-CA', { timeZone: BUDGET_TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit' });
+
+/** Anın Europe/Istanbul takvim günü → UTC gün (saate değil güne bakılır). Geçersiz an RangeError (gün uydurulmaz). */
 export function todayUtc(now: Date): Date {
-  return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+  if (Number.isNaN(now.getTime())) throw new RangeError('Hata: geçersiz tarih; bugün belirlenemedi.');
+  const parts = istanbulGunu.formatToParts(now);
+  const part = (type: Intl.DateTimeFormatPartTypes) => Number(parts.find(item => item.type === type)?.value);
+  return new Date(Date.UTC(part('year'), part('month') - 1, part('day')));
 }
 
 function monday(date: Date): Date {
@@ -67,31 +74,19 @@ function monday(date: Date): Date {
 // --- Para toplamı (plan ve gerçek ayrı toplanır) -----------------------------------------------------
 export interface Toplam { parts: string[]; eksik: number }
 
-function toMinor(amount: string): number | null {
-  if (!DECIMAL.test(amount.trim())) return null;
-  const value = Number(amount);
-  return Number.isFinite(value) ? Math.round(value * 100) : null;
-}
-
-function paraMetni(minor: number, currency: string): string {
-  const code = currency.trim().toUpperCase();
-  const value = minor / 100;
-  if (CURRENCY_CODE.test(code)) {
-    return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: code, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
-  }
-  return `${new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)} ${currency.trim()}`.trim();
-}
-
-/** Para birimine göre ayrı toplam; tutarı olmayan ya da bozuk kayıt "eksik" sayılır. */
+/** Para birimine göre ayrı, kesin toplam (sumMoney); tutarı olmayan ya da bozuk kayıt "eksik" sayılır. */
 export function topla(values: readonly RecordRow['planned'][]): Toplam {
-  const perCurrency = new Map<string, number>();
+  const perCurrency = new Map<string, Money[]>();
   let eksik = 0;
   for (const value of values) {
-    const minor = value ? toMinor(value.amount) : null;
-    if (!value || minor === null) { eksik += 1; continue; }
-    perCurrency.set(value.currency, (perCurrency.get(value.currency) ?? 0) + minor);
+    if (!value || !DECIMAL.test(value.amount.trim())) { eksik += 1; continue; }
+    // Birim kodu sumMoney ile aynı biçimde (kırpılmış, büyük harf) gruplanır: "try" ve "TRY" tek toplamdır.
+    const currency = value.currency.trim().toUpperCase();
+    const list = perCurrency.get(currency) ?? [];
+    list.push({ amount: value.amount.trim(), currency });
+    perCurrency.set(currency, list);
   }
-  return { parts: [...perCurrency.entries()].map(([currency, minor]) => paraMetni(minor, currency)), eksik };
+  return { parts: [...perCurrency.values()].map(list => formatMoney(sumMoney(list).money)), eksik };
 }
 
 /** Toplamın metni; hiç tutar yoksa eksiklik adı ("Fiyat yok", "Henüz yok"). */

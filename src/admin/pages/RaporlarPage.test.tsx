@@ -8,13 +8,15 @@ import { FixtureGenerationSource, GenerationProvider, type BudgetObservation, ty
 import { DeviceContext } from '../device';
 import type { Device } from '../shell/contracts';
 import { RaporlarPage, REPORTS, periodLabel, toCsv } from './RaporlarPage';
+import { TOTAL_UNAVAILABLE_TEXT } from '../data';
 
 // Tasarım: SayfaRaporlar / SayfaRaporlarDar + bundle.js Aile.Pages.Raporlar (masaüstünde solda rapor menüsü, dar
 // ekranda "Rapor" seçimi; Dönem seçimi "Son 6 ay"; "Raporu dışa aktar"; plan acik-mavi / gerçek eylem çubukları ve
 // yanında tablo). Veri: budget_observations. Gerçekleşen actuals.ts anlamıyla: gelecek dönem "Henüz yok", kanıtsız
-// yazılı değer "Kaynakta yazılı" (oran yok); toplamlar yalnız katalogdaki sahipliği belirlenmiş ölçülerle (pivotMeasures)
-// ve kesin (bigint); plan ve gerçek tek sayıda birleşmez. Geniş yetenekler (rapor menüsü, ECharts grafiği) lazyWide ile
-// yalnız geniş profilde gelir; telefon onları hiç yüklemez. Saat sabit: 2 Kasım 2026 İstanbul.
+// yazılı değer "Kaynakta yazılı" (oran yok); plan ve gerçek tek sayıda birleşmez. Bütçe gözlemleri toplanmaz: nesilde
+// satır düzeyinde yaprak sahipliği haritası yok (views: pivotMeasures yalnız sayım, sumUnavailableReason); tutar yerine
+// "Toplam kullanılamaz" ve kayıt sayıları. Geniş yetenekler (rapor menüsü, ECharts grafiği) lazyWide ile yalnız geniş
+// profilde gelir; telefon onları hiç yüklemez. Saat sabit: 2 Kasım 2026 İstanbul.
 
 // Chart: echarts tembel yüklenir; burada yalnız sözleşmesi (role=img + aria-label, açıklama görünür) taklit edilir.
 vi.mock('../ui/Chart', () => ({
@@ -166,10 +168,10 @@ describe('Raporlar › yardımcılar', () => {
     expect(periodLabel('bilinmiyor')).toBe('bilinmiyor');
   });
 
-  it('toCsv noktalı virgülle ayırır, ayırıcı ve tırnak içeren hücreyi tırnaklar, BOM ile başlar', () => {
-    const csv = toCsv([['Ay', 'Planlanan'], ['Kasım 2026', '8500.00 TRY'], ['Not; "a"', 'Henüz yok']]);
+  it('toCsv noktalı virgülle ayırır, ayırıcı ve tırnak içeren hücreyi tırnaklar, BOM ile başlar; formül başlangıcını etkisizleştirir', () => {
+    const csv = toCsv([['Ay', 'Planlanan'], ['Kasım 2026', '8500.00 TRY'], ['Not; "a"', 'Henüz yok'], ['=1+1', '-1250.00']]);
     expect(csv.charCodeAt(0)).toBe(0xfeff);
-    expect(csv.slice(1)).toBe('Ay;Planlanan\r\nKasım 2026;8500.00 TRY\r\n"Not; ""a""";Henüz yok');
+    expect(csv.slice(1)).toBe(`Ay;Planlanan\r\nKasım 2026;8500.00 TRY\r\n"Not; ""a""";Henüz yok\r\n'=1+1;-1250.00`);
   });
 
   it('telefon yolu geniş-özel kodu statik içe aktarmaz: grafik ve rapor menüsü yalnız *.wide modülünde', () => {
@@ -227,7 +229,7 @@ describe('RaporlarPage › başlık ve durumlar', () => {
     await userEvent.click(within(alert).getByRole('button', { name: 'Yeniden dene' }));
     await waitForReport('Aylık plan ve gerçek');
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
-    expect(summaryItem('Planlanan').textContent).toContain(tl('planned', SON_ALTI_AY));
+    expect(summaryItem('Planlanan').textContent).toContain(TOTAL_UNAVAILABLE_TEXT);
   }, JOURNEY_MS);
 
   it('nesilde bütçe gözlemi yoksa dürüstçe "Kaynakta bütçe gözlemi kaydı yok" der', async () => {
@@ -251,7 +253,7 @@ describe('RaporlarPage › başlık ve durumlar', () => {
 });
 
 describe('RaporlarPage › Aylık plan ve gerçek', () => {
-  it('varsayılan Son 6 ay; plan ve gerçek ayrı sütun ve ayrı özet; durum actuals anlamıyla, oran yok; grafik genişte', async () => {
+  it('varsayılan Son 6 ay; plan ve gerçek ayrı sütun ve ayrı özet; toplam üretilmez ("Toplam kullanılamaz", nedeni yazılı); durum actuals anlamıyla, oran yok; kayıt grafiği genişte', async () => {
     renderPage();
     const table = await waitForReport('Aylık plan ve gerçek');
 
@@ -259,17 +261,20 @@ describe('RaporlarPage › Aylık plan ve gerçek', () => {
     expect(bodyRows(table)).toHaveLength(SON_ALTI_AY.length);
     expect(within(region('Aylık plan ve gerçek')).getByText('Haziran – Kasım 2026 · Kasım sürüyor')).toBeInTheDocument();
 
+    // Nesilde satır düzeyinde yaprak sahipliği haritası yok: ayın satırları (gelir, ara toplam, genel toplam, adet olabilir)
+    // tek bir Planlanan/Gerçekleşen sayısında toplanmaz.
     const kasim = within(table).getByRole('row', { name: /Kasım 2026/ });
-    expect(kasim.textContent).toContain(tl('planned', ['2026-11']));
-    expect(kasim.textContent).toContain(tl('recorded_aggregate', ['2026-11']));
+    expect(within(kasim).getAllByText(TOTAL_UNAVAILABLE_TEXT)).toHaveLength(2);
     expect(kasim.textContent).toContain('Kaynakta yazılı');
+    expect(table.textContent).not.toContain('₺');
     expect(table.textContent).not.toMatch(/%\d|harcandı|Plan üstü|Plan altı/);
+    expect(within(region('Aylık plan ve gerçek')).getByText(/^Toplam kullanılamaz: bütçe gözlemlerinin /)).toBeInTheDocument();
 
     const plan = summaryItem('Planlanan').textContent!;
     const gercek = summaryItem('Gerçekleşen').textContent!;
-    expect(plan).toContain(tl('planned', SON_ALTI_AY));
-    expect(gercek).toContain(tl('recorded_aggregate', SON_ALTI_AY));
-    expect(plan).not.toContain(tl('recorded_aggregate', SON_ALTI_AY));
+    expect(plan).toContain(TOTAL_UNAVAILABLE_TEXT);
+    expect(gercek).toContain(TOTAL_UNAVAILABLE_TEXT);
+    expect(screen.getByRole('list', { name: 'Özet' }).textContent).not.toContain('₺');
     // Kayıt sayısı da plan ve gerçek için ayrı yazılır; ikisi tek sayıda toplanmaz.
     const live = OBS.filter((o) => !o.deleted_at && SON_ALTI_AY.includes(o.period));
     const planKayit = live.filter((o) => o.basis === 'planned').length;
@@ -277,11 +282,12 @@ describe('RaporlarPage › Aylık plan ve gerçek', () => {
     expect(summaryItem('Kayıt').textContent).toContain(`${planKayit} plan · ${gercekKayit} gerçekleşen`);
     expect(screen.getByRole('list', { name: 'Özet' }).textContent).not.toContain(`${planKayit + gercekKayit} kayıt`);
 
-    expect(await screen.findByRole('img', { name: /planlanan ve gerçekleşen/i }, WAIT)).toBeInTheDocument();
+    // Grafik tutar değil kayıt sayısını çizer (tutar yok); değerler tabloda.
+    expect(await screen.findByRole('img', { name: /^Aylara göre planlanan ve gerçekleşen kayıt sayısı/ }, WAIT)).toBeInTheDocument();
     expect(screen.getByText(/Tahminler .*toplanmaz/)).toBeInTheDocument();
   }, JOURNEY_MS);
 
-  it('gelecek yıl: Gerçekleşen her ayda "Henüz yok", özet de "Henüz yok"; plan yazılı', async () => {
+  it('gelecek yıl: Gerçekleşen her ayda "Henüz yok", özet de "Henüz yok"; plan "Toplam kullanılamaz"', async () => {
     const user = userEvent.setup();
     renderPage();
     await waitForReport('Aylık plan ve gerçek');
@@ -290,23 +296,31 @@ describe('RaporlarPage › Aylık plan ve gerçek', () => {
     await user.click(await screen.findByRole('option', { name: '2027' }));
     await waitFor(() => expect(bodyRows(screen.getByRole('table', { name: 'Aylık plan ve gerçek' }))).toHaveLength(12));
     const table = screen.getByRole('table', { name: 'Aylık plan ve gerçek' });
-    for (const row of bodyRows(table)) expect(row.textContent).toContain('Henüz yok');
+    for (const row of bodyRows(table)) {
+      expect(row.textContent).toContain('Henüz yok');
+      expect(row.textContent).toContain(TOTAL_UNAVAILABLE_TEXT);
+    }
     expect(table.textContent).not.toContain('Kaynakta yazılı');
-    expect(table.textContent).not.toContain(tl('recorded_aggregate', ['2027-01']));
+    expect(table.textContent).not.toContain('₺');
     expect(summaryItem('Gerçekleşen').textContent).toContain('Henüz yok');
-    expect(summaryItem('Planlanan').textContent).toContain(tl('planned', YIL_2027));
+    expect(summaryItem('Planlanan').textContent).toContain(TOTAL_UNAVAILABLE_TEXT);
+    expect(summaryItem('Planlanan').textContent).not.toContain(tl('planned', YIL_2027));
   }, JOURNEY_MS);
 
-  it('Tüm dönemler 24 ay; Gerçekleşen toplamı yalnız gelecek olmayan aylardan', async () => {
+  it('Tüm dönemler 24 ay; Gerçekleşen kaydı yalnız gelecek olmayan aylardan sayılır; tutar özeti yok', async () => {
     const user = userEvent.setup();
     renderPage();
     await waitForReport('Aylık plan ve gerçek');
     await user.click(screen.getByRole('combobox', { name: 'Dönem' }));
     await user.click(await screen.findByRole('option', { name: 'Tüm dönemler' }));
     await waitFor(() => expect(bodyRows(screen.getByRole('table', { name: 'Aylık plan ve gerçek' }))).toHaveLength(24));
-    const gecmis = [...new Set(OBS.map((o) => o.period))].filter((p) => p <= '2026-11');
-    expect(summaryItem('Gerçekleşen').textContent).toContain(tl('recorded_aggregate', gecmis));
-    expect(summaryItem('Planlanan').textContent).toContain(tl('planned', [...new Set(OBS.map((o) => o.period))]));
+    const live = OBS.filter((o) => !o.deleted_at);
+    const planKayit = live.filter((o) => o.basis === 'planned').length;
+    const gercekKayit = live.filter((o) => o.basis === 'recorded_aggregate' && o.period <= '2026-11').length;
+    expect(summaryItem('Kayıt').textContent).toContain(`${planKayit} plan · ${gercekKayit} gerçekleşen`);
+    expect(summaryItem('Gerçekleşen').textContent).toContain(TOTAL_UNAVAILABLE_TEXT);
+    expect(summaryItem('Planlanan').textContent).toContain(TOTAL_UNAVAILABLE_TEXT);
+    expect(screen.getByRole('list', { name: 'Özet' }).textContent).not.toContain('₺');
   }, JOURNEY_MS);
 
   it('"Raporu dışa aktar" yalnız görünen satırları CSV olarak istemci tarafında indirir; gelecek ay "Henüz yok"', async () => {
@@ -335,8 +349,9 @@ describe('RaporlarPage › Aylık plan ve gerçek', () => {
       const lines = text.replace(/^﻿/, '').split('\r\n');
       expect(lines[0]).toBe('Ay;Planlanan;Gerçekleşen;Durum;Plan kaydı;Gerçekleşen kaydı');
       expect(lines).toHaveLength(13);
-      expect(lines.find((line) => line.startsWith('Aralık 2026;'))).toMatch(/;Henüz yok;Henüz yok;8;0$/);
-      expect(lines.find((line) => line.startsWith('Kasım 2026;'))).toMatch(/;Kaynakta yazılı;8;8$/);
+      expect(lines.find((line) => line.startsWith('Aralık 2026;'))).toBe(`Aralık 2026;${TOTAL_UNAVAILABLE_TEXT};Henüz yok;Henüz yok;8;0`);
+      expect(lines.find((line) => line.startsWith('Kasım 2026;'))).toBe(`Kasım 2026;${TOTAL_UNAVAILABLE_TEXT};${TOTAL_UNAVAILABLE_TEXT};Kaynakta yazılı;8;8`);
+      expect(text).not.toContain('TRY');
       expect(click).toHaveBeenCalledTimes(1);
       // İndirme başlamadan bağlantı geri alınmaz (WebKit): revoke ertelenir.
       expect(revokeObjectURL).not.toHaveBeenCalled();
@@ -346,10 +361,10 @@ describe('RaporlarPage › Aylık plan ve gerçek', () => {
     }
   }, JOURNEY_MS);
 
-  it('view_definitions yoksa toplam ölçüsü sahipsizdir: tutar sütunu ve özet tutarı yok, gerekçe yazılı', async () => {
+  it('view_definitions yoksa da toplam yok: tutar ve özet tutarı yok, gerekçe yazılı', async () => {
     renderPage('desktop', withoutCollection('view_definitions'));
     const table = await waitForReport('Aylık plan ve gerçek');
-    expect(headerTitles(table)).toEqual(['Ay', 'Kayıt']);
+    expect(headerTitles(table)).toEqual(['Ay', 'Planlanan', 'Gerçekleşen', 'Durum', 'Kayıt']);
     expect(table.textContent).not.toContain('₺');
     expect(within(region('Aylık plan ve gerçek')).getByText(/^Toplam kullanılamaz: /)).toBeInTheDocument();
     expect(screen.queryByText(/₺/)).not.toBeInTheDocument();
@@ -357,7 +372,7 @@ describe('RaporlarPage › Aylık plan ve gerçek', () => {
 });
 
 describe('RaporlarPage › Kaleme göre harcama (pivot)', () => {
-  it('ölçü seçici view_definitions pivot ölçülerini sunar; plan ve gerçek ayrı ölçüdür; hücreler kalem × dönem', async () => {
+  it('ölçü seçici yalnız sayım sunar (toplam ölçüsü sahipsiz, nedeni yazılı); hücreler kalem × dönem kayıt sayısı', async () => {
     const user = userEvent.setup();
     renderPage();
     await waitForReport('Aylık plan ve gerçek');
@@ -372,20 +387,20 @@ describe('RaporlarPage › Kaleme göre harcama (pivot)', () => {
 
     const KALEM = 'Örnek gider satırı 1';
     const row1 = within(table).getByRole('row', { name: new RegExp(KALEM) });
-    expect(row1.textContent).toContain(tl('planned', SON_ALTI_AY, KALEM));
+    expect(row1.textContent).toContain('6 plan · 6 gerçekleşen');
+    expect(row1.textContent).not.toContain(tl('planned', SON_ALTI_AY, KALEM));
+    expect(table.textContent).not.toContain('₺');
+    expect(within(region('Kaleme göre harcama')).getByText(/^Toplam kullanılamaz: bütçe gözlemlerinin /)).toBeInTheDocument();
 
     await user.click(screen.getByRole('combobox', { name: 'Ölçü' }));
     const list = await screen.findByRole('listbox');
-    expect(within(list).getByRole('option', { name: 'Kayıt sayısı' })).toBeInTheDocument();
-    expect(within(list).getByRole('option', { name: 'Plan toplamı' })).toHaveAttribute('aria-selected', 'true');
-    await user.click(within(list).getByRole('option', { name: 'Gerçekleşen toplamı' }));
-    await waitFor(() => expect(screen.getByRole('row', { name: new RegExp(KALEM) }).textContent).toContain(tl('recorded_aggregate', SON_ALTI_AY, KALEM)));
+    expect(within(list).getAllByRole('option').map((o) => o.textContent)).toEqual(['Kayıt sayısı']);
 
     expect(await screen.findByRole('img', { name: /kalem/i }, WAIT)).toBeInTheDocument();
     expect(screen.getByText(/Tahminler .*toplanmaz/)).toBeInTheDocument();
   }, JOURNEY_MS);
 
-  it('gelecek dönemde Gerçekleşen toplamı ölçüsü "Henüz yok"; tutar yazılmaz', async () => {
+  it('gelecek dönemde Gerçekleşen kaydı sayılmaz; tutar yazılmaz', async () => {
     const user = userEvent.setup();
     renderPage();
     await waitForReport('Aylık plan ve gerçek');
@@ -393,10 +408,8 @@ describe('RaporlarPage › Kaleme göre harcama (pivot)', () => {
     await user.click(await screen.findByRole('option', { name: '2027' }));
     await user.click(await screen.findByRole('menuitem', { name: 'Kaleme göre harcama' }, WAIT));
     expect(headerTitles(await waitForReport('Kaleme göre harcama'))).toContain(periodLabel('2027-12'));
-    await user.click(screen.getByRole('combobox', { name: 'Ölçü' }));
-    await user.click(await screen.findByRole('option', { name: 'Gerçekleşen toplamı' }));
     const KALEM = 'Örnek gider satırı 1';
-    await waitFor(() => expect(screen.getByRole('row', { name: new RegExp(KALEM) }).textContent).toContain('Henüz yok'));
+    await waitFor(() => expect(screen.getByRole('row', { name: new RegExp(KALEM) }).textContent).toContain('12 plan · 0 gerçekleşen'));
     expect(screen.getByRole('row', { name: new RegExp(KALEM) }).textContent).not.toContain('₺');
   }, JOURNEY_MS);
 

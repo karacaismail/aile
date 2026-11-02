@@ -67,5 +67,3 @@
 
 .aile-raporlar__not { margin: 0; overflow-wrap: break-word; }
 
-/* Kısmen okunamayan toplamın notu tutarın altında; tutar hizası korunur. */
-.aile-raporlar__eksik { display: block; }

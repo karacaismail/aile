@@ -1,9 +1,12 @@
 // view_definitions okuyucu. Saf TS: React/antd yok. Girdi, nesildeki view_definitions parçası ya da
 // data-platform/dictionaries/views.json ile aynı biçimdeki bildirimsel tanımlardır (taxonomy.mjs ikisini
 // aynı gövdeden üretir). Tanımlar yürütülebilir UI içermez; burada yalnız hangi tür hangi modda görünür,
-// görünmeyen modun Türkçe gerekçesi ve pivotta hangi ölçünün toplanabildiği türetilir.
+// görünmeyen modun Türkçe gerekçesi, pivotta hangi ölçünün bulunduğu ve toplamın neden kullanılamadığı türetilir.
 import { VIEW_LABELS, VIEW_MODES, type ViewMode } from '../shell/contracts';
 import type { ViewDefinition } from './types';
+import { BUDGET_SUM_UNAVAILABLE_REASON, TOTAL_UNAVAILABLE_TEXT } from './views.sums';
+
+export { BUDGET_SUM_UNAVAILABLE_REASON, TOTAL_UNAVAILABLE_TEXT } from './views.sums';
 
 /** Sözlük (views.json) satırı ya da nesil kaydı; panelin okuduğu alanlar dışında kalanlar unknown kalır. */
 export interface ViewDefinitionInput {
@@ -33,6 +36,11 @@ export interface ViewCatalog {
   unsupportedReason(kind: string, mode: ViewMode): string | null;
   /** Yalnız sahipliği belirlenmiş ölçüler; plan ve gerçek ayrı ölçülerdir, tahmin toplanmaz. */
   pivotMeasures(kind: string): PivotMeasure[];
+  /**
+   * Türün tutarları neden tek bir toplamda birleştirilemez: "Toplam kullanılamaz: …" (TOTAL_UNAVAILABLE_TEXT ile başlar).
+   * Sayfalar toplam yerine bu adı ve gerekçeyi yazar; hiçbir tür için toplam ölçüsü yoktur (bkz. sahiplik notu).
+   */
+  sumUnavailableReason(kind: string): string;
   /** Geçerli (en yüksek sürümlü, silinmemiş) tanım; nesilde yoksa undefined. */
   definition(mode: ViewMode): ViewDefinitionInput | undefined;
 }
@@ -92,22 +100,19 @@ const MODE_REASON: Readonly<Record<ViewMode, (kind: string) => string>> = {
   pivot: (kind) => `${kindGenitive(kind)} sahipliği belirlenmiş toplanabilir ölçüsü yok.`,
 };
 
-// --- Pivot sahiplik haritası ------------------------------------------------------------------------
-// Sözlükteki aggregation.sum_measures tek başına toplama izni vermez (ownership_rule). Toplanabilir
-// ölçü yalnız burada, tür + alan + basis üçlüsüyle açıkça sahiplenilmiş olanlardır. budget_observation
-// basis'leri ayrı ölçüdür ("plan ve gerçek asla tek sayıda birleşmez"); 'unclassified' basis'in sahibi
-// yok. forecast_* tahmindir, toplanmaz. payment nesilde koleksiyon değildir ve leaf-row haritası yoktur.
-interface OwnedSum { field: string; currencyField: string; bases: readonly { basis: string; id: string; label: string }[] }
-const OWNED_SUMS: Readonly<Record<string, OwnedSum>> = {
-  budget_observation: {
-    field: 'value.decimal',
-    currencyField: 'value.currency',
-    bases: [
-      { basis: 'planned', id: 'sum_planned', label: 'Plan toplamı' },
-      { basis: 'recorded_aggregate', id: 'sum_recorded', label: 'Gerçekleşen toplamı' },
-    ],
-  },
-};
+// --- Pivot sahipliği ----------------------------------------------------------------------------------
+// Toplama sahipliği satır düzeyindedir ve nesilde satır düzeyinde yaprak sahipliği haritası yok (ayrıntı: views.sums.ts):
+// hiçbir tür için toplam ölçüsü üretilmez, satırlar yalnız sayılır. forecast_* tahmindir, sayılmaz da. payment nesilde
+// koleksiyon değildir: sayım dahil ölçüsü yok.
+
+/** Pivotta sayılabilen türler: nesilde koleksiyonu olan ve satırı bir kaynak gözlemi olanlar. */
+const COUNTED_KINDS: ReadonlySet<string> = new Set(['budget_observation']);
+
+/** "Toplam kullanılamaz: <türün> …" — görünüm tanımlarından bağımsızdır; katalog da aynı metni verir. */
+export function sumUnavailableReason(kind: string): string {
+  if (kind === 'budget_observation') return BUDGET_SUM_UNAVAILABLE_REASON;
+  return `${TOTAL_UNAVAILABLE_TEXT}: ${kindGenitive(kind)} sahipliği belirlenmiş toplanabilir ölçüsü yok.`;
+}
 
 export function createViewCatalog(definitions: readonly ViewDefinitionInput[]): ViewCatalog {
   // Aynı anahtarın birden çok sürümü varsa en yüksek sürüm geçerlidir; silinmiş tanım sayılmaz.
@@ -134,23 +139,13 @@ export function createViewCatalog(definitions: readonly ViewDefinitionInput[]): 
 
   const pivotMeasures = (kind: string): PivotMeasure[] => {
     const pivot = byMode.get('pivot');
-    const owned = OWNED_SUMS[kind];
-    // Sayım dahil hiçbir ölçü, satır sahipliği haritada olmayan tür için üretilmez (payment: nesilde koleksiyon yok).
-    if (!pivot || !owned || !supports('pivot', kind)) return [];
+    // Sayım yalnız nesilde koleksiyonu olan tür için (payment: koleksiyon yok); toplam hiçbir tür için (sahiplik notu).
+    if (!pivot || !COUNTED_KINDS.has(kind) || !supports('pivot', kind)) return [];
     const allowed = pivot.aggregation?.allowed ?? [];
-    const measures: PivotMeasure[] = [];
-    if (allowed.includes('count')) measures.push({ id: 'count', label: 'Kayıt sayısı', aggregate: 'count' });
-    const declaredField = pivot.aggregation?.sum_measures?.[kind];
-    // Toplam yalnız tanım izin veriyorsa ve sözlükteki alan sahiplik haritasındaki alanla aynıysa; basis ölçüye gömülüdür.
-    if (allowed.includes('sum') && declaredField === owned.field) {
-      for (const { basis, id, label } of owned.bases) {
-        measures.push({ id, label, aggregate: 'sum', field: owned.field, basis, currencyField: owned.currencyField });
-      }
-    }
-    return measures;
+    return allowed.includes('count') ? [{ id: 'count', label: 'Kayıt sayısı', aggregate: 'count' }] : [];
   };
 
-  return { supportedModes, unsupportedReason, pivotMeasures, definition: (mode) => byMode.get(mode) };
+  return { supportedModes, unsupportedReason, pivotMeasures, sumUnavailableReason, definition: (mode) => byMode.get(mode) };
 }
 
 /** Masaüstünde Liste ve Zaman çizelgesi filtre paneli açık başlar; Tablo, Kanban, Gantt ve Pivot 56 px şerit kullanır. */

@@ -10,8 +10,10 @@ import {
 //   - Gerçekleşen anlamı yalnız data/actuals.ts'ten: recordedFor (içinde bulunulan aydan — Europe/Istanbul — sonraki dönem
 //     "Henüz yok"; kayıt ödeme olayı değil kaynak gözlemidir), spendLabel (oran ve "harcandı" yalnız payment_evidence true
 //     iken; kanıtsız "Kaynakta yazılı"), mirrorsPlan (Gerçekleşen sekmesi planın aynası mı). Sayfa oran hesaplamaz.
-//   - Fark = Planlanan − Gerçekleşen, yalnız iki taraf da bilinen (gelecek değil, okunabilir) ve aynı para biriminde iken;
-//     kesin ondalık (sumMoney, bigint). Yinelenen gözlem (aynı etiket + dönem + basis) toplanmaz: değer "Bilinmiyor".
+//   - Fark = Planlanan − Gerçekleşen, yalnız Gerçekleşen ödeme kanıtı taşırken (recorded.evidence true; ürün kararı r4)
+//     ve iki taraf da bilinen (gelecek değil, okunabilir), aynı para biriminde iken; kesin ondalık (sumMoney, bigint).
+//     Kanıtsız ("Kaynakta yazılı") değer harcama sayılmaz: Fark "Hesaplanmadı", "aşıldı" yorumu yok. Yinelenen gözlem
+//     (aynı etiket + dönem + basis) toplanmaz: değer "Bilinmiyor".
 //   - Durum: "Tamamlandı" / "Aşıldı" / "Sınıra yakın" / "Planda" yalnız kanıtlı Gerçekleşende; kanıtsızken "Kaynakta yazılı".
 //   - Sahiplik (ara toplam / kalem) nesilde yoktur; yalnız canlı Sheet eşlemesinden (groups / categories) gelir.
 
@@ -32,7 +34,10 @@ export interface BudgetRow {
    * gösterilmez, toplanmaz.
    */
   sourceActual: MoneyValue;
-  /** planned − actual; biri bilinmiyorsa, gelecek dönemse ya da para birimi farklıysa null ("Hesaplanmadı"). */
+  /**
+   * planned − actual; yalnız Gerçekleşen ödeme kanıtı taşırken. Kanıtsızsa, biri bilinmiyorsa, gelecek dönemse ya da para
+   * birimi farklıysa null ("Hesaplanmadı").
+   */
   difference: MoneyValue;
   /** Aynı etiket/dönem/basis için birden çok gözlem: toplanmaz, değer bilinmiyor. */
   plannedAmbiguous: boolean;
@@ -178,7 +183,9 @@ export function budgetRowsFor(observations: readonly BudgetObservation[], period
     const recorded = entry.actual.observation ? recordedFor(entry.actual.observation, today) : null;
     const sourceActual = entry.actual.observation ? observationMoney(entry.actual.observation) : null;
     const actual = recorded?.kind === 'recorded' ? recorded.money : null;
-    const diff = plannedAmbiguous || actualAmbiguous ? null : difference(planned, actual);
+    // Fark yalnız ödeme kanıtıyla: kaynakta yazılı değer harcama değildir; ondan "kalem aşıldı" sonucu çıkarılmaz.
+    const evidenced = recorded?.kind === 'recorded' && recorded.evidence;
+    const diff = plannedAmbiguous || actualAmbiguous || !evidenced ? null : difference(planned, actual);
     const spend = spendLabel(planned ?? undefined, recorded);
     const key = fold(label);
     let ownership: Ownership = 'unknown';

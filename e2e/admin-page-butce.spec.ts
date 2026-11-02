@@ -1,12 +1,15 @@
+import { readFileSync } from 'node:fs';
 import { test, expect, type Locator, type Page, type TestInfo } from '@playwright/test';
 import { accentEdges, overflow, smallText } from './admin-detectors';
 import { gotoAdmin, horizontalOverflow, openAdmin } from './admin-helpers';
 
 // Bütçe ve nakit — kritik telefon yolculuğu (tasarım: ekranlar.md SayfaButceDar, bundle.js Aile.Pages.Butce, README
-// "Uyarlanır teslim"). Önce 320×568: başlık + amaç + ana eylem görünür, kalem kalem akordeon (ilk satır açık), Planlanan ve
-// Gerçekleşen ayrı etiketler, Gerçekleşen data/actuals.ts anlamıyla ("Kaynakta yazılı" kanıtsız değer, gelecek ay "Henüz
-// yok"), dönem seçimi alttan açılan sayfa, sayfa düzeyinde yatay taşma yok. Telefon aylık eğilimi (geniş-özel
-// butce/ButceTrend.wide.tsx + ECharts) ne çizer ne indirir.
+// "Uyarlanır teslim"). Önce 320×568: başlık + amaç + ana eylem görünür, kalem kalem akordeon (ilk satır açık), Planlanan
+// başlıkta, Gerçekleşen ve Fark gövdede ayrı etiketli; Gerçekleşen data/actuals.ts anlamıyla ("Kaynakta yazılı" kanıtsız
+// değer, gelecek ay "Henüz yok"); Fark yalnız ödeme kanıtı olan Gerçekleşenle (ürün kararı r4; aksi "Hesaplanmadı"); dönem
+// seçimi alttan açılan sayfa; başlık düzeyi atlanmaz; sayfa düzeyinde yatay taşma yok. Telefon aylık eğilimi (geniş-özel
+// butce/ButceTrend.wide.tsx + ECharts) ne çizer ne indirir. "Dışa aktar" (telefonda "Diğer" alt sayfası) dosyayı iki
+// motorda da indirir (blob bağlantısı indirme başlamadan bırakılmaz).
 // @matrix testleri: 320×480, 360×640, 375×667, 390×844, 568×320 (yatay telefon telefon profilinde kalır) ve geniş
 // (820×1180 tablet, 1440×900 masaüstü). Görev koşusunda (chromium 320×568, webkit 390×844) her boyut setViewportSize ile
 // koşar; entegrasyondaki matris projelerinde her proje yalnız kendi boyutundaki testi koşar (çift koşu yok).
@@ -91,6 +94,20 @@ async function kanit(page: Page, ad: string) {
   await test.info().attach(ad, { body: await page.screenshot(), contentType: 'image/png' });
 }
 
+/** Ana içerikte başlık düzeyleri sırayla iner: h1'den sonra h3 gibi atlama yok. Döner: atlanan geçişler. */
+async function baslikAtlamalari(page: Page): Promise<string[]> {
+  return page.locator('main').evaluate(main => {
+    const levels = [...main.querySelectorAll('h1, h2, h3, h4, h5, h6')]
+      .filter(heading => (heading as HTMLElement).offsetParent !== null || heading.getClientRects().length > 0)
+      .map(heading => ({ level: Number(heading.tagName.slice(1)), text: (heading.textContent ?? '').trim().slice(0, 40) }));
+    const skips: string[] = [];
+    for (let i = 1; i < levels.length; i += 1) {
+      if (levels[i]!.level - levels[i - 1]!.level > 1) skips.push(`h${levels[i - 1]!.level} "${levels[i - 1]!.text}" → h${levels[i]!.level} "${levels[i]!.text}"`);
+    }
+    return skips;
+  });
+}
+
 /** Öğe görünümde ve üstünde başka katman yok (merkez noktası öğenin kendisine ya da içine düşer). */
 async function ustuAcik(locator: Locator): Promise<boolean> {
   return locator.evaluate(element => {
@@ -131,12 +148,18 @@ async function telefonYolculugu(page: Page, istekler: string[], etiket: string) 
   await expect(alan.locator('button[aria-expanded="true"]')).toHaveCount(1);
   await expect(ilk).toContainText(ILK_KALEM);
   await expect(ilk).toContainText('Kaynakta yazılı');
+  // Kapalı satırda görülen tek tutar Planlanan'dır; plan − gerçek farkı başlıkta durmaz.
+  await expect(ilk).toContainText(/Planlanan ₺/);
+  await expect(ilk).not.toContainText('Fark');
   const ilkGovde = await govdesi(page, ilk);
-  await expect(ilkGovde).toContainText('Planlanan');
+  await expect(ilkGovde).not.toContainText('Planlanan');
   await expect(ilkGovde).toContainText('Gerçekleşen');
   await expect(ilkGovde).toContainText('₺');
   await expect(ilkGovde).toContainText('Kaynakta yazılı');
+  // Kanıtsız Gerçekleşen harcama sayılmaz: Fark hesaplanmaz, "aşıldı" yorumu yok.
+  await expect(ilkGovde).toContainText('FarkHesaplanmadı');
   await expect(ilkGovde).not.toContainText(/harcandı/);
+  expect(await baslikAtlamalari(page), `${etiket}: başlık düzeyi atlanmaz`).toEqual([]);
   await ortakKurallar(page, `${etiket} ilk görünüm`);
   await kanit(page, `${etiket} ilk görünüm`);
 
@@ -168,11 +191,12 @@ async function telefonYolculugu(page: Page, istekler: string[], etiket: string) 
   // 5. Gelecek ay: Gerçekleşen "Henüz yok", fark hesaplanmaz; kaynak değeri ve "Kaynakta yazılı" yazılmaz.
   const yeniIlk = basliklar(akordeon(page)).first();
   await expect(yeniIlk).toHaveAttribute('aria-expanded', 'true');
-  await expect(yeniIlk).toContainText('Hesaplanmadı');
+  await expect(yeniIlk).toContainText(/Planlanan ₺/);
   await expect(yeniIlk).toContainText('Henüz yok');
   const yeniGovde = await govdesi(page, yeniIlk);
   await expect(yeniGovde).toContainText('Gerçekleşen');
   await expect(yeniGovde).toContainText('Henüz yok');
+  await expect(yeniGovde).toContainText('FarkHesaplanmadı');
   await expect(akordeon(page)).not.toContainText('Kaynakta yazılı');
   await ortakKurallar(page, `${etiket} gelecek ay`);
   await kanit(page, `${etiket} gelecek ay`);
@@ -200,6 +224,30 @@ test.describe('Bütçe telefon yolculuğu', () => {
     await expect(canli).not.toContainText(/Failed to fetch|Load failed|NetworkError|TypeError/);
     await expect(canli).not.toContainText('₺');
     await expect(canli.getByRole('button', { name: 'Yeniden dene' })).toBeVisible();
+  });
+
+  test('320×568 "Dışa aktar": "Diğer" alt sayfasından CSV iner (chromium ve webkit); BOM, başlık ve görünen satırlar; Fark kanıtsızda boş', async ({ page }, testInfo) => {
+    test.skip(matrisProjesi(testInfo), 'matris projeleri yalnız @matrix testlerini koşar');
+    await page.setViewportSize({ width: 320, height: 568 });
+    await hazirla(page);
+    await butceyiAc(page);
+    await expect(sayim(page, BU_AY)).toBeVisible();
+    await page.getByRole('button', { name: 'Diğer' }).click();
+    const sayfa = page.getByRole('dialog', { name: 'Diğer eylemler' });
+    await expect(sayfa).toBeVisible();
+    const indirme = page.waitForEvent('download');
+    await sayfa.getByRole('menuitem', { name: 'Dışa aktar' }).click();
+    const dosya = await indirme;
+    expect(dosya.suggestedFilename()).toBe('butce-2026-11.csv');
+    // Blob bağlantısı indirme başlamadan bırakılsaydı WebKit dosyayı iptal ederdi: içerik okunabilmeli.
+    const icerik = readFileSync((await dosya.path())!, 'utf8');
+    expect(icerik.charCodeAt(0)).toBe(0xfeff);
+    const satirlar = icerik.slice(1).split('\r\n');
+    expect(satirlar[0]).toBe('Kalem;Dönem;Planlanan;Gerçekleşen;Fark;Para birimi;Durum;Tür');
+    expect(satirlar).toHaveLength(1 + KALEM_SAYISI);
+    const ilk = satirlar.find(satir => satir.startsWith(`${ILK_KALEM};`))!;
+    expect(ilk).toMatch(/^Örnek gider satırı 1;2026-11;-?\d+(\.\d+)?;-?\d+(\.\d+)?;;TRY;Kaynakta yazılı;/);
+    expect(satirlar.some(satir => /(^|;)"?[=+@]/.test(satir)), 'formül başlangıcı yok').toBe(false);
   });
 
   test('hata durumu: bütçe gözlemleri okunamazsa "Hata: …" ve "Yeniden dene"; tutar gösterilmez', async ({ page }, testInfo) => {

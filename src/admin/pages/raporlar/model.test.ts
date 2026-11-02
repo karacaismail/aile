@@ -1,13 +1,14 @@
-import { MIRRORS_PLAN_NOTE, MIXED_CURRENCY_TEXT, type BudgetObservation, type PivotMeasure } from '../../data';
+import { MIRRORS_PLAN_NOTE, TOTAL_UNAVAILABLE_TEXT, type BudgetObservation, type PivotMeasure } from '../../data';
 import {
   BILINMIYOR, PLAN_YOK, SON_12, SON_6, TUM,
-  defaultPeriodChoice, lastMonths, monthRows, ownedMeasures, periodOptions, periodsFor, plannedOver, plannedText, rangeText,
-  recordedOver, recordedText, roomRows,
+  defaultPeriodChoice, lastMonths, measureValue, monthCsv, monthPlannedText, monthRecordedText, monthRows, periodOptions, periodsFor,
+  rangeText, recordCounts, roomRows, summaryPlannedText, summaryRecordedText,
 } from './model';
 
-// Raporlar saf modeli: dönem seçimi, ay satırları ve toplamlar. Gerçekleşen yalnız actuals.ts anlamıyla (gelecek dönem
-// "Henüz yok", kanıtsız oran yok); para kesin (bigint, kayan nokta yok); plan ve gerçek ayrı değer; birden çok para
-// birimi toplanmaz. Saat sabit: 2 Kasım 2026 İstanbul.
+// Raporlar saf modeli: dönem seçimi, ay satırları ve sayımlar. Gerçekleşen yalnız actuals.ts anlamıyla (gelecek dönem
+// "Henüz yok", kanıtsız oran yok); plan ve gerçek ayrı değer. Bütçe gözlemleri toplanmaz: nesilde satır düzeyinde yaprak
+// sahipliği haritası yok (views.sumUnavailableReason), toplam yerine "Toplam kullanılamaz". Saat sabit: 2 Kasım 2026
+// İstanbul.
 const TODAY = new Date('2026-11-02T10:00:00+03:00');
 const CURRENT = '2026-11';
 
@@ -72,8 +73,8 @@ describe('raporlar/model › dönem seçimi', () => {
   });
 });
 
-describe('raporlar/model › ay satırları (actuals anlamı)', () => {
-  it('gelecek dönemin Gerçekleşen değeri "Henüz yok"; plan yazılı ve kesin toplanır', () => {
+describe('raporlar/model › ay satırları (actuals anlamı; toplam yok)', () => {
+  it('gelecek dönemin Gerçekleşen değeri "Henüz yok"; plan satırları toplanmaz: "Toplam kullanılamaz"', () => {
     const rows = monthRows([
       obs('2026-12', 'planned', '1000.10'), obs('2026-12', 'planned', '0.20', { label: 'Kalem B' }),
       obs('2026-12', 'recorded_aggregate', '999.00'),
@@ -81,60 +82,55 @@ describe('raporlar/model › ay satırları (actuals anlamı)', () => {
     expect(rows).toHaveLength(1);
     const [row] = rows;
     expect(row!.future).toBe(true);
-    expect(row!.recorded).toEqual({ kind: 'not_yet' });
-    expect(recordedText(row!.recorded)).toBe('Henüz yok');
+    expect(monthRecordedText(row!)).toBe('Henüz yok');
     expect(row!.spend.text).toBe('Henüz yok');
-    expect(row!.planned.money).toEqual({ amount: '1000.30', currency: 'TRY' });
-    expect(plannedText(row!.planned)).toBe('₺1.000,30');
-  });
-
-  it('içinde bulunulan ay: kanıtsız yazılı değer "Kaynakta yazılı", oran yok; plan ve gerçek ayrı', () => {
-    const [row] = monthRows([obs(CURRENT, 'planned', '8500'), obs(CURRENT, 'recorded_aggregate', '4250.00')], [CURRENT], TODAY);
-    expect(row!.current).toBe(true);
-    expect(row!.spend).toEqual({ kind: 'in_source', percent: null, text: 'Kaynakta yazılı' });
-    expect(plannedText(row!.planned)).toBe('₺8.500,00');
-    expect(recordedText(row!.recorded)).toBe('₺4.250,00');
-  });
-
-  it('ödeme kanıtı varsa oran spendLabel ile gelir', () => {
-    const [row] = monthRows([
-      obs('2026-10', 'planned', '200.00'), obs('2026-10', 'recorded_aggregate', '50.00', { payment_evidence: true }),
-    ], ['2026-10'], TODAY);
-    expect(row!.spend).toEqual({ kind: 'spent', percent: 25, text: '%25 harcandı' });
-  });
-
-  it('geçmiş ayda Gerçekleşen kaydı yoksa "Henüz yok"; "Kaynakta yazılı" uydurulmaz', () => {
-    const [row] = monthRows([obs('2026-09', 'planned', '100.00')], ['2026-09'], TODAY);
-    expect(recordedText(row!.recorded)).toBe('Henüz yok');
-    expect(row!.spend.text).toBe('Henüz yok');
+    expect(monthPlannedText(row!)).toBe(TOTAL_UNAVAILABLE_TEXT);
+    expect(row!.planCount).toBe(2);
     expect(row!.recordedCount).toBe(0);
   });
 
-  it('kayan nokta yok: 0,10 + 0,20 = 0,30 ve büyük tutar kesin', () => {
-    const [row] = monthRows([
-      obs('2026-10', 'planned', '0.10'), obs('2026-10', 'planned', '0.20'),
-      obs('2026-10', 'recorded_aggregate', '90071992547409.93'), obs('2026-10', 'recorded_aggregate', '0.01'),
-    ], ['2026-10'], TODAY);
-    expect(row!.planned.money).toEqual({ amount: '0.30', currency: 'TRY' });
-    expect(row!.recorded).toMatchObject({ kind: 'recorded', money: { amount: '90071992547409.94', currency: 'TRY' } });
+  it('içinde bulunulan ay: kanıtsız yazılı değer "Kaynakta yazılı", oran yok; plan ve gerçek ayrı ve toplamsız', () => {
+    const [row] = monthRows([obs(CURRENT, 'planned', '8500'), obs(CURRENT, 'recorded_aggregate', '4250.00')], [CURRENT], TODAY);
+    expect(row!.current).toBe(true);
+    expect(row!.spend).toEqual({ kind: 'in_source', percent: null, text: 'Kaynakta yazılı' });
+    expect(monthPlannedText(row!)).toBe(TOTAL_UNAVAILABLE_TEXT);
+    expect(monthRecordedText(row!)).toBe(TOTAL_UNAVAILABLE_TEXT);
   });
 
-  it('birden çok para birimi toplanmaz: "Birden çok para birimi"', () => {
+  it('ödeme kanıtı varsa "Harcandı"; oran üretilmez (oran plan ve gerçek toplamı ister, toplam yok)', () => {
     const [row] = monthRows([
-      obs('2026-10', 'planned', '10.00'), obs('2026-10', 'planned', '5.00', { value: { decimal: '5.00', currency: 'EUR' } }),
-      obs('2026-10', 'recorded_aggregate', '1.00', { value: { decimal: '1.00', currency: 'USD' } }), obs('2026-10', 'recorded_aggregate', '1.00'),
+      obs('2026-10', 'planned', '200.00'), obs('2026-10', 'recorded_aggregate', '50.00', { payment_evidence: true }),
     ], ['2026-10'], TODAY);
-    expect(plannedText(row!.planned)).toBe(MIXED_CURRENCY_TEXT);
-    expect(recordedText(row!.recorded)).toBe(MIXED_CURRENCY_TEXT);
+    expect(row!.spend).toEqual({ kind: 'spent', percent: null, text: 'Harcandı' });
   });
 
-  it('okunamayan değer sıfır sayılmaz: yalnız eksikse "Bilinmiyor", kısmen eksikse not', () => {
-    const [all] = monthRows([obs('2026-10', 'planned', null)], ['2026-10'], TODAY);
-    expect(plannedText(all!.planned)).toBe(BILINMIYOR);
-    const [part] = monthRows([obs('2026-10', 'planned', null), obs('2026-10', 'planned', '7.00')], ['2026-10'], TODAY);
-    expect(plannedText(part!.planned)).toBe('₺7,00 · 1 değer okunamadı');
+  it('geçmiş ayda Gerçekleşen kaydı yoksa "Henüz yok"; plan kaydı yoksa "Plan yok"; "Kaynakta yazılı" uydurulmaz', () => {
+    const [row] = monthRows([obs('2026-09', 'planned', '100.00')], ['2026-09'], TODAY);
+    expect(monthRecordedText(row!)).toBe('Henüz yok');
+    expect(row!.spend.text).toBe('Henüz yok');
+    expect(row!.recordedCount).toBe(0);
     const [none] = monthRows([obs('2026-10', 'recorded_aggregate', '7.00')], ['2026-10'], TODAY);
-    expect(plannedText(none!.planned)).toBe(PLAN_YOK);
+    expect(monthPlannedText(none!)).toBe(PLAN_YOK);
+  });
+
+  it('gelir, ara toplam ("… toplamı"), genel toplam ("Toplam …") ve adet satırları harcama toplamına girmez: tutar üretilmez', () => {
+    const satirlar = (basis: string) => [
+      obs('2026-10', basis, '100.00', { label: 'Örnek gider' }),
+      obs('2026-10', basis, '50000.00', { label: 'Maaş' }),
+      obs('2026-10', basis, '50000.00', { label: 'Toplam gelir' }),
+      obs('2026-10', basis, '3000.00', { label: 'Faturalar toplamı' }),
+      obs('2026-10', basis, '3100.00', { label: 'Toplam ödemeler' }),
+      obs('2026-10', basis, '3', { label: 'Doğalgaz · adet', value: { decimal: '3', currency: null } }),
+    ];
+    const [row] = monthRows([...satirlar('planned'), ...satirlar('recorded_aggregate')], ['2026-10'], TODAY);
+    expect(monthPlannedText(row!)).toBe(TOTAL_UNAVAILABLE_TEXT);
+    expect(monthRecordedText(row!)).toBe(TOTAL_UNAVAILABLE_TEXT);
+    expect(row!.planCount).toBe(6);
+    expect(row!.recordedCount).toBe(6);
+    expect(JSON.stringify(row)).not.toMatch(/amount|₺/);
+    const csv = monthCsv([row!]);
+    expect(csv[0]).toEqual(['Ay', 'Planlanan', 'Gerçekleşen', 'Durum', 'Plan kaydı', 'Gerçekleşen kaydı']);
+    expect(csv[1]).toEqual(['Ekim 2026', TOTAL_UNAVAILABLE_TEXT, TOTAL_UNAVAILABLE_TEXT, 'Kaynakta yazılı', '6', '6']);
   });
 
   it('silinmiş ve sınıflanmamış gözlemler hiçbir sayıya katılmaz', () => {
@@ -142,7 +138,6 @@ describe('raporlar/model › ay satırları (actuals anlamı)', () => {
       obs('2026-10', 'planned', '10.00'), obs('2026-10', 'planned', '90.00', { deleted_at: '2026-10-20T00:00:00Z' }),
       obs('2026-10', 'unclassified', '500.00'),
     ], ['2026-10'], TODAY);
-    expect(row!.planned.money).toEqual({ amount: '10.00', currency: 'TRY' });
     expect(row!.planCount).toBe(1);
     expect(row!.recordedCount).toBe(0);
   });
@@ -154,29 +149,32 @@ describe('raporlar/model › ay satırları (actuals anlamı)', () => {
   });
 });
 
-describe('raporlar/model › çok dönemli toplamlar', () => {
+describe('raporlar/model › çok dönemli sayımlar', () => {
   const rows = [
     obs('2026-10', 'planned', '100.00'), obs('2026-11', 'planned', '200.00'), obs('2026-12', 'planned', '300.00'),
     obs('2026-10', 'recorded_aggregate', '10.00'), obs('2026-11', 'recorded_aggregate', '20.00'), obs('2026-12', 'recorded_aggregate', '30.00'),
   ];
 
-  it('plannedOver seçili dönemlerin planını kesin toplar', () => {
-    expect(plannedOver(rows, ['2026-10', '2026-11', '2026-12']).money).toEqual({ amount: '600.00', currency: 'TRY' });
+  it('recordCounts plan ve gelecek olmayan Gerçekleşen kayıtlarını ayrı sayar', () => {
+    expect(recordCounts(rows, TODAY)).toEqual({ plan: 3, recorded: 2 });
   });
 
-  it('recordedOver gelecek dönemi saymaz; yalnız gelecek dönemse "Henüz yok"', () => {
-    const past = recordedOver(rows, ['2026-10', '2026-11', '2026-12'], TODAY);
-    expect(past).toMatchObject({ kind: 'recorded', money: { amount: '30.00', currency: 'TRY' }, evidence: false });
-    expect(recordedOver(rows, ['2026-12'], TODAY)).toEqual({ kind: 'not_yet' });
-    expect(recordedText(recordedOver(rows, ['2026-12'], TODAY))).toBe('Henüz yok');
+  it('özet metinleri: plan kaydı varsa "Toplam kullanılamaz"; yalnız gelecek dönemse Gerçekleşen "Henüz yok"', () => {
+    expect(summaryPlannedText(rows)).toBe(TOTAL_UNAVAILABLE_TEXT);
+    expect(summaryPlannedText([])).toBe(PLAN_YOK);
+    expect(summaryRecordedText(rows, ['2026-10', '2026-11', '2026-12'], TODAY)).toBe(TOTAL_UNAVAILABLE_TEXT);
+    expect(summaryRecordedText(rows.filter((o) => o.period === '2026-12'), ['2026-12'], TODAY)).toBe('Henüz yok');
+    expect(summaryRecordedText([obs('2026-10', 'planned', '1.00')], ['2026-10'], TODAY)).toBe('Henüz yok');
   });
 });
 
-describe('raporlar/model › sahiplik', () => {
-  it('ownedMeasures yalnız katalogdaki sahipliği belirlenmiş toplamları verir', () => {
-    expect(ownedMeasures(MEASURES)).toMatchObject({ planned: { id: 'sum_planned' }, recorded: { id: 'sum_recorded' }, count: { id: 'count' } });
-    expect(ownedMeasures([MEASURES[0]!])).toMatchObject({ planned: undefined, recorded: undefined, count: { id: 'count' } });
-    expect(ownedMeasures([])).toMatchObject({ planned: undefined, recorded: undefined, count: undefined });
+describe('raporlar/model › ölçüler', () => {
+  it('sayım ölçüsü plan ve gerçekleşen kaydını ayrı yazar; toplam ölçüsü sahiplik haritası olmadan tutar üretmez', () => {
+    const cell = [obs('2026-10', 'planned', '10.00'), obs('2026-10', 'recorded_aggregate', '9.00')];
+    expect(measureValue(MEASURES[0]!, cell, ['2026-10'], TODAY)).toMatchObject({ text: '1 plan · 1 gerçekleşen', amount: null });
+    const sum = measureValue(MEASURES[1]!, cell, ['2026-10'], TODAY);
+    expect(sum).toMatchObject({ text: TOTAL_UNAVAILABLE_TEXT, csv: TOTAL_UNAVAILABLE_TEXT, amount: null });
+    expect(measureValue(MEASURES[0]!, [], ['2026-10'], TODAY).text).toBe('Kayıt yok');
   });
 
   it('roomRows alımları odaya göre sayar; tutar toplamaz; odasız "Bilinmiyor" sonda', () => {

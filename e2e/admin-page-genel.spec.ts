@@ -5,14 +5,18 @@ import { accentEdges, focusRing, smallText } from './admin-detectors';
 // Genel durum sayfası (#/genel) — kritik kullanıcı yolculuğu, önce telefon (320×568), sonra @matrix genişlikleri.
 // Tasarım: README › Sayfa iskeleti (başlık → amaç → tek birincil eylem → tazelik → en çok üç ölçü), components/Overview
 // ve W0 uyarlamalı teslim sözleşmesi: telefon profili yerel HTML temel sunumu alır (ECharts ve *.wide modülleri
-// indirilmez); tablet/masaüstü GenelPage.wide modülünü lazyWide ile yükler (Overview + grafik ve yanında tablo).
+// indirilmez); tablet/masaüstü GenelPage.wide modülünü lazyWide ile yükler (Overview + aylık tablo).
 // Gerçekleşen anlamı data/actuals.ts: kanıtsız değer "Kaynakta yazılı" (yüzde/"harcandı" yok), gelecek ay "Henüz yok".
+// Aylık plan ve gerçek toplam üretmez: nesilde satır düzeyinde yaprak sahipliği haritası yok (gelir, "… toplamı",
+// "Toplam …" ve adet satırları ayrılamaz); tutar yerine "Toplam kullanılamaz" ve nedeni, kayıtlar sayılır; grafik yok.
 // Veri yalnız sentetik nesilden (webServer AILE_GENERATION_DIR); "bugün" sayfa saatinde 05.12.2026 10:00 İstanbul'a
 // sabitlenir (yalnız Date; zamanlayıcılar çalışır). Emülasyon gerçek cihaz değildir. Firefox koşulmaz.
 
 const BUGUN = new Date('2026-12-05T10:00:00+03:00');
 const AMAC = 'Bu ayın nakdini, yaklaşan ödemeleri ve dikkat isteyen kayıtları tek yerde görün.';
 const KAYNAKTA_YAZILI = 'Kaynakta yazılı';
+const TOPLAM_KULLANILAMAZ = 'Toplam kullanılamaz';
+const TOPLAM_NEDENI = /^Toplam kullanılamaz: bütçe gözlemlerinin satır düzeyinde yaprak sahipliği haritası yok/;
 const HEDEF = 44;
 const HEDEF_KABA = 48;
 /** Geniş-özel ve grafik modülleri: telefon profilinde hiçbiri istenmemeli (dev: kaynak yolu, üretim: wide-* parçası). */
@@ -35,7 +39,7 @@ const bolge = (main: Locator, ad: string | RegExp) => main.getByRole('region', {
 const ust = async (locator: Locator) => (await locator.boundingBox())?.y ?? Number.NaN;
 
 test.describe('Genel durum › telefon', () => {
-  test('telefon yolculuğu: başlık, amaç ve Aylık rapor ilk ekranda; ödemeler ve dikkat bütçeden önce; bütçe akordeon; kanıtsız gerçekleşen "Kaynakta yazılı"; grafik yerine tablo; geniş modül indirilmez', async ({ page }) => {
+  test('telefon yolculuğu: başlık, amaç ve Aylık rapor ilk ekranda; ödemeler ve dikkat bütçeden önce; bütçe akordeon; kanıtsız gerçekleşen "Kaynakta yazılı"; aylık blok toplam üretmez; geniş modül indirilmez', async ({ page }) => {
     const { main, istekler, profil } = await genelAc(page);
     test.skip(profil !== 'phone', 'Telefon yolculuğu yalnız telefon profilinde');
 
@@ -71,10 +75,20 @@ test.describe('Genel durum › telefon', () => {
     await satirlar.nth(1).click();
     await expect(satirlar.nth(1)).toHaveAttribute('aria-expanded', 'true');
 
-    // 4. Aylık grafik yerine tablo karşılığı: tuval/görsel yok; ay satırı Planlanan ve Gerçekleşen ayrı.
+    // 4. Aylık blok: ay akordeonu, tuval/görsel yok; satırlar tek Planlanan/Gerçekleşen sayısında toplanmaz — tutar yerine
+    // "Toplam kullanılamaz", nedeni yazılı; kayıtlar ayrı sayılır.
     await expect(aylik.getByRole('img')).toHaveCount(0);
     await expect(aylik.locator('canvas')).toHaveCount(0);
-    await expect(aylik.getByRole('button', { name: /Ara 2026/ })).toBeVisible();
+    const aralik = aylik.getByRole('button', { name: /Ara 2026/ });
+    await aralik.scrollIntoViewIfNeeded();
+    await expect(aralik).toBeVisible();
+    if ((await aralik.getAttribute('aria-expanded')) !== 'true') await aralik.click();
+    const aralikGovde = page.locator(`[id="${await aralik.getAttribute('aria-controls')}"]`);
+    await expect(aralikGovde).toContainText(`Planlanan${TOPLAM_KULLANILAMAZ}`);
+    await expect(aralikGovde).toContainText(`Gerçekleşen${TOPLAM_KULLANILAMAZ}`);
+    await expect(aralikGovde).toContainText('8 plan · 8 gerçekleşen');
+    await expect(aylik.getByText(TOPLAM_NEDENI)).toBeVisible();
+    await expect(aylik).not.toContainText('₺');
     await expect(aylik).not.toContainText(/harcandı/i);
 
     // 5. Sayfa düzeyinde yatay taşma yok; telefon ECharts ve geniş modül istemedi.
@@ -143,7 +157,7 @@ test.describe('Genel durum › @matrix genişlikleri', () => {
     expect(istekler.filter(yol => GENIS_ISTEK.test(yol)), 'telefonda geniş/grafik modülü').toEqual([]);
   });
 
-  test('geniş profil (tablet/masaüstü): GenelPage.wide yüklenir; masaüstünde iki sütun; grafik ve yanında aynı değerlerin tablosu', { tag: '@matrix' }, async ({ page }) => {
+  test('geniş profil (tablet/masaüstü): GenelPage.wide yüklenir; masaüstünde iki sütun; aylık tablo toplam üretmez, grafik ve ECharts yok', { tag: '@matrix' }, async ({ page }) => {
     const { main, istekler, profil } = await genelAc(page);
     test.skip(profil === 'phone', 'Geniş sunum yalnız tablet ve masaüstünde');
     const overview = main.getByTestId('overview');
@@ -151,13 +165,18 @@ test.describe('Genel durum › @matrix genişlikleri', () => {
     await expect(overview).toHaveAttribute('data-layout', profil === 'desktop' ? 'genis' : 'dar');
     expect(istekler.some(yol => /GenelPage\.wide|\/wide-[^/]*\.js/.test(yol)), 'geniş modül istendi').toBe(true);
     const aylik = bolge(main, 'Aylık plan ve gerçek');
-    // Grafik çalışma zamanı yuva görünür alana girince yüklenir (Chart: IntersectionObserver); kullanıcı gibi kaydırılır.
+    // Kullanıcı gibi kaydırılır: grafik olsaydı çalışma zamanı bu noktada isterdi (Chart: IntersectionObserver).
     await aylik.scrollIntoViewIfNeeded();
-    await expect(aylik.getByRole('img', { name: /değerler yanındaki tabloda/ })).toBeVisible({ timeout: 15000 });
-    expect(istekler.some(yol => /echarts|Chart\.runtime/.test(yol)), 'grafik çalışma zamanı istendi').toBe(true);
     const tablo = aylik.getByRole('table');
-    await expect(tablo.getByRole('row', { name: /Ara 2026/ })).toContainText('₺121.800,00');
-    await expect(tablo.getByRole('row', { name: /Ara 2026/ })).toContainText(KAYNAKTA_YAZILI);
+    const aralik = tablo.getByRole('row', { name: /Ara 2026/ });
+    await expect(aralik).toContainText(TOPLAM_KULLANILAMAZ);
+    await expect(aralik).toContainText(KAYNAKTA_YAZILI);
+    await expect(aralik).toContainText('8 plan · 8 gerçekleşen');
+    await expect(aylik.getByText(TOPLAM_NEDENI)).toBeVisible();
+    await expect(aylik).not.toContainText('₺');
+    // Çizilecek tutar yok: grafik ve grafik motoru yok.
+    await expect(aylik.getByRole('img')).toHaveCount(0);
+    expect(istekler.filter(yol => /echarts|zrender|Chart\.runtime/.test(yol)), 'grafiksiz Genel ECharts istemez').toEqual([]);
     if (profil === 'desktop') {
       const sol = await bolge(main, /^Yaklaşan ödemeler/).boundingBox();
       const sag = await bolge(main, 'Dikkat isteyenler').boundingBox();

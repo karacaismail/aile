@@ -1,5 +1,9 @@
-import { MIRRORS_PLAN_NOTE, MIXED_CURRENCY_TEXT, type BudgetObservation, type ForecastEvent, type ForecastMonth, type PurchaseNeedRecord } from '../../data';
+import { MIRRORS_PLAN_NOTE, MIXED_CURRENCY_TEXT, TOTAL_UNAVAILABLE_TEXT, createViewCatalog, type BudgetObservation, type ForecastEvent, type ForecastMonth, type PurchaseNeedRecord } from '../../data';
 import {
+  AYLIK_TOPLAM_NOTU,
+  ayGerceklesenMetni,
+  ayKayitMetni,
+  ayPlanMetni,
   aylikSatirlar,
   butceSatirlari,
   donemAdi,
@@ -135,8 +139,10 @@ describe('genel/model › aylık satırlar', () => {
       gozlem({ label: 'A', period: '2026-09', basis: 'unclassified' }),
     ], BUGUN, 2);
     expect(aylar.map(ay => ay.donem)).toEqual(['2026-11', '2026-12']);
-    expect(planMetni(aylar[1]!.planned)).toBe('Plan yok');
-    expect(gerceklesenMetni(aylar[1]!.recorded)).toBe('₺5,00');
+    expect(ayPlanMetni(aylar[1]!)).toBe('Plan yok');
+    // Tek satır da toplam değildir: hangi satırın yaprak gider kalemi olduğu bilinmiyor.
+    expect(ayGerceklesenMetni(aylar[1]!)).toBe(TOTAL_UNAVAILABLE_TEXT);
+    expect(aylar[1]).toMatchObject({ planKaydi: 0, gerceklesenKaydi: 1 });
   });
 
   it('geçmiş ay yoksa en erken N gelecek ay; Gerçekleşen "Henüz yok", oran yok', () => {
@@ -146,7 +152,47 @@ describe('genel/model › aylık satırlar', () => {
       gozlem({ label: 'A', period: '2027-01', basis: 'planned' }, '10.00'),
     ], BUGUN, 6);
     expect(aylar.map(ay => ay.donem)).toEqual(['2027-01', '2027-02']);
-    expect(aylar.every(ay => ay.recorded?.kind !== 'recorded' && ay.spend.kind === 'not_yet')).toBe(true);
+    expect(aylar.every(ay => ay.gelecek && ay.gerceklesenKaydi === 0 && ay.spend.kind === 'not_yet')).toBe(true);
+    expect(aylar.map(ayGerceklesenMetni)).toEqual(['Henüz yok', 'Henüz yok']);
+    expect(ayKayitMetni(aylar[1]!)).toBe('1 plan kaydı');
+  });
+
+  it('gelir, ara toplam, genel toplam ve adet satırları harcama toplamına girmez: satır sahipliği haritası yok → tutar üretilmez', () => {
+    const satirlar = (basis: string) => [
+      gozlem({ label: 'Örnek gider', period: '2026-12', basis }, '100.00'),
+      gozlem({ label: 'Maaş', period: '2026-12', basis }, '50000.00'),
+      gozlem({ label: 'Toplam gelir', period: '2026-12', basis }, '50000.00'),
+      gozlem({ label: 'Faturalar toplamı', period: '2026-12', basis }, '3000.00'),
+      gozlem({ label: 'Toplam ödemeler', period: '2026-12', basis }, '3100.00'),
+      gozlem({ label: 'Doğalgaz · adet', period: '2026-12', basis }, '3', null),
+    ];
+    const [ay] = aylikSatirlar([...satirlar('planned'), ...satirlar('recorded_aggregate')], BUGUN, 1);
+    expect(ay!.donem).toBe('2026-12');
+    expect(ayPlanMetni(ay!)).toBe(TOTAL_UNAVAILABLE_TEXT);
+    expect(ayGerceklesenMetni(ay!)).toBe(TOTAL_UNAVAILABLE_TEXT);
+    // Satırlar yalnız sayılır; hiçbir tutar (₺) türetilmez, plan ve gerçek tek sayıda birleşmez.
+    expect(ayKayitMetni(ay!)).toBe('6 plan · 6 gerçekleşen');
+    expect(JSON.stringify(ay)).not.toMatch(/amount|₺/);
+    expect(ay!.spend).toEqual({ kind: 'in_source', percent: null, text: 'Kaynakta yazılı' });
+  });
+
+  it('kanıtlı Gerçekleşen "Harcandı" der; oran üretilmez (oran plan ve gerçek toplamı ister)', () => {
+    const [ay] = aylikSatirlar([
+      gozlem({ label: 'A', period: '2026-12', basis: 'planned' }, '200.00'),
+      gozlem({ label: 'A', period: '2026-12', basis: 'recorded_aggregate', payment_evidence: true }, '50.00'),
+    ], BUGUN, 1);
+    expect(ay!.spend).toEqual({ kind: 'spent', percent: null, text: 'Harcandı' });
+  });
+
+  it('silinmiş ve sınıflanmamış gözlem sayılmaz; gerekçe metni ortak katalog metnidir', () => {
+    const [ay] = aylikSatirlar([
+      gozlem({ label: 'A', period: '2026-12', basis: 'planned' }),
+      gozlem({ label: 'A', period: '2026-12', basis: 'planned', deleted_at: '2026-12-01T00:00:00Z' }),
+      gozlem({ label: 'A', period: '2026-12', basis: 'unclassified' }),
+    ], BUGUN, 1);
+    expect(ay).toMatchObject({ planKaydi: 1, gerceklesenKaydi: 0 });
+    expect(ayGerceklesenMetni(ay!)).toBe('Henüz yok');
+    expect(AYLIK_TOPLAM_NOTU).toBe(createViewCatalog([]).sumUnavailableReason('budget_observation'));
   });
 });
 

@@ -12,6 +12,7 @@ import {
   GenerationProvider,
   MIRRORS_PLAN_NOTE,
   RECORDED_IN_SOURCE_TEXT,
+  TOTAL_UNAVAILABLE_TEXT,
   createMemoryStorage,
   type GenerationProviderProps,
   type GenerationSource,
@@ -23,11 +24,14 @@ import { GenelPage } from './GenelPage';
 // Genel durum sayfası: tasarım README "Sayfa iskeleti" 1–2 (başlık → en çok üç ölçü), components/Overview/README.md
 // (dört blok), bundle.js Aile.Pages.Genel ve W0 uyarlamalı teslim sözleşmesi:
 //  - Telefon (temel sunum, yerel HTML): özet ölçüler, yaklaşan ödemeler (7 gün) ve dikkat isteyenler önce; bütçe tablosu
-//    akordeon (ilk satır açık); bekleyen işler yerel onay kutusu; aylık grafik yerine tablo karşılığı. Geniş modül
-//    (GenelPage.wide: Overview + ECharts) telefonda indirilmez.
-//  - Geniş (tablet/masaüstü): lazyWide ile Overview + aylık grafik ve yanında aynı değerlerin tablosu.
+//    akordeon (ilk satır açık); bekleyen işler yerel onay kutusu; aylık blok ay akordeonu. Geniş modül (GenelPage.wide:
+//    Overview) telefonda indirilmez.
+//  - Geniş (tablet/masaüstü): lazyWide ile Overview + aylık tablo.
+//  - Aylık plan ve gerçek: nesilde satır düzeyinde yaprak sahipliği haritası yok (views.sumUnavailableReason); ayın
+//    satırları (gelir, "… toplamı", "Toplam …", adet satırları olabilir) tek sayıda toplanmaz: "Toplam kullanılamaz",
+//    nedeni yazılı; kayıtlar ayrı sayılır. Çizilecek tutar olmadığından grafik ve ECharts yok.
 //  - Gerçekleşen anlamı yalnız data/actuals.ts'ten: gelecek ay "Henüz yok", kanıtsız değer "Kaynakta yazılı" (yüzde ve
-//    "harcandı" yok), unclassified/silinmiş gözlem hiçbir toplama girmez, toplamlar kesin ondalık, dönem Europe/Istanbul,
+//    "harcandı" yok), unclassified/silinmiş gözlem hiçbir sayıya girmez, tutarlar kesin ondalık, dönem Europe/Istanbul,
 //    plan aynası notu. Plan ve gerçek tek sayıda birleşmez.
 // Veri yalnız sentetik nesilden (FixtureGenerationSource + GenerationProvider); gerektiğinde bütçe parçası testte
 // düzenlenir ve manifest hash'i yeniden hesaplanır (bütünlük doğrulaması atlanmaz). "Bugün" now ile sabitlenir.
@@ -194,7 +198,7 @@ describe('GenelPage › telefon temel sunumu (yerel HTML, geniş modül indirilm
     expect(within(blok).getByRole('link', { name: 'Bütçe ve nakit' })).toHaveAttribute('href', '#/butce');
   });
 
-  it('aylık grafik yerine tablo karşılığı: ECharts yüklenmez; her ay Planlanan ve Gerçekleşen ayrı etiketli', async () => {
+  it('aylık blok akordeon (grafik yok): her ay Planlanan ve Gerçekleşen ayrı etiketli, toplam üretilmez ("Toplam kullanılamaz"), kayıtlar sayılır', async () => {
     renderPage({ device: 'phone' });
     await telefonHazir();
     const blok = region('Aylık plan ve gerçek');
@@ -203,14 +207,42 @@ describe('GenelPage › telefon temel sunumu (yerel HTML, geniş modül indirilm
     const aylar = within(blok).getAllByRole('button', { name: /20\d\d/ });
     expect(aylar).toHaveLength(6);
     expect(aylar[0]).toHaveAttribute('aria-expanded', 'true');
-    // 2026-12 toplamı: plan 121.800, Gerçekleşen sekmesi 99.000 (kanıtsız).
+    // Nesilde satır düzeyinde yaprak sahipliği haritası yok: ayın satırları (gelir, ara toplam, genel toplam, adet olabilir)
+    // tek Planlanan/Gerçekleşen sayısında toplanmaz; eksik toplam adıyla, nedeni blokta yazılı.
     const aralik = akordeonSatiri(blok, /Ara 2026/);
-    expect(aralik).toHaveTextContent('Planlanan₺121.800,00');
-    expect(aralik).toHaveTextContent('Gerçekleşen₺99.000,00');
+    expect(aralik).toHaveTextContent(`Planlanan${TOTAL_UNAVAILABLE_TEXT}`);
+    expect(aralik).toHaveTextContent(`Gerçekleşen${TOTAL_UNAVAILABLE_TEXT}`);
+    expect(aralik).toHaveTextContent('Kayıt8 plan · 8 gerçekleşen');
     expect(aralik).toHaveTextContent(RECORDED_IN_SOURCE_TEXT);
+    expect(blok).not.toHaveTextContent('₺');
+    expect(within(blok).getByText(/^Toplam kullanılamaz: bütçe gözlemlerinin /)).toBeInTheDocument();
     expect(blok).not.toHaveTextContent(/harcandı/i);
     await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); });
     expect(echartsMocks.init).not.toHaveBeenCalled();
+  });
+
+  it('gelir, ara toplam ("… toplamı"), genel toplam ("Toplam …") ve adet satırları aylık harcama toplamına girmez', async () => {
+    const overrides = withBudget(records => {
+      const plan = records.find(r => r.basis === 'planned' && r.period === '2026-12')!;
+      const gercek = records.find(r => r.basis === 'recorded_aggregate' && r.period === '2026-12')!;
+      const ekle = (sablon: Obs) => [
+        gozlem(sablon, { label: 'Maaş', value: { decimal: '85000.00', currency: 'TRY' } }),
+        gozlem(sablon, { label: 'Toplam gelir', value: { decimal: '85000.00', currency: 'TRY' } }),
+        gozlem(sablon, { label: 'Faturalar toplamı', value: { decimal: '12000.00', currency: 'TRY' } }),
+        gozlem(sablon, { label: 'Toplam ödemeler', value: { decimal: '121800.00', currency: 'TRY' } }),
+        gozlem(sablon, { label: 'Doğalgaz · adet', value: { decimal: '3', currency: null } }),
+      ];
+      return [...records, ...ekle(plan), ...ekle(gercek)];
+    });
+    renderPage({ device: 'phone', provider: { source: fixtureSource(overrides) } });
+    await telefonHazir();
+    const blok = region('Aylık plan ve gerçek');
+    const aralik = akordeonSatiri(blok, /Ara 2026/);
+    expect(aralik).toHaveTextContent(`Planlanan${TOTAL_UNAVAILABLE_TEXT}`);
+    expect(aralik).toHaveTextContent(`Gerçekleşen${TOTAL_UNAVAILABLE_TEXT}`);
+    expect(aralik).toHaveTextContent('Kayıt13 plan · 13 gerçekleşen');
+    // 121.800 + 85.000 + 85.000 + 12.000 + 121.800 + 3 = 425.603 gibi karışık bir toplam hiçbir biçimde görünmez.
+    expect(blok).not.toHaveTextContent('₺');
   });
 
   it('yaklaşan ödemeler ve dikkat isteyenler: yerel liste; satır bağlantısı sayfaya gider', async () => {
@@ -255,10 +287,11 @@ describe('GenelPage › gerçekleşen anlamı (data/actuals.ts)', () => {
     await telefonHazir();
     const blok = region('Aylık plan ve gerçek');
     const ocak = akordeonSatiri(blok, /Oca 2026/);
-    expect(ocak).toHaveTextContent('Planlanan₺129.300,00');
+    expect(ocak).toHaveTextContent(`Planlanan${TOTAL_UNAVAILABLE_TEXT}`);
     expect(ocak).toHaveTextContent('GerçekleşenHenüz yok');
-    // 2026-01 Gerçekleşen sekmesindeki 127.800 gelecek ay olduğundan gösterilmez.
-    expect(blok).not.toHaveTextContent('₺127.800,00');
+    expect(ocak).toHaveTextContent('Kayıt8 plan kaydı');
+    // 2026-01 Gerçekleşen sekmesindeki değerler gelecek ay olduğundan gösterilmez (ne tutar ne kayıt sayısı).
+    expect(blok).not.toHaveTextContent('₺');
     expect(blok).not.toHaveTextContent(RECORDED_IN_SOURCE_TEXT);
   });
 
@@ -274,18 +307,22 @@ describe('GenelPage › gerçekleşen anlamı (data/actuals.ts)', () => {
     renderPage({ device: 'phone', provider: { source: fixtureSource(overrides) } });
     await telefonHazir();
     expect(akordeonSatiri(region(/^Bütçe · Aralık 2026/), /Örnek gider satırı 1(?!\d)/)).toHaveTextContent('Gerçekleşen₺23.700,00');
-    expect(akordeonSatiri(region('Aylık plan ve gerçek'), /Ara 2026/)).toHaveTextContent('Gerçekleşen₺99.000,00');
+    // Ay satırında yalnız canlı plan ve Gerçekleşen kayıtları sayılır (unclassified ve silinmiş sayılmaz).
+    expect(akordeonSatiri(region('Aylık plan ve gerçek'), /Ara 2026/)).toHaveTextContent('Kayıt8 plan · 8 gerçekleşen');
   });
 
-  it('toplamlar kesin ondalıkla: kayan nokta kuruş kaybettirmez', async () => {
+  it('kalem tutarı kesin ondalıkla yazılır; büyük tutarlı satır aylık sayıya tutar olarak eklenmez', async () => {
     const overrides = withBudget(records => {
       const sablon = records.find(r => r.basis === 'recorded_aggregate' && r.period === '2026-12')!;
       return [...records, gozlem(sablon, { label: 'Büyük kalem', value: { decimal: '90071992547409.93', currency: 'TRY' } })];
     });
     renderPage({ device: 'phone', provider: { source: fixtureSource(overrides) } });
     await telefonHazir();
-    // 99.000,00 + 90.071.992.547.409,93 = 90.071.992.646.409,93 (Number ile ,94 olurdu).
-    expect(akordeonSatiri(region('Aylık plan ve gerçek'), /Ara 2026/)).toHaveTextContent('₺90.071.992.646.409,93');
+    // Kalem satırı kendi değerini kayan noktasız yazar (Number ile ,94 olurdu).
+    expect(akordeonSatiri(region(/^Bütçe · Aralık 2026/), /Büyük kalem/)).toHaveTextContent('₺90.071.992.547.409,93');
+    const aralik = akordeonSatiri(region('Aylık plan ve gerçek'), /Ara 2026/);
+    expect(aralik).toHaveTextContent('Kayıt8 plan · 9 gerçekleşen');
+    expect(aralik).not.toHaveTextContent('₺');
   });
 
   it('plan aynası: bu ayın Gerçekleşeni planın kopyasıysa bütçe bloğu bunu adıyla söyler', async () => {
@@ -441,48 +478,34 @@ describe('GenelPage › geniş sunum (tablet/masaüstü, lazyWide)', () => {
     await waitFor(() => expect(kutular[0]).not.toBeChecked());
   });
 
-  it('grafik: plan ve gerçek iki ayrı seri, yanında aynı değerlerin tablosu ve kaynak durumu', async () => {
+  it('aylık tablo: toplam üretilmez ("Toplam kullanılamaz", nedeni yazılı); grafik çizilmez, ECharts istenmez; kayıtlar ve durum ayrı', async () => {
     renderPage();
     await genisHazir();
     const blok = region('Aylık plan ve gerçek');
     const tablo = within(blok).getByRole('table');
-    expect(within(tablo).getByRole('columnheader', { name: 'Planlanan' })).toBeInTheDocument();
-    expect(within(tablo).getByRole('columnheader', { name: 'Gerçekleşen' })).toBeInTheDocument();
+    expect(within(tablo).getAllByRole('columnheader').map(th => th.textContent)).toEqual(['Ay', 'Planlanan', 'Gerçekleşen', 'Durum', 'Kayıt']);
     const aralik = within(tablo).getByRole('row', { name: /Ara 2026/ });
-    expect(aralik).toHaveTextContent('₺121.800,00');
-    expect(aralik).toHaveTextContent('₺99.000,00');
+    expect(aralik).toHaveTextContent(TOTAL_UNAVAILABLE_TEXT);
     expect(aralik).toHaveTextContent(RECORDED_IN_SOURCE_TEXT);
+    expect(aralik).toHaveTextContent('8 plan · 8 gerçekleşen');
     expect(within(tablo).getAllByRole('row')).toHaveLength(1 + 6);
-    await waitFor(() => expect(echartsMocks.setOption).toHaveBeenCalled());
-    const option = echartsMocks.setOption.mock.calls.at(-1)![0] as { series: { name: string; data: (number | null)[] }[] };
-    expect(option.series.map(s => s.name)).toEqual(['Planlanan', 'Gerçekleşen']);
-    expect(option.series[0]!.data.at(-1)).toBe(121800);
-    expect(option.series[1]!.data.at(-1)).toBe(99000);
-    expect(within(blok).getByRole('img', { name: /değerler yanındaki tabloda/ })).toBeInTheDocument();
-    // tr-TR biçim: eksen "140.000", ipucu "₺121.800,00", değersiz ay "Henüz yok"; lejant üstte (eksen etiketleriyle
-    // çakışmaz; ECharts 6 varsayılanı alttır).
-    const bicim = option as unknown as {
-      legend: { top?: number | string };
-      yAxis: { axisLabel: { formatter(value: number): string } };
-      tooltip: { valueFormatter(value: unknown): string };
-    };
-    expect(bicim.legend.top).toBe(0);
-    expect(bicim.yAxis.axisLabel.formatter(140000)).toBe('140.000');
-    expect(bicim.tooltip.valueFormatter(121800)).toBe('₺121.800,00');
-    expect(bicim.tooltip.valueFormatter(null)).toBe('Henüz yok');
+    expect(blok).not.toHaveTextContent('₺');
+    expect(within(blok).getByText(/^Toplam kullanılamaz: bütçe gözlemlerinin /)).toBeInTheDocument();
+    // Çizilecek tutar yok: grafik (ve ECharts çalışma zamanı) yok; aynı değerler tabloda adıyla.
+    expect(within(blok).queryByRole('img')).not.toBeInTheDocument();
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); });
+    expect(echartsMocks.init).not.toHaveBeenCalled();
   });
 
-  it('grafik ve tablo: gelecek ayda Gerçekleşen serisi boş, tabloda "Henüz yok"', async () => {
+  it('aylık tablo: gelecek ayda Gerçekleşen "Henüz yok", Planlanan "Toplam kullanılamaz"; kaynak değeri yazılmaz', async () => {
     renderPage({ now: () => new Date(2025, 11, 15, 10, 0, 0) });
     await genisHazir();
     const tablo = within(region('Aylık plan ve gerçek')).getByRole('table');
     const ocak = within(tablo).getByRole('row', { name: /Oca 2026/ });
-    expect(ocak).toHaveTextContent('₺129.300,00');
+    expect(ocak).toHaveTextContent(TOTAL_UNAVAILABLE_TEXT);
     expect(ocak).toHaveTextContent('Henüz yok');
-    expect(ocak).not.toHaveTextContent('₺127.800,00');
-    await waitFor(() => expect(echartsMocks.setOption).toHaveBeenCalled());
-    const option = echartsMocks.setOption.mock.calls.at(-1)![0] as { series: { name: string; data: (number | null)[] }[] };
-    expect(option.series[1]!.data.every(value => value === null)).toBe(true);
+    expect(ocak).toHaveTextContent('8 plan kaydı');
+    expect(ocak).not.toHaveTextContent('₺');
   });
 });
 

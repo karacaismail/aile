@@ -15,20 +15,19 @@ import {
   type QueryAst,
   type ViewDefinition,
 } from '../data';
+import { CSV_REVOKE_DELAY_MS, downloadCsv } from '../data/csv';
 import type { DataStatusProps, DataStatusState, PageHeaderSummary, ResponsiveColumn, Tone } from '../shell/contracts';
 import { PageHeader } from '../shell/PageHeader';
 import { Button } from '../ui/Button';
 import { EmptyState } from '../ui/EmptyState';
 import { ErrorState } from '../ui/ErrorState';
 import { LoadingShell } from '../ui/LoadingShell';
-import { Money } from '../ui/Money';
 import { ResponsiveTable } from '../ui/ResponsiveTable';
 import { Select } from '../ui/Select';
 import { StatusText } from '../ui/StatusText';
 import {
   KAYIT_YOK,
   TUM,
-  chartAmount,
   choiceLabel,
   dayStamp,
   defaultPeriodChoice,
@@ -36,29 +35,24 @@ import {
   kalemRows,
   measureValue,
   monthCsv,
+  monthPlannedText,
+  monthRecordedText,
   monthRows,
-  ownedMeasures,
   periodLabel,
   periodOptions,
   periodsFor,
-  plannedDisplay,
-  plannedOver,
   rangeText,
   recordCounts,
-  recordedDisplay,
-  recordedOver,
-  recordedText,
-  plannedText,
   roomRows,
   slug,
+  summaryPlannedText,
+  summaryRecordedText,
   toCsv,
   type CsvRows,
   type IssueRow,
   type KalemRow,
   type MonthRow,
-  type OwnedMeasures,
   type RoomRow,
-  type TotalDisplay,
 } from './raporlar/model';
 import './RaporlarPage.css';
 
@@ -68,10 +62,12 @@ import './RaporlarPage.css';
 // Uyarlamalı teslim: telefon temel deneyimi bu dosyadır (yerel HTML + ui bileşenleri, tablo akordeona iner, grafiğin
 // karşılığı tablodur). Geniş-özel yetenekler — ECharts grafiği (tablet + masaüstü) ve rapor menüsü (masaüstü) —
 // raporlar/*.wide.tsx içindedir ve yalnız lazyWide ile, geniş profilde gelir; telefon onları ve echarts'ı indirmez.
-// Veri anlamı (W0 actuals): Gerçekleşen içinde bulunulan aydan sonra "Henüz yok"; oran/"harcandı" yalnız spendLabel;
-// toplamlar katalogdaki sahipliği belirlenmiş ölçülerle (pivotMeasures) ve kesin ondalıkla; plan ve gerçek tek sayıda
-// birleşmez (fark/oran üretilmez). forecast_* toplanmaz. payments nesilde yok. Alımların toplanabilir ölçüsü yok: oda
-// raporu yalnız sayar. Dışa aktarma görünen satırlar, istemci tarafı CSV; Sheets'e yazma yok.
+// Veri anlamı (W0 actuals): Gerçekleşen içinde bulunulan aydan sonra "Henüz yok"; "harcandı" yalnız spendLabel; plan ve
+// gerçek tek sayıda birleşmez (fark/oran üretilmez). Bütçe gözlemleri toplanmaz: satırlar gelir, ara toplam ("… toplamı"),
+// genel toplam ("Toplam …") ve adet satırlarını da taşır ve nesilde satır düzeyinde yaprak sahipliği haritası yok
+// (views.pivotMeasures yalnız sayım). Tutar yerine "Toplam kullanılamaz" ve nedeni (views.sumUnavailableReason); grafikler
+// kayıt sayısını çizer. forecast_* toplanmaz. payments nesilde yok. Alımların toplanabilir ölçüsü yok: oda raporu yalnız
+// sayar. Dışa aktarma görünen satırlar, istemci tarafı CSV (data/csv: formül başlangıcı metne çevrilir); Sheets'e yazma yok.
 
 const RaporGrafikWide = lazyWide('raporlar-grafik', () => import('./raporlar/RaporGrafik.wide'));
 const RaporMenuWide = lazyWide('raporlar-menu', () => import('./raporlar/RaporMenu.wide'));
@@ -92,34 +88,17 @@ const PLANLANAN = 'Planlanan';
 const GERCEKLESEN = 'Gerçekleşen';
 const FORECAST_NOTU = 'Tahminler (forecast) bu raporlara toplanmaz; yalnız bütçe gözlemleri sayılır.';
 const GORUNUM_NOTU = 'Raporlarda görünüm modu yok: her rapor kendi biçimiyle gelir.';
-const GRAFIK_NOTU = 'Planlanan ve Gerçekleşen ayrı serilerdir; eksik değer çizilmez. Değerler aşağıdaki tabloda.';
+const GRAFIK_NOTU = 'Tutar toplanmadığı için kayıt sayısı çizilir; plan ve Gerçekleşen kayıtları ayrı serilerdir, gelecek ayın Gerçekleşeni çizilmez. Değerler aşağıdaki tabloda.';
 const ODA_NOTU = 'Tutar toplanmaz: alımların sahipliği belirlenmiş toplanabilir ölçüsü yok; kayıtlar yalnız sayılır. Odası olmayan alımlar "Bilinmiyor" satırındadır.';
 const DISA_AKTAR = 'Raporu dışa aktar';
 const OBS_KIND = 'budget_observation';
-const SAHIPSIZ = 'bütçe gözlemlerinin sahipliği belirlenmiş toplanabilir ölçüsü yok.';
-/** İndirme başlamadan blob bağlantısı geri alınmaz (WebKit iptal eder). */
-export const REVOKE_DELAY_MS = 1000;
+/** İndirme başlamadan blob bağlantısı geri alınmaz (WebKit iptal eder); ortak değer data/csv'den. */
+export const REVOKE_DELAY_MS = CSV_REVOKE_DELAY_MS;
 
 const STATUS_STATE: Record<GenerationState, DataStatusState> = { idle: 'checking', checking: 'checking', ready: 'fresh', stale: 'stale', error: 'error' };
 const SPEND_TONE: Record<MonthRow['spend']['kind'], Tone> = { not_yet: 'notr', in_source: 'bilgi', spent: 'notr' };
 const systemNow = () => new Date();
 
-function downloadCsv(filename: string, rows: CsvRows): void {
-  const blob = new Blob([toCsv(rows)], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = filename;
-  anchor.rel = 'noopener';
-  anchor.hidden = true;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), REVOKE_DELAY_MS);
-}
-
-/** "Pivot kullanılamaz: X" → "Toplam kullanılamaz: X" (aylık rapor ve özet için aynı gerekçe). */
-const totalReason = (reason: string | null) => `Toplam kullanılamaz: ${reason ? reason.replace(/^[^:]+:\s*/, '') : SAHIPSIZ}`;
 
 // --- Sayfa ------------------------------------------------------------------------------------------------
 export interface RaporlarPageProps {
@@ -180,8 +159,8 @@ export function RaporlarPage({ location = '/raporlar', now = systemNow }: Raporl
     [definitions.rows],
   );
   const measures = useMemo(() => catalog.pivotMeasures(OBS_KIND), [catalog]);
-  const owned = useMemo(() => ownedMeasures(measures), [measures]);
   const pivotReason = catalog.unsupportedReason(OBS_KIND, 'pivot');
+  const sumReason = catalog.sumUnavailableReason(OBS_KIND);
 
   // Dışa aktarma: etkin rapor görünen satırlarını kaydeder ve kaldırılınca (ya da satırları değişince) kaydı siler;
   // veri gelmeden düğme devre dışıdır (nedeni yanında yazar). React önce eski etkilerin temizliğini, sonra yenileri
@@ -213,18 +192,19 @@ export function RaporlarPage({ location = '/raporlar', now = systemNow }: Raporl
   const budgetLoading = observations.loading || definitions.loading;
   const obsReady = !budgetLoading && observations.error === null && selected.length > 0;
 
-  // Özet: plan ve gerçek ayrı ölçü (yalnız sahipliği belirlenmişse); üçüncü girdi kayıt sayıları, yine ayrı ayrı.
+  // Özet: plan ve gerçek ayrı girdiler; toplam üretilmez, eksik toplam adıyla ("Toplam kullanılamaz"; gelecek ya da
+  // kayıtsız Gerçekleşen "Henüz yok"). Üçüncü girdi kayıt sayıları, yine ayrı ayrı.
   const summary = useMemo<readonly PageHeaderSummary[] | undefined>(() => {
     if (!obsReady || !budgetReport) return undefined;
     const note = choiceLabel(activeChoice);
-    const items: PageHeaderSummary[] = [];
-    if (owned.planned) items.push({ label: PLANLANAN, value: plannedText(plannedOver(selected, periods)), note });
-    if (owned.recorded) items.push({ label: GERCEKLESEN, value: recordedText(recordedOver(selected, periods, today)), note });
     const { plan, recorded } = recordCounts(selected, today);
-    items.push({ label: 'Kayıt', value: `${plan} plan · ${recorded} gerçekleşen`, note });
-    return items;
+    return [
+      { label: PLANLANAN, value: summaryPlannedText(selected), note },
+      { label: GERCEKLESEN, value: summaryRecordedText(selected, periods, today), note },
+      { label: 'Kayıt', value: `${plan} plan · ${recorded} gerçekleşen`, note },
+    ];
     // today yalnız içinde bulunulan dönem (current) üzerinden etkiler; her render'da yeni Date bağımlılık sayılmaz.
-  }, [obsReady, budgetReport, activeChoice, owned, selected, periods, current]);
+  }, [obsReady, budgetReport, activeChoice, selected, periods, current]);
 
   const exportNoteId = 'aile-raporlar-disa-aktar-not';
   const primary = report.exportable ? (
@@ -247,9 +227,9 @@ export function RaporlarPage({ location = '/raporlar', now = systemNow }: Raporl
     else if (rows.length === 0) body = <EmptyState title="Kaynakta bütçe gözlemi kaydı yok" message="Nesilde budget_observations koleksiyonu boş; Plan ve Gerçekleşen sayfalarından hücre okunmadı." />;
     else if (periods.length === 0) body = <EmptyState filters={[choiceLabel(activeChoice)]} onClear={() => setChoice(TUM)} />;
     else if (report.key === 'aylik') {
-      body = <AylikReport rows={selected} periods={periods} today={today} current={current} owned={owned} reason={owned.planned && owned.recorded ? null : totalReason(pivotReason)} definitionsError={definitions.error} onCsv={registerCsv} />;
+      body = <AylikReport rows={selected} periods={periods} today={today} current={current} sumReason={sumReason} definitionsError={definitions.error} onCsv={registerCsv} />;
     } else {
-      body = <KalemReport rows={selected} periods={periods} today={today} current={current} measures={measures} reason={pivotReason} definitionsError={definitions.error} onCsv={registerCsv} />;
+      body = <KalemReport rows={selected} periods={periods} today={today} current={current} measures={measures} reason={pivotReason} sumReason={sumReason} definitionsError={definitions.error} onCsv={registerCsv} />;
     }
   } else if (report.key === 'borc') {
     body = <EmptyState title="Kaynakta ödeme kaydı yok" message="Nesilde payments koleksiyonu yok; borç ödeme planı bu kaynaktan üretilemez. Ödemeler sayfası da aynı durumu söyler." />;
@@ -296,14 +276,9 @@ function ReportHead({ id, title, meta }: { id: string; title: string; meta: stri
   );
 }
 
-/** Tutar ya da eksik bilginin adı (Money); kısmen okunamayan değer ayrıca yazılır. */
-function Total({ value }: { value: TotalDisplay }) {
-  return (
-    <>
-      <Money value={value.money} label={value.missing} />
-      {value.note ? <span className="aile-raporlar__eksik aile-kucuk aile-ikincil">{value.note}</span> : null}
-    </>
-  );
+/** Tutar yerine eksik bilginin adı ("Toplam kullanılamaz", "Henüz yok", "Plan yok", "Kayıt yok"): ikincil metin. */
+function Missing({ children }: { children: ReactNode }) {
+  return <span className="aile-ikincil">{children}</span>;
 }
 
 function Note({ children }: { children: ReactNode }) {
@@ -325,48 +300,46 @@ function kayitText(row: MonthRow): string {
   return row.current ? `${base} · sürüyor` : base;
 }
 
-function AylikReport({ rows, periods, today, current, owned, reason, definitionsError, onCsv }: BudgetReportProps & { owned: OwnedMeasures; reason: string | null }) {
+function AylikReport({ rows, periods, today, current, sumReason, definitionsError, onCsv }: BudgetReportProps & { sumReason: string }) {
   // today yalnız içinde bulunulan dönem (current) üzerinden etkiler.
   const months = useMemo(() => monthRows(rows, periods, today), [rows, periods, current]);
   const mirrored = months.some((row) => row.mirrors);
 
   useEffect(() => {
-    onCsv(monthCsv(months, owned));
+    onCsv(monthCsv(months));
     return () => onCsv(null);
-  }, [months, owned, onCsv]);
+  }, [months, onCsv]);
 
-  // Asgari genişlikler içerik türüne göre (ay adı, ₺1.168.800,00, "Kaynakta yazılı", sözcük arasında saran kayıt metni);
-  // toplamı tablet içerik genişliğine sığar: tablet tabloyu görür, telefon akordeonu.
-  const columns: ResponsiveColumn<MonthRow>[] = [{ key: 'ay', title: 'Ay', minWidth: 128, m: 'title', render: (row) => row.label }];
-  if (owned.planned) columns.push({ key: 'plan', title: PLANLANAN, align: 'right', minWidth: 144, render: (row) => <Total value={plannedDisplay(row.planned)} /> });
-  if (owned.recorded) {
-    columns.push(
-      { key: 'gercek', title: GERCEKLESEN, align: 'right', minWidth: 144, m: 'lead', render: (row) => <Total value={recordedDisplay(row.recorded)} /> },
-      { key: 'durum', title: 'Durum', minWidth: 136, m: 'status', render: (row) => <StatusText label={row.spend.text} tone={SPEND_TONE[row.spend.kind]} /> },
-    );
-  }
-  columns.push({ key: 'kayit', title: 'Kayıt', minWidth: 168, m: 'meta', render: kayitText });
+  // Asgari genişlikler içerik türüne göre (ay adı, "Toplam kullanılamaz", "Kaynakta yazılı", sözcük arasında saran kayıt
+  // metni); toplamı tablet içerik genişliğine sığar: tablet tabloyu görür, telefon akordeonu (ay başlıkta, kayıt meta,
+  // durum sağda; Planlanan ve Gerçekleşen gövdede ayrı etiketli).
+  const columns: ResponsiveColumn<MonthRow>[] = [
+    { key: 'ay', title: 'Ay', minWidth: 128, m: 'title', render: (row) => row.label },
+    { key: 'plan', title: PLANLANAN, align: 'right', minWidth: 160, m: 'body', render: (row) => <Missing>{monthPlannedText(row)}</Missing> },
+    { key: 'gercek', title: GERCEKLESEN, align: 'right', minWidth: 160, m: 'body', render: (row) => <Missing>{monthRecordedText(row)}</Missing> },
+    { key: 'durum', title: 'Durum', minWidth: 136, m: 'status', render: (row) => <StatusText label={row.spend.text} tone={SPEND_TONE[row.spend.kind]} /> },
+    { key: 'kayit', title: 'Kayıt', minWidth: 168, m: 'meta', render: kayitText },
+  ];
   if (mirrored) columns.push({ key: 'not', title: 'Not', minWidth: 240, render: (row) => (row.mirrors ? MIRRORS_PLAN_NOTE : '') });
 
+  // Tutar yok: grafik plan ve Gerçekleşen kayıt sayısını ayrı seri olarak çizer; gelecek ayın Gerçekleşeni boşluktur.
   const series = [
-    ...(owned.planned ? [{ name: PLANLANAN, tone: 'plan' as const, values: months.map((row) => chartAmount(row.planned)) }] : []),
-    ...(owned.recorded ? [{ name: GERCEKLESEN, tone: 'gercek' as const, values: months.map((row) => chartAmount(row.recorded)) }] : []),
+    { name: 'Plan kaydı', tone: 'plan' as const, values: months.map((row) => row.planCount) },
+    { name: 'Gerçekleşen kaydı', tone: 'gercek' as const, values: months.map((row) => (row.future ? null : row.recordedCount)) },
   ];
 
   return (
     <section className="aile-raporlar__rapor" aria-labelledby="aile-rapor-aylik">
       <ReportHead id="aile-rapor-aylik" title="Aylık plan ve gerçek" meta={rangeText(periods, current)} />
-      {reason ? <Note>{reason}</Note> : null}
+      <Note>{sumReason}</Note>
       {definitionsError ? <Note>{definitionsError}</Note> : null}
-      {series.length > 0 ? (
-        <RaporGrafikWide
-          wideFallback={null}
-          categories={months.map((row) => row.label)}
-          series={series}
-          ariaLabel="Aylara göre planlanan ve gerçekleşen gider; değerler aşağıdaki tabloda"
-          description={GRAFIK_NOTU}
-        />
-      ) : null}
+      <RaporGrafikWide
+        wideFallback={null}
+        categories={months.map((row) => row.label)}
+        series={series}
+        ariaLabel="Aylara göre planlanan ve gerçekleşen kayıt sayısı; değerler aşağıdaki tabloda"
+        description={GRAFIK_NOTU}
+      />
       {/* Dönem değişince sonuç yenidir: akordeon yeniden kurulur, yeni sonucun ilk satırı açık gelir. */}
       <ResponsiveTable key={periods.join('|')} caption="Aylık plan ve gerçek" mobileCaption={`${months.length} ay`} columns={columns} rows={months} />
       {mirrored ? <Note>{MIRRORS_PLAN_NOTE}</Note> : null}
@@ -376,9 +349,9 @@ function AylikReport({ rows, periods, today, current, owned, reason, definitions
 }
 
 // --- Rapor: Kaleme göre harcama (pivot kalem × dönem) -----------------------------------------------
-function KalemReport({ rows, periods, today, current, measures, reason, definitionsError, onCsv }: BudgetReportProps & { measures: readonly PivotMeasure[]; reason: string | null }) {
+function KalemReport({ rows, periods, today, current, measures, reason, sumReason, definitionsError, onCsv }: BudgetReportProps & { measures: readonly PivotMeasure[]; reason: string | null; sumReason: string }) {
   const [measureId, setMeasureId] = useState<string | undefined>(undefined);
-  const measure = measures.find((item) => item.id === measureId) ?? measures.find((item) => item.id === 'sum_planned') ?? measures[0];
+  const measure = measures.find((item) => item.id === measureId) ?? measures[0];
   const kalemler = useMemo(() => kalemRows(rows, periods), [rows, periods]);
 
   const cell = useCallback(
@@ -400,7 +373,7 @@ function KalemReport({ rows, periods, today, current, measures, reason, definiti
     return (
       <section className="aile-raporlar__rapor" aria-labelledby="aile-rapor-kalem">
         <ReportHead id="aile-rapor-kalem" title="Kaleme göre harcama" meta={rangeText(periods, current)} />
-        <p className="aile-raporlar__not">{reason ?? `Pivot kullanılamaz: ${SAHIPSIZ}`}</p>
+        <p className="aile-raporlar__not">{reason ?? `Pivot kullanılamaz: ${sumReason.replace(/^[^:]+:\s*/, '')}`}</p>
         {definitionsError ? <p className="aile-raporlar__not">{definitionsError}</p> : null}
       </section>
     );
@@ -408,7 +381,8 @@ function KalemReport({ rows, periods, today, current, measures, reason, definiti
 
   const render = (period: string | null) => (row: KalemRow) => {
     const value = cell(row, period)!;
-    return value.display ? <Total value={value.display} /> : <span className={value.text === KAYIT_YOK ? 'aile-ikincil' : undefined}>{value.text}</span>;
+    // Sayım metni düz; "Kayıt yok" ve toplam ölçüsünün "Toplam kullanılamaz" adı eksik bilgi olarak ikincil.
+    return measure.aggregate !== 'count' || value.text === KAYIT_YOK ? <Missing>{value.text}</Missing> : value.text;
   };
   const columns: ResponsiveColumn<KalemRow>[] = [
     { key: 'kalem', title: 'Kalem', minWidth: 200, m: 'title', render: (row) => row.label },
@@ -417,16 +391,17 @@ function KalemReport({ rows, periods, today, current, measures, reason, definiti
   ];
 
   const items = kalemler.filter((row) => !row.isTotal);
-  const series = measure.aggregate === 'count'
-    ? [
-        { name: 'Plan kaydı', tone: 'plan' as const, values: items.map((row) => recordCounts(row.all, today).plan) },
-        { name: 'Gerçekleşen kaydı', tone: 'gercek' as const, values: items.map((row) => recordCounts(row.all, today).recorded) },
-      ]
-    : [{ name: measure.label, tone: measure.basis === 'planned' ? ('plan' as const) : ('gercek' as const), values: items.map((row) => cell(row, null)!.amount) }];
+  // Tutar toplanmaz: grafik her kalemin plan ve Gerçekleşen kayıt sayısını ayrı seri olarak çizer.
+  const series = [
+    { name: 'Plan kaydı', tone: 'plan' as const, values: items.map((row) => recordCounts(row.all, today).plan) },
+    { name: 'Gerçekleşen kaydı', tone: 'gercek' as const, values: items.map((row) => recordCounts(row.all, today).recorded) },
+  ];
 
   return (
     <section className="aile-raporlar__rapor" aria-labelledby="aile-rapor-kalem">
       <ReportHead id="aile-rapor-kalem" title="Kaleme göre harcama" meta={`${rangeText(periods, current)} · ${items.length} kalem`} />
+      <Note>{sumReason}</Note>
+      {definitionsError ? <Note>{definitionsError}</Note> : null}
       <div className="aile-raporlar__secim">
         <Select label="Ölçü" value={measure.id} onChange={setMeasureId} options={measures.map((item) => ({ value: item.id, label: item.label }))} help="Plan ve gerçekleşen ayrı ölçüdür; tek sayıda birleşmez." />
       </div>
@@ -434,7 +409,7 @@ function KalemReport({ rows, periods, today, current, measures, reason, definiti
         wideFallback={null}
         categories={items.map((row) => row.label)}
         series={series}
-        ariaLabel={`Kaleme göre ${measure.label.toLocaleLowerCase('tr-TR')}; değerler aşağıdaki tabloda`}
+        ariaLabel="Kaleme göre planlanan ve gerçekleşen kayıt sayısı; değerler aşağıdaki tabloda"
         description="Her kalem tek çubuktur; değerler aşağıdaki tabloda."
       />
       <ResponsiveTable key={periods.join('|')} caption="Kaleme göre harcama" mobileCaption={`${items.length} kalem`} columns={columns} rows={kalemler} />

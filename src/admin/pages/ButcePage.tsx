@@ -7,6 +7,7 @@ import {
   LIVE_FAILURE_TITLE, MIRRORS_PLAN_NOTE, RECORDED_IN_SOURCE_TEXT, RECORDED_NOT_YET_TEXT, currentPeriod, isFuturePeriod, lastGoodBudget, lastReadAtOf,
   liveBudget, useCollection, useGeneration, type BudgetViewModel, type GenerationState, type LiveBudgetOptions, type LiveBudgetResult,
 } from '../data';
+import { downloadCsv } from '../data/csv';
 import { ActualValue, PlannedValue, StatusValue } from './butce/cells';
 import {
   HESAPLANMADI, budgetRowsFor, compareWithLive, defaultPeriod, periodLabel, periodMirrorsPlan,
@@ -15,11 +16,14 @@ import {
 import './ButcePage.css';
 
 // Bütçe ve nakit — tasarım: README.md "Sayfa iskeleti" + "Uyarlanır teslim", ekranlar.md SayfaButce / SayfaButceDar,
-// bundle.js Pages.Butce (sütunlar Kalem · Planlanan · Gerçekleşen · Fark · Durum; telefonda Kalem title, Tür meta, Fark
-// lead, Durum status). Veri: budget_observations hücre gözlemleri; muhasebe kaydı ya da toplanabilir toplam DEĞİLDİR.
-// Saf mantık butce/model.ts'te (plan ve gerçek ayrı; Gerçekleşen anlamı yalnız data/actuals.ts'ten: gelecek dönem
-// "Henüz yok", kanıtsız değer "Kaynakta yazılı", oran yalnız spendLabel'dan; fark yalnız iki taraf bilinen ve aynı para
-// biriminde iken). Özet tutar değil sayımdır; sayfa hiçbir gözlemi toplamaz.
+// bundle.js Pages.Butce (sütunlar Kalem · Planlanan · Gerçekleşen · Fark · Durum). Telefonda Kalem title, Tür meta,
+// Planlanan lead, Durum status; Gerçekleşen ve Fark gövdede (ürün kararı r4: kapalı satırda görülen tek tutar plandır,
+// plan − gerçek farkı başlıkta durmaz). Veri: budget_observations hücre gözlemleri; muhasebe kaydı ya da toplanabilir
+// toplam DEĞİLDİR. Saf mantık butce/model.ts'te (plan ve gerçek ayrı; Gerçekleşen anlamı yalnız data/actuals.ts'ten:
+// gelecek dönem "Henüz yok", kanıtsız değer "Kaynakta yazılı", oran yalnız spendLabel'dan; Fark yalnız ödeme kanıtı olan
+// Gerçekleşenle, iki taraf bilinen ve aynı para biriminde iken). Özet tutar değil sayımdır; sayfa hiçbir gözlemi toplamaz.
+// Dışa aktarma ortak data/csv yardımcısıyla (formül başlangıcı metne çevrilir; blob URL indirme başladıktan sonra
+// bırakılır).
 // Uyarlamalı teslim (W0): bu dosya telefon temel sunumudur ve antd/echarts/geniş kodu statik istemez. Telefonda kalem kalem
 // akordeon (ResponsiveTable, ilk satır açık), dönem seçimi alttan açılan sayfa (Select telefonda BottomSheet). Seçili
 // kalemin aylık eğilimi (Chart + yanında tablo) geniş-özeldir: butce/ButceTrend.wide.tsx, lazyWide ile yalnız tablet ve
@@ -203,18 +207,11 @@ export function ButcePage({ location = LOCATION, now, live = true, liveBudgetImp
   const exportRows = useCallback(() => {
     if (typeof window === 'undefined' || !rows.length) return;
     const head = ['Kalem', 'Dönem', 'Planlanan', 'Gerçekleşen', 'Fark', 'Para birimi', 'Durum', 'Tür'];
-    const cell = (value: string) => `"${value.replace(/"/g, '""')}"`;
     const lines = rows.map(row => [
       row.label, row.period, row.planned?.amount ?? '', row.actual?.amount ?? '', row.difference?.amount ?? '',
       row.planned?.currency ?? row.actual?.currency ?? '', row.status.label, OWNERSHIP_LABEL[row.ownership].label,
-    ].map(cell).join(';'));
-    const blob = new Blob([`﻿${[head.map(cell).join(';'), ...lines].join('\r\n')}`], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = `butce-${period ?? 'donem'}.csv`;
-    anchor.click();
-    URL.revokeObjectURL(url);
+    ]);
+    downloadCsv(`butce-${period ?? 'donem'}.csv`, [head, ...lines]);
   }, [rows, period]);
   const more: PageHeaderAction[] = [{ label: 'Dışa aktar', icon: 'download', onClick: exportRows }];
 
@@ -237,14 +234,15 @@ export function ButcePage({ location = LOCATION, now, live = true, liveBudgetImp
         </span>
       ),
     },
-    { key: 'planned', title: 'Planlanan', align: 'right', minWidth: 128, render: row => <PlannedValue planned={row.planned} unknown={row.plannedAmbiguous || row.plannedUnreadable} /> },
+    { key: 'planned', title: 'Planlanan', align: 'right', minWidth: 128, only: 'desktop', render: row => <PlannedValue planned={row.planned} unknown={row.plannedAmbiguous || row.plannedUnreadable} /> },
     { key: 'actual', title: 'Gerçekleşen', align: 'right', minWidth: 136, render: row => <ActualValue recorded={row.recorded} unknown={row.actualAmbiguous} /> },
-    { key: 'difference', title: 'Fark', align: 'right', minWidth: 120, only: 'desktop', render: row => <Money value={row.difference} label={HESAPLANMADI} /> },
+    { key: 'difference', title: 'Fark', align: 'right', minWidth: 120, render: row => <Money value={row.difference} label={HESAPLANMADI} /> },
     { key: 'status', title: 'Durum', minWidth: 136, m: 'status', render: row => <StatusValue row={row} /> },
     { key: 'ownership', title: 'Tür', minWidth: 120, only: 'desktop', render: row => <StatusText label={OWNERSHIP_LABEL[row.ownership].label} tone={OWNERSHIP_LABEL[row.ownership].tone} /> },
-    // Telefon (SayfaButceDar): başlıkta düz kalem adı (title), altında ara toplam · tür (meta), sağda Fark (lead); gövdede
-    // yinelenmez. Başlıkta sütun adı yoktur: "Bilinmiyor" ya da çıplak tutar neyi söylediğini yazar ("Tür bilinmiyor",
-    // "Fark ₺…").
+    // Telefon (SayfaButceDar): başlıkta düz kalem adı (title), altında ara toplam · tür (meta), sağda Planlanan (lead) ve
+    // durum; Planlanan gövdede yinelenmez, Gerçekleşen ve Fark gövdededir. Başlıkta sütun adı yoktur: "Bilinmiyor" ya da
+    // çıplak tutar neyi söylediğini yazar ("Tür bilinmiyor", "Planlanan ₺…"). Plan ile gerçek tek başlık tutarında
+    // birleşmez (ürün kararı r4: Fark başlıkta değil).
     { key: 'labelMobile', title: 'Kalem', minWidth: 0, m: 'title', only: 'mobile', render: row => row.label },
     {
       key: 'ownershipMobile', title: 'Tür', minWidth: 0, m: 'meta', only: 'mobile',
@@ -254,10 +252,10 @@ export function ButcePage({ location = LOCATION, now, live = true, liveBudgetImp
       },
     },
     {
-      key: 'differenceMobile', title: 'Fark', minWidth: 0, m: 'lead', only: 'mobile',
+      key: 'plannedMobile', title: 'Planlanan', minWidth: 0, m: 'lead', only: 'mobile',
       render: row => (
         <span className="aile-butce-fark">
-          <span className="aile-kucuk aile-ikincil">Fark</span> <Money value={row.difference} label={HESAPLANMADI} />
+          <span className="aile-kucuk aile-ikincil">Planlanan</span> <PlannedValue planned={row.planned} unknown={row.plannedAmbiguous || row.plannedUnreadable} />
         </span>
       ),
     },
@@ -299,6 +297,8 @@ export function ButcePage({ location = LOCATION, now, live = true, liveBudgetImp
             selectedKey={selectable ? selected?.key : undefined}
             onRowClick={selectable ? row => setChosenLabel(row.label) : undefined}
             groupBy={liveBudgetModel ? row => row.parent ?? (row.ownership === 'subtotal' ? row.label : 'Diğer') : undefined}
+            // Sayfada h1'den sonra h2 yok: telefon grup başlıkları h2 (düzey atlanmaz).
+            headingLevel={2}
           />
         ) : (
           <div className="aile-butce-durumu">
@@ -306,8 +306,9 @@ export function ButcePage({ location = LOCATION, now, live = true, liveBudgetImp
           </div>
         )}
         <p className="aile-kucuk aile-ikincil aile-butce-not">
-          Fark = Planlanan − Gerçekleşen; eksi ise kalem aşılmıştır. Ödeme kanıtı olmayan Gerçekleşen değeri “{RECORDED_IN_SOURCE_TEXT}”
-          diye işaretlenir ve oran hesaplanmaz; içinde bulunulan aydan sonraki dönemde Gerçekleşen “{RECORDED_NOT_YET_TEXT}”.
+          Fark = Planlanan − Gerçekleşen; yalnız ödeme kanıtı olan Gerçekleşen için hesaplanır ve eksi ise kalem aşılmıştır.
+          Ödeme kanıtı olmayan Gerçekleşen değeri “{RECORDED_IN_SOURCE_TEXT}” diye işaretlenir; fark ve oran hesaplanmaz
+          (“{HESAPLANMADI}”). İçinde bulunulan aydan sonraki dönemde Gerçekleşen “{RECORDED_NOT_YET_TEXT}”.
           Gözlemler toplanmaz; ara toplam satırı çocuklarıyla toplanmaz
           {liveBudgetModel ? '. Tür canlı Sheet eşlemesinden gelir.' : '; satır türü canlı Sheet eşlemesi olmadan bilinmez.'}
         </p>
