@@ -1,0 +1,41 @@
+/* Nesil seçimi: seçenekler kutusuz satırlardır; ayrım yüzey tonuyla (zemin), hover bilgi-yuzey, basılı secili.
+   Kenarlık ve renkli şerit yok. Hedef en az hedef-asgari (44), dokunmatik katmanda +bosluk-1 (48). Hareket tek süre
+   ve tek eğri; reduced-motion'da süre 0, durum anında. Odak çizgisi admin.css [data-focus-line]. */
+.aile-veri-secim-aciklama { margin: 0 0 var(--aile-bosluk-3); }
+.aile-veri-secim-atlanan { margin: var(--aile-bosluk-3) 0 0; overflow-wrap: anywhere; }
+.aile-veri-secenekler {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.aile-veri-secenek {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--aile-bosluk-1);
+  width: 100%;
+  min-height: var(--aile-hedef-asgari);
+  padding: var(--aile-bosluk-3) var(--aile-bosluk-4);
+  border: 0;
+  border-radius: var(--aile-kose-kontrol);
+  background: var(--aile-zemin);
+  color: var(--aile-metin);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--aile-sure) var(--aile-egri);
+}
+[data-input-coarse] .aile-veri-secenek { min-height: calc(var(--aile-hedef-asgari) + var(--aile-bosluk-1)); }
+.aile-veri-secenek-baslik { font-weight: 600; font-variant-numeric: tabular-nums; }
+/* Klasör adları 64 hex'lik nesil kimliği olabilir: kelime yok, satır sınırında bölünür. */
+.aile-veri-secenek-ayrinti { overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+@media (hover: hover) {
+  .aile-veri-secenek:hover { background: var(--aile-bilgi-yuzey); }
+}
+.aile-veri-secenek:active { background: var(--aile-secili); }
+@media (prefers-reduced-motion: reduce) {
+  .aile-veri-secenek { transition-duration: 0s; }
+}

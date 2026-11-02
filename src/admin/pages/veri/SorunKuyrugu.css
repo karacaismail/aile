@@ -1,0 +1,28 @@
+/* Sorun kuyruğu: gruplar boşlukla ayrılır (kart/kenarlık yok); tablo ve liste kendi yüzeyini ResponsiveTable'dan alır.
+   Sayfalayıcı aralık metni + iki düğme; dar alanda kırılır, yatay taşma yok. Yalnız --aile-* tokenları. */
+.aile-veri-gruplar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-2);
+  min-width: 0;
+}
+.aile-veri-grup { min-width: 0; }
+.aile-veri-sayfalayici {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--aile-bosluk-2) var(--aile-bosluk-3);
+  margin-top: var(--aile-bosluk-3);
+}
+.aile-veri-aralik {
+  margin: 0;
+  color: var(--aile-metin-ikincil);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.aile-veri-sayfa-dugmeleri {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--aile-bosluk-2);
+}

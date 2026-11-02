@@ -1,5 +1,6 @@
 /* VeriPage — Veri kalitesi ve içe aktarma. Kaynak: bundle.css .pg-col, .ai-ov-block, .ai-ov-head, .ai-opt-count,
-   .ai-num; bundle.js VeriKalitesi. Yalnız --aile tokenları; sabit renk/px yok. Kart ve kenarlık yağmuru yok: bölümler
+   .ai-num; bundle.js VeriKalitesi. Renk/boşluk/köşe yalnız --aile tokenları (tipografi ölçeği tokens.json'dan; --aile-*
+   karşılığı yok). Kart ve kenarlık yağmuru yok: bölümler
    boşlukla ayrılır, tablo tek yuzey alanıdır (ResponsiveTable/Table kendi yüzeyini kurar). Radiuslu kutuda tek kenar
    renkli şerit yok; hata metni rengini sözcük ("Hata:") taşır. Odak çizgisini admin.css çizer. Hareket yok. */
 .aile-veri {
@@ -67,13 +68,13 @@
 }
 .aile-veri--dar .aile-veri-nesil { grid-template-columns: minmax(0, 1fr); row-gap: var(--aile-bosluk-1); }
 .aile-veri--dar .aile-veri-nesil dd { margin-bottom: var(--aile-bosluk-2); }
-/* Nesil kimliği 64 hex: sabit genişlikli, 14 px alt sınırın üstünde, kesilmez ve kelime içinden sarılır (kimlikte kelime yok). */
+/* Nesil kimliği 64 hex: sabit genişlikli; boyut .aile-kucuk (14 px alt sınır) sınıfından. Kesilmez, kimlikte kelime
+   olmadığı için satır sınırında bölünür. Klasör etiketi de nesil kimliğini taşıyabilir (".../d062d4…"). */
 .aile-veri-kimlik {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 14px;
-  line-height: 20px;
   overflow-wrap: anywhere;
 }
+.aile-veri-kaynak { overflow-wrap: anywhere; }
 .aile-veri-bos {
   margin: 0;
   padding: var(--aile-bosluk-3) var(--aile-bosluk-4);
