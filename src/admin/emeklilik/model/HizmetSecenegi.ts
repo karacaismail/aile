@@ -2,7 +2,7 @@
 // açıklama sözleşmesini tanımlar; yeni bir seçenek (ör. doğum borçlanması) bu sınıftan türetilerek eklenir.
 import type { MevzuatParametreleri, SecenekAnahtari, TlMetni, TutarBilgisi, Varsayimlar } from '../contract';
 import { Para } from './Para';
-import { tamSayi, yuzde } from './bicim';
+import { kuralHatasi, tamSayi, yuzde } from './bicim';
 
 /** Günlerin aylık hesabında düştüğü dönem: 2008 Ekim öncesi (eski hesap) ya da sonrası (5510). */
 export type HizmetDonemi = 'once2008' | 'sonra2008';
@@ -20,8 +20,8 @@ export const DONEM_ACIKLAMASI: Readonly<Record<HizmetDonemi, string>> = Object.f
 });
 
 function gunDogrula(gun: number, ad: string, azami: number | null): number {
-  if (!Number.isSafeInteger(gun) || gun < 0) throw new RangeError(`${ad} günü sıfır ya da pozitif tamsayı olmalı: ${gun}`);
-  if (azami !== null && gun > azami) throw new RangeError(`${ad} günü azami ${azami} günü aşamaz: ${gun}`);
+  if (!Number.isSafeInteger(gun) || gun < 0) throw kuralHatasi(`${ad} günü sıfır ya da pozitif tamsayı olmalı.`, { alan: ad, gun });
+  if (azami !== null && gun > azami) throw kuralHatasi(`${ad} günü azami ${azami} günü aşamaz.`, { alan: ad, gun });
   return gun;
 }
 
@@ -71,7 +71,7 @@ export abstract class GunlukBedelliSecenek extends HizmetSecenegi {
     const elle = this.girdi(varsayim).gunlukBedelTl;
     if (elle === null) return asgari;
     const bedel = Para.tlden(elle);
-    if (bedel.negatifMi()) throw new RangeError(`${this.ad} günlük bedeli negatif olamaz: ${elle}`);
+    if (bedel.negatifMi()) throw kuralHatasi(`${this.ad} günlük bedeli negatif olamaz.`, { alan: this.ad, gunlukBedelTl: elle });
     return bedel.esit(asgari.bedel) ? asgari : { bedel, kaynak: 'girilen günlük bedel' };
   }
 

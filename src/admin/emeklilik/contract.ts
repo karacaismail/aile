@@ -184,7 +184,8 @@ export interface KarsilastirmaSonucu {
   donemSonunda: TutarBilgisi;
   /**
    * Geri kazanma (başa baş): ortak dönemin başından (erken yolun emekliliği) kaç ay sonra referansa göre birikimli fark
-   * (ödeme ve vazgeçilen ücret dahil) ilk kez ≥ 0 olur; 0 = ek ödeme yok. Aralıklı girdide iki senaryonun uzun olanı.
+   * (ödeme ve vazgeçilen ücret dahil) eksiye düştükten sonra ilk kez ≥ 0 olur; 0 = geri kazanılacak bir şey yok (ek ödeme
+   * yok ve fark dönem boyunca eksiye düşmüyor). Aralıklı girdide iki senaryonun uzun olanı.
    * null: girdi bilinmiyor (hesaplanamayanNeden dolu) ya da dönem içinde başa baş yok (hesaplanamayanNeden null).
    */
   geriKazanmaAylikSayisi: number | null;
@@ -252,6 +253,12 @@ export type ProfilDurumu =
 export interface EmeklilikProfilKaynagi {
   durum(): ProfilDurumu;
   subscribe(dinleyici: () => void): () => void;
+  /**
+   * İsteğe bağlı: yenile() varsayılan kaynaktan yeniden okur mu (geliştirme sunucusu: true). false ya da alan yoksa
+   * yenile() bir şey yapmaz (üretim: varsayılan kaynak yok); görünüm "Yeniden dene" sunmaz, profil dosyasının yeniden
+   * içe aktarılmasını ister.
+   */
+  readonly yenilenebilir?: boolean;
   yenile(): Promise<void>;
   dosyadanYukle(dosya: File): Promise<void>;
   temizle(): void;

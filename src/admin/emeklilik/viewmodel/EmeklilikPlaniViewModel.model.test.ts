@@ -4,15 +4,15 @@
 // öneri "Senaryo önerisi" olur. Tutarların doğruluğu model birim testlerinin işidir; burada biçim ve değişim sınanır.
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { EmeklilikProfili } from '../contract';
-import { MEVZUAT_2026, emeklilikPlanlayicisiOlustur } from '../model';
+import { MEVZUAT_2026, YolHesabi, YolKarsilastirici, emeklilikPlanlayicisiOlustur } from '../model';
 import { EmeklilikPlaniViewModel } from './EmeklilikPlaniViewModel';
 
 const PROFIL = JSON.parse(readFileSync(resolve(__dirname, '../../../../fixtures/emeklilik/profil-sentetik.json'), 'utf8')) as EmeklilikProfili;
 const BUGUN = () => new Date('2026-11-02T12:00:00+03:00');
-const ARALIK_FARK = /^[+-]?₺\d{1,3}(?:\.\d{3})*,\d{2} – [+-]?₺\d{1,3}(?:\.\d{3})*,\d{2}$/;
-const TEK_FARK = /^[+-]?₺\d{1,3}(?:\.\d{3})*,\d{2}$/;
+const ARALIK_FARK = /^[+−]?₺\d{1,3}(?:\.\d{3})*,\d{2} – [+−]?₺\d{1,3}(?:\.\d{3})*,\d{2}$/;
+const TEK_FARK = /^[+−]?₺\d{1,3}(?:\.\d{3})*,\d{2}$/;
 
 function kur() {
   const vm = new EmeklilikPlaniViewModel(emeklilikPlanlayicisiOlustur(PROFIL, MEVZUAT_2026), PROFIL, { mevzuat: MEVZUAT_2026, bugun: BUGUN });
@@ -107,3 +107,33 @@ describe('EmeklilikPlaniViewModel + model › tarihi belirleyen ve iş ücreti',
     expect(bayrak.not).toBe('İş ücreti ayda ₺100.000,00 (profildeki net ücret ₺80.000,00 + %25 zam varsayımı); iki yolda aynı olduğundan farka girmez.');
   });
 });
+
+// Tuş başına hesap bütçesi (zaman eşiği yerine işlem sayacı; CI'da kırılgan değildir). En kötü senaryo: iş bırakılır,
+// karşılaştırma 40 yıl, borç sade aracın aralığı (öneri iki duyarlılık varsayımı daha sorar). Ölçüm (node, esbuild paketi,
+// sentetik profil): önce 29,7 ms/tuş, sonra docs/EMEKLILIK-PLANI.md › Doğrulama.
+describe('EmeklilikPlaniViewModel + model › tuş başına hesap bütçesi', () => {
+  it('en kötü senaryoda tuş başına tumBilesimler 1, karşılaştırma ≤ 29; geri kazanma dönem uzunluğundan bağımsız (karşılaştırma başına emekliGeliri ≤ 64)', () => {
+    const planlayici = emeklilikPlanlayicisiOlustur(PROFIL, MEVZUAT_2026);
+    const vm = new EmeklilikPlaniViewModel(planlayici, PROFIL, { mevzuat: MEVZUAT_2026, bugun: BUGUN });
+    vm.bayrakDegistir('isUcretiDevam', false);
+    vm.alanGuncelle('karsilastirmaSuresi', '40');
+    vm.borcKaynagiSec('tahmin');
+    const bilesim = vi.spyOn(planlayici, 'tumBilesimler');
+    const karsilastirma = vi.spyOn(YolKarsilastirici.prototype, 'karsilastir');
+    const gelir = vi.spyOn(YolHesabi.prototype, 'emekliGeliri');
+    try {
+      const TUS = 5;
+      for (let i = 0; i < TUS; i += 1) vm.alanGuncelle('digerKesintiler', `${1000 + i},00`);
+      expect(vm.getSnapshot().hesap.durum).toBe('hazir');
+      expect(bilesim).toHaveBeenCalledTimes(TUS);
+      // Sekiz bileşim + öneri duyarlılığı (kesintisiz ve borcun üst ucu, 2 × 8) + seçili yol + üç pay + ihya = 29.
+      expect(karsilastirma.mock.calls.length / TUS).toBeLessThanOrEqual(29);
+      expect(gelir.mock.calls.length / karsilastirma.mock.calls.length).toBeLessThanOrEqual(64);
+    } finally {
+      bilesim.mockRestore();
+      karsilastirma.mockRestore();
+      gelir.mockRestore();
+    }
+  });
+});
+

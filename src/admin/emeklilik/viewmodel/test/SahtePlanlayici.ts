@@ -8,7 +8,12 @@
 //   - Aylık: sgkReferans → profil referansı, kazancTahmini → KAZANC_TAHMINI, elle → varsayımdaki tutar (yoksa bilinmiyor).
 //   - Kesinti: Bağ-Kur ödenmezse ve oran > 0 ise; borç bilinmiyorsa süre null.
 //   - Karşılaştırma: dönem sonunda fark = erkenAy × aylık − ödeme (kuruş); ödeme bilinmiyorsa bilinmiyor.
-//   - Geri kazanma: ⌈ödeme / aylık⌉ ay, erken ay içindeyse; değilse null ve neden yok ("dönem içinde geri dönmüyor").
+//   - Geri kazanma: BİÇİM TESTLERİ İÇİN BASİTLEŞTİRİLMİŞ kural, sözleşmenin başa baş tanımı değildir: ödeme ≤ 0 ise 0,
+//     değilse ⌈ödeme / aylık⌉ ay (erken ay içindeyse); yoksa null ve neden yok ("dönem içinde geri dönmüyor"). Ücret ve
+//     sonradan eksiye düşen fark modellenmez. Sözleşmedeki tanım (birikimli fark eksiye düştükten sonra ilk ≥ 0 ay; hiç
+//     eksiye düşmüyorsa 0) yalnız gerçek modeldedir ve orada sınanır (model/YolKarsilastirici.test.ts,
+//     model/EmeklilikPlanlayici.test.ts). Ortak sözleşme testi (planlayiciSozlesmesi.test.ts) yalnız iki uygulamada aynı
+//     olan tutar dışı davranışı sınar.
 //   - İş ücreti: profildeki net ücret (zamsız), kaynağı "Profildeki net ücret".
 import {
   BILESIM_SIRASI,
@@ -172,6 +177,7 @@ export class SahtePlanlayici implements EmeklilikPlanlayici {
     const fark = (aylar: number): TutarBilgisi => neden || odeme === null || aylik === null
       ? { tur: 'bilinmiyor', neden: neden ?? 'Bilinmiyor' }
       : { tur: 'bilinen', tl: tlMetni(aylar * aylik - odeme), kaynak: 'Sahte fark' };
+    // Basitleştirilmiş geri kazanma (dosya başı): sözleşme kuralının yerine biçim testleri için.
     const geri = neden || odeme === null || aylik === null ? null
       : odeme <= 0 ? 0
         : aylik > 0 && Math.ceil(odeme / aylik) <= Math.max(0, erkenAy ?? 0) ? Math.ceil(odeme / aylik) : null;

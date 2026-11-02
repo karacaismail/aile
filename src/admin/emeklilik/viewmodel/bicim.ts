@@ -4,6 +4,8 @@ import type { AyMetni, TarihMetni, TlMetni, TutarBilgisi } from '../contract';
 // Para tr-TR "₺8.500,00" (iki ondalık, tabular hizayı görünüm verir); ondalık TL metni Intl'e metin olarak verilir,
 // kayan noktaya çevrilip yuvarlanmaz. Ay ve tarih sabit Türkçe ay adlarıyla yazılır (cihazın saat diliminden bağımsız).
 // Eksik bilgi saklanmaz: bozuk tutar/ay "Bilinmiyor", bilinmeyen tutar "Bilinmiyor · <neden>" yazılır.
+// Eksi işareti tüm ekranda tek biçimdir: U+2212 ("−₺1.250,00", "−1 gün"), model Para.goster ile aynı. Intl'in yerel
+// çıktısı (tire ya da eksi) bu biçime getirilir.
 
 export type Ton = 'olumlu' | 'hata' | 'uyari' | 'notr';
 
@@ -14,6 +16,9 @@ const SIFIR = /^-?0+(?:\.0+)?$/;
 const AY = /^(\d{4})-(\d{2})$/;
 const TARIH = /^(\d{4})-(\d{2})-(\d{2})$/;
 const LOCALE = 'tr-TR';
+const EKSI = '\u2212';
+/** Intl çıktısının başındaki eksi (tire U+002D ya da U+2212) → U+2212. */
+const eksiIsareti = (metin: string) => metin.replace(/^[-\u2212]/, EKSI);
 
 type Isaret = -1 | 0 | 1;
 
@@ -25,14 +30,14 @@ export class TurkceBicimleyici {
   private readonly oranBicimi = new Intl.NumberFormat(LOCALE, { style: 'percent', maximumFractionDigits: 2 });
   private readonly oranGirdiBicimi = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 2, useGrouping: false });
 
-  /** '178362.00' → '₺178.362,00'; bozuk metin 'Bilinmiyor'. */
+  /** '178362.00' → '₺178.362,00', '-5.00' → '−₺5,00'; bozuk metin 'Bilinmiyor'. */
   para(tl: TlMetni): string {
-    return TL.test(tl) ? this.paraBicimi.format(tl as `${number}`) : BILINMIYOR;
+    return TL.test(tl) ? eksiIsareti(this.paraBicimi.format(tl as `${number}`)) : BILINMIYOR;
   }
 
-  /** İşaretli tutar (fark): '+₺121.638,00', '-₺1.250,00', sıfır işaretsiz. */
+  /** İşaretli tutar (fark): '+₺121.638,00', '−₺1.250,00' (U+2212), sıfır işaretsiz. */
   isaretliPara(tl: TlMetni): string {
-    return TL.test(tl) ? this.isaretliParaBicimi.format(tl as `${number}`) : BILINMIYOR;
+    return TL.test(tl) ? eksiIsareti(this.isaretliParaBicimi.format(tl as `${number}`)) : BILINMIYOR;
   }
 
   /** TutarBilgisi: bilinen tek tutar, aralık "₺A – ₺B" ya da "Bilinmiyor · <neden>". */
@@ -86,8 +91,9 @@ export class TurkceBicimleyici {
     return eslesme && ay >= 1 && ay <= 12 ? `${Number(eslesme[3])} ${AYLAR[ay - 1]} ${eslesme[1]}` : BILINMIYOR;
   }
 
+  /** 12345 → '12.345', -1 → '−1' (U+2212). */
   sayi(n: number): string {
-    return this.sayiBicimi.format(n);
+    return eksiIsareti(this.sayiBicimi.format(n));
   }
 
   gun(n: number): string {

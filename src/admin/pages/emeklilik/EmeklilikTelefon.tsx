@@ -13,7 +13,7 @@ export function EmeklilikTelefon({ ekran, komutlar }: EmeklilikSunumProps) {
       {ekran.sonuc ? <SonucBolumu sonuc={ekran.sonuc} hataOzeti={ekran.form?.hataOzeti ?? null} /> : null}
       {ekran.paylar.length ? <PaylarBolumu paylar={ekran.paylar} /> : null}
       {ekran.bilesimler.length ? <BilesimlerBolumu ekran={ekran} komutlar={komutlar} /> : null}
-      {ekran.form ? <VarsayimlarBolumu form={ekran.form} komutlar={komutlar} /> : null}
+      {ekran.form ? <VarsayimlarBolumu form={ekran.form} komutlar={komutlar} sifirla={ekran.hesap.durum !== 'hata'} /> : null}
       <IhyaBolumu ihya={ekran.ihya} komutlar={komutlar} />
     </div>
   );

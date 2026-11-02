@@ -1,7 +1,13 @@
 // Planlayıcı sözleşme testi: gerçek model (model/) ve ViewModel testlerinin sahte planlayıcısı (viewmodel/test/) aynı
-// EmeklilikPlanlayici sözleşmesini aynı biçimde uygular. Sahte planlayıcının tutarları gerçek mevzuat hesabı değildir; burada
-// yalnız sözleşmenin tutar dışı davranışı sınanır: yolKarsilastir'da elle aylık anahtarı yoksa yolun aylığı seçili modeldir,
-// anahtar varsa (null dahil) aylık elle modeldir ve null "Elle aylık girilmedi" adıyla bilinmiyordur.
+// EmeklilikPlanlayici sözleşmesini aynı biçimde uygular. Kapsam yalnız iki uygulamada aynı olması gereken tutar dışı
+// davranıştır:
+//   - yolKarsilastir'da elle aylık anahtarı yoksa yolun aylığı seçili modeldir, anahtar varsa (null dahil) aylık elle
+//     modeldir ve null "Elle aylık girilmedi" adıyla bilinmiyordur;
+//   - geri kazanmanın anlamı: 0 yalnız geri kazanılacak bir şey yokken ("Gerekmez"; hiçbir şey ödemeyen yol kendisiyle),
+//     ek ödemeli yolda 0 değildir (ay sayısı ya da null).
+// Kapsam dışı: tutarlar ve geri kazanmanın ay sayısı. Sahte planlayıcı biçim testleri için basitleştirilmiştir (gerçek
+// mevzuat hesabı ve sözleşmenin başa baş tanımı değildir); bunlar gerçek modelin testlerindedir
+// (model/EmeklilikPlanlayici.test.ts, model/YolKarsilastirici.test.ts).
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -51,5 +57,14 @@ describe.each(planlayicilar)('EmeklilikPlanlayici sözleşmesi › %s', (_ad, ol
     expect(k.donemSonunda.tur).toBe('bilinmiyor');
     expect(k.hesaplanamayanNeden).toContain('Elle aylık girilmedi');
     expect(k.referans.aylikModeli).toBe('sgkReferans');
+  });
+
+  it('geri kazanma 0 yalnız geri kazanılacak bir şey yokken: hiçbir şey ödemeyen yol kendisiyle 0, ek ödemeli yolda 0 değil', () => {
+    const p = olustur();
+    const tum = p.tumBilesimler(p.varsayilanVarsayimlar());
+    expect(tum[0]!.geriKazanmaAylikSayisi).toBe(0);
+    const ekOdemeli = tum.filter((k) => k.ekOdeme.tur === 'bilinen' && !/^-|^0\.00$/.test(k.ekOdeme.tl));
+    expect(ekOdemeli.length).toBeGreaterThan(0);
+    for (const k of ekOdemeli) expect(k.geriKazanmaAylikSayisi).not.toBe(0);
   });
 });

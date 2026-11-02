@@ -4,7 +4,7 @@ import type { AylikModeliAdi, EmeklilikProfili, MevzuatParametreleri, TlMetni, T
 import { TakvimGunu } from './Ay';
 import type { HizmetDonemi } from './HizmetSecenegi';
 import { Para } from './Para';
-import { tamSayi } from './bicim';
+import { kuralHatasi, tamSayi } from './bicim';
 
 /** Bir yolun emeklilik ayındaki gün dökümü (kayıtlı günler modelin kendi profilinden okunur). */
 export interface AylikGirdisi {
@@ -161,6 +161,6 @@ export function aylikModeliOlustur(
     case 'elle':
       return new ElleAylikModeli(elleAylikTl);
     default:
-      throw new RangeError(`Bilinmeyen aylık modeli: ${String(ad)}`);
+      throw kuralHatasi('Bilinmeyen aylık modeli.', { aylikModeli: String(ad) });
   }
 }

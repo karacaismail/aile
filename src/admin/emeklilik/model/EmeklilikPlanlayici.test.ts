@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { BILESIM_SIRASI, type EmeklilikPlanlayici, type Secim, type Varsayimlar } from '../contract';
 import { emeklilikPlanlayicisiOlustur, MEVZUAT_2026 } from './index';
 import { EmeklilikPlanlayiciImpl, bilesimAdi } from './EmeklilikPlanlayici';
+import { YolKarsilastirici } from './YolKarsilastirici';
 import { kisa, sentetikProfil, sentetikVarsayimlar, varsayimKopya } from './testDestek';
 
 const HIC: Secim = { askerlik: false, bagkur: false, ihya: false };
@@ -296,6 +297,26 @@ describe('EmeklilikPlanlayiciImpl — öneri', () => {
     expect(o.secim).toEqual(HEPSI);
     expect(o.saglam).toBe(false);
     expect(planlayici().oneri(varsayimKopya(v, (k) => { k.borcKesintiOrani = 0; })).secim).toEqual(sec('101'));
+  });
+
+  it('öneri aynı varsayımın sekiz bileşimini yeniden hesaplamaz; yalnız farklı varsayımları (kesintisiz, borcun üst ucu) hesaplar', () => {
+    const p = planlayici();
+    const v = sentetikVarsayimlar(); // borç aralık, kesinti %10: öneri iki duyarlılık varsayımı daha sorar
+    const karsilastirma = vi.spyOn(YolKarsilastirici.prototype, 'karsilastir');
+    try {
+      const tum = p.tumBilesimler(v);
+      expect(karsilastirma).toHaveBeenCalledTimes(8);
+      const oneri = p.oneri(v);
+      expect(karsilastirma).toHaveBeenCalledTimes(8 + 2 * 8);
+      // Eşit varsayım (kopya) yeniden sorulursa hesap yinelenmez; dönen dizi yenidir, içerik aynıdır.
+      const yine = p.tumBilesimler(varsayimKopya(v));
+      expect(yine).not.toBe(tum);
+      expect(yine).toEqual(tum);
+      expect(p.oneri(varsayimKopya(v))).toEqual(oneri);
+      expect(karsilastirma).toHaveBeenCalledTimes(24);
+    } finally {
+      karsilastirma.mockRestore();
+    }
   });
 
   it('bileşim adlarını Türkçe yazar', () => {

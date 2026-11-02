@@ -9,6 +9,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import type { EmeklilikProfili } from '../contract';
 import { EmeklilikPlaniViewModel } from './EmeklilikPlaniViewModel';
+import { BorcKaynagiSecici } from './borcKaynagi';
 import type { AlanGorunumu, EmeklilikEkrani } from './ekran';
 import { SahtePlanlayici } from './test/SahtePlanlayici';
 
@@ -65,7 +66,7 @@ describe('EmeklilikPlaniViewModel › ilk anlık görüntü', () => {
     expect(s.donemSonunda).toEqual({ etiket: 'Ortak dönem sonunda fark (10 yıl)', deger: '+₺274.300,00', not: null, ton: 'olumlu', bicim: 'tutar' });
     expect(s.gecYolEmekliOlunca).toEqual({ etiket: 'Geç yol emekli olduğunda fark', deger: '+₺274.300,00', not: null, ton: 'olumlu', bicim: 'tutar' });
     // Geri kazanma (başa baş): hiçbir şey ödemeyen yola göre birikimli farkın sıfıra ulaştığı ay, emeklilikten sayılır.
-    expect(s.geriKazanma).toEqual({ etiket: 'Geri kazanma', deger: '18 ay sonra', not: null, ton: 'notr', bicim: 'metin' });
+    expect(s.geriKazanma).toEqual({ etiket: 'Geri kazanma', deger: '18 ay sonra', not: 'Erken yolun emekliliğinden (Ağustos 2030) sayılır.', ton: 'notr', bicim: 'metin' });
     expect(s.referansMi).toBe(false);
     expect(s.duyuru).toBe('Ağustos 2030 · 44 yaşında · 28 ay erken');
   });
@@ -112,6 +113,8 @@ describe('EmeklilikPlaniViewModel › ilk anlık görüntü', () => {
     ]);
     expect(satirlar.map(s => s.anahtar)).toEqual(['hicbiri', 'askerlik', 'bagkur', 'ihya', 'askerlik+bagkur', 'askerlik+ihya', 'bagkur+ihya', 'askerlik+bagkur+ihya']);
     expect(satirlar.filter(s => s.secili).map(s => s.anahtar)).toEqual(['askerlik+ihya']);
+    // "Geri kazanma" sütunundaki "N ay" neyden sonra: tablo notunda adıyla.
+    expect(ekran().bilesimNotu).toContain('Geri kazanma erken yolun emekliliğinden sayılır.');
     expect(satirlar[0]).toMatchObject({ emeklilik: 'Aralık 2032', yas: '46', erken: 'Referans', odeme: 'Ödeme yok', donemSonunda: 'Referans yol', geriKazanma: 'Gerekmez' });
     expect(satirlar[1]).toMatchObject({ emeklilik: 'Aralık 2031', yas: '45', erken: '12 ay erken', odeme: '₺178.200,00', aylik: '₺25.000,00', donemSonunda: '+₺121.800,00', donemTon: 'olumlu', geriKazanma: '8 ay' });
     // Tablo hücresi kısa kalır ("Bilinmiyor"); neden ayrı alanda, hücrenin altında yazılır.
@@ -140,9 +143,9 @@ describe('EmeklilikPlaniViewModel › ilk anlık görüntü', () => {
   it('shows each choice’s share with the other choices held', () => {
     const { ekran } = kur();
     expect(ekran().paylar).toEqual([
-      { anahtar: 'askerlik', ad: 'Askerlik borçlanması', durum: 'Seçili', erken: '12 ay erken', ekOdeme: '₺178.200,00', donemSonunda: '-₺125.700,00', ton: 'hata' },
+      { anahtar: 'askerlik', ad: 'Askerlik borçlanması', durum: 'Seçili', erken: '12 ay erken', ekOdeme: '₺178.200,00', donemSonunda: '−₺125.700,00', ton: 'hata' },
       { anahtar: 'bagkur', ad: 'Bağ-Kur borcunu ödemek', durum: 'Seçili değil', erken: '20 ay erken', ekOdeme: BILINMIYOR_METNI, donemSonunda: BILINMIYOR_METNI, ton: 'notr' },
-      { anahtar: 'ihya', ad: 'İhya', durum: 'Seçili', erken: '16 ay erken', ekOdeme: '₺247.500,00', donemSonunda: '-₺25.700,00', ton: 'hata' },
+      { anahtar: 'ihya', ad: 'İhya', durum: 'Seçili', erken: '16 ay erken', ekOdeme: '₺247.500,00', donemSonunda: '−₺25.700,00', ton: 'hata' },
     ]);
   });
 
@@ -339,8 +342,8 @@ describe('EmeklilikPlaniViewModel › alan doğrulaması', () => {
     const { vm, planlayici, ekran } = kur();
     const bayraklar = () => Object.fromEntries(ekran().form!.gruplar.flatMap(g => g.bayraklar).map(b => [b.anahtar, b.deger]));
     expect(bayraklar()).toEqual({ gunDuzeltmesiUygula: false, isUcretiDevam: true });
-    // Sayı ile birimi bölünmez boşlukla bağlı: "(-1 gün)" satır sonunda ayrılmaz.
-    expect(ekran().form!.gruplar[0]!.bayraklar[0]!.etiket).toBe('Kayıttaki gün düzeltmesini uygula (-1\u00a0gün)');
+    // Sayı ile birimi bölünmez boşlukla bağlı: "(−1 gün)" satır sonunda ayrılmaz; eksi işareti U+2212.
+    expect(ekran().form!.gruplar[0]!.bayraklar[0]!.etiket).toBe('Kayıttaki gün düzeltmesini uygula (−1\u00a0gün)');
     vm.bayrakDegistir('gunDuzeltmesiUygula', true);
     vm.bayrakDegistir('isUcretiDevam', false);
     expect(planlayici.sonVarsayim!.gunDuzeltmesiUygula).toBe(true);
@@ -587,6 +590,28 @@ describe('EmeklilikPlaniViewModel › borç ve ortak ödeme çapraz denetimi', (
     expect(bagkur(planlayici).yalnizSskYolundaOdenecek).toEqual({ tur: 'bilinen', tl: '400000.00', kaynak: 'Elle girildi' });
   });
 
+  it('the starting pair is checked too: the default source has no known debt, so the profile pair applies as is', () => {
+    // Sentetik profil: ortak ödeme ₺50.000,00; borç kaynağı başlangıçta "bilinmiyor" (kural uygulanmaz).
+    const { planlayici, ekran } = kur();
+    expect(alan(ekran(), 'bagkurOrtakOdeme').hata).toBeNull();
+    expect(bagkur(planlayici).yalnizSskYolundaOdenecek).toEqual(PROFIL.secenekler.bagkur.yalnizSskYolundaOdenecek);
+  });
+
+  it('a starting pair that breaks the rule is a field error; the planner gets the shared payment as unknown (no last valid pair)', () => {
+    // Varsayılan kaynak ileride bilinen bir borç verirse: borç ₺10.000,00 < ortak ödeme ₺50.000,00.
+    const deger = vi.spyOn(BorcKaynagiSecici.prototype, 'deger').mockReturnValueOnce({ tur: 'bilinen', tl: '10000.00', kaynak: 'Test' });
+    try {
+      const { planlayici, ekran } = kur();
+      expect(ekran().hesap.durum).toBe('hazir');
+      expect(alan(ekran(), 'bagkurOrtakOdeme')).toMatchObject({ metin: '50.000,00', hata: 'Hata: Bu tutar düzeltilmiş borcu (₺10.000,00) aşamaz.' });
+      expect(ekran().form!.hataOzeti).toBe('1 alanda hata var; sonuç son geçerli değerlerle hesaplandı.');
+      expect(bagkur(planlayici).borc).toEqual({ tur: 'bilinen', tl: '10000.00', kaynak: 'Test' });
+      expect(bagkur(planlayici).yalnizSskYolundaOdenecek).toEqual({ tur: 'bilinmiyor', neden: 'Yalnız SSK yolunda da ödenecek tutar düzeltilmiş borcu aşıyor' });
+    } finally {
+      deger.mockRestore();
+    }
+  });
+
   it('reset clears the cross error', () => {
     const { vm, ekran } = kur();
     vm.borcKaynagiSec('elle');
@@ -604,7 +629,7 @@ describe('EmeklilikPlaniViewModel › ihya karşılaştırması', () => {
     expect(ihya.ihyali).toEqual({ secimAdi: 'Askerlik + ihya', emeklilik: 'Ağustos 2030', aylik: '₺25.000,00 · SGK referansı' });
     expect(ihya.ihyasiz).toEqual({ secimAdi: 'Yalnız askerlik', emeklilik: 'Aralık 2031', aylik: '₺25.000,00 · SGK referansı' });
     expect(ihya.erken).toBe('İhya ile 16 ay erken');
-    expect(ihya.donemSonunda).toEqual({ etiket: 'Sonraki 10 yılın sonunda fark', deger: '-₺25.700,00', not: null, ton: 'hata', bicim: 'tutar' });
+    expect(ihya.donemSonunda).toEqual({ etiket: 'Sonraki 10 yılın sonunda fark', deger: '−₺25.700,00', not: null, ton: 'hata', bicim: 'tutar' });
     expect(planlayici.sonYolKarsilastir!.a).toEqual({ askerlik: true, bagkur: false, ihya: true });
     expect(planlayici.sonYolKarsilastir!.b).toEqual({ askerlik: true, bagkur: false, ihya: false });
     // Boş net aylık gönderilmez: yol seçili aylık modelinde kalır (yardım metni "Boşsa seçili aylık modeli kullanılır").

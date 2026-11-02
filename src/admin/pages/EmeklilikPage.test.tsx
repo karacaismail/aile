@@ -29,11 +29,13 @@ const BUGUN = () => new Date('2026-11-02T12:00:00+03:00');
 class SahteProfilKaynagi implements EmeklilikProfilKaynagi {
   yenilemeSayisi = 0;
   yuklenenDosyalar: string[] = [];
+  readonly yenilenebilir: boolean;
   private mevcut: ProfilDurumu;
   private readonly dinleyiciler = new Set<() => void>();
 
-  constructor(ilk: ProfilDurumu) {
+  constructor(ilk: ProfilDurumu, { yenilenebilir = true }: { yenilenebilir?: boolean } = {}) {
     this.mevcut = ilk;
+    this.yenilenebilir = yenilenebilir;
   }
 
   durum(): ProfilDurumu {
@@ -127,7 +129,7 @@ describe('EmeklilikPage › başlık ve profil durumları', () => {
     expect(screen.getByText(/İçe aktarılan dosya/)).toBeInTheDocument();
   });
 
-  it('hata: "Hata: Profil okunamadı" ve neden; tutar gösterilmez; Yeniden dene kaynağı yeniler; dosya içe aktarılabilir', async () => {
+  it('hata (yenilenebilir kaynak): "Hata: Profil okunamadı" ve neden; tutar gösterilmez; Yeniden dene kaynağı yeniler; dosya içe aktarılabilir', async () => {
     const kaynak = new SahteProfilKaynagi({ tur: 'hata', neden: 'Profil şeması geçersiz: surum alanı yok.' });
     ciz('phone', { profilKaynagi: kaynak });
     const uyari = screen.getByRole('alert');
@@ -138,6 +140,31 @@ describe('EmeklilikPage › başlık ve profil durumları', () => {
     await userEvent.click(within(uyari).getByRole('button', { name: 'Yeniden dene' }));
     expect(kaynak.yenilemeSayisi).toBe(once + 1);
     expect(screen.getByLabelText('Profil dosyasını içe aktar')).toBeInTheDocument();
+  });
+
+  it('hata (yenilenemez kaynak, üretim): "Yeniden dene" yok; eylem "Profil dosyasını yeniden içe aktar"; doğru dosya hesaplanır', async () => {
+    // Üretim deposu: varsayılan kaynak yok, yenile() bir şey yapmaz. Bozuk içe aktarılan dosya hata bırakır.
+    const kaynak = profilKaynagiOlustur({ mod: 'uretim' });
+    ciz('phone', { profilKaynagi: kaynak });
+    await userEvent.upload(screen.getByLabelText('Profil dosyasını içe aktar'), new File(['{"surum": 1'], 'bozuk.json', { type: 'application/json' }));
+    const uyari = await screen.findByRole('alert');
+    expect(uyari).toHaveTextContent('Hata: Profil okunamadı');
+    expect(screen.queryByRole('button', { name: 'Yeniden dene' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/₺/)).not.toBeInTheDocument();
+    const yeniden = screen.getByLabelText('Profil dosyasını yeniden içe aktar');
+    expect(yeniden).toHaveAttribute('type', 'file');
+    expect(uyari.compareDocumentPosition(yeniden) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    await userEvent.upload(yeniden, new File([PROFIL_METNI], 'profil-sentetik.json', { type: 'application/json' }));
+    expect(await screen.findByRole('region', { name: 'Sonuç' })).toBeInTheDocument();
+    expect(screen.getByText(/İçe aktarılan dosya/)).toBeInTheDocument();
+  });
+
+  it('hata (kaynak yenilenebilirliği bildirmiyor): "Yeniden dene" sunulmaz; içe aktarma yeniden içe aktarmadır', () => {
+    const kaynak = new SahteProfilKaynagi({ tur: 'hata', neden: 'Dosya JSON değil.' }, { yenilenebilir: false });
+    ciz('phone', { profilKaynagi: kaynak });
+    expect(screen.getByRole('alert')).toHaveTextContent('Dosya JSON değil.');
+    expect(screen.queryByRole('button', { name: 'Yeniden dene' })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Profil dosyasını yeniden içe aktar')).toBeInTheDocument();
   });
 
   it('hesap hatası sonradan gelirse ağaç sabit kalır: ErrorState üstte, açık bölüm ve odak korunur; eylem "Varsayımları sıfırla"', async () => {
@@ -178,12 +205,16 @@ describe('EmeklilikPage › başlık ve profil durumları', () => {
     await userEvent.type(gun, '3');
     sahte!.hata = null;
     const uyari = screen.getByRole('alert');
-    const sifirla = screen.getAllByRole('button', { name: 'Varsayımları sıfırla' })[0]!;
+    // Hata durumunda tek "Varsayımları sıfırla" (erişilebilir ad benzersiz): ErrorState'in hemen altında; Varsayımlar
+    // bölümünün kendi sıfırla düğmesi bu sırada gösterilmez, hata kalkınca geri gelir.
+    const sifirla = screen.getByRole('button', { name: 'Varsayımları sıfırla' });
     expect(uyari.compareDocumentPosition(sifirla) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(sifirla.compareDocumentPosition(bolge('Seçimler')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     await userEvent.click(sifirla);
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(gun).toHaveValue('360');
+    expect(screen.getAllByRole('button', { name: 'Varsayımları sıfırla' })).toHaveLength(1);
+    expect(within(bolge('Varsayımlar')).getByRole('button', { name: 'Varsayımları sıfırla' })).toBeInTheDocument();
   });
 
   it('hesap hatası: planlayıcı kurulamazsa adıyla hata, sayfa çökmez', () => {

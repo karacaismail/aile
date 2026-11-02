@@ -2,6 +2,7 @@
 // çalışması. Günler ay sonunda sayılır; bir ayda en çok 30 gün. Açık uçlu planda ay başına gün varsayımdır.
 import type { EmeklilikProfili, Varsayimlar } from '../contract';
 import { Ay } from './Ay';
+import { kuralHatasi } from './bicim';
 
 const AYLIK_AZAMI_GUN = 30;
 
@@ -12,7 +13,7 @@ interface PlanDilimi {
 }
 
 function gunGecerli(gun: number, ad: string, azami = AYLIK_AZAMI_GUN): number {
-  if (!Number.isSafeInteger(gun) || gun < 0 || gun > azami) throw new RangeError(`${ad} 0–${azami} arasında tamsayı olmalı: ${gun}`);
+  if (!Number.isSafeInteger(gun) || gun < 0 || gun > azami) throw kuralHatasi(`${ad} 0–${azami} arasında tamsayı olmalı.`, { alan: ad, gun });
   return gun;
 }
 
@@ -25,7 +26,7 @@ export class HizmetTakvimi {
     this.dilimler = profil.planlananCalisma.map((c) => {
       const baslangic = Ay.metinden(c.baslangicAy);
       const bitis = c.bitisAy === null ? null : Ay.metinden(c.bitisAy);
-      if (bitis !== null && bitis.oncesiMi(baslangic)) throw new RangeError(`Planlanan çalışmanın bitişi başlangıcından önce: ${c.baslangicAy}–${c.bitisAy}`);
+      if (bitis !== null && bitis.oncesiMi(baslangic)) throw kuralHatasi('Planlanan çalışmanın bitiş ayı başlangıç ayından önce olamaz.', { baslangicAy: c.baslangicAy, bitisAy: c.bitisAy });
       return { baslangic, bitis, ayBasinaGun: gunGecerli(c.ayBasinaGun, 'Planlanan ay başına gün') };
     });
   }
@@ -76,7 +77,7 @@ export class HizmetTakvimi {
    * kayıtlı ay döner (çalışma 0). Ulaşılamıyorsa null.
    */
   hedefeUlasma(ekGun: number, varsayim: Varsayimlar): { ay: Ay; calismaGunu: number } | null {
-    if (!Number.isSafeInteger(ekGun) || ekGun < 0) throw new RangeError(`Eklenen gün sıfır ya da pozitif tamsayı olmalı: ${ekGun}`);
+    if (!Number.isSafeInteger(ekGun) || ekGun < 0) throw kuralHatasi('Eklenen gün sıfır ya da pozitif tamsayı olmalı.', { ekGun });
     const hedef = this.profil.hedefGun;
     let toplam = this.bazGun(varsayim) + ekGun;
     if (toplam >= hedef) return { ay: this.kayitliSonAy, calismaGunu: 0 };

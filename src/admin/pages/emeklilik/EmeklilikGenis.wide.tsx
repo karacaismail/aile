@@ -21,7 +21,7 @@ export default function EmeklilikGenis({ ekran, komutlar }: EmeklilikSunumProps)
           </div>
         ) : null}
         {ekran.paylar.length ? <PaylarBolumu paylar={ekran.paylar} /> : null}
-        {ekran.form ? <VarsayimlarBolumu form={ekran.form} komutlar={komutlar} /> : null}
+        {ekran.form ? <VarsayimlarBolumu form={ekran.form} komutlar={komutlar} sifirla={ekran.hesap.durum !== 'hata'} /> : null}
         <IhyaBolumu ihya={ekran.ihya} komutlar={komutlar} />
       </div>
       {ekran.bilesimler.length ? <BilesimlerBolumu ekran={ekran} komutlar={komutlar} /> : null}

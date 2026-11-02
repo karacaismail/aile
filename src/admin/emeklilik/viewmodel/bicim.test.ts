@@ -9,12 +9,13 @@ const b = new TurkceBicimleyici();
 const a = new TurkceSayiAyristirici();
 
 describe('TurkceBicimleyici', () => {
-  it('formats TL decimal text as ₺8.500,00 without floating rounding, signed on demand', () => {
+  it('formats TL decimal text as ₺8.500,00 without floating rounding, signed on demand; minus is U+2212 like Para.goster', () => {
     expect(b.para('178362.00')).toBe('₺178.362,00');
     expect(b.para('0.5')).toBe('₺0,50');
     expect(b.para('1234567.89')).toBe('₺1.234.567,89');
     expect(b.isaretliPara('121638.00')).toBe('+₺121.638,00');
-    expect(b.isaretliPara('-1250.00')).toBe('-₺1.250,00');
+    expect(b.isaretliPara('-1250.00')).toBe('−₺1.250,00');
+    expect(b.para('-1250.00')).toBe('−₺1.250,00');
     expect(b.isaretliPara('0.00')).toBe('₺0,00');
     expect(b.isaretliPara('-0.00')).toBe('₺0,00');
   });
@@ -36,6 +37,7 @@ describe('TurkceBicimleyici', () => {
     expect(b.gun(5900)).toBe('5.900 gün');
     expect(b.gun(360)).toBe('360 gün');
     expect(b.sayi(12345)).toBe('12.345');
+    expect(b.sayi(-1)).toBe('−1');
     expect(b.oran(0.1)).toBe('%10');
     expect(b.oran(0.105)).toBe('%10,5');
     expect(b.oran(0.25)).toBe('%25');
@@ -45,8 +47,8 @@ describe('TurkceBicimleyici', () => {
     expect(b.tutar({ tur: 'bilinen', tl: '178362.00', kaynak: 'x' })).toBe('₺178.362,00');
     expect(b.tutar({ tur: 'aralik', altTl: '300000.00', ustTl: '450000.00', kaynak: 'x' })).toBe('₺300.000,00 – ₺450.000,00');
     expect(b.tutar({ tur: 'bilinmiyor', neden: 'Düzeltilmiş borç girilmedi' })).toBe('Bilinmiyor · Düzeltilmiş borç girilmedi');
-    expect(b.isaretliTutar({ tur: 'bilinen', tl: '-5.00', kaynak: 'x' })).toBe('-₺5,00');
-    expect(b.isaretliTutar({ tur: 'aralik', altTl: '-10.00', ustTl: '20.00', kaynak: 'x' })).toBe('-₺10,00 – +₺20,00');
+    expect(b.isaretliTutar({ tur: 'bilinen', tl: '-5.00', kaynak: 'x' })).toBe('−₺5,00');
+    expect(b.isaretliTutar({ tur: 'aralik', altTl: '-10.00', ustTl: '20.00', kaynak: 'x' })).toBe('−₺10,00 – +₺20,00');
   });
 
   it('derives a tone from the sign of a TutarBilgisi; unknown and zero are neutral', () => {

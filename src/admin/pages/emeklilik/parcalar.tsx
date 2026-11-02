@@ -344,7 +344,11 @@ function BorcKaynagiSecimi({ borc, komutlar }: { borc: BorcKaynagiGorunumu; komu
   );
 }
 
-export function VarsayimlarBolumu({ form, komutlar }: { form: FormGorunumu; komutlar: EmeklilikPlaniKomutlari }) {
+/**
+ * Varsayımlar (Disclosure içinde form) ve bölümün "Varsayımları sıfırla" düğmesi. sifirla false: hesap hatasında sayfanın
+ * üstündeki tek sıfırla eylemi geçerlidir; bölümün düğmesi çizilmez (aynı erişilebilir ad iki kez olmaz).
+ */
+export function VarsayimlarBolumu({ form, komutlar, sifirla = true }: { form: FormGorunumu; komutlar: EmeklilikPlaniKomutlari; sifirla?: boolean }) {
   return (
     <Bolum baslik="Varsayımlar" className="aile-em-varsayimlar">
       <p className="aile-kucuk aile-ikincil">Başlamak için bu sayıları bilmeniz gerekmez; profil ve mevzuattaki değerler hazırdır.</p>
@@ -364,9 +368,11 @@ export function VarsayimlarBolumu({ form, komutlar }: { form: FormGorunumu; komu
           </div>
         </Disclosure>
       ))}
-      <div className="aile-em-sifirla">
-        <Button variant="quiet" onClick={() => komutlar.varsayimlariSifirla()}>Varsayımları sıfırla</Button>
-      </div>
+      {sifirla ? (
+        <div className="aile-em-sifirla">
+          <Button variant="quiet" onClick={() => komutlar.varsayimlariSifirla()}>Varsayımları sıfırla</Button>
+        </div>
+      ) : null}
     </Bolum>
   );
 }

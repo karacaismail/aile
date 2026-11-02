@@ -72,6 +72,8 @@ export const GERI_DONMUYOR = 'Dönem içinde geri dönmüyor';
 const GERI_DONMUYOR_KISA = 'Geri dönmüyor';
 const GERI_DONMUYOR_NOTU = 'Ortak dönem içinde birikimli fark sıfıra ulaşmıyor.';
 const KAYIT_AYI = 'Gün ve sigortalılık süresi kayıt ayından önce dolmuş; planlama ayı kayıt ayı';
+/** "N ay" neyden sonra: ortak dönemin başı, yani iki yoldan erken emekli olanın emeklilik ayı. */
+const GERI_KAZANMA_NOTU = 'Geri kazanma erken yolun emekliliğinden sayılır.';
 export const HICBIRI_ANAHTARI = 'hicbiri';
 /** Profil kaydı bu kadar günden eskiyse "Eski veri" yazılır. */
 export const ESKI_PROFIL_GUN = 30;
@@ -126,7 +128,7 @@ export class EkranSunucu {
       paylar: hesaplar ? hesaplar.etkiler.map(etki => this.pay(etki, girdi.secim)) : [],
       bilesimler: hesaplar ? hesaplar.bilesimler.map(k => this.bilesim(k, girdi.secim)) : [],
       bilesimNotu: girdi.varsayim
-        ? `Aylık: ${AYLIK_MODELI_ETIKETI[girdi.varsayim.aylikModeli]}. Fark, geç yol emekli olduktan sonraki ${this.b.sayi(girdi.varsayim.karsilastirmaSuresiYil)} yıllık ortak dönemde, hiçbir şey ödememeye göredir.`
+        ? `Aylık: ${AYLIK_MODELI_ETIKETI[girdi.varsayim.aylikModeli]}. Fark, geç yol emekli olduktan sonraki ${this.b.sayi(girdi.varsayim.karsilastirmaSuresiYil)} yıllık ortak dönemde, hiçbir şey ödememeye göredir. ${GERI_KAZANMA_NOTU}`
         : '',
       // Form hesap hatasında da kalır: kullanıcı hatalı varsayımı düzeltebilmeli (yalnız varsayım yoksa form yoktur).
       form: girdi.varsayim ? this.formGorunumu(girdi) : null,
@@ -208,16 +210,28 @@ export class EkranSunucu {
   }
 
   /**
-   * Geri kazanma (başa baş): hiçbir şey ödemeyen yola göre birikimli farkın sıfıra ulaştığı ay, ortak dönemin başından
-   * (erken emeklilik) sayılır. null iki anlamı adıyla ayırır: neden varsa bilinmiyor, yoksa dönem içinde geri dönmüyor.
+   * Geri kazanma (başa baş): hiçbir şey ödemeyen yola göre birikimli farkın eksiye düştükten sonra sıfıra ulaştığı ay,
+   * ortak dönemin başından (erken yolun emeklilik ayı; notta adıyla) sayılır. 0: fark hiç eksiye düşmüyor ("Gerekmez").
+   * null iki anlamı adıyla ayırır: neden varsa bilinmiyor, yoksa dönem içinde geri dönmüyor.
    */
   private geriKazanma(k: KarsilastirmaSonucu, referans: boolean): Olcu {
     const etiket = 'Geri kazanma';
     const n = k.geriKazanmaAylikSayisi;
     if (referans || n === 0) return { etiket, deger: GEREKMEZ, not: null, ton: 'notr', bicim: 'metin' };
-    if (n !== null) return { etiket, deger: `${this.b.sayi(n)} ay sonra`, not: null, ton: 'notr', bicim: 'metin' };
+    if (n !== null) {
+      const bas = this.erkenEmeklilikAyi(k);
+      const not = bas ? `Erken yolun emekliliğinden (${this.b.ay(bas)}) sayılır.` : GERI_KAZANMA_NOTU;
+      return { etiket, deger: `${this.b.sayi(n)} ay sonra`, not, ton: 'notr', bicim: 'metin' };
+    }
     if (k.hesaplanamayanNeden) return { etiket, deger: BILINMIYOR, not: k.hesaplanamayanNeden, ton: 'notr', bicim: 'metin' };
     return { etiket, deger: GERI_DONMUYOR, not: GERI_DONMUYOR_NOTU, ton: 'notr', bicim: 'metin' };
+  }
+
+  /** Ortak dönemin başı: iki yoldan erken emekli olanın ayı ('YYYY-MM'); tarihlerden biri yoksa null. */
+  private erkenEmeklilikAyi(k: KarsilastirmaSonucu): string | null {
+    const { yol, referans } = k;
+    if (!yol.emeklilikAyi || !referans.emeklilikAyi) return null;
+    return yol.emeklilikAyi <= referans.emeklilikAyi ? yol.emeklilikAyi : referans.emeklilikAyi;
   }
 
   private geriKazanmaKisa(k: KarsilastirmaSonucu, referans: boolean): string {

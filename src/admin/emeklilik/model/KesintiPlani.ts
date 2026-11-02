@@ -5,7 +5,7 @@
 import type { TutarBilgisi } from '../contract';
 import { Para } from './Para';
 import { Tutar } from './Tutar';
-import { tamSayi, yuzde } from './bicim';
+import { kuralHatasi, tamSayi, yuzde } from './bicim';
 
 export interface KesintiGirdisi {
   /** Varsayımdaki kesinti oranı (0 … tavan). */
@@ -40,14 +40,14 @@ export class KesintiPlani {
 
   /** Kesinti uygulanmıyorsa (oran 0 ya da borç kesin 0) null. */
   static olustur(g: KesintiGirdisi): KesintiPlani | null {
-    if (!Number.isFinite(g.tavan) || g.tavan < 0 || g.tavan > 1) throw new RangeError(`Kesinti tavanı geçersiz: ${g.tavan}`);
+    if (!Number.isFinite(g.tavan) || g.tavan < 0 || g.tavan > 1) throw kuralHatasi('Kesinti tavanı %0 ile %100 arasında olmalı.', { tavan: g.tavan });
     if (!Number.isFinite(g.oran) || g.oran < 0 || g.oran > g.tavan) {
-      throw new RangeError(`Borç kesinti oranı 0 ile ${yuzde(g.tavan)} arasında olmalı: ${g.oran}`);
+      throw kuralHatasi(`Borç kesinti oranı %0 ile ${yuzde(g.tavan)} arasında olmalı.`, { oran: g.oran });
     }
     if (g.gecikmeAylikOran !== null && (!Number.isFinite(g.gecikmeAylikOran) || g.gecikmeAylikOran < 0 || g.gecikmeAylikOran > 1)) {
-      throw new RangeError(`Gecikme oranı 0 ile 1 arasında olmalı: ${g.gecikmeAylikOran}`);
+      throw kuralHatasi('Gecikme oranı %0 ile %100 arasında olmalı.', { gecikmeAylikOran: g.gecikmeAylikOran });
     }
-    if (!Number.isSafeInteger(g.gecikmeAySayisi) || g.gecikmeAySayisi < 0) throw new RangeError(`Gecikme ayı geçersiz: ${g.gecikmeAySayisi}`);
+    if (!Number.isSafeInteger(g.gecikmeAySayisi) || g.gecikmeAySayisi < 0) throw kuralHatasi('Gecikme ayı sıfır ya da pozitif tamsayı olmalı.', { gecikmeAySayisi: g.gecikmeAySayisi });
     if (g.oran === 0) return null;
     let borc = tutar(g.borc);
     const s = borc.senaryolar();
@@ -79,20 +79,13 @@ export class KesintiPlani {
     return alt === null || ust === null ? null : { alt, ust };
   }
 
-  /** Emekliliğin ilk n ayında kesilen toplam: min(n × aylık kesinti, kalan borç), senaryo senaryo. */
-  toplam(n: number): Tutar {
-    if (!Number.isSafeInteger(n) || n < 0) throw new RangeError(`Ay sayısı geçersiz: ${n}`);
-    if (n === 0) return Tutar.sifir('Kesinti yok');
-    return this.kesinti.carpTam(n).esle(this.kalanBorc, (k: Para, b: Para) => (k.karsilastir(b) <= 0 ? k : b));
-  }
-
   /**
    * Emekliliğin ilk n ayında eline geçen net toplam: her ay max(0, kullanılabilir − o ayın kesintisi). Kullanılabilir =
    * aylık − diğer kesintiler. Net aylık eksiye düşmez; kesinti borç bitince durur (son ay yalnız kalan borç).
    * Kapalı biçim, senaryo senaryo: m = ⌈borç / kesinti⌉ ay; ilk m − 1 ay tam kesinti, m. ay kalan, sonra kesintisiz.
    */
   netToplam(n: number, kullanilabilir: Tutar): Tutar {
-    if (!Number.isSafeInteger(n) || n < 0) throw new RangeError(`Ay sayısı geçersiz: ${n}`);
+    if (!Number.isSafeInteger(n) || n < 0) throw kuralHatasi('Ay sayısı sıfır ya da pozitif tamsayı olmalı.', { n });
     return Tutar.senaryoIslemi([kullanilabilir, this.kesinti, this.kalanBorc], ([a, k, b]) => {
       const net = (kesinti: Para) => Para.enBuyuk(a!.cikar(kesinti), Para.sifir());
       if (!k!.pozitifMi() || !b!.pozitifMi()) return net(Para.sifir()).carpTam(n);
@@ -101,6 +94,25 @@ export class KesintiPlani {
       if (n < m) return toplam;
       return toplam.topla(net(b!.cikar(k!.carpTam(m - 1)))).topla(net(Para.sifir()).carpTam(n - m));
     });
+  }
+
+  /**
+   * Aylık net gelirin değişebildiği emeklilik ayları (1 tabanlı, artan), senaryo senaryo: 1, borcun bittiği ay m (yalnız
+   * kalan borç kesilir) ve m + 1 (kesinti yok). netToplam bu parçalarda doğrusaldır; borç ya da kesinti yoksa/bilinmiyorsa
+   * yalnız 1.
+   */
+  gelirKirilimlari(): number[] {
+    const aylar = new Set<number>([1]);
+    const kesinti = this.kesinti.senaryolar();
+    const borc = this.kalanBorc.senaryolar();
+    if (kesinti !== null && borc !== null) {
+      for (const i of [0, 1] as const) {
+        if (!kesinti[i].pozitifMi() || !borc[i].pozitifMi()) continue;
+        const m = borc[i].kacBirim(kesinti[i])!;
+        aylar.add(m).add(m + 1);
+      }
+    }
+    return [...aylar].sort((a, b) => a - b);
   }
 
   ozet(): KesintiOzeti {
