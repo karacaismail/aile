@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { join, relative, resolve } from 'node:path';
+import { dirname, join, relative, resolve } from 'node:path';
+import { importsOf, stripComments } from './adaptive/sourceRules';
 import { BOUNDARY_RULES, UI_BARREL_NAMES, boundaryViolations, scanBoundary } from './boundary';
 // Barrel adları ui/index.ts kaynak metninden çözülür: antd + Pro + Phosphor grafiğini çalışma zamanında yüklemek bu
 // kapı için gereksizdi ve tam pakette yük altında 5 sn zaman aşımına yol açıyordu. Çalışma zamanı ihracatlarının
@@ -107,5 +108,75 @@ describe('boundary (depo taraması)', () => {
     expect(UI_BARREL_NAMES).toHaveLength(32);
     expect(new Set(UI_BARREL_NAMES).size).toBe(32);
     expect(barrelValueExports(readFileSync(resolve(root, 'src/admin/ui/index.ts'), 'utf8')).sort()).toEqual([...UI_BARREL_NAMES].sort());
+  });
+});
+
+// Geçiş kesimi (plan D8): antd yüzeyi tek dosyada (ui/antd.ts) ve yalnız geniş profilin sağlayıcısı onu değer olarak
+// içe aktarır (adaptive/WideProviders.tsx, tembel); antd teması yalnız türünü alır. ui/antd.ts kullanılmayan ad taşımaz:
+// her ad src/admin içinde (üretim ya da test) içe aktarılır; Pro Components ihracı yok.
+describe('antd yüzeyi (geçiş kesimi)', () => {
+  const root = resolve(__dirname, '../..');
+  const adminDir = resolve(root, 'src/admin');
+  const ANTD_SURFACE = 'src/admin/ui/antd.ts';
+  const rel = (path: string) => relative(root, path).split('\\').join('/');
+
+  function adminSources(): string[] {
+    const out: string[] = [];
+    const walk = (dir: string) => {
+      for (const entry of readdirSync(dir)) {
+        const path = join(dir, entry);
+        if (statSync(path).isDirectory()) walk(path);
+        else if (/\.(tsx?|mts)$/.test(entry)) out.push(path);
+      }
+    };
+    walk(adminDir);
+    return out;
+  }
+
+  /** `export { A, B as C } from '…'` ve `export type { … } from '…'` biçimlerinden dışa açılan adlar (as sonrası). */
+  function surfaceExports(source: string): { name: string; from: string; typeOnly: boolean }[] {
+    const found: { name: string; from: string; typeOnly: boolean }[] = [];
+    for (const match of stripComments(source).matchAll(/export\s+(type\s+)?\{([^}]*)\}\s*from\s*['"]([^'"]+)['"]/g)) {
+      for (const part of match[2].split(',').map(item => item.trim()).filter(Boolean)) {
+        found.push({ name: part.replace(/^type\s+/, '').split(/\s+as\s+/).pop()!, from: match[3], typeOnly: Boolean(match[1]) || /^type\s/.test(part) });
+      }
+    }
+    return found;
+  }
+
+  /** Dosyanın ui/antd.ts'ten içe aktardığı adlar (as öncesi) ve içe aktarmanın türü. */
+  function namedImportsFromSurface(path: string, source: string): { names: string[]; typeOnly: boolean }[] {
+    const target = (specifier: string) => specifier.startsWith('.') && rel(resolve(dirname(path), specifier)).replace(/\.ts$/, '') === ANTD_SURFACE.replace(/\.ts$/, '');
+    const out: { names: string[]; typeOnly: boolean }[] = [];
+    for (const match of stripComments(source).matchAll(/import\s+(type\s+)?\{([^}]*)\}\s*from\s*['"]([^'"]+)['"]/g)) {
+      if (!target(match[3])) continue;
+      const parts = match[2].split(',').map(item => item.trim()).filter(Boolean);
+      out.push({
+        names: parts.map(part => part.replace(/^type\s+/, '').split(/\s+as\s+/)[0]),
+        typeOnly: Boolean(match[1]) || parts.every(part => /^type\s/.test(part)),
+      });
+    }
+    return out;
+  }
+
+  it('ui/antd.ts exports no Pro Components and only names that src/admin still imports (grep kanıtı)', () => {
+    const surface = readFileSync(resolve(root, ANTD_SURFACE), 'utf8');
+    expect(importsOf(surface).map(ref => ref.specifier).filter(spec => /^@ant-design\//.test(spec))).toEqual([]);
+    const exported = surfaceExports(surface);
+    expect(exported.length).toBeGreaterThan(0);
+    const used = new Set(adminSources().filter(path => rel(path) !== ANTD_SURFACE)
+      .flatMap(path => namedImportsFromSurface(path, readFileSync(path, 'utf8')).flatMap(ref => ref.names)));
+    expect(exported.filter(item => !used.has(item.name)).map(item => item.name)).toEqual([]);
+  });
+
+  it('only adaptive/WideProviders.tsx imports ui/antd.ts values in production code; theme/antdTheme.ts takes types only', () => {
+    const production = adminSources().filter(path => !/\.test\.(tsx?|mts)$/.test(path) && rel(path) !== ANTD_SURFACE);
+    const valueImporters: string[] = [];
+    const typeImporters: string[] = [];
+    for (const path of production) {
+      for (const ref of namedImportsFromSurface(path, readFileSync(path, 'utf8'))) (ref.typeOnly ? typeImporters : valueImporters).push(rel(path));
+    }
+    expect([...new Set(valueImporters)].sort()).toEqual(['src/admin/adaptive/WideProviders.tsx']);
+    expect([...new Set(typeImporters)].sort()).toEqual(['src/admin/theme/antdTheme.ts']);
   });
 });

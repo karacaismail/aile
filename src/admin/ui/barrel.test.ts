@@ -1,12 +1,16 @@
 // P0b: ui barrel 32 adı dışa aktarır (17 mevcut + 15 yeni). Sayfa/kabuk kodu yalnız bu barrel'ı kullanır.
-// Barrel'ın çalışma zamanı yüklemesi (antd + Pro + Phosphor modül grafiğinin soğuk dönüşümü) yalnız bu dosyada,
-// tek seferlik beforeAll içinde yapılır. Ölçüm (2026-11-02, Vitest 5 jsdom, makine yük ortalaması ~9): yalnız bu dosya
-// 4,9 sn; 7 ui bileşen testiyle birlikte 5,7 sn. Test gövdesindeki import bu yüzden 5 sn testTimeout'unu aşıyordu.
-// Süre bütçesi (BARREL_IMPORT_MS) kancaya açıkça verilir; genel testTimeout/hookTimeout yükseltilmez.
-// boundary.test.ts ve scaffold.test.ts barrel adlarını index.ts kaynak metninden çözer ve antd grafiğini hiç yüklemez;
-// aşağıdaki "kaynak = çalışma zamanı" testi bu çözümlemenin doğruluğunu bağlar.
-import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+// Geçiş kesimi (plan D8) sonrası 32 ad değişmedi: barrel'da hiç antd/Pro ihracı yoktu; 32 adın hepsi yerel sarmalayıcıdır
+// ve barrel'ın statik kapanışı artık antd, @ant-design, ui/antd.ts, antd teması, ECharts ya da *.wide modülüne ulaşmaz
+// (aşağıdaki kapanış testi). antd yüzeyi (ui/antd.ts) yalnız geniş profilin tembel sağlayıcısına aittir: boundary.test.ts.
+// Barrel'ın çalışma zamanı yüklemesi (bileşen + Phosphor modül grafiğinin soğuk dönüşümü) yalnız bu dosyada, tek
+// seferlik beforeAll içinde yapılır. Kesim öncesi ölçüm (2026-11-02, Vitest 5 jsdom, makine yük ortalaması ~9; o gün
+// grafik antd + Pro da taşıyordu): yalnız bu dosya 4,9 sn; 7 ui bileşen testiyle birlikte 5,7 sn. Test gövdesindeki import
+// bu yüzden 5 sn testTimeout'unu aşıyordu. Süre bütçesi (BARREL_IMPORT_MS) kancaya açıkça verilir; genel
+// testTimeout/hookTimeout yükseltilmez. boundary.test.ts ve scaffold.test.ts barrel adlarını index.ts kaynak metninden
+// çözer ve barrel grafiğini hiç yüklemez; aşağıdaki "kaynak = çalışma zamanı" testi bu çözümlemenin doğruluğunu bağlar.
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { dirname, join, relative, resolve } from 'node:path';
+import { importsOf } from '../adaptive/sourceRules';
 
 /** Soğuk barrel importu için süre bütçesi: yük altındaki gözlemin (5,7 sn) yaklaşık 10 katı; 50 paralel worktree payı. */
 const BARREL_IMPORT_MS = 60_000;
@@ -70,6 +74,44 @@ describe('ui barrel', () => {
       }
     };
     walk(root);
+    expect(offenders).toEqual([]);
+  });
+
+  // Telefon profili barrel'ı statik çeker (kabuk + sayfalar): kapanışında antd yüzeyi, ECharts ya da geniş-özel kod
+  // olmamalı. Kaynak düzeyi kanıt; derleme düzeyi kanıt scripts/check-delivery.mjs --strict (admin.html statik kapanışı).
+  it('static import closure of ui/index.ts reaches no antd, @ant-design, ui/antd.ts, antd theme, echarts or *.wide module', () => {
+    const repo = resolve(__dirname, '../../..');
+    const rel = (path: string) => relative(repo, path).split('\\').join('/');
+    const resolveLocal = (from: string, specifier: string): string | null => {
+      const base = resolve(dirname(from), specifier);
+      for (const candidate of [base, `${base}.ts`, `${base}.tsx`, join(base, 'index.ts'), join(base, 'index.tsx')]) {
+        if (existsSync(candidate) && statSync(candidate).isFile()) return candidate;
+      }
+      return null;
+    };
+    const forbiddenPackage = /^(antd|@ant-design|echarts|zrender)(\/|$)/;
+    const forbiddenFile = /^src\/admin\/(ui\/antd|theme\/antdTheme)\.ts$|\.wide\.|\/wide\//;
+    const seen = new Set<string>();
+    const offenders: string[] = [];
+    const queue = [resolve(__dirname, 'index.ts')];
+    while (queue.length) {
+      const file = queue.shift()!;
+      if (seen.has(file)) continue;
+      seen.add(file);
+      if (!/\.(tsx?|mts)$/.test(file)) continue;
+      for (const ref of importsOf(readFileSync(file, 'utf8'))) {
+        if (ref.kind !== 'static' || ref.typeOnly) continue;
+        if (!ref.specifier.startsWith('.')) {
+          if (forbiddenPackage.test(ref.specifier)) offenders.push(`${rel(file)} -> ${ref.specifier}`);
+          continue;
+        }
+        const target = resolveLocal(file, ref.specifier);
+        if (!target) continue;
+        if (forbiddenFile.test(rel(target))) offenders.push(`${rel(file)} -> ${rel(target)}`);
+        queue.push(target);
+      }
+    }
+    expect(seen.size, 'kapanış yürütücüsü barrel modüllerini gezmeli').toBeGreaterThan(32);
     expect(offenders).toEqual([]);
   });
 });

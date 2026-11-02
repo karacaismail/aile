@@ -70,13 +70,20 @@ describe('AdaptiveRoot · kök öznitelikleri', () => {
 });
 
 describe('AdaptiveRoot · antd sağlayıcı geçidi', () => {
-  it('ships with PHONE_WITHOUT_ANTD = false (transition: behaviour unchanged)', () => {
-    expect(PHONE_WITHOUT_ANTD).toBe(false);
+  it('ships with PHONE_WITHOUT_ANTD = true (geçiş kesimi: telefon antd sağlayıcısı olmadan render eder)', () => {
+    expect(PHONE_WITHOUT_ANTD).toBe(true);
   });
 
-  it('flag off (default): the providers wrap the app on every profile, including the phone', () => {
+  it('default (flag on): no providers on the phone without passing the prop', () => {
     installViewport({ width: 320, height: 568, coarse: true });
     render(<AdaptiveRoot providers={MarkerProviders}><Content /></AdaptiveRoot>);
+    expect(screen.queryByTestId('wide-providers')).toBeNull();
+    expect(screen.getByText('Profil: phone')).toBeInTheDocument();
+  });
+
+  it('flag off (phoneWithoutAntd={false}): the providers wrap the app on every profile, including the phone', () => {
+    installViewport({ width: 320, height: 568, coarse: true });
+    render(<AdaptiveRoot providers={MarkerProviders} phoneWithoutAntd={false}><Content /></AdaptiveRoot>);
     expect(screen.getByTestId('wide-providers')).toContainElement(screen.getByText('Profil: phone'));
   });
 
@@ -114,6 +121,49 @@ describe('AdaptiveRoot · antd sağlayıcı geçidi', () => {
 
     await act(async () => { release(); });
     expect(screen.getByTestId('wide-providers')).toContainElement(screen.getByText('Profil: desktop'));
+  });
+
+  // Sağlayıcı gelince alt ağaç bir kez yeniden bağlanır (bilinen bedel). O ana kadar kök aria-busy="true" taşır: yardımcı
+  // teknoloji ve hazır sinyali (e2e openAdmin: [aria-busy="true"] yok) yeniden bağlanmadan önceki ağacı bitmiş saymaz.
+  it('lazy providers on a wide profile: the root is aria-busy until they attach; the phone is never busy', async () => {
+    let release!: () => void;
+    const importer = vi.fn(() => new Promise<{ default: typeof MarkerProviders }>(resolve => { release = () => resolve({ default: MarkerProviders }); }));
+    const providers = wideResource('test-providers-busy', importer, { retryDelayMs: 0 });
+    const viewport = installViewport({ width: 320, height: 568, coarse: true });
+    const { container } = render(<AdaptiveRoot providers={providers} phoneWithoutAntd><Content /></AdaptiveRoot>);
+    const root = container.firstElementChild as HTMLElement;
+    expect(root).not.toHaveAttribute('aria-busy');
+
+    act(() => viewport.set({ width: 1440, height: 900, fine: true, hover: true }));
+    expect(root).toHaveAttribute('aria-busy', 'true');
+    expect(screen.getByText('Profil: desktop')).toBeInTheDocument();
+
+    await act(async () => { release(); });
+    expect(screen.getByTestId('wide-providers')).toContainElement(screen.getByText('Profil: desktop'));
+    expect(root).not.toHaveAttribute('aria-busy');
+  });
+
+  it('lazy providers that fail twice: busy ends, the wide notice offers a retry and the app stays usable', async () => {
+    const importer = vi.fn(() => Promise.reject(new Error('ağ yok')));
+    const providers = wideResource('test-providers-fail', importer, { retryDelayMs: 0 });
+    installViewport({ width: 1440, height: 900, fine: true, hover: true });
+    const { container } = render(<AdaptiveRoot providers={providers} phoneWithoutAntd><Content /></AdaptiveRoot>);
+    const root = container.firstElementChild as HTMLElement;
+    expect(root).toHaveAttribute('aria-busy', 'true');
+
+    await act(async () => { await providers.load().catch(() => {}); });
+    expect(importer).toHaveBeenCalledTimes(2);
+    expect(root).not.toHaveAttribute('aria-busy');
+    expect(screen.getByRole('button', { name: 'Yeniden dene' })).toBeInTheDocument();
+    expect(screen.getByText('Profil: desktop')).toBeInTheDocument();
+    expect(screen.queryByTestId('wide-providers')).toBeNull();
+  });
+
+  it('a static providers component never makes the root busy', () => {
+    installViewport({ width: 1440, height: 900, fine: true, hover: true });
+    const { container } = render(<AdaptiveRoot providers={MarkerProviders} phoneWithoutAntd><Content /></AdaptiveRoot>);
+    expect(container.firstElementChild).not.toHaveAttribute('aria-busy');
+    expect(screen.getByTestId('wide-providers')).toBeInTheDocument();
   });
 });
 
