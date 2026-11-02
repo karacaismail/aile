@@ -1,34 +1,82 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from 'react';
-import { designTokens } from '../../design/tokens.ts';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { lazyWide, useProfile } from '../adaptive';
 import {
+  MIRRORS_PLAN_NOTE,
   createViewCatalog,
+  currentPeriod,
   readViewDefinitions,
   useCollection,
   useGeneration,
-  useRows,
+  useQuery,
   type BudgetObservation,
   type GenerationState,
   type Issue,
-  type Money as MoneyValue,
   type PivotMeasure,
+  type QueryAst,
+  type ViewDefinition,
 } from '../data';
-import { useDevice } from '../device';
-import type { DataStatusProps, DataStatusState, PageHeaderSummary, RecordRow, ResponsiveColumn, Tone } from '../shell/contracts';
+import type { DataStatusProps, DataStatusState, PageHeaderSummary, ResponsiveColumn, Tone } from '../shell/contracts';
 import { PageHeader } from '../shell/PageHeader';
-import { Button, Chart, EmptyState, ErrorState, LoadingShell, Menu, Money, ResponsiveTable, Select, StatusText } from '../ui';
-import { formatMoney } from '../ui/Money';
+import { Button } from '../ui/Button';
+import { EmptyState } from '../ui/EmptyState';
+import { ErrorState } from '../ui/ErrorState';
+import { LoadingShell } from '../ui/LoadingShell';
+import { Money } from '../ui/Money';
+import { ResponsiveTable } from '../ui/ResponsiveTable';
+import { Select } from '../ui/Select';
+import { StatusText } from '../ui/StatusText';
+import {
+  KAYIT_YOK,
+  TUM,
+  chartAmount,
+  choiceLabel,
+  dayStamp,
+  defaultPeriodChoice,
+  issueRows,
+  kalemRows,
+  measureValue,
+  monthCsv,
+  monthRows,
+  ownedMeasures,
+  periodLabel,
+  periodOptions,
+  periodsFor,
+  plannedDisplay,
+  plannedOver,
+  rangeText,
+  recordCounts,
+  recordedDisplay,
+  recordedOver,
+  recordedText,
+  plannedText,
+  roomRows,
+  slug,
+  toCsv,
+  type CsvRows,
+  type IssueRow,
+  type KalemRow,
+  type MonthRow,
+  type OwnedMeasures,
+  type RoomRow,
+  type TotalDisplay,
+} from './raporlar/model';
 import './RaporlarPage.css';
 
-// Raporlar sayfası. Tasarım: README.md "Sayfa iskeleti" + bundle.js Aile.Pages.Raporlar (masaüstünde solda rapor
-// menüsü 240 px, dar ekranda "Rapor" seçimi; Dönem seçimi; başlıkta "Raporu dışa aktar"; plan acik-mavi / gerçek eylem
-// çubukları ve yanında tablo; "Raporlarda görünüm modu yok: her rapor kendi biçimiyle gelir."). Sorgu çubuğu ve filtre
-// paneli yok: her rapor kendi seçicilerini taşır.
-// Veri: budget_observations (Plan / Gerçekleşen sayfalarının hücreleri; basis planned | recorded_aggregate; period
-// YYYY-MM). Oda ya da kategori alanı bu koleksiyonda yok; satır boyutu kaynaktaki gider kalemidir (label). Para
-// ondalık metin → kuruş tam sayısı olarak toplanır; para birimi başına ayrı; birden çok birim "Birden çok para birimi".
-// Plan ve gerçek asla tek sayıda birleşmez: ayrı sütun, ayrı özet ölçüsü, ayrı pivot ölçüsü (views.pivotMeasures).
-// forecast_* tahmindir, hiçbir rapora toplanmaz (not görünür). payments koleksiyonu nesilde yok: "Kaynakta ödeme
-// kaydı yok". Dışa aktarma yalnız görünen satırlar, istemci tarafı Blob; Sheets'e yazma yok.
+// Raporlar sayfası. Tasarım: SayfaRaporlarDar (telefon, önce) ve SayfaRaporlar (geniş) + bundle.js Aile.Pages.Raporlar:
+// başlıkta "Raporu dışa aktar"; "Rapor" ve "Dönem" seçimi (telefonda alttan açılan sayfa); masaüstünde solda 240 px rapor
+// menüsü; plan acik-mavi / gerçek eylem çubukları ve altında tablo; "Raporlarda görünüm modu yok".
+// Uyarlamalı teslim: telefon temel deneyimi bu dosyadır (yerel HTML + ui bileşenleri, tablo akordeona iner, grafiğin
+// karşılığı tablodur). Geniş-özel yetenekler — ECharts grafiği (tablet + masaüstü) ve rapor menüsü (masaüstü) —
+// raporlar/*.wide.tsx içindedir ve yalnız lazyWide ile, geniş profilde gelir; telefon onları ve echarts'ı indirmez.
+// Veri anlamı (W0 actuals): Gerçekleşen içinde bulunulan aydan sonra "Henüz yok"; oran/"harcandı" yalnız spendLabel;
+// toplamlar katalogdaki sahipliği belirlenmiş ölçülerle (pivotMeasures) ve kesin ondalıkla; plan ve gerçek tek sayıda
+// birleşmez (fark/oran üretilmez). forecast_* toplanmaz. payments nesilde yok. Alımların toplanabilir ölçüsü yok: oda
+// raporu yalnız sayar. Dışa aktarma görünen satırlar, istemci tarafı CSV; Sheets'e yazma yok.
+
+const RaporGrafikWide = lazyWide('raporlar-grafik', () => import('./raporlar/RaporGrafik.wide'));
+const RaporMenuWide = lazyWide('raporlar-menu', () => import('./raporlar/RaporMenu.wide'));
+
+export { periodLabel, toCsv };
 
 export interface ReportDef { key: ReportKey; label: string; exportable: boolean }
 export type ReportKey = 'aylik' | 'kalem' | 'borc' | 'oda' | 'guven';
@@ -42,55 +90,19 @@ export const REPORTS: readonly ReportDef[] = [
 
 const PLANLANAN = 'Planlanan';
 const GERCEKLESEN = 'Gerçekleşen';
-const FIYAT_YOK = 'Fiyat yok';
-const HENUZ_YOK = 'Henüz yok';
-const BILINMIYOR = 'Bilinmiyor';
-const KARISIK = 'Birden çok para birimi';
-const TUM_DONEMLER = 'Tüm dönemler';
-const ALL = 'all';
 const FORECAST_NOTU = 'Tahminler (forecast) bu raporlara toplanmaz; yalnız bütçe gözlemleri sayılır.';
 const GORUNUM_NOTU = 'Raporlarda görünüm modu yok: her rapor kendi biçimiyle gelir.';
+const GRAFIK_NOTU = 'Planlanan ve Gerçekleşen ayrı serilerdir; eksik değer çizilmez. Değerler aşağıdaki tabloda.';
+const ODA_NOTU = 'Tutar toplanmaz: alımların sahipliği belirlenmiş toplanabilir ölçüsü yok; kayıtlar yalnız sayılır. Odası olmayan alımlar "Bilinmiyor" satırındadır.';
 const DISA_AKTAR = 'Raporu dışa aktar';
 const OBS_KIND = 'budget_observation';
+const SAHIPSIZ = 'bütçe gözlemlerinin sahipliği belirlenmiş toplanabilir ölçüsü yok.';
+/** İndirme başlamadan blob bağlantısı geri alınmaz (WebKit iptal eder). */
+export const REVOKE_DELAY_MS = 1000;
 
-type ChartOption = ComponentProps<typeof Chart>['option'];
-type CsvRows = readonly (readonly string[])[];
-
-// --- Saf yardımcılar ---------------------------------------------------------------------------------
-const AY_FORMAT = new Intl.DateTimeFormat('tr-TR', { month: 'long', year: 'numeric' });
-const PERIOD_RE = /^(\d{4})-(\d{2})$/;
-
-/** "2026-11" → "Kasım 2026"; dönem biçimi tanınmıyorsa olduğu gibi döner. */
-export function periodLabel(period: string): string {
-  const match = PERIOD_RE.exec(period);
-  if (!match) return period;
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  if (month < 1 || month > 12) return period;
-  const text = AY_FORMAT.format(new Date(Date.UTC(year, month - 1, 1, 12)));
-  return text.charAt(0).toLocaleUpperCase('tr-TR') + text.slice(1);
-}
-
-/** Satırları ';' ile ayırır (tr-TR Excel), gerekirse tırnaklar, CRLF ve UTF-8 BOM ile başlar. */
-export function toCsv(rows: CsvRows): string {
-  const cell = (value: string) => (/[;"\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value);
-  return `﻿${rows.map((row) => row.map(cell).join(';')).join('\r\n')}`;
-}
-
-/** Dosya adı parçası: "Aylık plan ve gerçek" → "aylik-plan-ve-gercek". */
-function slug(text: string): string {
-  const map: Record<string, string> = { ç: 'c', ğ: 'g', ı: 'i', ö: 'o', ş: 's', ü: 'u', İ: 'i' };
-  return text
-    .replace(/[çğıöşüİ]/g, (ch) => map[ch] ?? ch)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
-}
-
-function todayStamp(now = new Date()): string {
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`;
-}
+const STATUS_STATE: Record<GenerationState, DataStatusState> = { idle: 'checking', checking: 'checking', ready: 'fresh', stale: 'stale', error: 'error' };
+const SPEND_TONE: Record<MonthRow['spend']['kind'], Tone> = { not_yet: 'notr', in_source: 'bilgi', spent: 'notr' };
+const systemNow = () => new Date();
 
 function downloadCsv(filename: string, rows: CsvRows): void {
   const blob = new Blob([toCsv(rows)], { type: 'text/csv;charset=utf-8' });
@@ -98,135 +110,121 @@ function downloadCsv(filename: string, rows: CsvRows): void {
   const anchor = document.createElement('a');
   anchor.href = url;
   anchor.download = filename;
+  anchor.rel = 'noopener';
+  anchor.hidden = true;
+  document.body.appendChild(anchor);
   anchor.click();
-  URL.revokeObjectURL(url);
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), REVOKE_DELAY_MS);
 }
 
-// --- Para toplama (kuruş, para birimi başına) ---------------------------------------------------------
-type Sum = Map<string, number>;
-type MoneyCell = MoneyValue | 'mixed';
-
-const DECIMAL = /^-?[0-9]+(\.[0-9]+)?$/;
-function toKurus(decimal: string | null | undefined): number | null {
-  if (decimal == null || !DECIMAL.test(decimal.trim())) return null;
-  return Math.round(Number(decimal) * 100);
-}
-function addMoney(sum: Sum, amount: string | null | undefined, currency: string | null | undefined): boolean {
-  const kurus = toKurus(amount);
-  if (kurus === null) return false;
-  const code = (currency ?? 'TRY').trim().toUpperCase();
-  sum.set(code, (sum.get(code) ?? 0) + kurus);
-  return true;
-}
-function moneyOf(sum: Sum): MoneyCell {
-  if (sum.size === 0) return null;
-  if (sum.size > 1) return 'mixed';
-  const [currency, kurus] = [...sum.entries()][0]!;
-  return { amount: (kurus / 100).toFixed(2), currency };
-}
-function numberOf(sum: Sum): number | null {
-  if (sum.size !== 1) return null;
-  return [...sum.values()][0]! / 100;
-}
-function moneyText(cell: MoneyCell, missing: string): string {
-  if (cell === 'mixed') return KARISIK;
-  if (cell === null) return missing;
-  return `${cell.amount} ${cell.currency}`;
-}
-function MoneyCellView({ cell, missing }: { cell: MoneyCell; missing: string }) {
-  if (cell === 'mixed') return <span>{KARISIK}</span>;
-  return <Money value={cell} label={missing} />;
-}
-
-interface PlanActual { plan: Sum; actual: Sum; planCount: number; actualCount: number }
-const newPlanActual = (): PlanActual => ({ plan: new Map(), actual: new Map(), planCount: 0, actualCount: 0 });
-function addObservation(acc: PlanActual, row: BudgetObservation): void {
-  if (row.basis === 'planned') {
-    acc.planCount += 1;
-    addMoney(acc.plan, row.value.decimal, row.value.currency);
-  } else if (row.basis === 'recorded_aggregate') {
-    acc.actualCount += 1;
-    addMoney(acc.actual, row.value.decimal, row.value.currency);
-  }
-  // 'unclassified' ve bilinmeyen basis: sahibi yok, hiçbir sayıya katılmaz (views.ts OWNED_SUMS).
-}
-
-/** Fark yalnız iki değer de tek ve aynı para birimindeyse; aksi hâlde eksik olanın adı. Renk tek işaret değil. */
-function farkOf(acc: PlanActual): { label: string; tone: Tone } {
-  const plan = moneyOf(acc.plan);
-  const actual = moneyOf(acc.actual);
-  if (plan === 'mixed' || actual === 'mixed') return { label: KARISIK, tone: 'notr' };
-  if (plan === null) return { label: 'Plan yok', tone: 'notr' };
-  if (actual === null) return { label: HENUZ_YOK, tone: 'notr' };
-  if (plan.currency !== actual.currency) return { label: KARISIK, tone: 'notr' };
-  const diff = [...acc.actual.values()][0]! - [...acc.plan.values()][0]!;
-  if (diff === 0) return { label: 'Planda', tone: 'notr' };
-  const text = formatMoney({ amount: (Math.abs(diff) / 100).toFixed(2), currency: plan.currency });
-  return diff > 0 ? { label: `Plan üstü ${text}`, tone: 'hata' } : { label: `Plan altı ${text}`, tone: 'olumlu' };
-}
-
-const trCompare = new Intl.Collator('tr-TR').compare;
-
-// --- Veri durumu ----------------------------------------------------------------------------------------
-const STATUS_STATE: Record<GenerationState, DataStatusState> = { idle: 'checking', checking: 'checking', ready: 'fresh', stale: 'stale', error: 'error' };
+/** "Pivot kullanılamaz: X" → "Toplam kullanılamaz: X" (aylık rapor ve özet için aynı gerekçe). */
+const totalReason = (reason: string | null) => `Toplam kullanılamaz: ${reason ? reason.replace(/^[^:]+:\s*/, '') : SAHIPSIZ}`;
 
 // --- Sayfa ------------------------------------------------------------------------------------------------
-export interface RaporlarPageProps { location?: string }
+export interface RaporlarPageProps {
+  location?: string;
+  /** İçinde bulunulan dönem (İstanbul) ve dosya adı için saat; test enjeksiyonu. */
+  now?: () => Date;
+}
 
-export function RaporlarPage({ location = '/raporlar' }: RaporlarPageProps) {
-  const device = useDevice();
-  const wide = device === 'desktop';
-  const generation = useGeneration();
+interface Snapshot<R> { rows: readonly R[]; loading: boolean; error: string | null }
+interface BudgetData { observations: Snapshot<BudgetObservation>; definitions: Snapshot<ViewDefinition> }
+const NOT_READ: BudgetData = {
+  observations: { rows: [], loading: true, error: null },
+  definitions: { rows: [], loading: true, error: null },
+};
+
+/**
+ * Bütçe koleksiyonlarını yalnız nesil (manifest) okunduktan sonra ister ve sayfaya bildirir; kendisi bir şey çizmez.
+ * Manifest okunamazken istenen koleksiyonun hatası yükleyicide kalır ve "Yeniden dene" kaynak düzelince bile raporu
+ * getirmezdi. Sayfa başlığı, seçimler ve gövde sayfada kalır: nesil gelince yeniden kurulmaz (odak kaybolmaz).
+ */
+function BudgetCollections({ onRead }: { onRead(data: BudgetData): void }) {
   const observations = useCollection('budget_observations');
+  const definitions = useCollection('view_definitions');
+  useEffect(() => onRead({ observations, definitions }), [observations, definitions, onRead]);
+  return null;
+}
+
+export function RaporlarPage({ location = '/raporlar', now = systemNow }: RaporlarPageProps) {
+  const profile = useProfile();
+  const desktop = profile === 'desktop';
+  const phone = profile === 'phone';
+  const generation = useGeneration();
+  // Son iyi nesil varken (taze, eski ya da yenileniyor) içerik ekranda kalır; yenileme iskelete döndürmez.
+  const hasGeneration = generation.manifest !== null;
+  const [budget, setBudget] = useState<BudgetData>(NOT_READ);
+  const { observations, definitions } = hasGeneration ? budget : NOT_READ;
   const [reportKey, setReportKey] = useState<ReportKey>('aylik');
   const report = REPORTS.find((item) => item.key === reportKey) ?? REPORTS[0]!;
 
-  // Dönem: verideki yıllar + "Tüm dönemler"; varsayılan verideki son yıl. Seçim veriden sonra gelir (year undefined → son yıl).
-  const rows = useMemo(() => observations.rows.filter((row) => !row.deleted_at), [observations.rows]);
-  const years = useMemo(() => [...new Set(rows.map((row) => row.period.slice(0, 4)))].sort(), [rows]);
-  const [year, setYear] = useState<string | undefined>(undefined);
-  const activeYear = year ?? years[years.length - 1] ?? ALL;
-  const periodOptions = useMemo(() => [{ value: ALL, label: TUM_DONEMLER }, ...years.map((value) => ({ value, label: value }))], [years]);
-  const filtered = useMemo(() => (activeYear === ALL ? rows : rows.filter((row) => row.period.startsWith(activeYear))), [rows, activeYear]);
-  const periodText = activeYear === ALL ? TUM_DONEMLER : activeYear;
+  const today = now();
+  const current = currentPeriod(today);
 
-  // Dışa aktarma: etkin rapor görünen satırlarını kaydeder; veri gelmeden düğme devre dışıdır (nedeni yanında yazar).
+  // Dönem: Son 6 ay · Son 12 ay · verideki yıllar · Tüm dönemler; varsayılan son 6 ay (veri varsa).
+  const rows = useMemo(() => observations.rows.filter((row) => !row.deleted_at), [observations.rows]);
+  const dataPeriods = useMemo(() => [...new Set(rows.map((row) => row.period))], [rows]);
+  const [choice, setChoice] = useState<string | undefined>(undefined);
+  const activeChoice = choice ?? defaultPeriodChoice(dataPeriods, current);
+  const periods = useMemo(() => periodsFor(activeChoice, dataPeriods, current), [activeChoice, dataPeriods, current]);
+  const options = useMemo(() => periodOptions(dataPeriods), [dataPeriods]);
+  const selected = useMemo(() => {
+    const set = new Set(periods);
+    return rows.filter((row) => set.has(row.period));
+  }, [rows, periods]);
+
+  // Sahiplik: yalnız katalogdaki toplanabilir ölçüler (views.pivotMeasures); plan ve gerçek ayrı ölçüdür.
+  const catalog = useMemo(
+    () => createViewCatalog(readViewDefinitions({ schemaVersion: 1, collection: 'view_definitions', records: definitions.rows.filter((row) => !row.deleted_at) })),
+    [definitions.rows],
+  );
+  const measures = useMemo(() => catalog.pivotMeasures(OBS_KIND), [catalog]);
+  const owned = useMemo(() => ownedMeasures(measures), [measures]);
+  const pivotReason = catalog.unsupportedReason(OBS_KIND, 'pivot');
+
+  // Dışa aktarma: etkin rapor görünen satırlarını kaydeder ve kaldırılınca (ya da satırları değişince) kaydı siler;
+  // veri gelmeden düğme devre dışıdır (nedeni yanında yazar). React önce eski etkilerin temizliğini, sonra yenileri
+  // çalıştırır: rapor değişiminde eski kayıt silinir, yeni rapor kendi satırlarını kaydeder.
   const csvRef = useRef<CsvRows | null>(null);
   const [csvReady, setCsvReady] = useState(false);
   const registerCsv = useCallback((next: CsvRows | null) => {
     csvRef.current = next;
     setCsvReady(next !== null);
   }, []);
-  useEffect(() => registerCsv(null), [reportKey, registerCsv]);
   const exportCsv = () => {
     if (!csvRef.current) return;
-    downloadCsv(`aile-rapor-${slug(report.label)}-${todayStamp()}.csv`, csvRef.current);
+    downloadCsv(`aile-rapor-${slug(report.label)}-${dayStamp(now())}.csv`, csvRef.current);
   };
 
+  const retry = () => void generation.refresh();
   const status: DataStatusProps = {
     state: STATUS_STATE[generation.state],
     lastReadAt: generation.lastReadAt ?? undefined,
     generationId: generation.generationId ?? undefined,
     lastGoodAt: generation.lastGoodAt ?? undefined,
     message: generation.message ?? undefined,
-    onRefresh: () => void generation.refresh(),
+    onRefresh: retry,
   };
 
-  const generationFailed = generation.state === 'error' && generation.manifest === null;
-  const generationPending = generation.state === 'idle' || generation.state === 'checking';
-  const obsReady = !generationFailed && !generationPending && !observations.loading && observations.error === null && filtered.length > 0;
+  // Nesil yokken: hata (stale da son iyi nesil olmadan gösterecek veri bırakmaz) ya da ilk okuma sürüyor.
+  const generationFailed = !hasGeneration && (generation.state === 'error' || generation.state === 'stale');
+  const budgetReport = report.key === 'aylik' || report.key === 'kalem';
+  const budgetLoading = observations.loading || definitions.loading;
+  const obsReady = !budgetLoading && observations.error === null && selected.length > 0;
 
-  // Özet: plan ve gerçek ayrı ölçü; üçüncü ölçü gözlem sayısı. Yalnız bütçe gözlemi raporlarında ve veri varken.
+  // Özet: plan ve gerçek ayrı ölçü (yalnız sahipliği belirlenmişse); üçüncü girdi kayıt sayıları, yine ayrı ayrı.
   const summary = useMemo<readonly PageHeaderSummary[] | undefined>(() => {
-    if (!obsReady || (reportKey !== 'aylik' && reportKey !== 'kalem')) return undefined;
-    const acc = newPlanActual();
-    for (const row of filtered) addObservation(acc, row);
-    return [
-      { label: PLANLANAN, value: moneyText2(moneyOf(acc.plan), FIYAT_YOK), note: periodText },
-      { label: GERCEKLESEN, value: moneyText2(moneyOf(acc.actual), HENUZ_YOK), note: periodText },
-      { label: 'Gözlem', value: `${filtered.length} kayıt`, note: `${acc.planCount} plan · ${acc.actualCount} gerçekleşen` },
-    ];
-  }, [obsReady, reportKey, filtered, periodText]);
+    if (!obsReady || !budgetReport) return undefined;
+    const note = choiceLabel(activeChoice);
+    const items: PageHeaderSummary[] = [];
+    if (owned.planned) items.push({ label: PLANLANAN, value: plannedText(plannedOver(selected, periods)), note });
+    if (owned.recorded) items.push({ label: GERCEKLESEN, value: recordedText(recordedOver(selected, periods, today)), note });
+    const { plan, recorded } = recordCounts(selected, today);
+    items.push({ label: 'Kayıt', value: `${plan} plan · ${recorded} gerçekleşen`, note });
+    return items;
+    // today yalnız içinde bulunulan dönem (current) üzerinden etkiler; her render'da yeni Date bağımlılık sayılmaz.
+  }, [obsReady, budgetReport, activeChoice, owned, selected, periods, current]);
 
   const exportNoteId = 'aile-raporlar-disa-aktar-not';
   const primary = report.exportable ? (
@@ -240,56 +238,47 @@ export function RaporlarPage({ location = '/raporlar' }: RaporlarPageProps) {
 
   let body: ReactNode;
   if (generationFailed) {
-    body = <ErrorState message={generation.message ?? undefined} onRetry={() => void generation.refresh()} />;
-  } else if (generationPending) {
-    body = <LoadingShell rows={6} narrow={device === 'phone'} />;
-  } else {
-    switch (report.key) {
-      case 'aylik':
-      case 'kalem': {
-        if (observations.loading) body = <LoadingShell rows={6} narrow={device === 'phone'} />;
-        else if (observations.error) body = <ErrorState message={observations.error} onRetry={() => void generation.refresh()} />;
-        else if (rows.length === 0) body = <EmptyState title="Kaynakta bütçe gözlemi kaydı yok" message="Nesilde budget_observations koleksiyonu boş; Plan ve Gerçekleşen sayfalarından hücre okunmadı." />;
-        else if (filtered.length === 0) body = <EmptyState filters={[periodText]} onClear={() => setYear(ALL)} />;
-        else if (report.key === 'aylik') body = <AylikReport rows={filtered} periodText={periodText} onCsv={registerCsv} />;
-        else body = <KalemReport rows={filtered} periodText={periodText} onCsv={registerCsv} />;
-        break;
-      }
-      case 'borc':
-        body = <EmptyState title="Kaynakta ödeme kaydı yok" message="Nesilde payments koleksiyonu yok; borç ödeme planı bu kaynaktan üretilemez. Ödemeler sayfası da aynı durumu söyler." />;
-        break;
-      case 'oda':
-        body = <OdaReport onCsv={registerCsv} onRetry={() => void generation.refresh()} />;
-        break;
-      case 'guven':
-        body = <GuvenReport onCsv={registerCsv} onRetry={() => void generation.refresh()} />;
-        break;
+    body = <ErrorState message={generation.message ?? undefined} onRetry={retry} />;
+  } else if (!hasGeneration) {
+    body = <LoadingShell rows={6} narrow={phone} />;
+  } else if (budgetReport) {
+    if (budgetLoading) body = <LoadingShell rows={6} narrow={phone} />;
+    else if (observations.error) body = <ErrorState message={observations.error} onRetry={retry} />;
+    else if (rows.length === 0) body = <EmptyState title="Kaynakta bütçe gözlemi kaydı yok" message="Nesilde budget_observations koleksiyonu boş; Plan ve Gerçekleşen sayfalarından hücre okunmadı." />;
+    else if (periods.length === 0) body = <EmptyState filters={[choiceLabel(activeChoice)]} onClear={() => setChoice(TUM)} />;
+    else if (report.key === 'aylik') {
+      body = <AylikReport rows={selected} periods={periods} today={today} current={current} owned={owned} reason={owned.planned && owned.recorded ? null : totalReason(pivotReason)} definitionsError={definitions.error} onCsv={registerCsv} />;
+    } else {
+      body = <KalemReport rows={selected} periods={periods} today={today} current={current} measures={measures} reason={pivotReason} definitionsError={definitions.error} onCsv={registerCsv} />;
     }
+  } else if (report.key === 'borc') {
+    body = <EmptyState title="Kaynakta ödeme kaydı yok" message="Nesilde payments koleksiyonu yok; borç ödeme planı bu kaynaktan üretilemez. Ödemeler sayfası da aynı durumu söyler." />;
+  } else if (report.key === 'oda') {
+    body = <OdaReport phone={phone} onCsv={registerCsv} onRetry={retry} />;
+  } else {
+    body = <GuvenReport phone={phone} onCsv={registerCsv} onRetry={retry} />;
   }
 
-  const selectors = (
-    <div className="aile-raporlar__secim">
-      {wide ? null : (
-        <Select label="Rapor" value={report.key} onChange={(next) => setReportKey(next as ReportKey)} options={REPORTS.map((item) => ({ value: item.key, label: item.label }))} />
-      )}
-      {report.key === 'aylik' || report.key === 'kalem' ? (
-        <Select label="Dönem" value={activeYear} onChange={setYear} options={periodOptions} disabled={years.length === 0} />
-      ) : null}
-      <p className="aile-raporlar__not aile-kucuk aile-ikincil">{GORUNUM_NOTU}</p>
-    </div>
+  const raporSelect = (
+    <Select label="Rapor" value={report.key} onChange={(next) => setReportKey(next as ReportKey)} options={REPORTS.map((item) => ({ value: item.key, label: item.label }))} />
   );
 
   return (
     <>
+      {hasGeneration ? <BudgetCollections onRead={setBudget} /> : null}
       <PageHeader location={location} section="Rapor" title="Raporlar" purpose="Hazır raporları açın; her rakamın hangi kayıtlardan geldiğini görün." primary={primary} status={status} summary={summary} />
-      <div className={`aile-raporlar${wide ? ' aile-raporlar--genis' : ''}`}>
-        {wide ? (
+      <div className="aile-raporlar" data-nav={desktop ? 'menu' : 'secim'}>
+        {desktop ? (
           <nav aria-label="Raporlar" className="aile-raporlar__nav">
-            <Menu items={REPORTS.map((item) => ({ key: item.key, label: item.label }))} selectedKey={report.key} onSelect={(key) => setReportKey(key as ReportKey)} />
+            <RaporMenuWide items={REPORTS.map((item) => ({ key: item.key, label: item.label }))} selectedKey={report.key} onSelect={(key) => setReportKey(key as ReportKey)} wideFallback={raporSelect} />
           </nav>
         ) : null}
         <div className="aile-raporlar__govde">
-          {selectors}
+          <div className="aile-raporlar__secim">
+            {desktop ? null : raporSelect}
+            {budgetReport ? <Select label="Dönem" value={activeChoice} onChange={setChoice} options={options} disabled={dataPeriods.length === 0} /> : null}
+          </div>
+          <p className="aile-raporlar__not aile-kucuk aile-ikincil">{GORUNUM_NOTU}</p>
           {body}
         </div>
       </div>
@@ -297,278 +286,243 @@ export function RaporlarPage({ location = '/raporlar' }: RaporlarPageProps) {
   );
 }
 
-/** Özet değeri: ₺8.500,00 ya da eksik bilginin adı. */
-function moneyText2(cell: MoneyCell, missing: string): string {
-  if (cell === 'mixed') return KARISIK;
-  return formatMoney(cell, missing);
+// --- Ortak parçalar ------------------------------------------------------------------------------------
+function ReportHead({ id, title, meta }: { id: string; title: string; meta: string }) {
+  return (
+    <div className="aile-raporlar__baslik">
+      <h2 id={id}>{title}</h2>
+      {meta ? <span className="aile-kucuk aile-ikincil">{meta}</span> : null}
+    </div>
+  );
+}
+
+/** Tutar ya da eksik bilginin adı (Money); kısmen okunamayan değer ayrıca yazılır. */
+function Total({ value }: { value: TotalDisplay }) {
+  return (
+    <>
+      <Money value={value.money} label={value.missing} />
+      {value.note ? <span className="aile-raporlar__eksik aile-kucuk aile-ikincil">{value.note}</span> : null}
+    </>
+  );
+}
+
+function Note({ children }: { children: ReactNode }) {
+  return <p className="aile-raporlar__not aile-kucuk aile-ikincil">{children}</p>;
 }
 
 // --- Rapor: Aylık plan ve gerçek -------------------------------------------------------------------
-interface ObsReportProps { rows: readonly BudgetObservation[]; periodText: string; onCsv(rows: CsvRows | null): void }
-interface AyRow { key: string; ay: string; acc: PlanActual }
+interface BudgetReportProps {
+  rows: readonly BudgetObservation[];
+  periods: readonly string[];
+  today: Date;
+  current: string;
+  definitionsError: string | null;
+  onCsv(rows: CsvRows | null): void;
+}
 
-function AylikReport({ rows, periodText, onCsv }: ObsReportProps) {
-  const ayRows = useMemo<AyRow[]>(() => {
-    const byPeriod = new Map<string, PlanActual>();
-    for (const row of rows) {
-      let acc = byPeriod.get(row.period);
-      if (!acc) byPeriod.set(row.period, (acc = newPlanActual()));
-      addObservation(acc, row);
-    }
-    return [...byPeriod.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([period, acc]) => ({ key: period, ay: periodLabel(period), acc }));
-  }, [rows]);
+function kayitText(row: MonthRow): string {
+  const base = row.future ? `${row.planCount} plan kaydı` : `${row.planCount} plan · ${row.recordedCount} gerçekleşen`;
+  return row.current ? `${base} · sürüyor` : base;
+}
+
+function AylikReport({ rows, periods, today, current, owned, reason, definitionsError, onCsv }: BudgetReportProps & { owned: OwnedMeasures; reason: string | null }) {
+  // today yalnız içinde bulunulan dönem (current) üzerinden etkiler.
+  const months = useMemo(() => monthRows(rows, periods, today), [rows, periods, current]);
+  const mirrored = months.some((row) => row.mirrors);
 
   useEffect(() => {
-    onCsv([
-      ['Ay', PLANLANAN, GERCEKLESEN, 'Fark', 'Plan kaydı', 'Gerçekleşen kaydı'],
-      ...ayRows.map((row) => [row.ay, moneyText(moneyOf(row.acc.plan), FIYAT_YOK), moneyText(moneyOf(row.acc.actual), HENUZ_YOK), farkOf(row.acc).label, String(row.acc.planCount), String(row.acc.actualCount)]),
-    ]);
-  }, [ayRows, onCsv]);
+    onCsv(monthCsv(months, owned));
+    return () => onCsv(null);
+  }, [months, owned, onCsv]);
 
-  const columns: ResponsiveColumn<AyRow>[] = [
-    { key: 'ay', title: 'Ay', minWidth: 144, m: 'title' },
-    { key: 'plan', title: PLANLANAN, align: 'right', minWidth: 144, render: (row) => <MoneyCellView cell={moneyOf(row.acc.plan)} missing={FIYAT_YOK} /> },
-    { key: 'gercek', title: GERCEKLESEN, align: 'right', minWidth: 144, m: 'lead', render: (row) => <MoneyCellView cell={moneyOf(row.acc.actual)} missing={HENUZ_YOK} /> },
-    { key: 'fark', title: 'Fark', align: 'right', minWidth: 184, m: 'status', render: (row) => { const fark = farkOf(row.acc); return <StatusText label={fark.label} tone={fark.tone} className="aile-raporlar__fark" />; } },
-    { key: 'kayit', title: 'Kayıt', minWidth: 184, m: 'meta', render: (row) => `${row.acc.planCount} plan · ${row.acc.actualCount} gerçekleşen` },
+  // Asgari genişlikler içerik türüne göre (ay adı, ₺1.168.800,00, "Kaynakta yazılı", sözcük arasında saran kayıt metni);
+  // toplamı tablet içerik genişliğine sığar: tablet tabloyu görür, telefon akordeonu.
+  const columns: ResponsiveColumn<MonthRow>[] = [{ key: 'ay', title: 'Ay', minWidth: 128, m: 'title', render: (row) => row.label }];
+  if (owned.planned) columns.push({ key: 'plan', title: PLANLANAN, align: 'right', minWidth: 144, render: (row) => <Total value={plannedDisplay(row.planned)} /> });
+  if (owned.recorded) {
+    columns.push(
+      { key: 'gercek', title: GERCEKLESEN, align: 'right', minWidth: 144, m: 'lead', render: (row) => <Total value={recordedDisplay(row.recorded)} /> },
+      { key: 'durum', title: 'Durum', minWidth: 136, m: 'status', render: (row) => <StatusText label={row.spend.text} tone={SPEND_TONE[row.spend.kind]} /> },
+    );
+  }
+  columns.push({ key: 'kayit', title: 'Kayıt', minWidth: 168, m: 'meta', render: kayitText });
+  if (mirrored) columns.push({ key: 'not', title: 'Not', minWidth: 240, render: (row) => (row.mirrors ? MIRRORS_PLAN_NOTE : '') });
+
+  const series = [
+    ...(owned.planned ? [{ name: PLANLANAN, tone: 'plan' as const, values: months.map((row) => chartAmount(row.planned)) }] : []),
+    ...(owned.recorded ? [{ name: GERCEKLESEN, tone: 'gercek' as const, values: months.map((row) => chartAmount(row.recorded)) }] : []),
   ];
-
-  const option: ChartOption = {
-    xAxis: { type: 'category', data: ayRows.map((row) => row.ay) },
-    yAxis: { type: 'value' },
-    legend: { data: [PLANLANAN, GERCEKLESEN] },
-    series: [
-      { name: PLANLANAN, type: 'bar', color: designTokens.acikMavi, data: ayRows.map((row) => numberOf(row.acc.plan)) },
-      { name: GERCEKLESEN, type: 'bar', color: designTokens.eylem, data: ayRows.map((row) => numberOf(row.acc.actual)) },
-    ],
-  };
 
   return (
     <section className="aile-raporlar__rapor" aria-labelledby="aile-rapor-aylik">
-      <ReportHead id="aile-rapor-aylik" title="Aylık plan ve gerçek" meta={`${periodText} · ${ayRows.length} ay`} />
-      <Chart
-        option={option}
-        ariaLabel="Aylara göre planlanan ve gerçekleşen gider; değerler aşağıdaki tabloda"
-        description={<ResponsiveTable caption="Aylık plan ve gerçek" mobileCaption={`${ayRows.length} ay`} columns={columns} rows={ayRows} />}
-      />
-      <p className="aile-raporlar__not aile-kucuk aile-ikincil">{FORECAST_NOTU}</p>
+      <ReportHead id="aile-rapor-aylik" title="Aylık plan ve gerçek" meta={rangeText(periods, current)} />
+      {reason ? <Note>{reason}</Note> : null}
+      {definitionsError ? <Note>{definitionsError}</Note> : null}
+      {series.length > 0 ? (
+        <RaporGrafikWide
+          wideFallback={null}
+          categories={months.map((row) => row.label)}
+          series={series}
+          ariaLabel="Aylara göre planlanan ve gerçekleşen gider; değerler aşağıdaki tabloda"
+          description={GRAFIK_NOTU}
+        />
+      ) : null}
+      {/* Dönem değişince sonuç yenidir: akordeon yeniden kurulur, yeni sonucun ilk satırı açık gelir. */}
+      <ResponsiveTable key={periods.join('|')} caption="Aylık plan ve gerçek" mobileCaption={`${months.length} ay`} columns={columns} rows={months} />
+      {mirrored ? <Note>{MIRRORS_PLAN_NOTE}</Note> : null}
+      <Note>{FORECAST_NOTU}</Note>
     </section>
   );
 }
 
 // --- Rapor: Kaleme göre harcama (pivot kalem × dönem) -----------------------------------------------
-interface KalemRow { key: string; kalem: string; cells: Map<string, PlanActual>; total: PlanActual; isTotal?: boolean }
-
-function measureText(measure: PivotMeasure, acc: PlanActual | undefined): string {
-  if (!acc) return 'Kayıt yok';
-  if (measure.aggregate === 'count') return `${acc.planCount} plan · ${acc.actualCount} gerçekleşen`;
-  return measure.basis === 'planned' ? moneyText(moneyOf(acc.plan), FIYAT_YOK) : moneyText(moneyOf(acc.actual), HENUZ_YOK);
-}
-function MeasureCell({ measure, acc }: { measure: PivotMeasure; acc: PlanActual | undefined }) {
-  if (!acc) return <span className="aile-ikincil">Kayıt yok</span>;
-  if (measure.aggregate === 'count') return <>{`${acc.planCount} plan · ${acc.actualCount} gerçekleşen`}</>;
-  return measure.basis === 'planned'
-    ? <MoneyCellView cell={moneyOf(acc.plan)} missing={FIYAT_YOK} />
-    : <MoneyCellView cell={moneyOf(acc.actual)} missing={HENUZ_YOK} />;
-}
-
-function KalemReport({ rows, periodText, onCsv }: ObsReportProps) {
-  const definitions = useCollection('view_definitions');
-  const catalog = useMemo(() => {
-    const records = definitions.rows.filter((row) => !row.deleted_at);
-    return createViewCatalog(readViewDefinitions({ schemaVersion: 1, collection: 'view_definitions', records }));
-  }, [definitions.rows]);
-  const measures = useMemo(() => catalog.pivotMeasures(OBS_KIND), [catalog]);
+function KalemReport({ rows, periods, today, current, measures, reason, definitionsError, onCsv }: BudgetReportProps & { measures: readonly PivotMeasure[]; reason: string | null }) {
   const [measureId, setMeasureId] = useState<string | undefined>(undefined);
   const measure = measures.find((item) => item.id === measureId) ?? measures.find((item) => item.id === 'sum_planned') ?? measures[0];
+  const kalemler = useMemo(() => kalemRows(rows, periods), [rows, periods]);
 
-  const periods = useMemo(() => [...new Set(rows.map((row) => row.period))].sort(), [rows]);
-  const kalemRows = useMemo<KalemRow[]>(() => {
-    const byKalem = new Map<string, KalemRow>();
-    const total: KalemRow = { key: '__toplam', kalem: 'Genel toplam', cells: new Map(), total: newPlanActual(), isTotal: true };
-    for (const row of rows) {
-      const kalem = row.label?.trim() || BILINMIYOR;
-      let item = byKalem.get(kalem);
-      if (!item) byKalem.set(kalem, (item = { key: kalem, kalem, cells: new Map(), total: newPlanActual() }));
-      for (const target of [item, total]) {
-        let cell = target.cells.get(row.period);
-        if (!cell) target.cells.set(row.period, (cell = newPlanActual()));
-        addObservation(cell, row);
-        addObservation(target.total, row);
-      }
-    }
-    return [...[...byKalem.values()].sort((a, b) => trCompare(a.kalem, b.kalem)), total];
-  }, [rows]);
+  const cell = useCallback(
+    (row: KalemRow, period: string | null) => (measure ? measureValue(measure, period ? row.cells.get(period) : row.all, period ? [period] : periods, today) : null),
+    // today yalnız içinde bulunulan dönem (current) üzerinden etkiler.
+    [measure, periods, current],
+  );
 
   useEffect(() => {
-    if (!measure) { onCsv(null); return; }
+    if (!measure) return undefined;
     onCsv([
       ['Kalem', ...periods.map(periodLabel), 'Toplam'],
-      ...kalemRows.map((row) => [row.kalem, ...periods.map((period) => measureText(measure, row.cells.get(period))), measureText(measure, row.total)]),
+      ...kalemler.map((row) => [row.label, ...periods.map((period) => cell(row, period)!.csv), cell(row, null)!.csv]),
     ]);
-  }, [kalemRows, periods, measure, onCsv]);
+    return () => onCsv(null);
+  }, [kalemler, periods, measure, cell, onCsv]);
 
-  if (definitions.loading) return <LoadingShell rows={6} />;
   if (!measure) {
-    const reason = catalog.unsupportedReason(OBS_KIND, 'pivot') ?? 'Pivot kullanılamaz: bütçe gözlemlerinin sahipliği belirlenmiş toplanabilir ölçüsü yok.';
     return (
       <section className="aile-raporlar__rapor" aria-labelledby="aile-rapor-kalem">
-        <ReportHead id="aile-rapor-kalem" title="Kaleme göre harcama" meta={periodText} />
-        <p className="aile-raporlar__not">{reason}</p>
-        {definitions.error ? <p className="aile-raporlar__not">{definitions.error}</p> : null}
+        <ReportHead id="aile-rapor-kalem" title="Kaleme göre harcama" meta={rangeText(periods, current)} />
+        <p className="aile-raporlar__not">{reason ?? `Pivot kullanılamaz: ${SAHIPSIZ}`}</p>
+        {definitionsError ? <p className="aile-raporlar__not">{definitionsError}</p> : null}
       </section>
     );
   }
 
+  const render = (period: string | null) => (row: KalemRow) => {
+    const value = cell(row, period)!;
+    return value.display ? <Total value={value.display} /> : <span className={value.text === KAYIT_YOK ? 'aile-ikincil' : undefined}>{value.text}</span>;
+  };
   const columns: ResponsiveColumn<KalemRow>[] = [
-    { key: 'kalem', title: 'Kalem', minWidth: 200, m: 'title' },
-    ...periods.map((period): ResponsiveColumn<KalemRow> => ({
-      key: period, title: periodLabel(period), align: 'right', minWidth: 144, m: 'body',
-      render: (row) => <MeasureCell measure={measure} acc={row.cells.get(period)} />,
-    })),
-    { key: 'toplam', title: 'Toplam', align: 'right', minWidth: 160, m: 'lead', render: (row) => <MeasureCell measure={measure} acc={row.total} /> },
+    { key: 'kalem', title: 'Kalem', minWidth: 200, m: 'title', render: (row) => row.label },
+    ...periods.map((period): ResponsiveColumn<KalemRow> => ({ key: period, title: periodLabel(period), align: 'right', minWidth: 160, m: 'body', render: render(period) })),
+    { key: 'toplam', title: 'Toplam', align: 'right', minWidth: 176, m: 'lead', render: render(null) },
   ];
 
-  const kalemler = kalemRows.filter((row) => !row.isTotal);
-  const series: NonNullable<ChartOption['series']> = measure.aggregate === 'count'
+  const items = kalemler.filter((row) => !row.isTotal);
+  const series = measure.aggregate === 'count'
     ? [
-        { name: 'Plan kaydı', type: 'bar', color: designTokens.acikMavi, data: kalemler.map((row) => row.total.planCount) },
-        { name: 'Gerçekleşen kaydı', type: 'bar', color: designTokens.eylem, data: kalemler.map((row) => row.total.actualCount) },
+        { name: 'Plan kaydı', tone: 'plan' as const, values: items.map((row) => recordCounts(row.all, today).plan) },
+        { name: 'Gerçekleşen kaydı', tone: 'gercek' as const, values: items.map((row) => recordCounts(row.all, today).recorded) },
       ]
-    : [{
-        name: measure.label, type: 'bar',
-        color: measure.basis === 'planned' ? designTokens.acikMavi : designTokens.eylem,
-        data: kalemler.map((row) => numberOf(measure.basis === 'planned' ? row.total.plan : row.total.actual)),
-      }];
-  const option: ChartOption = { xAxis: { type: 'category', data: kalemler.map((row) => row.kalem) }, yAxis: { type: 'value' }, legend: {}, series };
+    : [{ name: measure.label, tone: measure.basis === 'planned' ? ('plan' as const) : ('gercek' as const), values: items.map((row) => cell(row, null)!.amount) }];
 
   return (
     <section className="aile-raporlar__rapor" aria-labelledby="aile-rapor-kalem">
-      <ReportHead id="aile-rapor-kalem" title="Kaleme göre harcama" meta={`${periodText} · ${kalemler.length} kalem · ${periods.length} ay`} />
+      <ReportHead id="aile-rapor-kalem" title="Kaleme göre harcama" meta={`${rangeText(periods, current)} · ${items.length} kalem`} />
       <div className="aile-raporlar__secim">
         <Select label="Ölçü" value={measure.id} onChange={setMeasureId} options={measures.map((item) => ({ value: item.id, label: item.label }))} help="Plan ve gerçekleşen ayrı ölçüdür; tek sayıda birleşmez." />
       </div>
-      <Chart
-        option={option}
+      <RaporGrafikWide
+        wideFallback={null}
+        categories={items.map((row) => row.label)}
+        series={series}
         ariaLabel={`Kaleme göre ${measure.label.toLocaleLowerCase('tr-TR')}; değerler aşağıdaki tabloda`}
-        description={<ResponsiveTable caption="Kaleme göre harcama" mobileCaption={`${kalemler.length} kalem`} columns={columns} rows={kalemRows} />}
+        description="Her kalem tek çubuktur; değerler aşağıdaki tabloda."
       />
-      <p className="aile-raporlar__not aile-kucuk aile-ikincil">Satır boyutu kaynaktaki gider kalemidir; bütçe gözlemlerinde oda bilgisi yok. {FORECAST_NOTU}</p>
+      <ResponsiveTable key={periods.join('|')} caption="Kaleme göre harcama" mobileCaption={`${items.length} kalem`} columns={columns} rows={kalemler} />
+      <Note>Satır boyutu kaynaktaki gider kalemidir; bütçe gözlemlerinde oda bilgisi yok. {FORECAST_NOTU}</Note>
     </section>
   );
 }
 
-// --- Rapor: Oda bazında alımlar ----------------------------------------------------------------------
-interface RoomRow { key: string; oda: string; plan: Sum; actual: Sum; count: number }
-interface SubReportProps { onCsv(rows: CsvRows | null): void; onRetry(): void }
+// --- Rapor: Oda bazında alımlar (yalnız sayım) -------------------------------------------------------
+interface SubReportProps { phone: boolean; onCsv(rows: CsvRows | null): void; onRetry(): void }
 
-function OdaReport({ onCsv, onRetry }: SubReportProps) {
-  const device = useDevice();
+/** Filtresiz sorgu: türün bütün kayıtları. */
+const TUM_ALIMLAR: QueryAst = { facets: {} };
+
+function OdaReport({ phone, onCsv, onRetry }: SubReportProps) {
+  // useQuery yükleme/hata durumunu oda ve terim koleksiyonlarıyla birlikte verir: oda adları gelmeden sayılan alımlar
+  // "Bilinmiyor" odada toplanırdı (ve akordeonun açık satırı yanlış kalırdı).
+  const query = useQuery('purchase_need', TUM_ALIMLAR);
   const needs = useCollection('purchase_needs');
-  const rows: RecordRow[] = useRows('purchase_need');
-  const roomRows = useMemo<RoomRow[]>(() => {
-    const byRoom = new Map<string, RoomRow>();
-    for (const row of rows) {
-      const oda = row.room?.trim() || BILINMIYOR;
-      let item = byRoom.get(oda);
-      if (!item) byRoom.set(oda, (item = { key: oda, oda, plan: new Map(), actual: new Map(), count: 0 }));
-      item.count += 1;
-      if (row.planned) addMoney(item.plan, row.planned.amount, row.planned.currency);
-      if (row.actual) addMoney(item.actual, row.actual.amount, row.actual.currency);
-    }
-    return [...byRoom.values()].sort((a, b) => (a.oda === BILINMIYOR ? 1 : b.oda === BILINMIYOR ? -1 : trCompare(a.oda, b.oda)));
-  }, [rows]);
+  const loading = query.loading || needs.loading;
+  const error = query.error ?? needs.error;
+  // Silinmiş alım sayılmaz (RecordRow silinme bilgisini taşımaz; kaynak kayıttan okunur).
+  const rows = useMemo<RoomRow[]>(() => {
+    const deleted = new Set(needs.rows.filter((row) => row.deleted_at).map((row) => row.id));
+    return roomRows(query.rows.filter((row) => !deleted.has(row.id)));
+  }, [query.rows, needs.rows]);
+  const total = rows.reduce((sum, row) => sum + row.count, 0);
 
   useEffect(() => {
-    if (needs.loading || needs.error) { onCsv(null); return; }
-    onCsv([['Oda', PLANLANAN, GERCEKLESEN, 'Alım'], ...roomRows.map((row) => [row.oda, moneyText(moneyOf(row.plan), FIYAT_YOK), moneyText(moneyOf(row.actual), HENUZ_YOK), String(row.count)])]);
-  }, [roomRows, needs.loading, needs.error, onCsv]);
+    if (loading || error || rows.length === 0) return undefined;
+    onCsv([['Oda', 'Alım', 'Plan tutarı yazılı', 'Gerçekleşen tutarı yazılı'], ...rows.map((row) => [row.room, String(row.count), String(row.withPlanned), String(row.withActual)])]);
+    return () => onCsv(null);
+  }, [rows, loading, error, onCsv]);
 
-  if (needs.loading) return <LoadingShell rows={6} narrow={device === 'phone'} />;
-  if (needs.error) return <ErrorState message={needs.error} onRetry={onRetry} />;
-  if (roomRows.length === 0) return <EmptyState title="Kaynakta alım kaydı yok" message="Nesilde purchase_needs koleksiyonu boş." />;
+  if (loading) return <LoadingShell rows={6} narrow={phone} />;
+  if (error) return <ErrorState message={error} onRetry={onRetry} />;
+  if (rows.length === 0) return <EmptyState title="Kaynakta alım kaydı yok" message="Nesilde purchase_needs koleksiyonu boş." />;
 
   const columns: ResponsiveColumn<RoomRow>[] = [
-    { key: 'oda', title: 'Oda', minWidth: 176, m: 'title' },
-    { key: 'plan', title: PLANLANAN, align: 'right', minWidth: 144, render: (row) => <MoneyCellView cell={moneyOf(row.plan)} missing={FIYAT_YOK} /> },
-    { key: 'gercek', title: GERCEKLESEN, align: 'right', minWidth: 144, m: 'lead', render: (row) => <MoneyCellView cell={moneyOf(row.actual)} missing={HENUZ_YOK} /> },
-    { key: 'alim', title: 'Alım', align: 'right', minWidth: 112, m: 'meta', render: (row) => `${row.count} alım` },
+    { key: 'oda', title: 'Oda', minWidth: 176, m: 'title', render: (row) => row.room },
+    { key: 'alim', title: 'Alım', align: 'right', minWidth: 112, m: 'lead', render: (row) => `${row.count} alım` },
+    { key: 'plan', title: 'Plan tutarı yazılı', align: 'right', minWidth: 176, render: (row) => `${row.withPlanned} alım` },
+    { key: 'gercek', title: 'Gerçekleşen tutarı yazılı', align: 'right', minWidth: 208, render: (row) => `${row.withActual} alım` },
   ];
-  const option: ChartOption = {
-    xAxis: { type: 'category', data: roomRows.map((row) => row.oda) },
-    yAxis: { type: 'value' },
-    legend: { data: [PLANLANAN, GERCEKLESEN] },
-    series: [
-      { name: PLANLANAN, type: 'bar', color: designTokens.acikMavi, data: roomRows.map((row) => numberOf(row.plan)) },
-      { name: GERCEKLESEN, type: 'bar', color: designTokens.eylem, data: roomRows.map((row) => numberOf(row.actual)) },
-    ],
-  };
 
   return (
     <section className="aile-raporlar__rapor" aria-labelledby="aile-rapor-oda">
-      <ReportHead id="aile-rapor-oda" title="Oda bazında alımlar" meta={`${roomRows.length} oda · ${rows.length} alım`} />
-      <Chart
-        option={option}
-        ariaLabel="Odalara göre planlanan ve gerçekleşen alım tutarı; değerler aşağıdaki tabloda"
-        description={<ResponsiveTable caption="Oda bazında alımlar" mobileCaption={`${roomRows.length} oda`} columns={columns} rows={roomRows} />}
+      <ReportHead id="aile-rapor-oda" title="Oda bazında alımlar" meta={`${rows.length} oda · ${total} alım`} />
+      <Note>{ODA_NOTU}</Note>
+      <RaporGrafikWide
+        wideFallback={null}
+        categories={rows.map((row) => row.room)}
+        series={[{ name: 'Alım', tone: 'sayim', values: rows.map((row) => row.count) }]}
+        ariaLabel="Odalara göre alım sayısı; değerler aşağıdaki tabloda"
+        description="Her oda tek çubuktur; değerler aşağıdaki tabloda."
       />
-      <p className="aile-raporlar__not aile-kucuk aile-ikincil">Yalnız alım (purchase_need) kayıtları; odası olmayan alımlar "Bilinmiyor" satırındadır.</p>
+      <ResponsiveTable caption="Oda bazında alımlar" mobileCaption={`${rows.length} oda`} columns={columns} rows={rows} />
     </section>
   );
 }
 
 // --- Rapor: Veri güveni özeti ---------------------------------------------------------------------------
-interface IssueRow { key: string; kod: string; onem: string; count: number }
-const SEVERITY_LABEL: Record<string, string> = { review: 'İnceleme' };
-
-function GuvenReport({ onCsv, onRetry }: SubReportProps) {
-  const device = useDevice();
+function GuvenReport({ phone, onCsv, onRetry }: SubReportProps) {
   const issues = useCollection('issues');
-  const issueRows = useMemo<IssueRow[]>(() => {
-    const byKey = new Map<string, IssueRow>();
-    for (const issue of issues.rows as readonly Issue[]) {
-      if (issue.deleted_at) continue;
-      const kod = issue.code || BILINMIYOR;
-      const onem = SEVERITY_LABEL[issue.severity] ?? issue.severity ?? BILINMIYOR;
-      const key = `${kod}|${onem}`;
-      let item = byKey.get(key);
-      if (!item) byKey.set(key, (item = { key, kod, onem, count: 0 }));
-      item.count += 1;
-    }
-    return [...byKey.values()].sort((a, b) => b.count - a.count || trCompare(a.kod, b.kod));
-  }, [issues.rows]);
+  const rows = useMemo<IssueRow[]>(() => issueRows(issues.rows as readonly Issue[]), [issues.rows]);
 
   useEffect(() => {
-    if (issues.loading || issues.error) { onCsv(null); return; }
-    onCsv([['Kod', 'Önem', 'Kayıt'], ...issueRows.map((row) => [row.kod, row.onem, String(row.count)])]);
-  }, [issueRows, issues.loading, issues.error, onCsv]);
+    if (issues.loading || issues.error || rows.length === 0) return undefined;
+    onCsv([['Kod', 'Önem', 'Kayıt'], ...rows.map((row) => [row.code, row.severity, String(row.count)])]);
+    return () => onCsv(null);
+  }, [rows, issues.loading, issues.error, onCsv]);
 
-  if (issues.loading) return <LoadingShell rows={4} narrow={device === 'phone'} />;
+  if (issues.loading) return <LoadingShell rows={4} narrow={phone} />;
   if (issues.error) return <ErrorState message={issues.error} onRetry={onRetry} />;
-  if (issueRows.length === 0) return <EmptyState title="Kaynakta sorun kaydı yok" message="Nesilde issues koleksiyonu boş; inceleme bekleyen kayıt yok." />;
+  if (rows.length === 0) return <EmptyState title="Kaynakta sorun kaydı yok" message="Nesilde issues koleksiyonu boş; inceleme bekleyen kayıt yok." />;
 
   const columns: ResponsiveColumn<IssueRow>[] = [
-    { key: 'kod', title: 'Kod', minWidth: 224, m: 'title' },
-    { key: 'onem', title: 'Önem', minWidth: 128, m: 'status' },
+    { key: 'kod', title: 'Kod', minWidth: 224, m: 'title', render: (row) => row.code },
+    { key: 'onem', title: 'Önem', minWidth: 128, m: 'status', render: (row) => row.severity },
     { key: 'kayit', title: 'Kayıt', align: 'right', minWidth: 112, m: 'lead', render: (row) => `${row.count} kayıt` },
   ];
-  const total = issueRows.reduce((sum, row) => sum + row.count, 0);
+  const total = rows.reduce((sum, row) => sum + row.count, 0);
 
   return (
     <section className="aile-raporlar__rapor" aria-labelledby="aile-rapor-guven">
-      <ReportHead id="aile-rapor-guven" title="Veri güveni özeti" meta={`${total} sorun kaydı · ${issueRows.length} kod`} />
-      <ResponsiveTable caption="Veri güveni özeti" mobileCaption={`${issueRows.length} kod`} columns={columns} rows={issueRows} mobileMode="list" />
-      <p className="aile-raporlar__not aile-kucuk aile-ikincil">Kaynak: nesildeki issues koleksiyonu (normalize sırasında işaretlenen inceleme kayıtları).</p>
+      <ReportHead id="aile-rapor-guven" title="Veri güveni özeti" meta={`${total} sorun kaydı · ${rows.length} kod`} />
+      <ResponsiveTable caption="Veri güveni özeti" mobileCaption={`${rows.length} kod`} columns={columns} rows={rows} mobileMode="list" />
+      <Note>Kaynak: nesildeki issues koleksiyonu (normalize sırasında işaretlenen inceleme kayıtları).</Note>
     </section>
-  );
-}
-
-// --- Ortak başlık -------------------------------------------------------------------------------------
-function ReportHead({ id, title, meta }: { id: string; title: string; meta: string }) {
-  return (
-    <div className="aile-raporlar__baslik">
-      <h2 id={id}>{title}</h2>
-      <span className="aile-kucuk aile-ikincil">{meta}</span>
-    </div>
   );
 }
