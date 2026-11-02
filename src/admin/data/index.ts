@@ -26,6 +26,7 @@ export {
 export * from './indexes';
 export * from './query';
 export * from './views';
+export * from './actuals';
 export * from './live';
 export * from './changeSet';
 export * from './useGeneration';
