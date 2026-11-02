@@ -36,6 +36,12 @@ const ADMIN_VENDOR_CHUNK = /^(?:admin|antd|pro|icons|wide)-[^/]+\.(?:js|css)$/;
 const PRECACHE_FORBIDDEN_CLASSES: readonly string[] = ['antd', 'pro', 'icons', 'wide', 'router', 'echarts'];
 /** Telefon profilinin hiç istemediği sınıflar (teslim kapısıyla tek kaynak). */
 const PHONE_FORBIDDEN: readonly string[] = FORBIDDEN_PHONE_CLASSES;
+/**
+ * ECharts çalışma zamanı (a13): Chart.tsx'in tembel import ettiği tek modül. Manifestteki bu dinamik girişin parçası
+ * echarts sınıfı sayılır (eski ECHARTS_CHUNK ad deseni core|charts|components|renderers yerine; adla tahmin yok).
+ * ECharts/zrender modüllerini taşıyan statik kapanışı (ör. install-*) zaten paket üyeliğinden echarts'tır.
+ */
+const ECHARTS_RUNTIME_SRC = 'src/admin/ui/Chart.runtime.ts';
 const GENERATION_PREFIX = '/__aile/generation/';
 const GOOGLE_HOST = /(?:^|\.)(?:google|googleapis|googleusercontent|gstatic)\.com$/i;
 
@@ -61,14 +67,16 @@ function loadBuild(dist = DIST): Build {
   return { manifest: read<ViteManifest>('manifest.json'), graph: read<DeliveryGraph>('delivery-graph.json') };
 }
 
-/** Dosya → sınıflar. JS sınıfı grafikteki grup üyeliğinden (+ echarts/zrender paketi); css[]/assets[] sahibinden. */
+/** Dosya → sınıflar. JS sınıfı grafikteki grup üyeliğinden (+ echarts/zrender paketi, + manifestteki ECharts çalışma
+ *  zamanı girişi); css[]/assets[] sahibinden. */
 function deliveryIndex({ manifest, graph }: Build): DeliveryIndex {
   const index: DeliveryIndex = new Map();
+  const echartsRuntime = manifest[ECHARTS_RUNTIME_SRC]?.file;
   const classesOf = (file: string): string[] => {
     const info = graph.chunks[file];
     if (!info) throw new Error(`delivery-graph içinde ${file} yok: manifest ve grafik farklı derlemelerden (pnpm build yeniden)`);
     const found = new Set(Object.entries(info.groups ?? {}).filter(([, count]) => count > 0).map(([name]) => name));
-    if (ECHARTS_PACKAGES.some(pkg => (info.packages?.[pkg] ?? 0) > 0)) found.add('echarts');
+    if (ECHARTS_PACKAGES.some(pkg => (info.packages?.[pkg] ?? 0) > 0) || file === echartsRuntime) found.add('echarts');
     return [...found].sort();
   };
   const add = (file: string, kind: FileKind, owner: string, classes: readonly string[]) => {
@@ -582,6 +590,29 @@ test('dedektör öz-denetimi: enjekte edilen sınıf, eşlenmemiş dosya, tekrar
   // Ad kapısı (W0): wide dahil; ana uygulamanın Charts-* ve index-* parçaları değil.
   expect(['admin-1.js', 'antd-2.js', 'pro-3.css', 'icons-4.js', 'wide-5.js', 'wide-5.css'].every(name => ADMIN_VENDOR_CHUNK.test(name))).toBe(true);
   expect(['Charts-1.js', 'index-2.js', 'widen-3.js', 'assets/wide-4.js'].some(name => ADMIN_VENDOR_CHUNK.test(name))).toBe(false);
+
+  // ECharts çalışma zamanı (a13): Chart.tsx'in tembel import('./Chart.runtime') parçası, ECharts modülleri ayrı bir
+  // parçada (install-*) dursa bile manifestteki dinamik giriş kaynağından echarts sayılır; ad tahmini yok.
+  const runtimeBuild: Build = {
+    manifest: {
+      'admin.html': { file: 'assets/admin-DDDD.js', isEntry: true, dynamicImports: [ECHARTS_RUNTIME_SRC] },
+      [ECHARTS_RUNTIME_SRC]: { file: 'assets/Chart.runtime-UUUU.js', isDynamicEntry: true, imports: ['_install-VVVV.js'] },
+      '_install-VVVV.js': { file: 'assets/install-VVVV.js' },
+    },
+    graph: {
+      schema: 1,
+      groups: graph.groups,
+      chunks: {
+        'assets/admin-DDDD.js': { modules: 5, groups: {}, packages: { '.': 5 } },
+        'assets/Chart.runtime-UUUU.js': { modules: 1, groups: {}, packages: { '.': 1 } },
+        'assets/install-VVVV.js': { modules: 6, groups: {}, packages: { echarts: 4, zrender: 2 } },
+      },
+    },
+  };
+  const runtimeIndex = deliveryIndex(runtimeBuild);
+  expect(filesWithClass(runtimeIndex, 'echarts')).toEqual(['assets/Chart.runtime-UUUU.js', 'assets/install-VVVV.js']);
+  expect(runtimeIndex.get('assets/admin-DDDD.js')?.classes).toEqual([]);
+  expect(classRequests([rec(at('assets/Chart.runtime-UUUU.js'), 'kaydırma')], base, runtimeIndex, PHONE_FORBIDDEN)).toEqual(['echarts: assets/Chart.runtime-UUUU.js']);
 });
 
 test('dedektör öz-denetimi (canlı): enjekte edilen, iptal edilen ve kesilen istekler kaydedilir, sınıflanır, ölçülür', async ({ page, context }, testInfo) => {
@@ -638,6 +669,11 @@ test('sw.js ön belleği her dosyayı bir kez içerir; yönetim, sınıflı ve w
   // Dedektör boş kalmasın: yönetim grafiği gerçekten antd ve ECharts sınıfı parçalara erişir.
   expect(filesWithClass(index, 'antd').some(file => scope.adminReach.has(file)), 'admin.html antd sınıfı parçaya erişmeli').toBe(true);
   expect(filesWithClass(index, 'echarts').some(file => scope.adminReach.has(file)), 'admin.html ECharts sınıfı parçaya erişmeli').toBe(true);
+  // a13: Chart.tsx'in tembel ECharts çalışma zamanı derlemede dinamik giriştir, admin grafiğindedir ve echarts sayılır.
+  const runtime = build.manifest[ECHARTS_RUNTIME_SRC];
+  expect(runtime?.isDynamicEntry, `${ECHARTS_RUNTIME_SRC} manifestte tembel giriş olmalı`).toBe(true);
+  expect(filesWithClass(index, 'echarts', 'js'), 'ECharts çalışma zamanı parçası echarts sınıfında').toContain(runtime!.file);
+  expect(scope.adminReach.has(runtime!.file), 'admin.html ECharts çalışma zamanına (tembel) erişir').toBe(true);
   expect([...scope.mainBoot].filter(file => scope.forbidden.has(file)), 'ana giriş çekirdeği yönetim parçası import etmemeli').toEqual([]);
 });
 

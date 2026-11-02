@@ -113,6 +113,25 @@ function measureFake(build = fakeBuild(), budgets = budgetsDoc()) {
 const filesOf = (route, kind) => route.files.filter((file) => file.kind === kind).map((file) => file.file).sort();
 // #endregion
 
+// #region kaynak metin çözümleyicileri (depo testi)
+/** navigation.ts › defaultAdminPath: '/yol' sabiti ya da adminPages[N].path (adminPages içindeki page('anahtar', …) sırası). */
+function defaultAdminPathOf(source) {
+  const literal = /export const defaultAdminPath\s*=\s*'([^']+)'/.exec(source);
+  if (literal) return literal[1];
+  const indexed = /export const defaultAdminPath\s*=\s*adminPages\[(\d+)\]\.path\b/.exec(source);
+  if (!indexed) return null;
+  const list = /export const adminPages\b[^=]*=\s*\[([\s\S]*?)\n\];/.exec(source)?.[1] ?? '';
+  const keys = [...list.matchAll(/\bpage\(\s*'([^']+)'/g)].map((match) => match[1]);
+  const key = keys[Number(indexed[1])];
+  return key ? `/${key}` : null;
+}
+
+/** routes.tsx: anahtarın sayfa modülü adı (`anahtar: page(() => import('./pages/X'))` ya da `anahtar: () => import('./pages/X')`). */
+function routePageOf(source, key) {
+  return new RegExp(`\\b${key}:\\s*(?:page\\(\\s*)?\\(\\)\\s*=>\\s*import\\('\\./pages/([A-Za-z]+)'\\)`).exec(source)?.[1] ?? null;
+}
+// #endregion
+
 describe('check-budgets: font ve taban çözümleme', () => {
   it('@font-face src listesinin ilk url’i sayılır; data: ve @font-face dışı url sayılmaz', () => {
     const { css } = fakeBuild();
@@ -181,7 +200,7 @@ describe('check-budgets: ilk rota kümeleri', () => {
     assert.equal(cls['assets/wide-w1.js'], 'wide');
   });
 
-  it('WideProviders statikken (bugünkü bayrak) geniş başlangıç kökü yoktur ve geniş rota telefon rotasına eşittir', () => {
+  it('WideProviders statikken (PHONE_WITHOUT_ANTD=false, kesim öncesi) geniş başlangıç kökü yoktur ve geniş rota telefon rotasına eşittir', () => {
     const build = fakeBuild();
     build.manifest['admin.html'].dynamicImports = ['src/admin/pages/AlimlarPage.tsx', 'src/admin/pages/GenelPage.tsx'];
     build.manifest['_PageHeader-p1.js'].dynamicImports = ['_core-e1.js'];
@@ -450,11 +469,45 @@ describe('check-budgets: depodaki scripts/budgets.json', () => {
   it('ilk rota varsayılan yönetim rotasıyla ve rotanın sayfa modülüyle eşleşir (navigation.ts, routes.tsx)', async () => {
     const navigation = await readFile(path.join(root, 'src', 'admin', 'shell', 'navigation.ts'), 'utf8');
     const routes = await readFile(path.join(root, 'src', 'admin', 'routes.tsx'), 'utf8');
-    const defaultPath = /export const defaultAdminPath = '([^']+)'/.exec(navigation)?.[1];
+    const defaultPath = defaultAdminPathOf(navigation);
+    assert.ok(defaultPath, 'navigation.ts içinde defaultAdminPath çözülemedi');
     assert.equal(doc.firstRoute.path, defaultPath);
     const key = defaultPath.replace(/^\//, '');
-    const page = new RegExp(`\\b${key}: page\\(\\(\\) => import\\('\\./pages/([A-Za-z]+)'\\)`).exec(routes)?.[1];
+    const page = routePageOf(routes, key);
     assert.ok(page, `routes.tsx içinde ${key} sayfası bulunamadı`);
     assert.equal(doc.firstRoute.page, `src/admin/pages/${page}.tsx`);
+  });
+
+  it('kesim sonrası tavanlar: telefon yetenek isteği ve aktarım bütçe içinde, tavanları yok; antd istisnası ölçümün üstünde pay taşımaz', () => {
+    const ceilings = doc.ratchet?.ceilings ?? {};
+    // PHONE_WITHOUT_ANTD=true: telefon ilk rotası antd/icons istemez (check-delivery --strict); 0 istek bütçesi tavansız.
+    assert.equal(ceilings['phone-capability'], undefined);
+    assert.equal(ceilings['phone-transfer'], undefined);
+    // Kalan tavanlar yalnız bütçeyi aşan ölçümler içindir ve bütçeden büyüktür (validateBudgets); kayıtlı ölçümle aynıdır.
+    const measured = doc.measured ?? {};
+    for (const [id, ceiling] of Object.entries(ceilings)) assert.equal(ceiling, measured[id], `${id}: tavan kayıtlı ölçüme eşit olmalı`);
+    const antd = doc.budgets.find((budget) => budget.id === 'wide-antd');
+    assert.equal(antd.max, measured['wide-antd'], 'wide-antd istisnası kayıtlı antd ölçümüne eşit olmalı (gerekçesiz pay yok)');
+  });
+});
+
+describe('check-budgets: varsayılan rota çözümleyicileri (kaynak metin)', () => {
+  it('defaultAdminPath: dizge sabiti ya da adminPages[N].path (page(\'anahtar\', …) sırası)', () => {
+    assert.equal(defaultAdminPathOf("export const defaultAdminPath = '/alimlar';"), '/alimlar');
+    const source = [
+      'export const adminPages: readonly AdminNavItem[] = [',
+      "  page('genel', 'Genel durum', 'Genel', 'Amaç.'),",
+      "  page('butce', 'Bütçe ve nakit', 'Para', 'Amaç.'),",
+      '];',
+      'export const defaultAdminPath = adminPages[1].path;',
+    ].join('\n');
+    assert.equal(defaultAdminPathOf(source), '/butce');
+    assert.equal(defaultAdminPathOf('export const defaultAdminPath = hesapla();'), null);
+  });
+
+  it('routes.tsx: hem page(() => import(…)) hem () => import(…) yükleyicisi', () => {
+    assert.equal(routePageOf("  alimlar: page(() => import('./pages/AlimlarPage')),", 'alimlar'), 'AlimlarPage');
+    assert.equal(routePageOf("  genel: () => import('./pages/GenelPage').then(m => m.GenelPage),", 'genel'), 'GenelPage');
+    assert.equal(routePageOf("  genel: () => import('./pages/GenelPage'),", 'butce'), null);
   });
 });

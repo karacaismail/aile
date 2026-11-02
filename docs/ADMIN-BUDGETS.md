@@ -8,7 +8,7 @@ Bu belge `admin.html` girişinin ilk rotası için profil bazlı aktarım bütç
 VITE_BUDGET_SHEET_ID=synthetic-budget-sheet-2098 pnpm build
 node scripts/check-delivery.mjs dist            # dist/delivery-report.json üretir
 node scripts/check-budgets.mjs dist             # ratchet modu
-node scripts/check-budgets.mjs dist --strict    # kesim sonrası, tavan listesi boşalınca
+node scripts/check-budgets.mjs dist --strict    # tavan listesi boşalınca (bugün beklenen FAIL: phone-js, wide-js)
 ```
 
 Seçenekler: `[dist] [--strict] [--budgets <json>] [--delivery-report <json>] [--report <json>]`. Varsayılanlar `dist`, `scripts/budgets.json`, `dist/delivery-report.json` ve `dist/budget-report.json` dosyalarıdır.
@@ -24,16 +24,16 @@ Seçenekler: `[dist] [--strict] [--budgets <json>] [--delivery-report <json>] [-
 | Sıkıştırma | `node:zlib` `gzipSync`, seviye 9, dosya başına. `check-delivery` ile aynı fonksiyon (`measureBuffer`) kullanılır. |
 | Ham | Diskteki dosya boyutu, bayt. |
 | Aktarım | HTML, JS ve CSS için gzip baytı. Font için ham bayt: sunucunun fontu sıkıştırdığı varsayılmaz, woff2 zaten sıkıştırılmıştır. Bu bir üst sınırdır. |
-| Birim | Rapor alanları bayttır. Bütçeler KB cinsinden okunur ve **1 KB = 1000 B** sayılır (120 KB = 120000 B). `check-delivery` özeti KiB (1024 B) yazar. Vite'ın derleme çıktısındaki kB 1000 B'dir, ama kendi gzip ayarıyla hesaplanır; bu sayılarla karşılaştırılamaz (antd: Vite 235,59 kB, bu kapı 233210 B). |
+| Birim | Rapor alanları bayttır. Bütçeler KB cinsinden okunur ve **1 KB = 1000 B** sayılır (120 KB = 120000 B). `check-delivery` özeti KiB (1024 B) yazar. Vite'ın derleme çıktısındaki kB 1000 B'dir, ama kendi gzip ayarıyla hesaplanır; bu sayılarla karşılaştırılamaz (kesim öncesi antd: Vite 235,59 kB, bu kapı 233210 B). |
 | Önbellek | Soğuk: HTTP önbelleği ve service worker yok. Her dosya bir istektir ve bir kez sayılır. Yönetim parçaları zaten ön belleğe alınmaz. Ana uygulamayla paylaşılan `shared` parçası, ana uygulamayı ziyaret etmiş bir cihazda ön bellekte olabilir. Bütçe yine de onu sayar. |
 | Veri | Derleme veriden bağımsızdır. Nesil (sentetik ya da gerçek) ve e-tablo istekleri kullanıcı içeriğidir; sayılmaz. Kayıtlı ölçüm `VITE_BUDGET_SHEET_ID=synthetic-budget-sheet-2098` ile alınan derlemedendir. Kimlik derlemeye gömülür. Başka bir kimlik birkaç bayt fark yaratır ve tam tavanlı bir ratchet'i düşürebilir. Bu yüzden kapı yalnız sentetik kimlikle derlenmiş çıktı üzerinde koşar. |
-| Araçlar | Node v24.21.0, Vite 8.3.5 (rolldown), taban `67382b9`. Farklı bir Node zlib sürümü gzip baytını birkaç bayt oynatabilir. Sürüm değişince ölçümü yeniden kaydedin. |
+| Araçlar | Node v24.21.0, Vite 8.3.5 (rolldown), taban `b061e08` + geçiş kesimi (x-cut). Farklı bir Node zlib sürümü gzip baytını birkaç bayt oynatabilir. Sürüm değişince ölçümü yeniden kaydedin. |
 | Donanım | Ölçüm statiktir; cihaz, ağ ve CPU içermez. Gerçek istek kümesini `e02-production` üretim ağ yalıtımı testi doğrular. Gerçek cihaz ölçümü yoktur (`not_run`). |
 | Hariç | favicon (`icon.svg`), görseller, veri istekleri, sonradan açılan sayfalar ve yetenekler. |
 
 ## Rota tanımları
 
-**İlk sayfa.** `budgets.json` içindeki `firstRoute`, varsayılan yönetim rotasıdır: `/alimlar` → `src/admin/pages/AlimlarPage.tsx`. Test, bu değerin `shell/navigation.ts` içindeki `defaultAdminPath` ve `routes.tsx` sayfa importuyla eşleştiğini doğrular. Sayfa `admin.html` statik kapanışından dinamik import ile erişilmiyorsa komut 2 ile çıkar.
+**İlk sayfa.** `budgets.json` içindeki `firstRoute`, varsayılan yönetim rotasıdır: `/genel` → `src/admin/pages/GenelPage.tsx`. `b02-header-routes` varsayılanı `defaultAdminPath = adminPages[0].path` (Genel durum) yaptı ve yükleyiciyi `genel: () => import('./pages/GenelPage')` biçimine çevirdi. Test bu değerin `shell/navigation.ts` içindeki `defaultAdminPath` ile (dizge sabiti ya da `adminPages[N].path` sırası) ve `routes.tsx` sayfa importuyla (`page(() => import(…))` ya da `() => import(…)`) eşleştiğini doğrular. Sayfa `admin.html` statik kapanışından dinamik import ile erişilmiyorsa komut 2 ile çıkar.
 
 **Telefon ilk rota** şu dosyalardan oluşur:
 
@@ -48,7 +48,7 @@ Seçenekler: `[dist] [--strict] [--budgets <json>] [--delivery-report <json>] [-
 - kaynağı `wideStartup.sources` içindedir (`src/admin/adaptive/WideProviders.tsx`);
 - delivery-report sınıfı `wideStartup.classes` içindedir (`wide`).
 
-Diğer sayfalar ve ECharts ilk rotada sayılmaz. Bugün `PHONE_WITHOUT_ANTD=false` olduğundan WideProviders statiktir ve henüz `wide` parçası yoktur. Bu yüzden bugün geniş rota telefon rotasına eşittir. Tablet ve masaüstü aynı geniş kaynak kümesini alır: `lazyWide` iki profili ayırmaz.
+Diğer sayfalar ve ECharts ilk rotada sayılmaz. Geçiş kesiminden sonra (`PHONE_WITHOUT_ANTD=true`) WideProviders tembel bir köktür (`wideResource('wide-providers', …)`); antd, icons ve babel-runtime parçalarını yalnız geniş profilde getirir. İkinci kök tek `wide` grubudur. Bu grup bütün `*.wide` modüllerini taşır ve onlar sayfa modüllerini statik içe aktardığı için statik kapanışı sekiz sayfa parçasını (Alımlar, Projeler, Sözlükler, Ödemeler, Bütçe, Taraflar, Ev, Hesaplar) ve ortak geniş bileşenleri (Select, Dialog, Tabs, ResponsiveTable, Chart kabuğu, Overview, QueryBar, FilterDrawer) da ilk rotaya ekler. Tablet ve masaüstü aynı geniş kaynak kümesini alır: `lazyWide` iki profili ayırmaz.
 
 **Yetenek kaynağı** telefon rotasında istenen ve şu sınıflardan birini taşıyan parçanın her dosyasıdır: `antd`, `pro`, `icons`, `echarts`, `wide` (delivery-report `forbidden`). Birincil sınıf delivery-report `groups` listesinden okunur. Karma bir parçanın azınlık modülleri (örneğin ilk sayfa parçasına gömülü `zrender`) delivery-graph üyeliğinden okunur. `check-delivery` yalnız statik kapanışa bakar. Bu ölçüt, ilk sayfanın tembel ama ilk ekranda zorunlu kapanışını da kapsar.
 
@@ -64,7 +64,7 @@ Kaynak, `adaptive-qa` başlangıç bütçe tablosudur. Tek tutarlı set seçildi
 | `phone-capability` | telefon | yetenek kaynağı isteği | 0 istek | Unnecessary capability-specific resources |
 | `phone-transfer` | telefon | aktarım toplamı | 500 KB | Initial transfer, excluding user content |
 | `wide-js` | geniş | JS gzip, antd sınıfı hariç | 180 KB | Complete desktop initial-route JS |
-| `wide-antd` | geniş | JS gzip, yalnız antd sınıfı | 240 KB | Ölçülmüş istisna (aşağıda) |
+| `wide-antd` | geniş | JS gzip, yalnız antd sınıfı | 84410 B | Ölçülmüş istisna (aşağıda) |
 
 Seçilmeyen satırlar ve gerekçeleri:
 
@@ -77,72 +77,91 @@ Seçilmeyen satırlar ve gerekçeleri:
 
 `phone-capability` sıfır istek hedefidir. Küçük bir bayt payına çevrilmez.
 
-## Bugünkü ölçüm
+## Kayıtlı ölçüm (geçiş kesimi sonrası)
 
-Ölçüm 2026-11-02 tarihinde, taban `67382b9` üzerinde ve yukarıdaki koşullarla alındı. İlk rota `/alimlar`.
+Ölçüm 2026-11-02 tarihinde, taban `b061e08` üzerinde geçiş kesimiyle (`PHONE_WITHOUT_ANTD=true`, WideProviders tembel, `ui/antd.ts` yalnız `ConfigProvider`, `App`, `theme` ve `tr_TR`) ve yukarıdaki koşullarla alındı. İlk rota `/genel`. `node scripts/check-delivery.mjs dist --strict` PASS: telefonun statik kapanışında antd, pro, icons, echarts ve wide yok (14 dosya, ham 558675 B, gzip 167963 B).
+
+### Önce ve sonra
+
+Aynı koşullar (`VITE_BUDGET_SHEET_ID=synthetic-budget-sheet-2098`, Node v24.21.0, Vite 8.3.5). "Önce" sütunları `b061e08` kaynağının kesim öncesi derlemesidir. Önceki kayıt (`67382b9`, ilk rota `/alimlar`) karşılaştırma için ayrıca verilir; o kayıtta antd parçası tüm bileşen ihracını taşıyordu (233210 B).
+
+| Ölçüt | `67382b9` kaydı (`/alimlar`) | Önce, `b061e08` (`/alimlar`) | Önce, `b061e08` (`/genel`) | Sonra, kesim (`/genel`) | Bütçe |
+|---|---:|---:|---:|---:|---:|
+| Telefon statik kapanış gzip | 409850 B | 258728 B | 258728 B | 167963 B | — |
+| `phone-html` | 830 B | 2139 B | 2139 B | 2097 B | 50000 B |
+| `phone-js` | 410050 B | 303883 B | 260974 B | 170163 B | 120000 B |
+| `phone-css` | 13467 B | 26505 B | 9789 B | 9789 B | 35000 B |
+| `phone-capability` | 2 istek | 2 istek | 2 istek | 0 istek | 0 istek |
+| `phone-transfer` | 520531 B | 428711 B | 369086 B | 278233 B | 500000 B |
+| `wide-js` (antd hariç) | 176840 B | 280648 B | 280648 B | 280464 B | 180000 B |
+| `wide-antd` | 233210 B | 84404 B | 84404 B | 84410 B | 84410 B (istisna) |
+
+Kesimin telefona etkisi (`/genel`): JS −90811 B (antd 84404 B, icons 3608 B, babel-runtime 1873 B ve antd yüzeyinin giriş kodu), aktarım −90853 B, yetenek isteği 2 → 0. Geniş profilin ilk rotası neredeyse aynıdır: antd ve icons artık statik kapanış yerine tembel WideProviders kökünden gelir (+1177 B WideProviders parçası). `wide-js` kesim öncesinde de bütçeyi aşıyordu ve tavanı yoktu (ratchet FAIL); aşım kesimden değil, tek `wide` grubunun statik kapanışından gelir (aşağıda).
 
 ### Telefon ilk rota
 
-21 dosya, aktarım 520531 B.
+23 dosya, aktarım 278233 B.
 
 | Tür | Dosya | Ham B | Gzip B | Aktarım B |
 |---|---:|---:|---:|---:|
-| html | 1 | 2541 | 830 | 830 |
-| js | 14 | 1311011 | 410050 | 410050 |
-| css | 4 | 88180 | 13467 | 13467 |
+| html | 1 | 6077 | 2097 | 2097 |
+| js | 14 | 543656 | 170163 | 170163 |
+| css | 6 | 48986 | 9789 | 9789 |
 | font | 2 | 96184 | 54005 | 96184 |
 
 | Bölüm | Dosya | Ham B | Gzip B |
 |---|---:|---:|---:|
-| `admin.html` | 1 | 2541 | 830 |
-| Statik kapanış (JS + CSS) | 12 | 1363293 | 409850 |
-| İlk sayfa (`AlimlarPage` + `views`, `QueryBar`, `contracts`) | 6 | 35898 | 13667 |
+| `admin.html` | 1 | 6077 | 2097 |
+| Statik kapanış (JS + CSS) | 14 | 558675 | 167963 |
+| İlk sayfa (`GenelPage` + `AccordionList`, `Money`) | 6 | 33967 | 11989 |
 | İlk ekran fontu (`outfit-regular.ttf`, `outfit-bold.ttf`) | 2 | 96184 | 54005 |
 
 Parça başına gzip baytı (JS):
 
 | Parça | Sınıf | Gzip B | Not |
 |---|---|---:|---|
-| `chunk:antd` | antd | 233210 | yetenek kaynağı; `ui/antd.ts` ve `QueryBar` statik çeker |
 | `chunk:shared` | shared | 69276 | React, ReactDOM, scheduler, wouter hash kancası |
-| `chunk:PageHeader` | app | 40957 | ortak kabuk: 77 proje modülü, 20 Phosphor modülü, zod, ulid |
-| `chunk:data` | app | 30440 | veri katmanı; 18 zod modülü |
-| `src/admin/pages/AlimlarPage.tsx` | page | 7952 | ilk sayfa |
-| `chunk:icons` | icons | 6785 | yetenek kaynağı; antd üzerinden |
-| `chunk:X.es` | app | 6704 | 28 Phosphor modülü, idb-keyval |
-| `admin.html` girişi | entry | 5809 | |
-| `chunk:QueryBar` | app | 2848 | ilk sayfa kapanışı; antd'yi statik çeker |
-| `chunk:tokens` | tokens | 2108 | |
+| `admin.html` girişi | entry | 38100 | ortak kabuk ve ui bileşenleri girişte |
+| `chunk:data` | app | 30490 | veri katmanı; zod |
+| `chunk:icons` | app | 7818 | Phosphor simgeleri (`ui/icons`); antd `icons` sınıfı değil |
+| `chunk:X.es` | app | 6764 | Phosphor modülleri, idb-keyval |
+| `src/admin/pages/GenelPage.tsx` | page | 6641 | ilk sayfa |
+| `chunk:tokens` | tokens | 2330 | |
 | `chunk:router` | router | 2088 | |
-| `chunk:views` | app | 1284 | |
+| `chunk:AccordionList` | app | 1649 | ilk sayfa kapanışı |
+| `chunk:loader` | app | 1396 | uyarlamalı yükleyici |
+| `chunk:Button` | app | 1089 | |
+| `chunk:Money` | app | 1049 | ilk sayfa kapanışı |
+| `chunk:context` | app | 1044 | profil bağlamı |
 | `chunk:rolldown-runtime` | app | 429 | |
-| `chunk:contracts` | app | 160 | |
 
 ### Geniş ilk rota
 
-Bugün telefon rotasına eşittir: 21 dosya, aktarım 520531 B, geniş başlangıç kökü yok. antd hariç JS 176840 B, antd 233210 B.
+71 dosya, aktarım 498152 B. Geniş başlangıç kökleri: `chunk:wide` ve `src/admin/adaptive/WideProviders.tsx` (48 dosya, ham 664784 B, gzip 219919 B). antd hariç JS 280464 B, antd 84410 B.
+
+Geniş başlangıcın en büyük JS parçaları: `chunk:antd` 84410 B, `chunk:ui` 13248 B, `chunk:wide` 9595 B, sekiz sayfa parçası toplam 54123 B (`AlimlarPage` 9457 B, `ProjelerPage` 7804 B, `SozluklerPage` 7630 B, `OdemelerPage` 6655 B, `ButcePage` 6288 B, `TaraflarPage` 6188 B, `EvPage` 5825 B, `HesaplarPage` 4276 B), `chunk:Select` 4627 B, `chunk:icons` (antd simgeleri) 3608 B, `chunk:babel-runtime` 1877 B, `WideProviders` 1177 B.
 
 ### Bütçe durumu
 
 | Kimlik | Ölçüm | Bütçe | Ratchet tavanı | Ratchet | Strict |
 |---|---:|---:|---:|---|---|
-| `phone-html` | 830 B | 50000 B | — | PASS | PASS |
-| `phone-js` | 410050 B | 120000 B | 410050 B | RATCHET | FAIL |
-| `phone-css` | 13467 B | 35000 B | — | PASS | PASS |
-| `phone-capability` | 2 istek | 0 istek | 2 | RATCHET | FAIL |
-| `phone-transfer` | 520531 B | 500000 B | 520531 B | RATCHET | FAIL |
-| `wide-js` | 176840 B | 180000 B | — | PASS | PASS |
-| `wide-antd` | 233210 B | 240000 B | — | PASS | PASS |
+| `phone-html` | 2097 B | 50000 B | — | PASS | PASS |
+| `phone-js` | 170163 B | 120000 B | 170163 B | RATCHET | FAIL |
+| `phone-css` | 9789 B | 35000 B | — | PASS | PASS |
+| `phone-capability` | 0 istek | 0 istek | — | PASS | PASS |
+| `phone-transfer` | 278233 B | 500000 B | — | PASS | PASS |
+| `wide-js` | 280464 B | 180000 B | 280464 B | RATCHET | FAIL |
+| `wide-antd` | 84410 B | 84410 B | — | PASS | PASS |
 
-Sonuç: ratchet PASS (3 bütçe kayıtlı tavanında). `--strict` FAIL; kesimden önce bu beklenir.
+Sonuç: ratchet PASS (2 bütçe kayıtlı tavanında, uyarı yok). `--strict` FAIL (`phone-js`, `wide-js`). Tavanlar ve istisna kayıtlı ölçümün aynısıdır, pay içermez; `budgets.json` `measured` alanı ölçümü taşır ve `check-budgets.test.mjs` eşitliği doğrular. `phone-capability` ve `phone-transfer` tavanları silindi: sıfır yetenek isteği ratchet modunda da zorunludur.
 
 ## antd istisnası
 
-antd parçası (`antd` codeSplitting grubu: antd, `@ant-design/*`, `@rc-component/*`, cssinjs yardımcıları) bugün 233210 B gzip'tir. Vite aynı parçayı ~236 kB yazar. Tek başına 180 KB'lık geniş JS bütçesini aşar. Geniş profilde ürünün seçtiği UI ailesidir (Ant Design ve Pro). Bu yüzden `wide-js` bütçesinden çıkarılır ve `wide-antd` olarak ayrı ölçülür.
+antd parçası (`antd` codeSplitting grubu: antd, `@ant-design/*`, `@rc-component/*`, cssinjs yardımcıları) kesimden sonra 84410 B gzip'tir. `ui/antd.ts` artık yalnız `ConfigProvider`, `App` (`AntApp`), `theme` ve `tr_TR` verir; hiçbir ui sarmalayıcısı antd kullanmaz. Parçayı yalnız geniş profilin tembel sağlayıcısı (`adaptive/WideProviders.tsx`) getirir. Geniş profilde ürünün seçtiği UI ailesinin sağlayıcısı olduğu için `wide-js` bütçesinden çıkarılır ve `wide-antd` olarak ayrı ölçülür.
 
-- Tavan 240000 B'dir: bugünkü ölçüm artı geniş bileşenlerin ekleyeceği antd kullanımı için 6790 B açık pay. Tavanı aşmak ya da yükseltmek entegrasyon sahibinin açık kararıdır.
-- `icons` ve `pro` istisna değildir. Geniş profilde `wide-js` içinde sayılırlar.
-- Telefonda istisna yoktur. antd telefonda yetenek kaynağıdır (`phone-capability`) ve kesimle telefondan çıkar.
+- İstisna 84410 B'dir: kayıtlı ölçümün aynısı, pay yok. Önceki 240000 B kaydı (233210 B ölçüm artı 6790 B pay) tüm bileşen ihracı içindi ve kesimle geçersiz oldu. İstisnayı aşmak ya da yükseltmek entegrasyon sahibinin açık kararıdır.
+- `icons` ve `pro` istisna değildir. `icons` (antd simgeleri, 3608 B) geniş profilde `wide-js` içinde sayılır; `pro` artık hiçbir parçada yok.
+- Telefonda istisna yoktur. antd telefonda yetenek kaynağıdır (`phone-capability`) ve kesimden sonra telefon onu hiç istemez.
 
 ## Ratchet, strict ve geçiş
 
@@ -155,19 +174,14 @@ Varsayılan mod ratchet'tir. Bütçeyi aşan bir ölçüm, `ratchet.ceilings` i�
 
 `--strict` tavanları yok sayar. Her bütçe aşımı FAIL olur. Tavan listesi boşalınca kapı `--strict` ile koşar.
 
-Entegrasyon (W2) için sıra:
+Geçiş kesimi (x-cut) yapıldı: `PHONE_WITHOUT_ANTD=true`, `scripts/delivery-baseline.json` boş ve `check-delivery --strict` PASS; `phone-capability` ve `phone-transfer` tavanları silindi, `phone-js` tavanı 410050 → 170163 B indi, `wide-js` için kesim sonrası ölçüm (280464 B) entegrasyonun kararıyla tavan olarak kaydedildi. Kalan açıklar:
 
-1. Dalları birleştirdikten sonra ve kesimden önce telefon baytları büyüyebilir. Bütçe kapısı plan gereği kesimden sonra koşar.
-2. `PHONE_WITHOUT_ANTD` açılır ve `ui/antd.ts` telefondan çıkar. Beklenen etki:
-   - `phone-js` yetenek sınıfları olmadan ölçülür. Bugünkü değer 170055 B'dir, ama W1 dallarının eklediği kod bu sayıyı değiştirir.
-   - `phone-transfer` yaklaşık 240 KB düşer.
-3. Kesimden sonra `phone-capability` 0 olmalıdır. `QueryBar` bugün ilk sayfa kapanışında antd'yi statik çekiyor (`b03-filters`). Kesimden hemen sonra `phone-capability` tavanını silin. Böylece sıfır hedefi ratchet modunda da zorunlu olur. `e02-production` ağ testi de aynı sıfırı ister.
-4. `phone-js` ve `phone-transfer` tavanlarını komutun önerdiği yeni ölçüme indirin.
-5. `phone-js` kesimden sonra da 120 KB'ın üstünde kalır. Kalan açık ~50 KB'tır. Aday kaynaklar:
-   - `chunk:data` (30440 B, büyük kısmı zod): ilk ekranda zorunlu olmayan doğrulama sonraya alınabilir.
-   - `chunk:PageHeader` (40957 B) ve `chunk:X.es` (6704 B): ortak kabuk ve Phosphor ikonları.
+1. `phone-js` 120 KB'ın 50163 B üstünde. Aday kaynaklar:
+   - `chunk:data` (30490 B, büyük kısmı zod): ilk ekranda zorunlu olmayan doğrulama sonraya alınabilir.
+   - `admin.html` girişi (38100 B): ortak kabuk ve ilk ekranda görünmeyen ui bileşenleri (diyalog, alt sayfa, menü) tembel yapılabilir.
+   - `chunk:icons` (7818 B) ve `chunk:X.es` (6764 B): Phosphor simgeleri; yalnız ilk ekranın simgeleri statik kalabilir.
    - `shared` (69276 B): React ve ReactDOM'un taban maliyeti. Bütçeyle uyuşmazsa bu, bütçe değişikliği olarak açıkça kararlaştırılır; sessizce gevşetilmez.
-6. Geniş rota bayrak açılınca WideProviders kapanışını ve `wide` parçasını ilk rotaya ekler. `wide-js` bugün 180 KB'a 3160 B uzaklıktadır. Geniş bileşenler bu payı aşarsa kapı FAIL olur. Bu durumda karar entegrasyon sahibindedir: azaltma ya da açık bir tavan.
+2. `wide-js` 180 KB'ın 100464 B üstünde. Ana neden tek `wide` codeSplitting grubudur: bütün `*.wide` modülleri tek parçadadır ve sayfa modüllerini statik içe aktardıkları için geniş ilk rota sekiz sayfa parçasını (54123 B) ve onların ortak bileşenlerini önceden indirir. Grubu sayfa başına bölmek (`vite.config.ts`, entegrasyon) bu payın büyük kısmını kaldırır. İkinci aday antd'nin kendisidir: kesimden sonra hiçbir bileşen antd kullanmadığından WideProviders'ın geniş profilde getirdiği 84410 B antd + 3608 B icons + 1877 B babel-runtime yalnız sağlayıcı içindir; sağlayıcıyı kaldırmak ürün kararıdır.
 
 ## Rapor
 
@@ -189,5 +203,5 @@ Rapor mutlak yol taşımaz. `delivery-report.json` gibi `dist` içinde durur. `c
 
 ## Doğrulama
 
-- `node --test scripts/check-budgets.test.mjs` ve `pnpm exec vitest run scripts/check-budgets.test.mjs` sentetik manifest, graph ve delivery-report kullanır. Kapsanan konular: rota kümeleri, font çözümleme, yetenek kaynağı (tembel ilk sayfa ve karma parça dahil), ratchet ve strict, bütçe dosyası doğrulaması, CLI çıkış kodları ve mutlak yolsuz rapor. Ayrıca `budgets.json` aday değerleri ve ilk rotanın `navigation.ts` ile `routes.tsx`'e uyumu da test edilir.
+- `node --test scripts/check-budgets.test.mjs` ve `pnpm exec vitest run scripts/check-budgets.test.mjs` sentetik manifest, graph ve delivery-report kullanır. Kapsanan konular: rota kümeleri, font çözümleme, yetenek kaynağı (tembel ilk sayfa ve karma parça dahil), ratchet ve strict, bütçe dosyası doğrulaması, CLI çıkış kodları ve mutlak yolsuz rapor. Ayrıca `budgets.json` aday değerleri, ilk rotanın `navigation.ts` ile `routes.tsx`'e uyumu (iki yazım biçimi için çözümleyici testleriyle) ve kesim sonrası tavan sözleşmesi (yetenek ve aktarım tavanı yok; tavanlar ve antd istisnası kayıtlı ölçüme eşit) test edilir.
 - Gerçek ölçüm: yukarıdaki komut sırası. Bu belgedeki sayılar o çıktıdan alındı.

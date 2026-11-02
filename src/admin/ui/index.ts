@@ -1,4 +1,5 @@
-// Barrel: kabuk ve sayfa kodu yalnız buradan (ya da ./antd, ./icons) alır; ham antd/pro/phosphor/echarts importu ui/ içinde kalır.
+// Barrel: kabuk ve sayfa kodu yalnız buradan (ya da ./icons) alır; ham phosphor/echarts importu ui/ içinde kalır.
+// 32 adın hepsi yerel (antd'siz) sarmalayıcıdır; antd yüzeyi ./antd yalnız geniş profilin tembel sağlayıcısına aittir.
 export { Button } from './Button';
 export { IconButton } from './IconButton';
 export { TextField } from './TextField';
