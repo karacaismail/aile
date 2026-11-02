@@ -1,0 +1,6 @@
+/* Pivot hücresi (geniş parça): Plan ve Gerçek iki ayrı satır, sayılar tabular. Kaynak bundle.css › .pg-pv-*.
+   Yalnız --aile tokenları. */
+.aile-alimlar-pv { display: inline-flex; flex-direction: column; align-items: flex-end; gap: var(--aile-bosluk-1); }
+.aile-alimlar-pv-satir { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.aile-alimlar-pv-k { color: var(--aile-metin-ikincil); }
+.aile-alimlar-pv-oda { font-weight: 600; color: var(--aile-metin); }

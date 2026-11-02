@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
+import { useWideModule } from '../adaptive';
 import {
   FACETS,
   MISSING_LABELS,
   UNKNOWN,
   createViewCatalog,
-  defaultFilterOpen,
   readViewDefinitions,
   toneForCode,
   useChangeSet,
@@ -12,17 +12,9 @@ import {
   useGeneration,
   useQuery,
   useRows,
-  type AmountField,
-  type ChangeOp,
   type DateField,
   type FacetId,
   type MissingValue,
-  type PurchaseNeedRecord,
-  type QueryAst,
-  type SortField,
-  type StateAxis,
-  type Term,
-  type WorkflowDefinition,
 } from '../data';
 import { useDevice } from '../device';
 import {
@@ -32,7 +24,6 @@ import {
   type DataStatusProps,
   type FilterFacet,
   type FilterOption,
-  type Money as MoneyValue,
   type PageHeaderSummary,
   type RecordRow,
   type ResponsiveColumn,
@@ -41,42 +32,44 @@ import {
   type ViewMode,
 } from '../shell/contracts';
 import { FilterDrawer } from '../shell/FilterDrawer';
-import { FilterPanel, RANGE_KEYS } from '../shell/FilterPanel';
+import { RANGE_KEYS } from '../shell/FilterPanel';
 import { PageHeader } from '../shell/PageHeader';
 import { QueryBar } from '../shell/QueryBar';
+import { Button, DetailPanel, EmptyState, ErrorState, Kanban, LoadingShell, Money, PivotStack, ResponsiveTable, Select, StatusText, Timeline } from '../ui';
+import type { DetailPanelProps } from '../ui/DetailPanel';
+import { AlimListesi } from './alimlar/AlimListesi';
+import { useAyniIcerik, useKararliSatirlar } from './alimlar/kararli';
+import { paraEkle, toplamMetni, type ParaToplami } from './alimlar/para';
+import { baskaParaVar, bilinmeyenSonda, pivotHesapla, pivotYiginSatirlari } from './alimlar/pivot';
 import {
-  Button,
-  DetailPanel,
-  EmptyState,
-  ErrorState,
-  FilterArea,
-  Kanban,
-  ListRow,
-  LoadingShell,
-  Money,
-  PivotStack,
-  ResponsiveTable,
-  Select,
-  StatusText,
-  Table,
-  Timeline,
-} from '../ui';
+  ACIK_BOYUTLAR, RANGE_PREFIXES, SIRALAR, TARIH_TURLERI, VARSAYILAN_SIRA, VARSAYILAN_TARIH, VARSAYILAN_ZAMAN, ZAMAN_ALANLARI,
+  sorguAst, type Secimler, type Siralama, type ZamanAlani,
+} from './alimlar/query';
+import { KONUM, buildAlimlarHash, currentHash, parseAlimlarHash } from './alimlar/url';
+import { AlimlarGenis, AlimlarPivotTablo } from './alimlar/wide';
+import { BILINMIYOR, durumGecisi, guncelKayit, izinliHedefler } from './alimlar/workflow';
 import './AlimlarPage.css';
 
-// Alımlar ve eşyalar — dikey dilim. Tasarım: README › Sayfa iskeleti (başlık → özet ≤3 → sorgu çubuğu → filtreler →
-// ayrıntı), ekranlar.md (EkranListe/Tablo/Kanban/Zaman, SayfaAlimlarPivot, EkranAyrinti; dar biçimler) ve bundle.js
-// Aile.Pages.Alimlar (section "Alım ve envanter", amaç cümlesi, özet Planlanan · Gerçekleşen · Fiyatı eksik, birincil
-// "Alım ekle", modlara göre açık filtre boyutları, ayrıntı masaüstünde sağda 384, dar ekranda tam sayfa).
-// Veri: purchase_needs (useQuery: FACETS + facetCounts; aynı boyutta OR, boyutlar arası AND), modlar view_definitions'tan
-// (views.supportedModes; desteklenmeyen mod gerekçesiyle devre dışı), durum geçişleri workflows'tan; yazma yalnız yerel
-// change set (state_change, Geri al). Sheets'e yazma ve yeni kayıt ekleme bu dilimde yok; "Alım ekle" işlevsiz
-// görünmesin diye devre dışı ve nedeni yazılı. Plan ve gerçek hiçbir yerde tek sayıda birleşmez; eksik bilgi adıyla.
-// URL: wouter hash konumu "#/alimlar[/<id>][?mod=…&ara=…&room=…]". wouter'ın iç içe rota deseni "/alimlar"dan sonra
-// "/" ya da son bekler; bu yüzden seçim yokken sorgu "#/alimlar/?…" biçiminde yazılır. Yazım history.replaceState ile
-// (geçmiş kirlenmez); dışarıdan gelen hashchange durumu geri okur. Renk ve ölçü yalnız AlimlarPage.css'te --aile tokenlarıyla.
+export { buildAlimlarHash, parseAlimlarHash, type AlimlarUrlState } from './alimlar/url';
+export { durumEkseni, durumGecisi, type GecisSonucu } from './alimlar/workflow';
+export { pivotHesapla } from './alimlar/pivot';
+
+// Alımlar ve eşyalar. Tasarım: README › Sayfa iskeleti (başlık → özet ≤3 → sorgu çubuğu → filtreler → ayrıntı) ve
+// Uyarlanır teslim; ekranlar.md (EkranListeDar/EkranAyrintiDar/SayfaAlimlarDar önce, sonra EkranListe/Tablo/Kanban/
+// Zaman, SayfaAlimlarPivot, EkranAyrinti); bundle.js Aile.Pages.Alimlar.
+// Telefon önce: temel sunum liste + arama + filtre alt sayfası (FilterDrawer) + tam ekran ayrıntı (üstten başlar,
+// "Listeye dön" ile liste konumu ve odak geri gelir) + durum değiştir alt sayfası (DetailPanel › Select) ve Geri al.
+// Bildirim kullanıcının baktığı yerde, alta yapışık durum bölgesinde (güvenli alan dahil) görünür. Tablo/Kanban/Zaman
+// çizelgesi ui/ bileşenlerinin telefon biçimiyle (akordeon, yana kayan pano) gelir; Pivot telefonda PivotStack.
+// Geniş-özel kod alimlar/*.wide.tsx'te ve lazyWide ile yüklenir (telefon indirmez): masaüstü yerleşimi (filtre paneli
+// 272 / şerit 56, ayrıntı sağda 384) ve pivot tablosu. Başlık ve sorgu çubuğu geniş modül gelince yeniden kurulmaz.
+// Veri: purchase_needs (useQuery: FACETS + facetCounts), modlar view_definitions'tan (desteklenmeyen mod gerekçesiyle
+// devre dışı), durum geçişleri workflows'tan; yazma yalnız yerel change set (state_change, Geri al). Sheets'e yazma ve
+// yeni kayıt ekleme bu dilimde yok; "Alım ekle" devre dışı ve nedeni yazılı. Plan ve gerçek tek sayıda birleşmez.
+// Çizim maliyeti: satır nesneleri ve liste/başlık/sorgu öğeleri kararlı tutulur; yerel değişiklik yalnız değişen satırı
+// çizer (tam pakette "Durumu değiştir" testinin 5 sn'yi aşmasının kök nedeni 28 satırın her değişiklikte çizilmesiydi).
 
 const KIND = 'purchase_need';
-const KONUM = '/alimlar';
 const KONUM_BOLUM = 'Alım ve envanter';
 const BASLIK = 'Alımlar ve eşyalar';
 const AMAC = 'Ev için alınacak ve alınmış her şeyi plan ve gerçek tutarıyla izleyin.';
@@ -84,13 +77,10 @@ const EKLE_NOTU = 'Yeni alım kaynak e-tabloya eklenir; panel bu sürümde yaln�
 
 const FIYAT_YOK = 'Fiyat yok';
 const HENUZ_YOK = 'Henüz yok';
-const BILINMIYOR = 'Bilinmiyor';
-const KAYIT_YOK = 'Kayıt yok';
 const KAYNAKTA_YOK = 'Kaynakta alım kaydı yok';
 const SONUCLAR = 'Sonuçlar';
 /** Ayrıntıyı açabilen öğeler: satır düğmesi, tablo satırı (tabIndex 0), kart ve bağlantılar. */
 const ODAKLANABILIR = 'button, a[href], [tabindex]:not([tabindex="-1"])';
-const PIVOT_BASLIK = 'Oda ve duruma göre planlanan ve gerçekleşen tutar';
 const KANBAN_ETIKET = 'Duruma göre alımlar';
 
 const DEFAULT_MODE: ViewMode = 'listing';
@@ -98,350 +88,6 @@ const DEFAULT_MODE: ViewMode = 'listing';
 const TEMEL_MODLAR: readonly ViewMode[] = ['listing', 'table'];
 
 const sayi = new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 0 });
-
-// --- Sıralama, tarih alanları ----------------------------------------------------------------------------
-interface Siralama extends SortOption { field: SortField }
-const SIRALAR: readonly Siralama[] = [
-  { key: 'label', label: 'Ada göre (A–Z)', direction: 'asc', field: 'label' },
-  { key: 'planned_desc', label: 'Planlanan tutar (yüksekten)', direction: 'desc', field: 'planned' },
-  { key: 'actual_desc', label: 'Gerçekleşen tutar (yüksekten)', direction: 'desc', field: 'actual' },
-  { key: 'planned_on', label: 'Planlanan tarih (yakından)', direction: 'asc', field: 'planned_on' },
-];
-const VARSAYILAN_SIRA = SIRALAR[0]!;
-
-/** Filtrede tarih türü (DateField). Varsayılan planlanan tarih; seçilmezse URL'ye yazılmaz. */
-const TARIH_TURLERI: readonly { value: DateField; label: string }[] = [
-  { value: 'planned_on', label: 'Planlanan teslim' },
-  { value: 'order_due_on', label: 'Sipariş' },
-  { value: 'delivered_on', label: 'Teslim' },
-  { value: 'payment_on', label: 'Ödeme' },
-];
-const VARSAYILAN_TARIH: DateField = 'planned_on';
-
-/** Zaman çizelgesinin tek tarihi (RecordRow.dates anahtarı). */
-type ZamanAlani = 'planned' | 'ordered' | 'delivered' | 'paid';
-const ZAMAN_ALANLARI: readonly { value: ZamanAlani; label: string }[] = [
-  { value: 'planned', label: 'Planlanan teslim' },
-  { value: 'ordered', label: 'Sipariş' },
-  { value: 'delivered', label: 'Teslim' },
-  { value: 'paid', label: 'Ödeme' },
-];
-const VARSAYILAN_ZAMAN: ZamanAlani = 'planned';
-
-/** Modlara göre açık başlayan filtre boyutları (bundle.js Alimlar › openKeys). */
-const ACIK_BOYUTLAR: Record<ViewMode, readonly FacetId[]> = {
-  listing: ['category', 'room', 'phase'],
-  table: ['room', 'phase'],
-  timeline: ['date', 'phase'],
-  kanban: ['procurement', 'phase'],
-  gantt_chart: ['date', 'phase'],
-  pivot: ['phase', 'room'],
-};
-
-const FACET_IDS: readonly FacetId[] = FACETS.map(facet => facet.id);
-const RANGE_PREFIXES: readonly string[] = Object.values(RANGE_KEYS);
-
-// --- URL (hash) durumu --------------------------------------------------------------------------------------
-export interface AlimlarUrlState {
-  /** Seçili kayıt (ayrıntı açık). */
-  id: string | null;
-  mode: ViewMode | null;
-  search: string;
-  /** SIRALAR anahtarı. */
-  sort: string | null;
-  /** FacetId → seçili değerler (aralık boyutlarında "baslangic=…" gibi girdiler). */
-  facets: Record<string, readonly string[]>;
-  /** Filtre tarih türü (DateField); varsayılansa null. */
-  dateType: string | null;
-  /** Zaman çizelgesi tarih alanı; varsayılansa null. */
-  timelineField: string | null;
-}
-
-const URL_ANAHTAR = { mode: 'mod', search: 'ara', sort: 'sira', dateType: 'tarih', timelineField: 'zaman' } as const;
-
-const isViewMode = (value: string | null): value is ViewMode => value !== null && (VIEW_MODES as readonly string[]).includes(value);
-
-function decode(value: string): string | null {
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return null;
-  }
-}
-
-/** Durumu hash'e çevirir: "#/alimlar", "#/alimlar/<id>", "#/alimlar/?mod=…", "#/alimlar/<id>?mod=…". */
-export function buildAlimlarHash(state: AlimlarUrlState, location = KONUM): string {
-  const params = new URLSearchParams();
-  if (state.mode) params.set(URL_ANAHTAR.mode, state.mode);
-  if (state.search) params.set(URL_ANAHTAR.search, state.search);
-  if (state.sort) params.set(URL_ANAHTAR.sort, state.sort);
-  for (const id of FACET_IDS) {
-    const values = state.facets[id];
-    if (values && values.length) params.set(id, values.map(value => encodeURIComponent(value)).join(','));
-  }
-  if (state.dateType) params.set(URL_ANAHTAR.dateType, state.dateType);
-  if (state.timelineField) params.set(URL_ANAHTAR.timelineField, state.timelineField);
-  const query = params.toString();
-  const idPart = state.id ? `/${encodeURIComponent(state.id)}` : '';
-  if (!query) return `#${location}${idPart}`;
-  return `#${location}${idPart || '/'}?${query}`;
-}
-
-/** Hash'i okur; bu sayfanın yolu değilse null. Geçersiz mod/sıra/tarih değerleri yok sayılır. */
-export function parseAlimlarHash(hash: string, location = KONUM): AlimlarUrlState | null {
-  const raw = hash.replace(/^#/, '');
-  const mark = raw.indexOf('?');
-  const path = mark >= 0 ? raw.slice(0, mark) : raw;
-  const query = mark >= 0 ? raw.slice(mark + 1) : '';
-  if (path !== location && !path.startsWith(`${location}/`)) return null;
-  const rest = path.slice(location.length).replace(/^\/+/, '').replace(/\/+$/, '');
-  const id = rest ? decode(rest) : null;
-  const params = new URLSearchParams(query);
-  const mode = params.get(URL_ANAHTAR.mode);
-  const sort = params.get(URL_ANAHTAR.sort);
-  const dateType = params.get(URL_ANAHTAR.dateType);
-  const timelineField = params.get(URL_ANAHTAR.timelineField);
-  const facets: Record<string, readonly string[]> = {};
-  for (const facetId of FACET_IDS) {
-    const value = params.get(facetId);
-    if (!value) continue;
-    const values = value.split(',').map(decode).filter((item): item is string => item !== null && item !== '');
-    if (values.length) facets[facetId] = values;
-  }
-  return {
-    id: id || null,
-    mode: isViewMode(mode) ? mode : null,
-    search: params.get(URL_ANAHTAR.search) ?? '',
-    sort: sort && SIRALAR.some(option => option.key === sort) ? sort : null,
-    facets,
-    dateType: dateType && TARIH_TURLERI.some(option => option.value === dateType) ? dateType : null,
-    timelineField: timelineField && ZAMAN_ALANLARI.some(option => option.value === timelineField) ? timelineField : null,
-  };
-}
-
-function currentHash(): string {
-  return typeof window === 'undefined' ? '' : window.location.hash;
-}
-
-// --- Durum geçişi (iş akışı) --------------------------------------------------------------------------------
-const EKSEN_ADI: Record<StateAxis, string> = { decision: 'Karar', fulfillment: 'Tedarik', inspection: 'Kontrol', payment: 'Ödeme' };
-
-/** Satırın birincil durum ekseni (indexes.stateLabel ile aynı öncelik): iptal kararı örter; sonra tedarik; yoksa karar. */
-export function durumEkseni(record: PurchaseNeedRecord): StateAxis {
-  const snapshot = record.state_snapshot;
-  const decision = snapshot?.decision ?? null;
-  if (decision && toneForCode(decision) === 'hata') return 'decision';
-  if (snapshot?.fulfillment || record.state_term_ids?.fulfillment) return 'fulfillment';
-  return 'decision';
-}
-
-export type GecisSonucu =
-  | { ok: true; axis: StateAxis; from: { code: string | null; term_id: string | null }; to: { code: string; term_id: string } }
-  | { ok: false; reason: string };
-
-function durumAdi(record: PurchaseNeedRecord, axis: StateAxis, termsById: ReadonlyMap<string, Term>): string {
-  const termId = record.state_term_ids?.[axis] ?? null;
-  return (termId ? termsById.get(termId)?.label : undefined) ?? record.state_snapshot?.[axis] ?? BILINMIYOR;
-}
-
-/** Kaydın birincil ekseninde hedef terime geçiş: yalnız iş akışında tanımlı ve kanıt istemeyen geçiş kabul edilir. */
-export function durumGecisi(record: PurchaseNeedRecord, toTermId: string, workflows: readonly WorkflowDefinition[], terms: readonly Term[]): GecisSonucu {
-  const axis = durumEkseni(record);
-  const termsById = new Map(terms.map(term => [term.id, term] as const));
-  const fromId = record.state_term_ids?.[axis] ?? null;
-  const fromCode = record.state_snapshot?.[axis] ?? null;
-  const fromLabel = durumAdi(record, axis, termsById);
-  const to = termsById.get(toTermId);
-  if (!to) return { ok: false, reason: 'Hata: hedef durum sözlükte yok.' };
-  const workflow = workflows.find(item => item.key === axis);
-  if (!workflow || !Array.isArray(workflow.transitions)) {
-    return { ok: false, reason: `Hata: ${EKSEN_ADI[axis]} iş akışı kaynakta tanımlı değil.` };
-  }
-  const transition = workflow.transitions.find(item => item.from_term_id === fromId && item.to_term_id === toTermId);
-  if (!transition) return { ok: false, reason: `Hata: ${fromLabel} → ${to.label} geçişi iş akışında yok.` };
-  if (transition.requires_evidence) {
-    return { ok: false, reason: `Hata: ${fromLabel} → ${to.label} geçişi kanıt ister; panel bu sürümde kanıt eklemez.` };
-  }
-  return { ok: true, axis, from: { code: fromCode, term_id: fromId }, to: { code: to.code, term_id: to.id } };
-}
-
-/** Birincil eksende iş akışının izin verdiği (kanıt istemeyen) hedef terimler, geçiş sırasıyla. */
-function izinliHedefler(record: PurchaseNeedRecord, workflows: readonly WorkflowDefinition[], termsById: ReadonlyMap<string, Term>): Term[] {
-  const axis = durumEkseni(record);
-  const fromId = record.state_term_ids?.[axis] ?? null;
-  const workflow = workflows.find(item => item.key === axis);
-  if (!workflow || !fromId || !Array.isArray(workflow.transitions)) return [];
-  const out: Term[] = [];
-  for (const transition of workflow.transitions) {
-    if (transition.from_term_id !== fromId || transition.requires_evidence || !transition.to_term_id) continue;
-    const term = termsById.get(transition.to_term_id);
-    if (term && !out.some(item => item.id === term.id)) out.push(term);
-  }
-  return out;
-}
-
-const BOS_ANLIK = { decision: null, fulfillment: null, inspection: null, payment: null };
-
-/** Ham kayıt + bu kaydın etkin yerel opları (changeSet.apply ile aynı kural). */
-function guncelKayit(record: PurchaseNeedRecord, ops: readonly ChangeOp[]): PurchaseNeedRecord {
-  if (!ops.length) return record;
-  const snapshot = { ...BOS_ANLIK, ...record.state_snapshot };
-  const termIds = { ...BOS_ANLIK, ...record.state_term_ids };
-  for (const op of ops) {
-    if (op.kind !== 'state_change') continue;
-    snapshot[op.after.axis] = op.after.code;
-    termIds[op.after.axis] = op.after.term_id;
-  }
-  return { ...record, state_snapshot: snapshot, state_term_ids: termIds };
-}
-
-// --- Para (yalnız özet ve pivot; plan ve gerçek ayrı toplanır) -------------------------------------------
-const DECIMAL = /^-?[0-9]+(\.[0-9]+)?$/;
-
-function toMinor(money: MoneyValue | null | undefined): number | null {
-  if (!money || !DECIMAL.test(money.amount.trim())) return null;
-  const value = Number(money.amount);
-  return Number.isFinite(value) ? Math.round(value * 100) : null;
-}
-
-const fromMinor = (minor: number, currency: string): MoneyValue => ({ amount: (minor / 100).toFixed(2), currency });
-
-type ParaToplami = Map<string, number>;
-
-function paraEkle(total: ParaToplami, money: MoneyValue | null | undefined): boolean {
-  const minor = toMinor(money);
-  if (minor === null || !money) return false;
-  total.set(money.currency, (total.get(money.currency) ?? 0) + minor);
-  return true;
-}
-
-const paraMetni = new Map<string, Intl.NumberFormat>();
-function paraYaz(minor: number, currency: string): string {
-  const code = currency.trim().toUpperCase();
-  if (!/^[A-Z]{3}$/.test(code)) return `${new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(minor / 100)} ${currency}`;
-  let format = paraMetni.get(code);
-  if (!format) {
-    format = new Intl.NumberFormat('tr-TR', { style: 'currency', currency: code, minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    paraMetni.set(code, format);
-  }
-  return format.format(minor / 100);
-}
-
-// --- Filtre girdileri -----------------------------------------------------------------------------------------
-/** "28.10.2026" → "2026-10-28"; geçersizse null. */
-function isoTarih(text: string): string | null {
-  const match = /^(\d{1,2})\.(\d{1,2})\.(\d{4})$/.exec(text.trim());
-  if (!match) return null;
-  const [, g, a, y] = match;
-  const date = new Date(Date.UTC(Number(y), Number(a) - 1, Number(g)));
-  if (date.getUTCDate() !== Number(g) || date.getUTCMonth() !== Number(a) - 1) return null;
-  return `${y}-${a!.padStart(2, '0')}-${g!.padStart(2, '0')}`;
-}
-
-/** "1.234,50" / "1234.50" → "1234.50"; geçersizse null. */
-function ondalik(text: string): string | null {
-  const trimmed = text.trim().replace(/\s/g, '');
-  const normalized = trimmed.includes(',') ? trimmed.replace(/\./g, '').replace(',', '.') : trimmed;
-  return /^[0-9]+(\.[0-9]+)?$/.test(normalized) ? normalized : null;
-}
-
-const aralikDegeri = (entries: readonly string[] | undefined, prefix: string) =>
-  entries?.find(entry => entry.startsWith(prefix))?.slice(prefix.length) ?? '';
-
-function sorguAst(search: string, secimler: Partial<Record<FacetId, readonly string[]>>, tarihTuru: DateField, sira: Siralama): QueryAst {
-  const facets: Partial<Record<FacetId, readonly string[]>> = {};
-  for (const [id, values] of Object.entries(secimler) as [FacetId, readonly string[]][]) {
-    if (id === 'date' || id === 'amount' || !values.length) continue;
-    facets[id] = values;
-  }
-  const ast: QueryAst = { facets, sort: { field: sira.field, dir: sira.direction } };
-  if (search.trim()) ast.text = search.trim();
-  const from = isoTarih(aralikDegeri(secimler.date, RANGE_KEYS.baslangic));
-  const to = isoTarih(aralikDegeri(secimler.date, RANGE_KEYS.bitis));
-  if (from || to) {
-    ast.dateField = tarihTuru;
-    ast.dateRange = {};
-    if (from) ast.dateRange.from = from;
-    if (to) ast.dateRange.to = to;
-  }
-  const min = ondalik(aralikDegeri(secimler.amount, RANGE_KEYS.enAz));
-  const max = ondalik(aralikDegeri(secimler.amount, RANGE_KEYS.enCok));
-  if (min || max) {
-    const field: AmountField = 'planned';
-    ast.amountField = field;
-    ast.amountRange = {};
-    if (min) ast.amountRange.min = min;
-    if (max) ast.amountRange.max = max;
-  }
-  return ast;
-}
-
-// --- Pivot (oda × durum) ---------------------------------------------------------------------------------------
-interface PivotHucre { plan: ParaToplami; gercek: ParaToplami; kayit: number }
-const bosHucre = (): PivotHucre => ({ plan: new Map(), gercek: new Map(), kayit: 0 });
-function hucreEkle(cell: PivotHucre, row: RecordRow) {
-  cell.kayit += 1;
-  paraEkle(cell.plan, row.planned);
-  paraEkle(cell.gercek, row.actual);
-}
-
-interface PivotSatiri { key: string; oda: string; hucreler: Map<string, PivotHucre>; toplam: PivotHucre; toplamSatiri?: boolean }
-interface Pivot { sutunlar: string[]; satirlar: PivotSatiri[] }
-
-const collator = new Intl.Collator('tr-TR', { sensitivity: 'base', numeric: true });
-const bilinmeyenSonda = (a: string, b: string) => (a === BILINMIYOR ? 1 : b === BILINMIYOR ? -1 : collator.compare(a, b));
-
-export function pivotHesapla(rows: readonly RecordRow[]): Pivot {
-  const sutunlar: string[] = [];
-  const odalar = new Map<string, PivotSatiri>();
-  const genel: PivotSatiri = { key: '__toplam', oda: 'Toplam', hucreler: new Map(), toplam: bosHucre(), toplamSatiri: true };
-  for (const row of rows) {
-    const oda = row.room ?? BILINMIYOR;
-    const durum = row.status.label || BILINMIYOR;
-    if (!sutunlar.includes(durum)) sutunlar.push(durum);
-    let satir = odalar.get(oda);
-    if (!satir) {
-      satir = { key: oda, oda, hucreler: new Map(), toplam: bosHucre() };
-      odalar.set(oda, satir);
-    }
-    for (const target of [satir, genel]) {
-      let cell = target.hucreler.get(durum);
-      if (!cell) {
-        cell = bosHucre();
-        target.hucreler.set(durum, cell);
-      }
-      hucreEkle(cell, row);
-      hucreEkle(target.toplam, row);
-    }
-  }
-  sutunlar.sort((a, b) => (a === BILINMIYOR ? 1 : b === BILINMIYOR ? -1 : 0));
-  const satirlar = [...odalar.values()].sort((a, b) => bilinmeyenSonda(a.oda, b.oda));
-  return { sutunlar, satirlar: rows.length ? [...satirlar, genel] : [] };
-}
-
-function ParaListesi({ total, missing }: { total: ParaToplami; missing: string }) {
-  if (total.size === 0) return <span className="aile-alimlar-eksik">{missing}</span>;
-  return (
-    <>
-      {[...total.entries()].map(([currency, minor], index) => (
-        <span key={currency}>
-          {index > 0 ? ' · ' : null}
-          <Money value={fromMinor(minor, currency)} />
-        </span>
-      ))}
-    </>
-  );
-}
-
-function PivotDeger({ cell }: { cell: PivotHucre | undefined }) {
-  if (!cell || cell.kayit === 0) return <span className="aile-alimlar-eksik">{KAYIT_YOK}</span>;
-  return (
-    <span className="aile-alimlar-pv">
-      <span className="aile-alimlar-pv-satir"><span className="aile-alimlar-pv-k aile-kucuk">Plan </span><ParaListesi total={cell.plan} missing={FIYAT_YOK} /></span>
-      <span className="aile-alimlar-pv-satir"><span className="aile-alimlar-pv-k aile-kucuk">Gerçek </span><ParaListesi total={cell.gercek} missing={HENUZ_YOK} /></span>
-    </span>
-  );
-}
 
 // --- Tablo sütunları -------------------------------------------------------------------------------------------
 const durumMetni = (status: StatusLabel | undefined) =>
@@ -473,6 +119,18 @@ function dataStatus(generation: ReturnType<typeof useGeneration>): DataStatusPro
 
 interface Bildirim { tone: 'bilgi' | 'hata'; text: string }
 
+/** Sayfanın kaydırma kabı: en yakın kaydırılabilir ata; yoksa belge. Tam ekran ayrıntı üstten başlar, dönüşte konum geri gelir. */
+function kaydirmaKabi(from: Element | null): Element | null {
+  if (typeof document === 'undefined') return null;
+  for (let element = from?.parentElement ?? null; element; element = element.parentElement) {
+    // Önce ucuz ölçü: taşmayan atada stil hesaplanmaz (getComputedStyle pahalıdır).
+    if (element.scrollHeight <= element.clientHeight) continue;
+    const overflow = getComputedStyle(element).overflowY;
+    if (overflow === 'auto' || overflow === 'scroll') return element;
+  }
+  return document.scrollingElement;
+}
+
 // --- Sayfa ----------------------------------------------------------------------------------------------------------
 export interface AlimlarPageProps {
   /** Rota yolu (hash konumu); varsayılan "/alimlar". */
@@ -481,10 +139,15 @@ export interface AlimlarPageProps {
 
 export function AlimlarPage({ location = KONUM }: AlimlarPageProps) {
   const device = useDevice();
-  const narrow = device !== 'desktop';
+  const masaustu = device === 'desktop';
+  // Masaüstü yerleşimi geniş modüldedir; veri yüklenirken paralel indirilir. Hazır değilken (ya da yüklenemezse) temel
+  // sunum kullanılır: filtreler çekmecede, ayrıntı çekmecede.
+  const genisDurum = useWideModule(AlimlarGenis.resource, masaustu);
+  const genisYerlesim = masaustu && genisDurum.status === 'ready';
   const generation = useGeneration();
   const changeSet = useChangeSet();
   const notId = useId();
+  const kok = useRef<HTMLDivElement>(null);
 
   const kayitlar = useCollection('purchase_needs');
   const odalar = useCollection('rooms');
@@ -498,7 +161,7 @@ export function AlimlarPage({ location = KONUM }: AlimlarPageProps) {
   const [mode, setMode] = useState<ViewMode>(ilk?.mode ?? DEFAULT_MODE);
   const [search, setSearch] = useState(ilk?.search ?? '');
   const [sira, setSira] = useState<Siralama>(() => SIRALAR.find(option => option.key === ilk?.sort) ?? VARSAYILAN_SIRA);
-  const [secimler, setSecimler] = useState<Partial<Record<FacetId, readonly string[]>>>(() => ({ ...(ilk?.facets ?? {}) }) as Partial<Record<FacetId, readonly string[]>>);
+  const [secimler, setSecimler] = useState<Secimler>(() => ({ ...(ilk?.facets ?? {}) }) as Secimler);
   const [tarihTuru, setTarihTuru] = useState<DateField>(() => (ilk?.dateType as DateField | null) ?? VARSAYILAN_TARIH);
   const [zamanAlani, setZamanAlani] = useState<ZamanAlani>(() => (ilk?.timelineField as ZamanAlani | null) ?? VARSAYILAN_ZAMAN);
   const [secili, setSecili] = useState<string | null>(ilk?.id ?? null);
@@ -528,8 +191,8 @@ export function AlimlarPage({ location = KONUM }: AlimlarPageProps) {
   const etkinMod: ViewMode = destek.modes.includes(mode) ? mode : destek.modes.includes(DEFAULT_MODE) ? DEFAULT_MODE : destek.modes[0]!;
 
   // --- Sorgu ---
-  const ast = sorguAst(search, secimler, tarihTuru, sira);
-  const sorgu = useQuery(KIND, ast);
+  const sorgu = useQuery(KIND, sorguAst(search, secimler, tarihTuru, sira));
+  const rows = useKararliSatirlar(sorgu.rows);
 
   const termsById = useMemo(() => new Map(terimler.rows.map(term => [term.id, term] as const)), [terimler.rows]);
   const roomsById = useMemo(() => new Map(odalar.rows.map(room => [room.id, room.label ?? room.code] as const)), [odalar.rows]);
@@ -547,7 +210,7 @@ export function AlimlarPage({ location = KONUM }: AlimlarPageProps) {
     [roomsById, termsById],
   );
 
-  const facets = useMemo<FilterFacet[]>(() => {
+  const facetListesi = useMemo<FilterFacet[]>(() => {
     const out: FilterFacet[] = [];
     for (const def of FACETS) {
       if (def.kind === 'date') {
@@ -581,6 +244,8 @@ export function AlimlarPage({ location = KONUM }: AlimlarPageProps) {
     }
     return out;
   }, [sorgu.counts, secimler, tarihTuru, secenekAdi, termsById]);
+  // Yerel durum değişikliği sayımları yeniden üretir; içerik aynıysa filtre paneli yeniden çizilmez.
+  const facets = useAyniIcerik(facetListesi);
 
   const toggle = useCallback((facetId: string, value: string) => {
     const id = facetId as FacetId;
@@ -663,7 +328,7 @@ export function AlimlarPage({ location = KONUM }: AlimlarPageProps) {
       setMode(state.mode ?? DEFAULT_MODE);
       setSearch(state.search);
       setSira(SIRALAR.find(option => option.key === state.sort) ?? VARSAYILAN_SIRA);
-      setSecimler({ ...state.facets } as Partial<Record<FacetId, readonly string[]>>);
+      setSecimler({ ...state.facets } as Secimler);
       setTarihTuru((state.dateType as DateField | null) ?? VARSAYILAN_TARIH);
       setZamanAlani((state.timelineField as ZamanAlani | null) ?? VARSAYILAN_ZAMAN);
     };
@@ -671,13 +336,18 @@ export function AlimlarPage({ location = KONUM }: AlimlarPageProps) {
     return () => window.removeEventListener('hashchange', onHashChange);
   }, [location]);
 
-  // --- Ayrıntı ve odak ---
+  // --- Ayrıntı, odak ve kaydırma ---
   // Açan öğe: sonuç bölgesinde tıklanan odaklanabilir öğe (yakalama aşamasında, satırın onClick'inden önce kaydedilir),
   // yoksa odaklı öğe. WebKit/Safari düğmeye tıklayınca düğmeyi odaklamaz; activeElement body ya da odaklanabilir bir
   // ata (main, tabIndex -1) olur. Klavyeyle açılışta (tablo satırında Enter) tuş basımı kaydı sıfırlar, odaklı öğe kullanılır.
+  // Tam ekran ayrıntıda (telefon, tablet) liste gizlenir: listenin kaydırma konumu saklanır, ayrıntı üstten başlar;
+  // dönüşte konum geri yüklenir ve odak açan satıra (kaydırmadan) döner.
   const acan = useRef<HTMLElement | null>(null);
   const tiklanan = useRef<HTMLElement | null>(null);
   const odakGeri = useRef(false);
+  const listeKonumu = useRef<number | null>(null);
+  const masaustuRef = useRef(masaustu);
+  masaustuRef.current = masaustu;
   const tiklamaKaydet = useCallback((event: ReactMouseEvent<HTMLElement>) => {
     tiklanan.current = event.target instanceof Element ? event.target.closest<HTMLElement>(ODAKLANABILIR) : null;
   }, []);
@@ -686,6 +356,7 @@ export function AlimlarPage({ location = KONUM }: AlimlarPageProps) {
     const active = document.activeElement;
     acan.current = tiklanan.current ?? (active instanceof HTMLElement && active !== document.body ? active : null);
     tiklanan.current = null;
+    listeKonumu.current = masaustuRef.current ? null : kaydirmaKabi(kok.current)?.scrollTop ?? null;
     setBildirim(null);
     setSecili(row.id);
   }, []);
@@ -693,15 +364,33 @@ export function AlimlarPage({ location = KONUM }: AlimlarPageProps) {
     // Dar ekranda tam sayfa kapanınca liste görünür olur, odak burada döner. Masaüstünde Drawer de açıldığı andaki
     // odaklı öğeye döndürür; Safari'de o öğe body olduğundan dönüş burada da yapılır (aynı öğeyse etkisizdir).
     odakGeri.current = true;
+    setBildirim(null);
     setSecili(null);
   }, []);
+
+  const seciliSatir = secili ? tumSatirlar.find(row => row.id === secili) : undefined;
+  const detayAcik = Boolean(seciliSatir);
+  const tamSayfa = detayAcik && !masaustu;
+  const tamSayfaId = tamSayfa ? seciliSatir!.id : null;
+
+  useLayoutEffect(() => {
+    if (!tamSayfaId) return;
+    const kap = kaydirmaKabi(kok.current);
+    if (kap) kap.scrollTop = 0;
+  }, [tamSayfaId]);
+  useLayoutEffect(() => {
+    if (secili !== null || listeKonumu.current === null) return;
+    const kap = kaydirmaKabi(kok.current);
+    if (kap) kap.scrollTop = listeKonumu.current;
+  }, [secili]);
   useEffect(() => {
     if (secili !== null || !odakGeri.current) return;
     odakGeri.current = false;
-    if (acan.current?.isConnected) acan.current.focus();
+    const geriYuklendi = listeKonumu.current !== null;
+    listeKonumu.current = null;
+    if (acan.current?.isConnected) acan.current.focus(geriYuklendi ? { preventScroll: true } : undefined);
   }, [secili]);
 
-  const seciliSatir = secili ? tumSatirlar.find(row => row.id === secili) : undefined;
   const seciliHam = secili ? kayitlar.rows.find(record => record.id === secili) : undefined;
   const bekleyen = secili ? changeSet.pendingFor(secili) : [];
   const seciliKayit = seciliHam ? guncelKayit(seciliHam, bekleyen) : undefined;
@@ -756,7 +445,7 @@ export function AlimlarPage({ location = KONUM }: AlimlarPageProps) {
   }, [seciliHam, generation.generationId, bekleyen.length]);
 
   // --- Özet: Planlanan · Gerçekleşen · Fiyatı eksik (plan ve gerçek ayrı girdiler) ---
-  const summary = useMemo<PageHeaderSummary[]>(() => {
+  const ozet = useMemo<PageHeaderSummary[]>(() => {
     const plan: ParaToplami = new Map();
     const gercek: ParaToplami = new Map();
     let planSayisi = 0;
@@ -767,14 +456,13 @@ export function AlimlarPage({ location = KONUM }: AlimlarPageProps) {
       else fiyatsiz += 1;
       if (paraEkle(gercek, row.actual)) gercekSayisi += 1;
     }
-    const yaz = (total: ParaToplami, missing: string) =>
-      total.size ? [...total.entries()].map(([currency, minor]) => paraYaz(minor, currency)).join(' · ') : missing;
     return [
-      { label: 'Planlanan', value: yaz(plan, FIYAT_YOK), note: `${sayi.format(planSayisi)} kayıt` },
-      { label: 'Gerçekleşen', value: yaz(gercek, HENUZ_YOK), note: `${sayi.format(gercekSayisi)} kayıt` },
+      { label: 'Planlanan', value: toplamMetni(plan, FIYAT_YOK), note: `${sayi.format(planSayisi)} kayıt` },
+      { label: 'Gerçekleşen', value: toplamMetni(gercek, HENUZ_YOK), note: `${sayi.format(gercekSayisi)} kayıt` },
       { label: 'Fiyatı eksik', value: sayi.format(fiyatsiz), note: 'kayıt' },
     ];
   }, [tumSatirlar]);
+  const summary = useAyniIcerik(ozet);
 
   // --- Durumlar ---
   const manifestYok = generation.manifest === null;
@@ -783,240 +471,249 @@ export function AlimlarPage({ location = KONUM }: AlimlarPageProps) {
   const yukleniyor = sorgu.loading || terimler.loading || odalar.loading;
   const hata = sorgu.error ?? kayitlar.error;
   const kaynaktaYok = !yukleniyor && !hata && sorgu.total === 0;
+  const ozetGoster = !(yukleniyor || hata || manifestYok || kaynaktaYok);
 
-  const header = (
-    <PageHeader
-      location={location}
-      section={KONUM_BOLUM}
-      title={BASLIK}
-      purpose={AMAC}
-      primary={
-        <Button variant="primary" icon="plus" disabled aria-describedby={notId}>
-          Alım ekle
-        </Button>
+  // --- Kararlı öğeler: seçim ve yerel değişiklik bunları yeniden çizdirmez ---
+  const durumBilgisi = useMemo(() => dataStatus(generation), [generation]);
+  const header = useMemo(
+    () => (
+      <PageHeader
+        location={location}
+        section={KONUM_BOLUM}
+        title={BASLIK}
+        purpose={AMAC}
+        primary={
+          <Button variant="primary" icon="plus" disabled aria-describedby={notId}>
+            Alım ekle
+          </Button>
+        }
+        status={durumBilgisi}
+        summary={ozetGoster ? summary : undefined}
+      >
+        <p id={notId} className="aile-alimlar-not aile-kucuk aile-ikincil">{EKLE_NOTU}</p>
+      </PageHeader>
+    ),
+    [location, notId, durumBilgisi, ozetGoster, summary],
+  );
+
+  const siralamaSec = useCallback((option: SortOption) => setSira(SIRALAR.find(item => item.key === option.key) ?? VARSAYILAN_SIRA), []);
+  const filtreAc = useCallback(() => {
+    filtreDugmesi.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setFiltreAcik(true);
+  }, []);
+  const filtreKapat = useCallback(() => setFiltreAcik(false), []);
+  const sonucSayisi = rows.length;
+
+  const sorguCubugu = useMemo(
+    () => (
+      <QueryBar
+        mode={etkinMod}
+        onModeChange={setMode}
+        supported={destek.modes}
+        unsupportedReason={destek.reasons}
+        search={search}
+        onSearchChange={setSearch}
+        sort={sira}
+        sortOptions={SIRALAR}
+        onSort={siralamaSec}
+        activeFilters={activeFilters}
+        onOpenFilters={filtreAc}
+        resultCount={sonucSayisi}
+      />
+    ),
+    [etkinMod, destek, search, sira, siralamaSec, activeFilters, filtreAc, sonucSayisi],
+  );
+
+  const openKeys = ACIK_BOYUTLAR[etkinMod];
+  const filtreCekmecesi = useMemo(
+    () => (
+      <FilterDrawer
+        open={filtreAcik}
+        onClose={filtreKapat}
+        resultCount={sonucSayisi}
+        facets={facets}
+        onToggle={toggle}
+        onClear={temizle}
+        openKeys={openKeys}
+        returnFocusTo={filtreDugmesi}
+      />
+    ),
+    [filtreAcik, filtreKapat, sonucSayisi, facets, toggle, temizle, openKeys],
+  );
+
+  // --- Sonuçlar (mod içeriği). genis: masaüstü yerleşimi (liste başlığı, ayrıntı açıkken sıkı satır). ---
+  const icerik = useCallback(
+    (genis: boolean): ReactNode => {
+      if (rows.length === 0) return <EmptyState filters={activeFilters} onClear={temizle} />;
+      if (etkinMod === 'table') {
+        return (
+          <ResponsiveTable<RecordRow>
+            columns={SUTUNLAR}
+            rows={rows}
+            caption={BASLIK}
+            mobileCaption={`${sayi.format(rows.length)} kayıt`}
+            selectedKey={secili ?? undefined}
+            onRowClick={ac}
+            openLabel="Ayrıntıyı aç"
+          />
+        );
       }
-      status={dataStatus(generation)}
-      summary={yukleniyor || hata || manifestYok || kaynaktaYok ? undefined : summary}
-    >
-      <p id={notId} className="aile-alimlar-not aile-kucuk aile-ikincil">{EKLE_NOTU}</p>
-    </PageHeader>
+      if (etkinMod === 'kanban') {
+        return (
+          <>
+            <p className="aile-alimlar-not aile-ikincil">{`${sayi.format(rows.length)} kayıt · pano yana kayar`}</p>
+            <Kanban items={rows} selectedKey={secili ?? undefined} onOpen={ac} label={KANBAN_ETIKET} />
+          </>
+        );
+      }
+      if (etkinMod === 'timeline') {
+        return (
+          <>
+            <div className="aile-alimlar-arac">
+              <Select
+                label="Tarih alanı"
+                options={ZAMAN_ALANLARI}
+                value={zamanAlani}
+                onChange={value => setZamanAlani(value as ZamanAlani)}
+                className="aile-alimlar-secim"
+              />
+            </div>
+            <Timeline items={rows} dateField={zamanAlani} selectedKey={secili ?? undefined} onOpen={ac} />
+          </>
+        );
+      }
+      if (etkinMod === 'pivot') {
+        const pivot = pivotHesapla(rows);
+        const yigin = (
+          <>
+            {baskaParaVar(rows) ? <p className="aile-alimlar-not aile-ikincil">Telefon özeti yalnız TRY tutarlarını gösterir; diğer para birimleri tabloda ayrı yazılır.</p> : null}
+            <PivotStack
+              columns={pivot.sutunlar}
+              rows={pivotYiginSatirlari(pivot)}
+              caption={`${sayi.format(pivot.satirlar.length - 1)} oda · ${sayi.format(pivot.sutunlar.length)} durum`}
+              totalLabel="Genel toplam"
+            />
+          </>
+        );
+        return (
+          <>
+            <p className="aile-alimlar-not aile-ikincil">
+              Satırlar: Oda · Sütunlar: Durum · Değer: Plan ve gerçek ayrı; satır ve sütun toplamı her ölçü için ayrı hesaplanır.
+            </p>
+            <AlimlarPivotTablo pivot={pivot} wideFallback={yigin} />
+          </>
+        );
+      }
+      return <AlimListesi rows={rows} seciliId={secili} dar={!genis || detayAcik} baslik={genis && !detayAcik} onAc={ac} />;
+    },
+    [rows, activeFilters, temizle, etkinMod, secili, ac, zamanAlani, detayAcik],
+  );
+  const sonucBolgesi = useCallback(
+    (genis: boolean) => (
+      <section className="aile-alimlar-sonuc" aria-label={SONUCLAR} onClickCapture={tiklamaKaydet} onKeyDownCapture={tiklamaSifirla}>
+        {icerik(genis)}
+      </section>
+    ),
+    [icerik, tiklamaKaydet, tiklamaSifirla],
+  );
+  const sonucDar = useMemo(() => sonucBolgesi(false), [sonucBolgesi]);
+  const sonucGenis = useMemo(() => (masaustu ? sonucBolgesi(true) : null), [masaustu, sonucBolgesi]);
+
+  // Durum bölgesi hep çizilir (canlı bölge önce var olmalı); bildirim alta yapışık, kullanıcının baktığı yerde görünür.
+  const bildirimYuvasi = (
+    <div className="aile-alimlar-bildirim-yuva">
+      <div role="status">
+        {bildirim?.tone === 'bilgi' ? <p className="aile-alimlar-bildirim" data-tone="bilgi">{bildirim.text}</p> : null}
+      </div>
+      <div role="alert">
+        {bildirim?.tone === 'hata' ? <p className="aile-alimlar-bildirim" data-tone="hata">{bildirim.text}</p> : null}
+      </div>
+    </div>
   );
 
   if (pageError) {
     return (
       <div className="aile-alimlar">
-        {header}
-        <ErrorState title="Nesil okunamadı" message={generation.message ?? 'Hata: nesil manifesti okunamadı.'} onRetry={() => void generation.refresh()} />
+        <div className="aile-alimlar-govde">
+          {header}
+          <ErrorState title="Nesil okunamadı" message={generation.message ?? 'Hata: nesil manifesti okunamadı.'} onRetry={() => void generation.refresh()} />
+        </div>
       </div>
     );
   }
   if (pageLoading || yukleniyor) {
     return (
       <div className="aile-alimlar">
-        {header}
-        <LoadingShell rows={6} narrow={device === 'phone'} label="Alımlar yükleniyor" />
+        <div className="aile-alimlar-govde">
+          {header}
+          <LoadingShell rows={6} narrow={device === 'phone'} label="Alımlar yükleniyor" />
+        </div>
       </div>
     );
   }
   if (hata) {
     return (
       <div className="aile-alimlar">
-        {header}
-        <ErrorState title="Alımlar okunamadı" message={hata} onRetry={() => void generation.refresh()} />
+        <div className="aile-alimlar-govde">
+          {header}
+          <ErrorState title="Alımlar okunamadı" message={hata} onRetry={() => void generation.refresh()} />
+        </div>
       </div>
     );
   }
   if (kaynaktaYok) {
     return (
       <div className="aile-alimlar">
-        {header}
-        <EmptyState
-          title={KAYNAKTA_YOK}
-          message="Nesilde purchase_needs koleksiyonu boş ya da yok. Panel alım uydurmaz; kaynak e-tabloya kayıt eklenince burada görünür."
-        />
+        <div className="aile-alimlar-govde">
+          {header}
+          <EmptyState
+            title={KAYNAKTA_YOK}
+            message="Nesilde purchase_needs koleksiyonu boş ya da yok. Panel alım uydurmaz; kaynak e-tabloya kayıt eklenince burada görünür."
+          />
+        </div>
       </div>
     );
   }
 
-  const rows = sorgu.rows;
-  const detayAcik = Boolean(seciliSatir);
+  const detay: DetailPanelProps | null = seciliSatir
+    ? {
+      row: seciliSatir,
+      source: kaynak,
+      onClose: kapat,
+      statusOptions: durumSecenekleri,
+      onChangeStatus: changeSet.ready && seciliKayit ? next => void durumDegistir(next) : undefined,
+      onUndo: changeSet.ready && sonOp ? () => void geriAl() : undefined,
+    }
+    : null;
 
-  let icerik: ReactNode;
-  if (rows.length === 0) {
-    icerik = <EmptyState filters={activeFilters} onClear={temizle} />;
-  } else if (etkinMod === 'table') {
-    icerik = (
-      <ResponsiveTable<RecordRow>
-        columns={SUTUNLAR}
-        rows={rows}
-        caption={BASLIK}
-        mobileCaption={`${sayi.format(rows.length)} kayıt`}
-        selectedKey={secili ?? undefined}
-        onRowClick={ac}
-        openLabel="Ayrıntıyı aç"
-      />
-    );
-  } else if (etkinMod === 'kanban') {
-    icerik = (
-      <>
-        <p className="aile-alimlar-not aile-ikincil">{`${sayi.format(rows.length)} kayıt · pano yana kayar`}</p>
-        <Kanban items={rows} selectedKey={secili ?? undefined} onOpen={ac} label={KANBAN_ETIKET} />
-      </>
-    );
-  } else if (etkinMod === 'timeline') {
-    icerik = (
-      <>
-        <div className="aile-alimlar-arac">
-          <Select
-            label="Tarih alanı"
-            options={ZAMAN_ALANLARI}
-            value={zamanAlani}
-            onChange={value => setZamanAlani(value as ZamanAlani)}
-            className="aile-alimlar-secim"
-          />
-        </div>
-        <Timeline items={rows} dateField={zamanAlani} selectedKey={secili ?? undefined} onOpen={ac} />
-      </>
-    );
-  } else if (etkinMod === 'pivot') {
-    const pivot = pivotHesapla(rows);
-    const pivotSutunlari = [
-      { key: 'oda', title: 'Oda / Durum', minWidth: 160, render: (row: PivotSatiri) => <span className="aile-alimlar-pv-oda">{row.oda}</span> },
-      ...pivot.sutunlar.map(durum => ({
-        key: `d:${durum}`,
-        title: durum,
-        align: 'right' as const,
-        minWidth: 168,
-        render: (row: PivotSatiri) => <PivotDeger cell={row.hucreler.get(durum)} />,
-      })),
-      { key: 'toplam', title: 'Toplam', align: 'right' as const, minWidth: 184, render: (row: PivotSatiri) => <PivotDeger cell={row.toplam} /> },
-    ];
-    const tryOnly = (total: ParaToplami) => {
-      const minor = total.get('TRY');
-      return minor === undefined ? null : minor / 100;
-    };
-    const baskaPara = rows.some(row => (row.planned && row.planned.currency !== 'TRY') || (row.actual && row.actual.currency !== 'TRY'));
-    icerik = (
-      <>
-        <p className="aile-alimlar-not aile-ikincil">
-          Satırlar: Oda · Sütunlar: Durum · Değer: Plan ve gerçek ayrı; satır ve sütun toplamı her ölçü için ayrı hesaplanır.
-        </p>
-        {device === 'phone' ? (
-          <>
-            {baskaPara ? <p className="aile-alimlar-not aile-ikincil">Telefon özeti yalnız TRY tutarlarını gösterir; diğer para birimleri tabloda ayrı yazılır.</p> : null}
-            <PivotStack
-              columns={pivot.sutunlar}
-              rows={pivot.satirlar
-                .filter(row => !row.toplamSatiri)
-                .map(row => [row.oda, pivot.sutunlar.map(durum => {
-                  const cell = row.hucreler.get(durum);
-                  return [cell ? tryOnly(cell.plan) : null, cell ? tryOnly(cell.gercek) : null] as [number | null, number | null];
-                })] as [string, [number | null, number | null][]])}
-              caption={`${sayi.format(pivot.satirlar.length - 1)} oda · ${sayi.format(pivot.sutunlar.length)} durum`}
-              totalLabel="Genel toplam"
-            />
-          </>
-        ) : (
-          <Table<PivotSatiri> columns={pivotSutunlari} rows={pivot.satirlar} caption={PIVOT_BASLIK} />
-        )}
-      </>
-    );
-  } else {
-    icerik = (
-      <ul className="aile-alimlar-liste" aria-label="Alımlar">
-        {!narrow && !detayAcik ? <ListRow.Header /> : null}
-        {rows.map(row => (
-          <ListRow key={row.id} row={row} selected={row.id === secili} narrow={narrow || detayAcik} onClick={() => ac(row)} />
-        ))}
-      </ul>
-    );
-  }
-
-  const sonucBolgesi = (
-    <section className="aile-alimlar-sonuc" aria-label={SONUCLAR} onClickCapture={tiklamaKaydet} onKeyDownCapture={tiklamaSifirla}>
-      {icerik}
-    </section>
+  const darGovde = (
+    <>
+      {sonucDar}
+      {filtreCekmecesi}
+    </>
   );
 
-  const detay = seciliSatir ? (
-    <DetailPanel
-      key={seciliSatir.id}
-      row={seciliSatir}
-      source={kaynak}
-      onClose={kapat}
-      statusOptions={durumSecenekleri}
-      onChangeStatus={changeSet.ready && seciliKayit ? next => void durumDegistir(next) : undefined}
-      onUndo={changeSet.ready && sonOp ? () => void geriAl() : undefined}
-      inline={!narrow}
-    />
-  ) : null;
-
-  const bildirimNode = bildirim ? (
-    <p role={bildirim.tone === 'hata' ? 'alert' : 'status'} className="aile-alimlar-bildirim" data-tone={bildirim.tone}>
-      {bildirim.text}
-    </p>
-  ) : null;
-
-  const sorguCubugu = (
-    <QueryBar
-      mode={etkinMod}
-      onModeChange={setMode}
-      supported={destek.modes}
-      unsupportedReason={destek.reasons}
-      search={search}
-      onSearchChange={setSearch}
-      sort={sira}
-      sortOptions={SIRALAR}
-      onSort={option => setSira(SIRALAR.find(item => item.key === option.key) ?? VARSAYILAN_SIRA)}
-      activeFilters={activeFilters}
-      onOpenFilters={() => {
-        filtreDugmesi.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-        setFiltreAcik(true);
-      }}
-      resultCount={rows.length}
-    />
-  );
-
-  const openKeys = ACIK_BOYUTLAR[etkinMod];
-
-  if (narrow) {
-    return (
-      <div className="aile-alimlar" data-device={device}>
-        <div className="aile-alimlar-govde" hidden={detayAcik}>
-          {header}
-          {sorguCubugu}
-          {detayAcik ? null : bildirimNode}
-          <FilterArea panel={null}>{sonucBolgesi}</FilterArea>
-          <FilterDrawer
-            open={filtreAcik}
-            onClose={() => setFiltreAcik(false)}
-            resultCount={rows.length}
+  return (
+    <div ref={kok} className="aile-alimlar" data-device={device}>
+      <div className="aile-alimlar-govde" hidden={tamSayfa}>
+        {header}
+        {sorguCubugu}
+        {masaustu ? (
+          <AlimlarGenis
+            mode={etkinMod}
             facets={facets}
             onToggle={toggle}
             onClear={temizle}
             openKeys={openKeys}
-            returnFocusTo={filtreDugmesi}
+            filtreSayisi={activeFilters.length}
+            sonuclar={sonucGenis}
+            detay={detay}
+            wideFallback={darGovde}
           />
-        </div>
-        {detayAcik ? bildirimNode : null}
-        {detay}
+        ) : darGovde}
       </div>
-    );
-  }
-
-  const filtrePaneli = <FilterPanel bare facets={facets} onToggle={toggle} onClear={temizle} openKeys={openKeys} />;
-  return (
-    <div className="aile-alimlar" data-device={device}>
-      {header}
-      {sorguCubugu}
-      {bildirimNode}
-      <div className="aile-alimlar-yerlesim" data-ayrinti={detayAcik ? 'acik' : 'kapali'}>
-        {/* Mod değişince filtre alanı moda göre açık/şerit başlar (key); ayrıntı dışarıda kalır, mod değişiminde yeniden kurulmaz. */}
-        <FilterArea key={etkinMod} panel={filtrePaneli} defaultOpen={defaultFilterOpen(etkinMod)} count={activeFilters.length}>
-          {sonucBolgesi}
-        </FilterArea>
-        {detay ? <div className="aile-alimlar-ayrinti">{detay}</div> : null}
-      </div>
+      {detay && !genisYerlesim ? <DetailPanel key={detay.row.id} {...detay} /> : null}
+      {bildirimYuvasi}
     </div>
   );
 }

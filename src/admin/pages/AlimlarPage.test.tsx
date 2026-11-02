@@ -1,107 +1,33 @@
-import { createHash } from 'node:crypto';
-import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { dirname, join, relative } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import type { ReactNode } from 'react';
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { ChangeSet, FixtureGenerationSource, GenerationProvider, createMemoryStorage, type PurchaseNeedRecord, type Term, type WorkflowDefinition } from '../data';
-import { DeviceContext } from '../device';
-import type { Device } from '../shell/contracts';
-import { AlimlarPage, buildAlimlarHash, durumGecisi, parseAlimlarHash } from './AlimlarPage';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import type userEvent from '@testing-library/user-event';
+import { buildAlimlarHash, durumGecisi, parseAlimlarHash } from './AlimlarPage';
+import { AlimlarGenis, AlimlarPivotTablo } from './alimlar/wide';
+import {
+  ALL_LABELS, GENERATION_ID, KesilebilenKaynak, PIVOT_ACIK, PURCHASES, PURCHASES_PATH, TERMS, WORKFLOWS, byLabel, kayitOgesi, rewritten, roomId, setup, termByLabel,
+} from './alimlar/testkit';
 
 // Alımlar ve eşyalar (dikey dilim). Tasarım: README › Sayfa iskeleti, ekranlar.md (EkranListe/Tablo/Kanban/Zaman,
 // SayfaAlimlarPivot, EkranAyrinti + Dar biçimler), bundle.js Aile.Pages.Alimlar. Veri sentetik nesilden
-// (fixtures/generation-synthetic → FixtureGenerationSource + GenerationProvider); seçiciler role/label ile.
+// (fixtures/generation-synthetic → alimlar/testkit); seçiciler role/label ile. Geniş modüller (masaüstü yerleşimi,
+// pivot tablosu) burada önceden yüklenir; tembel yükleme yolu ve telefonun indirmediği AlimlarPage.render.test'te.
 
-// --- Sentetik nesil → bellek ---------------------------------------------------------------------------------
-const here = dirname(fileURLToPath(import.meta.url));
-const FIXTURE_ROOT = join(here, '../../../fixtures/generation-synthetic');
-const GENERATION_ID = readdirSync(FIXTURE_ROOT).find((name) => statSync(join(FIXTURE_ROOT, name)).isDirectory())!;
-const GENERATION_DIR = join(FIXTURE_ROOT, GENERATION_ID);
-
-function walk(dir: string, out: string[] = []): string[] {
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const full = join(dir, entry.name);
-    if (entry.isDirectory()) walk(full, out);
-    else if (entry.name.endsWith('.json')) out.push(full);
-  }
-  return out;
-}
-
-const FILES: Record<string, string> = Object.fromEntries(
-  walk(GENERATION_DIR)
-    .map((full) => relative(GENERATION_DIR, full))
-    .filter((rel) => rel === 'manifest.json' || rel.startsWith('data/'))
-    .map((rel) => [rel, readFileSync(join(GENERATION_DIR, rel), 'utf8')]),
-);
-
-const PURCHASES_PATH = 'data/purchase_needs/household/00000.json';
-const VIEWS_PATH = 'data/view_definitions/global/00000.json';
-const PURCHASES = (JSON.parse(FILES[PURCHASES_PATH]!) as { records: PurchaseNeedRecord[] }).records;
-const TERMS = (JSON.parse(FILES['data/terms/global/00000.json']!) as { records: Term[] }).records;
-const WORKFLOWS = (JSON.parse(FILES['data/workflows/global/00000.json']!) as { records: WorkflowDefinition[] }).records;
-const ROOMS = (JSON.parse(FILES['data/rooms/household/00000.json']!) as { records: { id: string; label: string }[] }).records;
-const ALL_LABELS = PURCHASES.map((record) => record.label!);
-const byLabel = (label: string) => PURCHASES.find((record) => record.label === label)!;
-const roomId = (label: string) => ROOMS.find((room) => room.label === label)!.id;
-const termByLabel = (vocabularyCode: string, label: string) => {
-  const workflow = WORKFLOWS.find((item) => item.key === vocabularyCode)!;
-  return TERMS.find((term) => term.vocabulary_id === workflow.vocabulary_id && term.label === label)!;
-};
-
-interface ManifestFileEntry { path: string; sha256: string; bytes: number; count?: number; collection?: string }
-interface ManifestShape { files: ManifestFileEntry[]; counts: Record<string, number> }
-
-/** Bölümü yeni kayıtlarla yeniden yazar; depo bütünlüğü doğruladığı için manifestteki sha256/bytes/count da güncellenir. */
-function rewritten(path: string, mutate: (records: Record<string, unknown>[]) => Record<string, unknown>[], manifestText = FILES['manifest.json']!): Record<string, string> {
-  const envelope = JSON.parse(FILES[path]!) as { collection: string; records: Record<string, unknown>[] };
-  const records = mutate(envelope.records);
-  const text = JSON.stringify({ ...envelope, records });
-  const manifest = JSON.parse(manifestText) as ManifestShape;
-  manifest.files = manifest.files.map((file) =>
-    file.path === path ? { ...file, sha256: createHash('sha256').update(text, 'utf8').digest('hex'), bytes: Buffer.byteLength(text, 'utf8'), count: records.length } : file,
-  );
-  manifest.counts = { ...manifest.counts, [envelope.collection]: records.length };
-  return { [path]: text, 'manifest.json': JSON.stringify(manifest) };
-}
-
-/** view_definitions › pivot tanımına purchase_need eklenir (pivot dalını sınamak için sentetik değişiklik). */
-const PIVOT_ACIK = rewritten(VIEWS_PATH, (records) =>
-  records.map((record) => (record['key'] === 'pivot' ? { ...record, supported_kinds: [...(record['supported_kinds'] as string[]), 'purchase_need'] } : record)),
-);
-
-function fixtureSource(overrides: Record<string, string | null> = {}): FixtureGenerationSource {
-  const files = { ...FILES };
-  for (const [path, text] of Object.entries(overrides)) {
-    if (text === null) delete files[path];
-    else files[path] = text;
-  }
-  return new FixtureGenerationSource(files, 'sentetik');
-}
-
-interface SetupOptions { device?: Device; overrides?: Record<string, string | null>; changeSet?: boolean }
-
-function setup({ device = 'desktop', overrides, changeSet = true }: SetupOptions = {}) {
-  const source = fixtureSource(overrides);
-  const loader = changeSet ? () => ChangeSet.load({ storage: createMemoryStorage(), now: () => '2026-11-02T10:00:00.000Z' }) : null;
-  function Wrapper({ children }: { children: ReactNode }) {
-    return (
-      <DeviceContext.Provider value={device}>
-        <GenerationProvider source={source} cache={null} changeSet={loader}>
-          {children}
-        </GenerationProvider>
-      </DeviceContext.Provider>
-    );
-  }
-  return { user: userEvent.setup(), ...render(<AlimlarPage location="/alimlar" />, { wrapper: Wrapper }) };
-}
+beforeAll(async () => {
+  await Promise.all([AlimlarGenis.preload(), AlimlarPivotTablo.preload()]);
+}, 30_000);
 
 const sonuclar = () => screen.findByRole('region', { name: 'Sonuçlar' });
 /** Segment düğmesinin girdisi pointer-events: none; tıklama etiket metnine yapılır (QueryBar.test ile aynı). */
 const modSec = (user: ReturnType<typeof userEvent.setup>, name: string) =>
   user.click(within(screen.getByRole('radiogroup', { name: 'Görünüm modu' })).getByText(name));
 const sonucSayisi = (n: number) => screen.findByText(`${n} sonuç`);
+/**
+ * Düğme aramaları sonuç bölgesinin dışında, ait oldukları alanda yapılır: belge çapında getByRole('button', { name })
+ * 28 satır düğmesinin de adını hesaplar (bkz. testkit › kayitOgesi). Başlık alanı h1'in <header>'ıdır (yoksa belge).
+ */
+const baslikAlani = () => within(screen.getByRole('heading', { level: 1, name: 'Alımlar ve eşyalar' }).closest('header') ?? document.body);
+const sorguAlani = () => within(screen.getByRole('search', { name: 'Sorgu' }));
+/** Masaüstünde solda açık filtre paneli (FilterArea/FilterPanel "Filtreler" bölgesi; sonuçları içermez). */
+const filtreAlani = () => within(screen.getAllByRole('region', { name: 'Filtreler' })[0]!);
 
 /** Sonuç bölgesinde hangi alım adları görünür (tam metin eşleşmesi). */
 function gorunenAdlar(region: HTMLElement): string[] {
@@ -196,7 +122,7 @@ describe('AlimlarPage › başlık, özet ve veri durumları', () => {
   it('birincil eylem "Alım ekle" işlevsiz çizilmez: devre dışı ve nedeni yazılı', async () => {
     setup();
     await sonuclar();
-    const ekle = screen.getByRole('button', { name: 'Alım ekle' });
+    const ekle = baslikAlani().getByRole('button', { name: 'Alım ekle' });
     expect(ekle).toBeDisabled();
     expect(ekle).toHaveAccessibleDescription(/kaynak e-tabloya/);
   });
@@ -213,6 +139,34 @@ describe('AlimlarPage › başlık, özet ve veri durumları', () => {
     setup({ overrides: rewritten(PURCHASES_PATH, () => []) });
     expect(await screen.findByText('Kaynakta alım kaydı yok')).toBeInTheDocument();
     expect(screen.queryByRole('search')).toBeNull();
+  });
+});
+
+describe('AlimlarPage › eski veri ve boş sonuç', () => {
+  it('eski veri: yenileme başarısızsa son başarılı liste kalır; tazelik satırı "yenilenemedi" ve "Yeniden dene" der', async () => {
+    const kaynak = new KesilebilenKaynak();
+    const { user } = setup({ device: 'phone', source: kaynak });
+    const region = await sonuclar();
+    kaynak.offline = true;
+    await user.click(baslikAlani().getByRole('button', { name: 'Yenile' }));
+    expect(await screen.findByText('yenilenemedi')).toBeInTheDocument();
+    expect(screen.getByText(/Son başarılı nesil/)).toBeInTheDocument();
+    expect(baslikAlani().getByRole('button', { name: 'Yeniden dene' })).toBeInTheDocument();
+    // Son başarılı liste kalır (hata ekranına düşmez); eski veri tazelik satırında adıyla yazılıdır.
+    expect(kayitOgesi(region, 'Örnek kase')).toBeInTheDocument();
+    expect(screen.queryByText('Alımlar okunamadı')).toBeNull();
+  });
+
+  it('filtre sonucu boşsa etkin filtre yazılır; "Filtreleri temizle" tam kümeye döner', async () => {
+    const { user } = setup({ device: 'phone' });
+    await sonuclar();
+    await user.type(screen.getByRole('searchbox', { name: 'Ara' }), 'zzq');
+    await sonucSayisi(0);
+    const region = await sonuclar();
+    expect(within(region).getByText('Arama: zzq')).toBeInTheDocument();
+    await user.click(within(region).getByRole('button', { name: 'Filtreleri temizle' }));
+    await sonucSayisi(PURCHASES.length);
+    expect(screen.getByRole('searchbox', { name: 'Ara' })).toHaveValue('');
   });
 });
 
@@ -234,8 +188,8 @@ describe('AlimlarPage › sorgu çubuğu ve modlar', () => {
   it('mod değişince aynı kayıt kümesi görünür (filtreli: Oda 1 ∪ Oda 2 → 8 kayıt) ve hash mod/filtreyi taşır', async () => {
     const { user } = setup();
     await sonuclar();
-    await user.click(screen.getByRole('checkbox', { name: 'Örnek oda 1' }));
-    await user.click(screen.getByRole('checkbox', { name: 'Örnek oda 2' }));
+    await user.click(filtreAlani().getByRole('checkbox', { name: 'Örnek oda 1' }));
+    await user.click(filtreAlani().getByRole('checkbox', { name: 'Örnek oda 2' }));
     await sonucSayisi(8);
     const beklenen = PURCHASES.filter((r) => r.room_id === roomId('Örnek oda 1') || r.room_id === roomId('Örnek oda 2')).map((r) => r.label!).sort();
     expect(beklenen).toHaveLength(8);
@@ -244,8 +198,9 @@ describe('AlimlarPage › sorgu çubuğu ve modlar', () => {
     expect(window.location.hash).toContain(roomId('Örnek oda 1'));
 
     for (const mod of ['Tablo', 'Kanban', 'Zaman çizelgesi']) {
+      const radyo = sorguAlani().getByRole('radio', { name: mod });
       await modSec(user, mod);
-      await waitFor(() => expect(screen.getByRole('radio', { name: mod })).toBeChecked());
+      await waitFor(() => expect(radyo).toBeChecked());
       expect(gorunenAdlar(await sonuclar())).toEqual(beklenen);
     }
     expect(window.location.hash).toContain('mod=timeline');
@@ -255,12 +210,12 @@ describe('AlimlarPage › sorgu çubuğu ve modlar', () => {
   it('filtre: aynı boyutta OR, boyutlar arası AND (Oda 1 ∪ Oda 2) ∩ Ödeme "Planlandı" → 4', async () => {
     const { user } = setup();
     await sonuclar();
-    await user.click(screen.getByRole('checkbox', { name: 'Örnek oda 1' }));
+    await user.click(filtreAlani().getByRole('checkbox', { name: 'Örnek oda 1' }));
     await sonucSayisi(4);
-    await user.click(screen.getByRole('checkbox', { name: 'Örnek oda 2' }));
+    await user.click(filtreAlani().getByRole('checkbox', { name: 'Örnek oda 2' }));
     await sonucSayisi(8);
-    await user.click(screen.getByRole('button', { name: /Ödeme durumu/ }));
-    await user.click(await screen.findByRole('checkbox', { name: 'Planlandı' }));
+    await user.click(filtreAlani().getByRole('button', { name: /Ödeme durumu/ }));
+    await user.click(await filtreAlani().findByRole('checkbox', { name: 'Planlandı' }));
     await sonucSayisi(4);
     const beklenen = ['Örnek askı', 'Örnek lambader', 'Örnek masa', 'Örnek sandalye'];
     expect(gorunenAdlar(await sonuclar())).toEqual(beklenen);
@@ -323,7 +278,7 @@ describe('AlimlarPage › ayrıntı, odak ve durum değişikliği', () => {
     const { user } = setup();
     const region = await sonuclar();
     const kase = byLabel('Örnek kase');
-    const satir = within(region).getByRole('button', { name: /Örnek kase/ });
+    const satir = kayitOgesi(region, 'Örnek kase');
     await user.click(satir);
     const panel = await screen.findByRole('dialog', { name: 'Örnek kase' });
     await waitFor(() => expect(panel.contains(document.activeElement)).toBe(true));
@@ -331,28 +286,31 @@ describe('AlimlarPage › ayrıntı, odak ve durum değişikliği', () => {
     expect(within(panel).getByRole('region', { name: 'Plan ve gerçek' })).toHaveTextContent('Henüz yok');
     await user.click(within(panel).getByRole('button', { name: 'Kapat' }));
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Örnek kase' })).toBeNull());
-    await waitFor(() => expect(document.activeElement).toBe(within(region).getByRole('button', { name: /Örnek kase/ })));
+    await waitFor(() => expect(document.activeElement).toBe(kayitOgesi(region, 'Örnek kase')));
     expect(window.location.hash).not.toContain(kase.id);
   });
 
   it('mod değişince seçim ve odak korunur', async () => {
     const { user } = setup();
     const region = await sonuclar();
-    await user.click(within(region).getByRole('button', { name: /Örnek kase/ }));
+    await user.click(kayitOgesi(region, 'Örnek kase'));
     await screen.findByRole('dialog', { name: 'Örnek kase' });
     const tablo = screen.getByRole('radio', { name: 'Tablo' });
     await modSec(user, 'Tablo');
     await waitFor(() => expect(tablo).toBeChecked());
     expect(screen.getByRole('dialog', { name: 'Örnek kase' })).toBeInTheDocument();
     expect(document.activeElement).toBe(screen.getByRole('radio', { name: 'Tablo' }));
-    const satir = within(await sonuclar()).getByRole('row', { name: /^Örnek kase / });
+    const satir = kayitOgesi(await sonuclar(), 'Örnek kase', 'row');
     expect(satir).toHaveAttribute('aria-selected', 'true');
   });
 
   it('"Durumu değiştir" yalnız iş akışı geçişlerini sunar; seçim yerel change set’e yazılır ve "Geri al" geri çevirir', async () => {
     const { user } = setup();
     const region = await sonuclar();
-    await user.click(within(region).getByRole('button', { name: /Örnek kase/ }));
+    // Satır düğmesi bir kez bulunur: memo'lu satır aynı DOM düğümünde kalır (seçim ve yerel değişiklik onu yeniden
+    // kurmaz); bekleme döngüsü her turda 28 satırın adını hesaplayan rol araması yapmaz (kök neden: testkit › kayitOgesi).
+    const kaseSatiri = kayitOgesi(region, 'Örnek kase');
+    await user.click(kaseSatiri);
     const panel = await screen.findByRole('dialog', { name: 'Örnek kase' });
     await user.click(within(panel).getByRole('combobox', { name: 'Durumu değiştir' }));
     const liste = await screen.findByRole('listbox');
@@ -361,25 +319,26 @@ describe('AlimlarPage › ayrıntı, odak ve durum değişikliği', () => {
     expect(within(liste).queryByRole('option', { name: 'Fikir' })).toBeNull();
     await user.click(within(liste).getByRole('option', { name: 'Karar bekliyor' }));
 
-    await waitFor(() => expect(within(region).getByRole('button', { name: /Örnek kase/ })).toHaveTextContent('Karar bekliyor'));
+    await waitFor(() => expect(kaseSatiri).toHaveTextContent('Karar bekliyor'));
     expect(await screen.findByText(/Araştırılıyor → Karar bekliyor/)).toHaveTextContent(/kaynağa yazılmadı/);
-    const geriAl = within(screen.getByRole('dialog', { name: 'Örnek kase' })).getByRole('button', { name: 'Geri al' });
+    const geriAl = within(panel).getByRole('button', { name: 'Geri al' });
     await user.click(geriAl);
-    await waitFor(() => expect(within(region).getByRole('button', { name: /Örnek kase/ })).toHaveTextContent('Araştırılıyor'));
+    await waitFor(() => expect(kaseSatiri).toHaveTextContent('Araştırılıyor'));
     expect(await screen.findByText('Değişiklik geri alındı.')).toBeInTheDocument();
-    expect(within(screen.getByRole('dialog', { name: 'Örnek kase' })).queryByRole('button', { name: 'Geri al' })).toBeNull();
+    expect(within(panel).queryByRole('button', { name: 'Geri al' })).toBeNull();
+    expect(kaseSatiri.isConnected).toBe(true);
   });
 
   it('telefon: ayrıntı tam sayfa ("Listeye dön"); dönüşte odak açan satıra gelir', async () => {
     const { user } = setup({ device: 'phone' });
     const region = await sonuclar();
-    await user.click(within(region).getByRole('button', { name: /Örnek kase/ }));
+    await user.click(kayitOgesi(region, 'Örnek kase'));
     const sayfa = await screen.findByRole('dialog', { name: 'Örnek kase' });
     await waitFor(() => expect(document.activeElement).toBe(sayfa));
     expect(screen.queryByRole('search')).toBeNull();
     await user.click(within(sayfa).getByRole('button', { name: 'Listeye dön' }));
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Örnek kase' })).toBeNull());
-    await waitFor(() => expect(document.activeElement).toBe(within(region).getByRole('button', { name: /Örnek kase/ })));
+    await waitFor(() => expect(document.activeElement).toBe(kayitOgesi(region, 'Örnek kase')));
   });
 
   // WebKit/Safari düğmeye tıklamayı odak taşımadan işler: document.activeElement body ya da odaklanabilir bir ata
@@ -392,14 +351,14 @@ describe('AlimlarPage › ayrıntı, odak ve durum değişikliği', () => {
   ] as const)('%s: tıklama odak taşımasa da (Safari, odak %s) kapanınca odak açan satıra döner', async (device, odak) => {
     const { user } = setup({ device });
     const region = await sonuclar();
-    const satir = within(region).getByRole('button', { name: /Örnek kase/ });
+    const satir = kayitOgesi(region, 'Örnek kase');
     if (odak === 'başka öğe') screen.getByRole('searchbox', { name: 'Ara' }).focus();
     else expect(document.activeElement).toBe(document.body);
     fireEvent.click(satir);
     const ayrinti = await screen.findByRole('dialog', { name: 'Örnek kase' });
     await user.click(within(ayrinti).getByRole('button', { name: device === 'phone' ? 'Listeye dön' : 'Kapat' }));
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Örnek kase' })).toBeNull());
-    await waitFor(() => expect(document.activeElement).toBe(within(region).getByRole('button', { name: /Örnek kase/ })));
+    await waitFor(() => expect(document.activeElement).toBe(kayitOgesi(region, 'Örnek kase')));
   });
 
   it('telefon: filtreler tam ekran çekmecede; hash’teki seçim ayrıntıyı doğrudan açar', async () => {
@@ -409,7 +368,7 @@ describe('AlimlarPage › ayrıntı, odak ve durum değişikliği', () => {
     const sayfa = await screen.findByRole('dialog', { name: 'Örnek kase' });
     await user.click(within(sayfa).getByRole('button', { name: 'Listeye dön' }));
     await act(async () => {});
-    await user.click(await screen.findByRole('button', { name: 'Filtreler (0)' }));
+    await user.click(await sorguAlani().findByRole('button', { name: 'Filtreler (0)' }));
     // antd test ortamında başlık kimliği sabit ("test-id") olduğundan diyalog adı yerine h2 başlığından bulunur.
     const cekmece = (await screen.findByRole('heading', { level: 2, name: 'Filtreler' })).closest('[role="dialog"]') as HTMLElement;
     expect(within(cekmece).getByRole('button', { name: '28 sonucu göster' })).toBeInTheDocument();
