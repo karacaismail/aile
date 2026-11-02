@@ -1,18 +1,19 @@
 // Vite dev middleware: AILE_GENERATION_DIR altındaki en yeni geçerli nesli salt okunur servis eder: yalnız manifest.json,
 // data/**/*.json parçaları ve _meta; yalnız aynı kökenden (başka localhost kökeni 403). AILE_GENERATION_DIR yalnız süreç
 // ortamından okunur (.env / .env.local okunmaz). Yalnız `serve` aşamasında çalışır; build çıktısına hiçbir şey eklemez.
+// Aynı ara katman /__aile/emeklilik/profil.json yolundan yalnız AILE_EMEKLILIK_PROFILE dosyasını verir (sonda).
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { createServer, request as httpRequest, type Server } from 'node:http';
 import { mkdtemp, mkdir, readFile, writeFile, utimes, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { createPrivateDataHandler, privateDataPlugin, selectGeneration } from './privateData';
+import { EMEKLILIK_PROFILE_PATH, createPrivateDataHandler, privateDataPlugin, selectGeneration } from './privateData';
 
 interface Response { status: number; headers: Headers; body: string }
 
 let server: Server;
 let baseUrl: string;
-let env: { AILE_GENERATION_DIR?: string } = {};
+let env: { AILE_GENERATION_DIR?: string; AILE_EMEKLILIK_PROFILE?: string } = {};
 let scratch: string;
 
 // fetch yol normalizasyonu yapar ('..' istemcide çözülür); ham yolun sunucuya ulaşması için node:http kullanılır.
@@ -376,5 +377,191 @@ describe('privateDataPlugin › AILE_GENERATION_DIR yalnız süreç ortamından 
     const source = await readFile(path.join(__dirname, 'privateData.ts'), 'utf8');
     expect(source).not.toMatch(/\bloadEnv\b/);
     expect(source).not.toMatch(/\.env\.local['"`]/);
+  });
+});
+
+// --- Emeklilik profili: /__aile/emeklilik/profil.json --------------------------------------------------------------
+// Yalnız AILE_EMEKLILIK_PROFILE (süreç ortamı) dosyası salt okunur servis edilir; aynı köken kuralı nesil yoluyla aynıdır;
+// yol bilgisi ve dosya içeriği hata yanıtlarına yazılmaz. Testler sentetik profilin geçici kopyasını kullanır.
+describe('GET /__aile/emeklilik/profil.json', () => {
+  type EnvWithProfile = { AILE_GENERATION_DIR?: string; AILE_EMEKLILIK_PROFILE?: string };
+  const SENTETIK = path.join(__dirname, '../../../fixtures/emeklilik/profil-sentetik.json');
+
+  async function profileFile(name: string, content?: string) {
+    const directory = path.join(scratch, 'emeklilik', name);
+    await mkdir(directory, { recursive: true });
+    const file = path.join(directory, 'profil.json');
+    await writeFile(file, content ?? (await readFile(SENTETIK, 'utf8')));
+    return file;
+  }
+
+  it('istemcinin okuduğu adresle aynı yol (data/yukleyiciler.ts EMEKLILIK_PROFIL_ADRESI)', async () => {
+    const { EMEKLILIK_PROFIL_ADRESI } = await import('../emeklilik/data/yukleyiciler');
+    expect(EMEKLILIK_PROFILE_PATH).toBe(EMEKLILIK_PROFIL_ADRESI);
+  });
+
+  it('AILE_EMEKLILIK_PROFILE tanımlı değilse 404 ve açıklayıcı JSON', async () => {
+    for (const value of [undefined, '', '   ']) {
+      env = { AILE_EMEKLILIK_PROFILE: value } as EnvWithProfile;
+      const response = await request('GET', '/__aile/emeklilik/profil.json');
+      expect(response.status).toBe(404);
+      expect(response.headers.get('cache-control')).toBe('no-store');
+      expect(JSON.parse(response.body)).toEqual({ error: 'AILE_EMEKLILIK_PROFILE tanımlı değil' });
+    }
+  });
+
+  it('tanımlı dosyayı no-store JSON olarak birebir servis eder; HEAD gövdesizdir', async () => {
+    const file = await profileFile('servis');
+    env = { AILE_EMEKLILIK_PROFILE: file } as EnvWithProfile;
+    const response = await request('GET', '/__aile/emeklilik/profil.json');
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toBe('application/json; charset=utf-8');
+    expect(response.headers.get('cache-control')).toBe('no-store');
+    expect(response.body).toBe(await readFile(SENTETIK, 'utf8'));
+    const head = await request('HEAD', '/__aile/emeklilik/profil.json');
+    expect(head.status).toBe(200);
+    expect(head.body).toBe('');
+  });
+
+  it('göreli değer çalışma klasörüne göre çözülür', async () => {
+    const file = await profileFile('goreli');
+    env = { AILE_EMEKLILIK_PROFILE: path.relative(process.cwd(), file) } as EnvWithProfile;
+    expect((await request('GET', '/__aile/emeklilik/profil.json')).status).toBe(200);
+  });
+
+  it('nesil ortamı emeklilik profilini açmaz; emeklilik ortamı nesli açmaz', async () => {
+    const file = await profileFile('ayri');
+    env = { AILE_GENERATION_DIR: path.dirname(file) } as EnvWithProfile;
+    expect((await request('GET', '/__aile/emeklilik/profil.json')).status).toBe(404);
+    env = { AILE_EMEKLILIK_PROFILE: file } as EnvWithProfile;
+    const generation = await request('GET', '/__aile/generation/manifest.json');
+    expect(JSON.parse(generation.body)).toEqual({ error: 'AILE_GENERATION_DIR tanımlı değil' });
+  });
+
+  it('dosya yoksa, klasörse ya da .json değilse 404; yol ve içerik yanıta yazılmaz', async () => {
+    const missing = path.join(scratch, 'emeklilik', 'yok', 'profil.json');
+    const folder = path.join(scratch, 'emeklilik', 'klasor.json');
+    await mkdir(folder, { recursive: true });
+    const text = path.join(scratch, 'emeklilik', 'gizli.txt');
+    await writeFile(text, 'gizli-anahtar-sentetik');
+    for (const value of [missing, folder, text]) {
+      env = { AILE_EMEKLILIK_PROFILE: value } as EnvWithProfile;
+      const response = await request('GET', '/__aile/emeklilik/profil.json');
+      expect(response.status, value).toBe(404);
+      expect(JSON.parse(response.body), value).toHaveProperty('error');
+      expect(response.body, value).not.toContain(scratch);
+      expect(response.body, value).not.toContain('gizli-anahtar-sentetik');
+      expect(response.body).not.toMatch(/\/(Users|home|private|tmp|var)\//);
+    }
+  });
+
+  it('JSON olmayan içerik 422 ile reddedilir; içerik yanıta yazılmaz', async () => {
+    const file = await profileFile('bozuk', '{"dogumTarihi":"sentetik-gizli-deger",');
+    env = { AILE_EMEKLILIK_PROFILE: file } as EnvWithProfile;
+    const response = await request('GET', '/__aile/emeklilik/profil.json');
+    expect(response.status).toBe(422);
+    expect(JSON.parse(response.body)).toEqual({ error: 'Emeklilik profili geçerli JSON değil' });
+    expect(response.body).not.toContain('sentetik-gizli-deger');
+  });
+
+  it('yalnız profil.json servis edilir; başka yol ve kaçış denemeleri reddedilir', async () => {
+    const file = await profileFile('yollar');
+    env = { AILE_EMEKLILIK_PROFILE: file } as EnvWithProfile;
+    for (const pathname of ['/__aile/emeklilik', '/__aile/emeklilik/', '/__aile/emeklilik/baska.json', '/__aile/emeklilik/profil.json/x', '/__aile/emeklilik/../emeklilik/profil.json', '/__aile/emeklilik/%2e%2e/profil.json']) {
+      const response = await request('GET', pathname);
+      expect(response.status, pathname).toBe(404);
+      expect(response.body, pathname).not.toContain('"surum"');
+    }
+    expect((await request('GET', '/__aile/emeklilikx/profil.json')).body).toBe('fallthrough');
+  });
+
+  it('başka köken 403, POST 405; gövdede profil yok', async () => {
+    const file = await profileFile('koken');
+    env = { AILE_EMEKLILIK_PROFILE: file } as EnvWithProfile;
+    const port = new URL(baseUrl).port;
+    const crossOrigin: Record<string, string>[] = [{ Origin: `http://localhost:${Number(port) + 1}` }, { 'Sec-Fetch-Site': 'cross-site' }, { Origin: 'null' }];
+    for (const headers of crossOrigin) {
+      const response = await request('GET', '/__aile/emeklilik/profil.json', headers);
+      expect(response.status, JSON.stringify(headers)).toBe(403);
+      expect(JSON.parse(response.body)).toEqual({ error: 'Yalnız aynı kökenden okunur' });
+    }
+    const same = await request('GET', '/__aile/emeklilik/profil.json', { Origin: `http://${new URL(baseUrl).host}`, 'Sec-Fetch-Site': 'same-origin' });
+    expect(same.status).toBe(200);
+    const post = await request('POST', '/__aile/emeklilik/profil.json');
+    expect(post.status).toBe(405);
+    expect(post.headers.get('allow')).toBe('GET, HEAD');
+  });
+
+  it('beklenmeyen hata (500) yolu ya da ayrıntıyı yazmaz', async () => {
+    const secret = path.join(scratch, 'gizli-emeklilik', 'profil.json');
+    env = new Proxy({} as EnvWithProfile, {
+      get() {
+        throw new Error(`EACCES: permission denied, open '${secret}'`);
+      },
+    });
+    const response = await request('GET', '/__aile/emeklilik/profil.json');
+    expect(response.status).toBe(500);
+    const body = JSON.parse(response.body) as { error: string };
+    expect(body.error).toMatch(/^Hata: /);
+    expect(response.body).not.toContain('gizli-emeklilik');
+    expect(response.body).not.toMatch(/\/(Users|home|private|tmp|var)\//);
+  });
+});
+
+describe('privateDataPlugin › AILE_EMEKLILIK_PROFILE yalnız süreç ortamından', () => {
+  const saved = process.env.AILE_EMEKLILIK_PROFILE;
+  afterEach(() => {
+    if (saved === undefined) delete process.env.AILE_EMEKLILIK_PROFILE;
+    else process.env.AILE_EMEKLILIK_PROFILE = saved;
+  });
+
+  async function serve() {
+    type Middleware = (req: import('node:http').IncomingMessage, res: import('node:http').ServerResponse, next: () => void) => void;
+    const handlers: Middleware[] = [];
+    const plugin = privateDataPlugin();
+    (plugin.configureServer as unknown as (server: { middlewares: { use(handler: Middleware): void } }) => void)({ middlewares: { use: handler => { handlers.push(handler); } } });
+    // Tek ara katman iki yolu da karşılar (eklenti testleri son kaydı yakalar).
+    expect(handlers).toHaveLength(1);
+    const local = createServer((req, res) => handlers[0]!(req, res, () => { res.statusCode = 404; res.end('fallthrough'); }));
+    await new Promise<void>(resolve => local.listen(0, '127.0.0.1', resolve));
+    const address = local.address();
+    if (!address || typeof address === 'string') throw new Error('Sunucu adresi yok');
+    const get = (pathname: string) =>
+      new Promise<{ status: number; body: string }>((resolve, reject) => {
+        const req = httpRequest(`http://127.0.0.1:${address.port}`, { method: 'GET', path: pathname }, res => {
+          const chunks: Buffer[] = [];
+          res.on('data', chunk => chunks.push(chunk as Buffer));
+          res.on('end', () => resolve({ status: res.statusCode ?? 0, body: Buffer.concat(chunks).toString('utf8') }));
+        });
+        req.on('error', reject);
+        req.end();
+      });
+    return { get, close: () => new Promise<void>(resolve => local.close(() => resolve())) };
+  }
+
+  it('process.env değeri okunur; .env.local içindeki değer okunmaz', async () => {
+    const directory = path.join(scratch, 'emeklilik-env');
+    await mkdir(directory, { recursive: true });
+    const file = path.join(directory, 'profil.json');
+    await writeFile(file, await readFile(path.join(__dirname, '../../../fixtures/emeklilik/profil-sentetik.json'), 'utf8'));
+    await writeFile(path.join(directory, '.env.local'), `AILE_EMEKLILIK_PROFILE=${file}\n`);
+    delete process.env.AILE_EMEKLILIK_PROFILE;
+    let served = await serve();
+    try {
+      const response = await served.get('/__aile/emeklilik/profil.json');
+      expect(response.status).toBe(404);
+      expect(JSON.parse(response.body)).toEqual({ error: 'AILE_EMEKLILIK_PROFILE tanımlı değil' });
+    } finally {
+      await served.close();
+    }
+    process.env.AILE_EMEKLILIK_PROFILE = file;
+    served = await serve();
+    try {
+      const response = await served.get('/__aile/emeklilik/profil.json');
+      expect(response.status).toBe(200);
+      expect(JSON.parse(response.body).sentetik).toBe(true);
+    } finally {
+      await served.close();
+    }
   });
 });

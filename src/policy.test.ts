@@ -58,3 +58,66 @@ describe('politika tarama kapsamı', () => {
     expect(rule![1].test('workbench kasası')).toBe(false);
   });
 });
+
+// Emeklilik profili (docs/EMEKLILIK-PLANI.md): kişisel profil (doğum tarihi, gün sayıları, kazanç, borç) Git'e girmez.
+// Depodaki emeklilik profili biçimli her JSON 'sentetik: true' taşır ve yalnız fixtures/emeklilik/ altında durur; gerçek
+// profil Git dışındaki AILE_EMEKLILIK_PROFILE dosyasıdır. Biçim: surum + profilin ayırt edici alanlarından en az ikisi.
+const PROFIL_ALANLARI = ['dogumTarihi', 'ilkSigortaGirisi', 'kayitliGun', 'sgkReferansAylik', 'secenekler', 'kazanc'];
+const SENTETIK_PROFIL = join(root, 'fixtures', 'emeklilik', 'profil-sentetik.json');
+// Depo kökünden taranırken atlanan üretilmiş ya da dış klasörler.
+const DEPO_DISI = new Set(['node_modules', '.git', 'dist', 'dist-ssr', 'coverage', 'test-results', 'playwright-report', '.tmp-shots', '.tmp-live']);
+
+function emeklilikProfiliBicimli(veri: unknown): boolean {
+  if (veri === null || typeof veri !== 'object' || Array.isArray(veri)) return false;
+  const anahtarlar = new Set(Object.keys(veri));
+  return anahtarlar.has('surum') && PROFIL_ALANLARI.filter((alan) => anahtarlar.has(alan)).length >= 2;
+}
+
+function depoJsonDosyalari(klasor: string, out: string[] = []): string[] {
+  for (const girdi of readdirSync(klasor, { withFileTypes: true })) {
+    if (DEPO_DISI.has(girdi.name)) continue;
+    const tam = join(klasor, girdi.name);
+    if (girdi.isDirectory()) depoJsonDosyalari(tam, out);
+    else if (girdi.isFile() && girdi.name.endsWith('.json')) out.push(tam);
+  }
+  return out;
+}
+
+function jsonOku(dosya: string): unknown {
+  try {
+    return JSON.parse(readFileSync(dosya, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+describe('emeklilik profili gizliliği', () => {
+  it('sentetik fikstür sentetik: true taşır ve kaynakları gerçek kişiye ait olmadığını söyler', () => {
+    const profil = jsonOku(SENTETIK_PROFIL) as { sentetik?: unknown; kaynaklar?: unknown } | null;
+    expect(emeklilikProfiliBicimli(profil)).toBe(true);
+    expect(profil?.sentetik).toBe(true);
+    expect(Array.isArray(profil?.kaynaklar)).toBe(true);
+    expect((profil!.kaynaklar as string[]).join(' ')).toMatch(/sentetik/i);
+  });
+
+  it('depoda sentetik dışı emeklilik profili JSON dosyası yok (yalnız fixtures/emeklilik/ altında, sentetik: true)', () => {
+    const dosyalar = depoJsonDosyalari(root);
+    expect(dosyalar).toContain(SENTETIK_PROFIL);
+    const profiller = dosyalar.filter((dosya) => emeklilikProfiliBicimli(jsonOku(dosya)));
+    expect(profiller).toContain(SENTETIK_PROFIL);
+    const ihlaller = profiller.filter((dosya) => {
+      const profil = jsonOku(dosya) as { sentetik?: unknown };
+      return profil.sentetik !== true || !dosya.startsWith(join(root, 'fixtures', 'emeklilik') + '/');
+    });
+    expect(ihlaller.map((dosya) => dosya.slice(root.length + 1)), 'sentetik olmayan ya da yeri yanlış emeklilik profili').toEqual([]);
+  });
+
+  it('profil biçimi tanıyıcısı: sentetik profil ve kopyası tanınır; nesil manifesti ve paket dosyası tanınmaz', () => {
+    const profil = jsonOku(SENTETIK_PROFIL) as Record<string, unknown>;
+    expect(emeklilikProfiliBicimli({ ...profil, sentetik: false })).toBe(true);
+    expect(emeklilikProfiliBicimli({ surum: 1, dogumTarihi: 'x', kayitliGun: {} })).toBe(true);
+    expect(emeklilikProfiliBicimli({ surum: 1, dogumTarihi: 'x' })).toBe(false);
+    expect(emeklilikProfiliBicimli(jsonOku(join(root, 'package.json')))).toBe(false);
+    expect(emeklilikProfiliBicimli([profil])).toBe(false);
+  });
+});

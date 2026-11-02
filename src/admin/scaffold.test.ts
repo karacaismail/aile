@@ -62,9 +62,9 @@ describe('admin scaffold', () => {
     expect(VIEW_LABELS).toEqual({ listing: 'Liste', table: 'Tablo', timeline: 'Zaman çizelgesi', kanban: 'Kanban', gantt_chart: 'Gantt', pivot: 'Pivot' });
   });
 
-  it('navigation has 11 groups, a settings link and longest-match lookup', () => {
-    expect(adminGroups).toHaveLength(11);
-    expect(adminGroups.map(group => group.title)).toEqual(['Genel durum', 'Bütçe ve nakit', 'Ödemeler', 'Hesaplar ve borçlar', 'Alımlar ve eşyalar', 'Ev ve odalar', 'Projeler ve görevler', 'Taraflar ve teklifler', 'Raporlar', 'Sözlükler ve iş akışları', 'Veri kalitesi ve içe aktarma']);
+  it('navigation has 12 groups, a settings link and longest-match lookup', () => {
+    expect(adminGroups).toHaveLength(12);
+    expect(adminGroups.map(group => group.title)).toEqual(['Genel durum', 'Bütçe ve nakit', 'Ödemeler', 'Hesaplar ve borçlar', 'Emeklilik planı', 'Alımlar ve eşyalar', 'Ev ve odalar', 'Projeler ve görevler', 'Taraflar ve teklifler', 'Raporlar', 'Sözlükler ve iş akışları', 'Veri kalitesi ve içe aktarma']);
     expect(settingsLink).toEqual({ path: '/ayarlar', label: 'Ayarlar' });
     expect(currentAdminLink('/alimlar/123').label).toBe('Alımlar ve eşyalar');
     expect(currentAdminLink('/ayarlar').label).toBe('Ayarlar');

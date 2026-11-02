@@ -2,7 +2,7 @@
 
 Tarih: 2 Kasım 2026. Kapsam: `admin.html` yönetim paneli (`src/admin`). Kalıcı kurallar kökteki `AGENTS.md` "Yönetim paneli" bölümünde, yürütme planı `docs/ADMIN-PANEL-PARALLEL-PLAN.md` içindedir. Bu belge nasıl yapılacağını anlatır: önizleme, kapılar, kanıt, Codex devri ve kullanıcı incelemesi.
 
-Bu belgede hiçbir gizli değer yoktur ve olmamalıdır. Sheet kimliği, Apps Script adresi, `APP_KEY`, özel nesil yolu ve nesil kimliği yalnız adıyla geçer; değerler `<...>` ya da `/PRIVATE/...` yer tutucusudur.
+Bu belgede hiçbir gizli değer yoktur ve olmamalıdır. Sheet kimliği, Apps Script adresi, `APP_KEY`, özel nesil yolu, nesil kimliği ve emeklilik profili yolu yalnız adıyla geçer; değerler `<...>` ya da `/PRIVATE/...` yer tutucusudur.
 
 ## 1. Roller ve sınırlar
 
@@ -27,10 +27,12 @@ Ajan, kullanıcıya göstermek veya kendisi denetlemek için önizlemeyi şöyle
 
 ```bash
 AILE_GENERATION_DIR="$PWD/fixtures/generation-synthetic" VITE_BUDGET_SHEET_ID=synthetic-budget-sheet-2098 \
+  AILE_EMEKLILIK_PROFILE="$PWD/fixtures/emeklilik/profil-sentetik.json" \
   pnpm exec vite --host 127.0.0.1 --port <P> --strictPort
 ```
 
-- Adres: `http://127.0.0.1:<P>/aile/admin.html#/genel`. Diğer sayfalar `#/butce`, `#/odemeler`, `#/hesaplar`, `#/alimlar`, `#/ev`, `#/projeler`, `#/taraflar`, `#/raporlar`, `#/sozlukler`, `#/veri`, `#/ayarlar`.
+- Adres: `http://127.0.0.1:<P>/aile/admin.html#/genel`. Diğer sayfalar `#/butce`, `#/odemeler`, `#/hesaplar`, `#/emeklilik`, `#/alimlar`, `#/ev`, `#/projeler`, `#/taraflar`, `#/raporlar`, `#/sozlukler`, `#/veri`, `#/ayarlar`.
+- Emeklilik planı (`#/emeklilik`) sentetik profili `/__aile/emeklilik/profil.json` yolundan okur. `AILE_EMEKLILIK_PROFILE` verilmezse sayfa "AILE_EMEKLILIK_PROFILE tanımlı değil" nedeniyle profilsiz açılır; profil dosyası sayfadan içe aktarılabilir.
 - Port seçimi: kullanıcının açık sunucularına (5174, 5175, 5176) dokunulmaz, kapatılmaz. 5300 ve üstündeki çift yuvalar paralel E2E koşularınındır. Boş bir port seçilir; `--strictPort` dolu portta koşuyu durdurur.
 - İş bitince sunucu kapatılır (Ctrl+C). `lsof -nP -iTCP:<P> -sTCP:LISTEN` boş dönmelidir.
 
@@ -38,32 +40,33 @@ AILE_GENERATION_DIR="$PWD/fixtures/generation-synthetic" VITE_BUDGET_SHEET_ID=sy
 
 Bu adım gerçek aile verisine dokunur. Yalnız kullanıcının açık isteğiyle, kullanıcının ana kopyasında (`site/`) yapılır. Paralel üretim agent'ları bu adımı yapmaz; `.env.local` dosyasını okumaz, kopyalamaz, yazdırmaz.
 
-Kullanılan iki anahtar ana kopyanın `.env.local` dosyasındadır (Git dışında; adlar `.env.example` içinde, değerler hiçbir belgeye, commit'e veya sohbete yazılmaz):
+Kullanılan anahtarlar ana kopyanın `.env.local` dosyasındadır (Git dışında; değerler hiçbir belgeye, commit'e veya sohbete yazılmaz). `AILE_EMEKLILIK_PROFILE` isteğe bağlıdır ve gösterdiği profil dosyası da Git dışında durur:
 
 | Anahtar | Okuyan | Not |
 |---|---|---|
 | `VITE_BUDGET_SHEET_ID` | Vite, istemci koduna (`import.meta.env`) | Canlı bütçe okuması ve "E-tabloyu aç" bağlantısı |
 | `AILE_GENERATION_DIR` | Yalnız dev middleware `/__aile/generation/*` (`src/admin/devServer/privateData.ts`), yalnız süreç ortamından | data-platform ile üretilmiş özel nesil kökü (`/PRIVATE/data` gibi; `generations/<sha256>/manifest.json` taşır) |
+| `AILE_EMEKLILIK_PROFILE` (isteğe bağlı) | Yalnız dev middleware `/__aile/emeklilik/profil.json` (aynı dosya), yalnız süreç ortamından | Git dışındaki kişisel emeklilik profili (`/PRIVATE/emeklilik/profil.json` gibi; tek `.json` dosyası, sözleşmesi `src/admin/emeklilik/contract.ts` `EmeklilikProfili`) |
 
-Vite `.env.local` içinden yalnız `VITE_` önekli anahtarları alır; `AILE_GENERATION_DIR`'ı süreç ortamına koymaz. Ara katman da `.env` / `.env.local` dosyalarını okumaz (birim testi `privateData.test.ts` bunu denetler). Bu yüzden düz `pnpm dev` gerçek nesli göremez ve sunucu Node'un `--env-file=.env.local` seçeneğiyle açık komutla başlatılır. Kabukta aynı adlı bir değişken varsa hem Node hem Vite onu dosyaya tercih eder; `env -u` bu yüzden ikisini de temizler.
+Vite `.env.local` içinden yalnız `VITE_` önekli anahtarları alır; `AILE_GENERATION_DIR` ve `AILE_EMEKLILIK_PROFILE`'ı süreç ortamına koymaz. Ara katman da `.env` / `.env.local` dosyalarını okumaz (birim testi `privateData.test.ts` bunu denetler). Bu yüzden düz `pnpm dev` gerçek nesli ve kişisel profili göremez ve sunucu Node'un `--env-file=.env.local` seçeneğiyle açık komutla başlatılır. Kabukta aynı adlı bir değişken varsa hem Node hem Vite onu dosyaya tercih eder; `env -u` bu yüzden üçünü de temizler.
 
 1. Değer yazdırmadan anahtarların tanımlı olduğunu denetleyin:
 
    ```bash
-   env -u VITE_BUDGET_SHEET_ID -u AILE_GENERATION_DIR node --env-file=.env.local \
-     -e 'for (const k of ["VITE_BUDGET_SHEET_ID", "AILE_GENERATION_DIR"]) console.log(k, process.env[k]?.trim() ? "tanımlı" : "TANIMSIZ")'
+   env -u VITE_BUDGET_SHEET_ID -u AILE_GENERATION_DIR -u AILE_EMEKLILIK_PROFILE node --env-file=.env.local \
+     -e 'for (const k of ["VITE_BUDGET_SHEET_ID", "AILE_GENERATION_DIR", "AILE_EMEKLILIK_PROFILE"]) console.log(k, process.env[k]?.trim() ? "tanımlı" : "TANIMSIZ")'
    ```
 
-   İkisi de "tanımlı" olmalıdır. `.env.local` yoksa Node açık hatayla durur.
+   İlk ikisi "tanımlı" olmalıdır. `AILE_EMEKLILIK_PROFILE` isteğe bağlıdır; tanımsızsa Emeklilik planı profilsiz açılır. `.env.local` yoksa Node açık hatayla durur.
 
 2. Sunucuyu başlatın (port kuralları 3. bölümdeki gibidir):
 
    ```bash
-   env -u VITE_BUDGET_SHEET_ID -u AILE_GENERATION_DIR \
+   env -u VITE_BUDGET_SHEET_ID -u AILE_GENERATION_DIR -u AILE_EMEKLILIK_PROFILE \
      node --env-file=.env.local node_modules/vite/bin/vite.js --host 127.0.0.1 --port <P> --strictPort
    ```
 
-3. Neslin servis edildiğini yalnız durum koduyla doğrulayın: `curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:<P>/__aile/generation/_meta` → `200`. `404` ise gövde (`curl -s` ile) nedeni yol vermeden söyler: "AILE_GENERATION_DIR tanımlı değil" ya da "geçerli nesil yok".
+3. Neslin servis edildiğini yalnız durum koduyla doğrulayın: `curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:<P>/__aile/generation/_meta` → `200`. `404` ise gövde (`curl -s` ile) nedeni yol vermeden söyler: "AILE_GENERATION_DIR tanımlı değil" ya da "geçerli nesil yok". Emeklilik profili için de yalnız durum kodu denetlenir, gövde yazdırılmaz (kişisel değer taşır): `curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:<P>/__aile/emeklilik/profil.json` → `200`. `404` "tanımlı değil" ya da "dosyası bulunamadı", `422` dosyanın JSON olmadığı demektir; nedeni görmek için yalnız hata gövdesi okunur.
 4. `http://127.0.0.1:<P>/aile/admin.html#/genel` adresini açın. Tazelik satırında yüklenen nesil kısa kimliğiyle görünmelidir.
 5. İş bitince sunucuyu kapatın.
 
@@ -91,6 +94,7 @@ Notlar:
 
 - Build kabukta sentetik Sheet kimliğiyle koşar. Kabuk değeri `.env.local`'daki değeri ezer; aksi halde gerçek kimlik `dist/` içine gömülür ve kapı girdisi geçersiz olur.
 - Gizlilik kapısı `dist` yoksa "taranacak çıktı yok, kapı atlandı" der ve 0 ile çıkar. Bu geçme kanıtı değildir; kapı her zaman 4. adımdan sonra koşar.
+- Gizlilik kapısı emeklilik profilini de arar: değeriyle birlikte geçen profil alanı (`dogumTarihi`, `ilkSigortaGirisi`, `sgkReferansAylik.tl`, `kayitliGun.gun`, `kazanc.sonPekTl`) `retirement-profile`, `AILE_EMEKLILIK_PROFILE` değeri (yol) `retirement-profile-path` bulgusudur. Yalnız `fixtures/emeklilik/profil-sentetik.json` (`sentetik: true`) değerleri muaftır. Kapı koşarken `AILE_EMEKLILIK_PROFILE` tanımlıysa o dosyadaki doğum tarihi dist'in her yerinde aranır; değer ve yol hiçbir zaman yazdırılmaz.
 - Teslim kapısı çıkış kodları: 0 PASS, 1 FAIL, 2 girdi hatası (build yok, eski grafik, hatalı argüman). Ratchet modunda `[YENİ]` etiketli ihlal FAIL'dir, `[baseline]` etiketli ihlal biliniyor demektir. "baseline daraltılabilir" uyarısı bir ihlalin kalktığını söyler; `scripts/delivery-baseline.json` yalnız daralır ve dosyayı entegrasyon sahibi düzenler. Telefon yolundan antd'yi çıkaran görev bunu rapordaki `yol: admin.html > …` satırının artık kendi bileşeninden geçmediğiyle gösterir.
 - Entegrasyonda E2E sırası: önce telefon projeleri (`--project chromium --project webkit`), sonra `@matrix` projeleri (`--project chromium-360 --project chromium-375 --project chromium-short --project chromium-landscape --project webkit-tablet --project webkit-desktop`), sonra geniş proje (`--project chromium-desktop`). Tam liste tek seferde `pnpm e2e:admin` ile de koşar.
 - Port: `AILE_PORT` çift sayıdır; dev kapısı P, üretim kapısı P+1 kullanır. Verilmezse 5174 ve 5178. Çıktılar `test-results/admin-<P>`, `playwright-report/admin-<P>` ve `test-results/admin-production-<P+1>` klasörlerine yazılır.
@@ -215,7 +219,9 @@ Kalıcı saklama `VITE_AILE_PARTITION_CACHE` ile seçilir (`src/admin/data/store
 
 Ortak cihaz: Ayarlar › "Cihazdaki panel verisi" › "Bu cihazdaki tüm panel verisini sil" onay ister ve bekleyen değişiklik sayısını gösterir. Onaylanınca nesil önbelleğini, `aile:admin:` önekli bütün anahtarları (değişiklik kümesi, canlı bütçe son okuması) ve sekme belleğindeki canlı bütçe kopyasını siler. Ardından sayfa yeniden yüklenir; böylece bellekteki kopyalar ve seçilen klasör de gider. Adres ve anahtar ayrı bir seçenektir ve varsayılan olarak korunur. Ana uygulamanın aynı depodaki verisine (`aile:data:v1`, `aile:outbox:v1`) dokunulmaz. Başka sekmede açık bir panel varsa önce o kapatılır. Açık kalırsa o sekmede yapılan yeni bir değişiklik, bellekteki değişiklik kümesini yeniden yazar. "Önbelleği temizle" yalnız parça önbelleğini siler.
 
-Geliştirme ara katmanı (`/__aile/generation/*`) yalnız `manifest.json`, `data/<koleksiyon>/…/<parça>.json` ve `_meta` yollarını servis eder; `raw/`, `schemas/` ve `contracts/` servis edilmez. Yalnız aynı kökene yanıt verir. `Origin` başlığı sunucunun kendi kökeni değilse ya da `Sec-Fetch-Site` değeri `same-origin` veya `none` değilse 403 döner. Vite'nin varsayılan CORS ayarı başka localhost portlarına izin verse de nesil o kökenlere okunmaz. `curl` gibi başlıksız istekler okunur.
+Emeklilik profili bu tabloda yoktur, çünkü hiçbir yerde saklanmaz: yalnız sekmenin belleğinde durur (`src/admin/emeklilik/data` profil deposu). Geliştirmede ara katmandan okunur. Üretimde (GitHub Pages) varsayılan kaynak yoktur ve hiçbir ağ isteği yapılmaz; kullanıcı profil dosyasını Emeklilik planı sayfasından içe aktarır. Dosya en çok 256 KB olabilir, JSON olarak ayrıştırılır ve sözleşme şemasıyla (Zod, `surum: 1`) doğrulanır; bilinmeyen alanlar yok sayılır, geçersiz dosya alan yoluyla ve değer yazılmadan reddedilir. Sekme kapanınca ya da profil temizlenince profil gider; tarayıcı depolaması ya da önbellek kullanılmaz (kaynak kapısı `src/admin/emeklilik/data/profilKaynagi.test.ts`).
+
+Geliştirme ara katmanı (`/__aile/generation/*`) yalnız `manifest.json`, `data/<koleksiyon>/…/<parça>.json` ve `_meta` yollarını servis eder; `raw/`, `schemas/` ve `contracts/` servis edilmez. Emeklilik yolu (`/__aile/emeklilik/*`) yalnız `profil.json`'u ve yalnız `AILE_EMEKLILIK_PROFILE` değişkeninin gösterdiği tek `.json` dosyasından verir; dosya yoksa ya da `.json` değilse 404, JSON değilse içerik yazılmadan 422 döner. İki yol da yalnız aynı kökene yanıt verir. `Origin` başlığı sunucunun kendi kökeni değilse ya da `Sec-Fetch-Site` değeri `same-origin` veya `none` değilse 403 döner. Vite'nin varsayılan CORS ayarı başka localhost portlarına izin verse de nesil o kökenlere okunmaz. `curl` gibi başlıksız istekler okunur.
 
 Nesil bütünlüğü (`src/admin/data/store.ts`, `data-platform/validate.mjs` ile aynı kurallar):
 

@@ -3,7 +3,10 @@
 // Kurallar: kasa-work / mutlak kullanıcı yolu (/Users, /home, /var/folders, C:\Users), AILE_GENERATION_DIR değeri,
 // Google Sheets kimliği (URL, çıplak sabit, ortam değeri), Apps Script /exec adresi ve dağıtım kimliği, e-posta adresi,
 // nesil kimliği yolu, nesil manifesti alanları, partition zarfı ve kayıt parçaları, kaynak manifesti, erişim denetimi
-// notu, UUID yoğunluğu, source map içinde gömülü kaynak (sourcesContent; satır içi data: map'ler çözülerek taranır).
+// notu, UUID yoğunluğu, source map içinde gömülü kaynak (sourcesContent; satır içi data: map'ler çözülerek taranır),
+// emeklilik profili parçası (dogumTarihi, ilkSigortaGirisi, sgkReferansAylik, kayitliGun, kazanc alanı değeriyle),
+// AILE_EMEKLILIK_PROFILE değeri (yol) ve o dosyadaki doğum tarihi (kapı anında okunur, hiçbir zaman yazdırılmaz).
+// Emeklilik profili için izinli değerler yalnız fixtures/emeklilik/profil-sentetik.json ('sentetik: true') değerleridir.
 // İzinli sentetik değerler: fixtures/generation-synthetic/<id>/manifest.json generation_id'si (yalnız generations/<id>
 // yolu için) ve SYNTHETIC_SHEET_IDS. Fixture'ın kendisi dist'e girmemelidir; manifest/partition kuralları muaf değildir.
 // Kapı sentetik derleme içindir (VITE_BUDGET_SHEET_ID=synthetic-budget-sheet-2098). Yayın derlemesi gerçek Sheet
@@ -29,7 +32,10 @@ const PRIVATE_ENV = [
   ['AILE_GENERATION_DIR', 'generation-dir'],
   ['VITE_BUDGET_SHEET_ID', 'spreadsheet-id'],
   ['VITE_API_URL', 'apps-script-url'],
+  ['AILE_EMEKLILIK_PROFILE', 'retirement-profile-path'],
 ];
+/** Değeri dosya sistemi yolu olan kurallar: sondaki eğik çizgi kırpılır, göreli değer çalışma klasörüne göre de aranır. */
+const PATH_RULES = new Set(['generation-dir', 'retirement-profile-path']);
 
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/gi;
 const ANY_UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
@@ -100,6 +106,28 @@ const ENVELOPE = [
   /(?<![\w$])collection\s*:\s*["'\x60][a-z_]+["'\x60]\s*,\s*records\s*:\s*\[\s*\{/,
 ];
 
+// Emeklilik profili parçası (src/admin/emeklilik/contract.ts EmeklilikProfili): alan adı ve değer sabiti birlikte. Anahtar
+// tırnaklı, kaçışlı ya da çıplak; aradaki boşluk JSON.stringify ile gömülmüş satır sonu (\n) olabilir. Grup 1 değerdir;
+// yalnız sentetik fikstürün aynı alandaki değeri muaftır. Şema/erişim kodu (dogumTarihi:Tt, p.kayitliGun.gun) eşleşmez.
+const GAP = String.raw`(?:\s|\\[nrt])*`;
+const QUOTE = String.raw`\\?["'\x60]`;
+const FIELD = key => String.raw`(?<![\w$])\\?["']?${key}\\?["']?${GAP}:${GAP}`;
+const RETIREMENT_PROFILE = [
+  ['dogumTarihi', new RegExp(`${FIELD('dogumTarihi')}${QUOTE}(\\d{4}-\\d{2}-\\d{2})`, 'g')],
+  ['ilkSigortaGirisi', new RegExp(`${FIELD('ilkSigortaGirisi')}${QUOTE}(\\d{4}-\\d{2}-\\d{2})`, 'g')],
+  ['sgkReferansAylik', new RegExp(`${FIELD('sgkReferansAylik')}\\{${GAP}${FIELD('tl')}${QUOTE}(\\d+(?:\\.\\d{1,2})?)`, 'g')],
+  ['kayitliGun', new RegExp(`${FIELD('kayitliGun')}\\{${GAP}${FIELD('gun')}(\\d+)`, 'g')],
+  ['kazanc', new RegExp(`${FIELD('kazanc')}\\{${GAP}${FIELD('sonPekTl')}${QUOTE}(\\d+(?:\\.\\d{1,2})?)`, 'g')],
+];
+/** Sentetik profilden muaf değerler: RETIREMENT_PROFILE alan adı → değer metni. */
+const syntheticRetirementFields = profile => ({
+  dogumTarihi: profile?.dogumTarihi,
+  ilkSigortaGirisi: profile?.ilkSigortaGirisi,
+  sgkReferansAylik: profile?.sgkReferansAylik?.tl,
+  kayitliGun: profile?.kayitliGun?.gun === undefined ? undefined : String(profile.kayitliGun.gun),
+  kazanc: profile?.kazanc?.sonPekTl,
+});
+
 const SOURCES_CONTENT = /\\?"sourcesContent\\?"\s*:\s*\[\s*(?:null\s*,\s*)*\\?"/;
 const INLINE_MAP = /sourceMappingURL=data:application\/json(?:;charset=[\w-]+)?(;base64)?,([^\s*"'\x60]+)/g;
 
@@ -150,7 +178,7 @@ export function privateValuesFromEnv(env = process.env, { cwd = process.cwd(), a
     if (!raw) continue;
     if (rule === 'spreadsheet-id' && allowedSheetIds.includes(raw)) continue;
     const variants = new Set([raw]);
-    if (rule === 'generation-dir') {
+    if (PATH_RULES.has(rule)) {
       const trimmed = raw.replace(/[\\/]+$/, '');
       variants.delete(raw);
       variants.add(trimmed);
@@ -166,13 +194,53 @@ export function privateValuesFromEnv(env = process.env, { cwd = process.cwd(), a
   return values;
 }
 
+/** JSON dosyasını okur; yoksa ya da bozuksa null. */
+async function readJson(file) {
+  try {
+    return JSON.parse(await readFile(file, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Sentetik emeklilik profilinin (fixtures/emeklilik/profil-sentetik.json) izinli alan değerleri. Dosya yoksa, bozuksa ya da
+ * 'sentetik: true' taşımıyorsa muafiyet verilmez ({}).
+ * @param {string} file
+ * @returns {Promise<Record<string, string>>}
+ */
+export async function loadSyntheticRetirementValues(file) {
+  const profile = await readJson(file);
+  if (profile?.sentetik !== true) return {};
+  return Object.fromEntries(Object.entries(syntheticRetirementFields(profile)).filter(([, value]) => typeof value === 'string' && value));
+}
+
+/**
+ * AILE_EMEKLILIK_PROFILE dosyasındaki doğum tarihi: dist'te hangi bağlamda geçerse geçsin ihlaldir (kural
+ * retirement-profile, bulgu yalnız değişken adını yazar). Sentetik, okunamayan ya da tanımsız profil değer üretmez.
+ * Yalnız doğum tarihi alınır: diğer alanlar (tutar, gün, giriş tarihi) mevzuat sabitleriyle çakışıp yanlış alarm verebilir.
+ * @param {Record<string, string | undefined>} [env]
+ * @param {{ cwd?: string }} [options]
+ * @returns {Promise<Array<{ rule: string, name: string, value: string }>>}
+ */
+export async function retirementProfileValues(env = process.env, { cwd = process.cwd() } = {}) {
+  const raw = env.AILE_EMEKLILIK_PROFILE?.trim();
+  if (!raw) return [];
+  const profile = await readJson(path.resolve(cwd, raw));
+  if (!profile || profile.sentetik === true) return [];
+  const birth = profile.dogumTarihi;
+  if (typeof birth !== 'string' || birth.length < MIN_PRIVATE_VALUE_LENGTH) return [];
+  return [{ rule: 'retirement-profile', name: 'AILE_EMEKLILIK_PROFILE', value: birth }];
+}
+
 /**
  * @param {string} text
  * @param {{ exemptGenerationIds?: string[], allowedSheetIds?: readonly string[],
- *   privateValues?: Array<{ rule: string, name: string, value: string }> }} [options]
+ *   privateValues?: Array<{ rule: string, name: string, value: string }>,
+ *   exemptRetirementValues?: Record<string, string> }} [options]
  * @returns {Array<{ rule: string, match: string, count?: number }>}
  */
-export function scanText(text, { exemptGenerationIds = [], allowedSheetIds = SYNTHETIC_SHEET_IDS, privateValues = [] } = {}) {
+export function scanText(text, { exemptGenerationIds = [], allowedSheetIds = SYNTHETIC_SHEET_IDS, privateValues = [], exemptRetirementValues = {} } = {}) {
   const findings = [];
   // Kural başına ilk eşleşme yeterli; dosya ve kural birlikte bildirilir.
   const add = (rule, match, extra) => {
@@ -191,6 +259,15 @@ export function scanText(text, { exemptGenerationIds = [], allowedSheetIds = SYN
   }
   for (const { rule, name, value } of privateValues) {
     if (haystack.includes(value)) add(rule, name);
+  }
+
+  for (const [field, re] of RETIREMENT_PROFILE) {
+    if (findings.some(f => f.rule === 'retirement-profile')) break;
+    for (const m of haystack.matchAll(re)) {
+      if (exemptRetirementValues[field] === m[1]) continue;
+      add('retirement-profile', field);
+      break;
+    }
   }
 
   const exempt = new Set(exemptGenerationIds.map(id => id.toLowerCase()));
@@ -287,8 +364,9 @@ async function main(argv, env = process.env) {
     return 0;
   }
   const exemptGenerationIds = await loadSyntheticGenerationIds(path.join(root, 'fixtures', 'generation-synthetic'));
-  const privateValues = privateValuesFromEnv(env, { cwd: root });
-  const findings = await scanDist(distDir, { exemptGenerationIds, privateValues });
+  const exemptRetirementValues = await loadSyntheticRetirementValues(path.join(root, 'fixtures', 'emeklilik', 'profil-sentetik.json'));
+  const privateValues = [...privateValuesFromEnv(env, { cwd: root }), ...(await retirementProfileValues(env, { cwd: root }))];
+  const findings = await scanDist(distDir, { exemptGenerationIds, privateValues, exemptRetirementValues });
   for (const f of findings) console.error(`dist-privacy: ${f.rule}  ${f.file}  (${f.match})`);
   if (findings.some(f => f.rule === 'spreadsheet-id' || f.rule === 'apps-script-url')) {
     console.error(`dist-privacy: kapı sentetik derleme içindir; önce "${SYNTHETIC_BUILD_HINT}" ile derleyin (VITE_API_URL boş).`);

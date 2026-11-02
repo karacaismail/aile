@@ -8,7 +8,7 @@ import { adminLeads, adminNav, defaultAdminPath, type AdminPageKey } from './she
 import { ErrorState } from './ui/ErrorState';
 import { LoadingShell } from './ui/LoadingShell';
 
-// Rota → sayfa: navigation.ts yolları (/genel … /veri, /ayarlar) tek kaynaktır; etiket ve amaç oradan gelir.
+// Rota → sayfa: navigation.ts yolları (/genel … /veri, /emeklilik, /ayarlar) tek kaynaktır; etiket ve amaç oradan gelir.
 // - Her sayfa React.lazy ile kendi parçasında yüklenir, yalnız rotası çizildiğinde. Başka sayfa ya da geniş (*.wide)
 //   parça için spekülatif ön yükleme yok; geniş parçaları sayfalar lazyWide ile yalnız geniş profilde ister.
 // - Yüklenirken aynı PageHeader (bölüm + h1 + amaç; başlık korunur) ve altında LoadingShell çizilir.
@@ -42,6 +42,7 @@ const PAGE_LOADERS: Readonly<Record<AdminRouteKey, PageLoader>> = {
   butce: () => import('./pages/ButcePage').then(m => ({ location }: RoutePageProps) => <m.ButcePage location={location} />),
   odemeler: () => import('./pages/OdemelerPage').then(m => ({ location }: RoutePageProps) => <m.OdemelerPage location={location} />),
   hesaplar: () => import('./pages/HesaplarPage').then(m => ({ location }: RoutePageProps) => <m.HesaplarPage location={location} />),
+  emeklilik: () => import('./pages/EmeklilikPage').then(m => () => <m.EmeklilikPage />),
   alimlar: () => import('./pages/AlimlarPage').then(m => ({ location }: RoutePageProps) => <m.AlimlarPage location={location} />),
   ev: () => import('./pages/EvPage').then(m => () => <m.EvPage />),
   projeler: () => import('./pages/ProjelerPage').then(m => () => <m.ProjelerPage />),
@@ -62,7 +63,7 @@ function nestedPattern(path: string): RegExp {
   return new RegExp(`^${path}(?:/.*)?$`, 'i');
 }
 
-/** navigation.ts sırasıyla 11 sayfa + Ayarlar; dış bağlantı (E-tabloyu aç) rota değildir. */
+/** navigation.ts sırasıyla 12 sayfa + Ayarlar; dış bağlantı (E-tabloyu aç) rota değildir. */
 const ROUTES: readonly AdminRoute[] = adminNav
   .filter(item => !item.external)
   .map(item => ({
