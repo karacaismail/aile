@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { FilterFacet } from './contracts';
-import { FilterPanel } from './FilterPanel';
+import { FilterPanel, facetSelectedCount } from './FilterPanel';
 
 // Tasarım › components/FilterPanel/README.md + README "Filtre boyutları": başlık h3 "Filtreler" + "Temizle"; her boyut
 // ayrı Disclosure (meta = seçili sayısı); seçeneklerde sayım; "Bilinmiyor" sonda; kategori ağacında üst seçim alt dalları
@@ -152,14 +152,76 @@ describe('FilterPanel', () => {
     expect(onToggle).toHaveBeenCalledWith('tutar', 'encok=8500');
   });
 
+  it('seçenek yerel checkbox: görünür kutu odak alır (gizli antd input yok), satır etiket + data-focus-line, sayım tr-TR', () => {
+    const buyuk: FilterFacet = { ...oda, options: [...oda.options, { value: 'mutfak', label: 'Mutfak', count: 1250 }] };
+    const { container } = render(<FilterPanel bare facets={[buyuk]} onToggle={vi.fn()} onClear={vi.fn()} openKeys={['oda']} />);
+    const salon = screen.getByRole('checkbox', { name: 'Salon' });
+    expect(salon.tagName).toBe('INPUT');
+    expect(salon).toHaveAttribute('type', 'checkbox');
+    expect(salon).toHaveAccessibleDescription('7');
+    // Odak çizgisini admin.css [data-focus-line]:has(:focus-visible)::after satırın altına çizer; satır tıklanabilir etikettir.
+    const satir = salon.closest('label');
+    expect(satir).not.toBeNull();
+    expect(satir).toHaveAttribute('data-focus-line');
+    expect(satir).toHaveTextContent('Salon');
+    // antd Checkbox'ın opacity 0 input'u ve sınıfları yok: telefon yolu antd istemez.
+    expect(container.querySelector('[class*="ant-"]')).toBeNull();
+    expect(screen.getByText('1.250')).toBeInTheDocument();
+  });
+
+  it('ağaç kısmi seçimi yerel indeterminate ile bildirir; aria-checked yerel checkbox üzerinde yazılmaz', () => {
+    render(<FilterPanel facets={[{ ...kategori, selected: ['oturma'] }]} onToggle={vi.fn()} onClear={vi.fn()} openKeys={['kategori']} />);
+    const mobilya = screen.getByRole('checkbox', { name: 'Mobilya' }) as HTMLInputElement;
+    expect(mobilya.indeterminate).toBe(true);
+    expect(mobilya).not.toHaveAttribute('aria-checked');
+  });
+
+  it('yazılmış ama blur olmamış aralık değeri bileşen sökülünce (profil/mod değişimi) kaybolmaz: onToggle ile bildirilir', async () => {
+    const user = userEvent.setup();
+    const onToggle = vi.fn();
+    const { unmount } = render(<FilterPanel facets={[tutar]} onToggle={onToggle} onClear={vi.fn()} openKeys={['tutar']} />);
+    await user.type(screen.getByRole('textbox', { name: 'En çok' }), '8500');
+    expect(onToggle).not.toHaveBeenCalled();
+    unmount();
+    expect(onToggle).toHaveBeenCalledTimes(1);
+    expect(onToggle).toHaveBeenCalledWith('tutar', 'encok=8500');
+  });
+
+  it('değişmemiş aralık alanı sökülünce hiçbir şey bildirmez', () => {
+    const onToggle = vi.fn();
+    const { unmount } = render(<FilterPanel facets={[{ ...tutar, selected: ['enaz=1000'] }]} onToggle={onToggle} onClear={vi.fn()} openKeys={['tutar']} />);
+    unmount();
+    expect(onToggle).not.toHaveBeenCalled();
+  });
+
+  it('facetSelectedCount: tarih türü ve boş aralık girdisi seçim sayılmaz', () => {
+    expect(facetSelectedCount(tarih)).toBe(0);
+    expect(facetSelectedCount({ ...tarih, selected: ['teslim', 'baslangic=01.10.2026', 'bitis='] })).toBe(1);
+    expect(facetSelectedCount(asama)).toBe(2);
+    expect(facetSelectedCount({ ...tutar, selected: ['enaz=1000', 'encok=2000'] })).toBe(2);
+  });
+
+  it('CSS: kutu görünür (gizlenmez), kaba girişte satır 48 px, masaüstünde başlıklı panel 272 px, hover yalnız hover katmanında', () => {
+    const css = read('FilterPanel.css');
+    expect(css).toMatch(/\.aile-filtre-kutu\s*\{[^}]*appearance:\s*none/);
+    expect(css).not.toMatch(/\.aile-filtre-kutu[^{]*\{[^}]*opacity:\s*0/);
+    // Satır hedefi merkezi uyarlamalı token (b04): 44 px, kaba girişte 48 px; kaba kural yerelde yeniden türetilmez.
+    expect(css).toMatch(/\.aile-filtre-secenek\s*\{[^}]*min-height:\s*var\(--aile-dokunma-hedefi\)/);
+    expect(css).not.toMatch(/data-input-coarse|calc\(var\(--aile-hedef-asgari\)/);
+    expect(css).toMatch(/\[data-profile='desktop'\][^{]*\.aile-filtre:not\(\.aile-filtre--bare\)[^{]*\{[^}]*var\(--aile-filtre-genislik\)/);
+    expect(css).toMatch(/\[data-input-hover\][^{]*\.aile-filtre-secenek:hover/);
+    expect(css).not.toMatch(/^\.aile-filtre-secenek:hover/m);
+  });
+
   it('kaynak: ham antd importu yok (ui üzerinden), CSS yalnız token; outline/box-shadow/sabit renk yok', () => {
     const tsx = read('FilterPanel.tsx');
     expect(tsx).not.toMatch(/from\s+['"](antd|@ant-design\/[^'"]+|@phosphor-icons\/[^'"]+|echarts)['"]/);
+    expect(tsx, 'telefon yolunda ui/antd importu').not.toMatch(/from\s+['"]\.\.\/ui\/antd['"]/);
     expect(tsx).toContain("import './FilterPanel.css'");
     const css = read('FilterPanel.css');
     expect(css).not.toMatch(/#[0-9a-f]{3,8}\b/i);
     expect(css).not.toMatch(/^\s*(outline|box-shadow)\s*:/m);
-    expect(css).toMatch(/var\(--aile-hedef-asgari\)/);
+    expect(css).toMatch(/var\(--aile-dokunma-hedefi\)/);
     const fixedPx = (css.match(/\b\d+px\b/g) ?? []).filter(value => value !== '1px');
     expect(fixedPx).toEqual([]);
   });

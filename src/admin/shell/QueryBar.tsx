@@ -1,7 +1,9 @@
 import { useMemo } from 'react';
+import { lazyWide } from '../adaptive';
 import { useDevice } from '../device';
 import { Button, IconButton, Select, Tabs, Tag, TextField } from '../ui';
 import { VIEW_LABELS, VIEW_MODES, type ActiveFilter, type QueryBarProps, type ViewMode } from './contracts';
+import type { KayitliGorunumProps } from './QueryBar.wide';
 import './QueryBar.css';
 
 // Tasarım: README.md › Sayfa iskeleti (3. Sorgu çubuğu, 4. Filtreler) + components/QueryBar/README.md + bundle.js › QueryBar.
@@ -12,11 +14,16 @@ import './QueryBar.css';
 // görünür ve onOpenFilters çağırır. Dar düzen: arama tam genişlik; "Filtreler (N)" + sıralama + dışa aktar (yalnız
 // simge, aria-label); mod seçimi (telefonda Tabs kendisi combobox'a düşer); etkin etiketler altta. Sonuç sayısı
 // tr-TR biçiminde durum metni. Bölge role="search". Renk/ölçü yalnız QueryBar.css'te --aile tokenlarıyla.
+// Telefon (320'den başlayarak): arama tam genişlik, sıralama ui/Select (telefonda alt sayfa listesi), "Filtreler (N)"
+// tetiği alt sayfayı açar; N = filterCount (verilirse; ör. FilterDrawer.activeFilterCount(facets)) yoksa etkin etiket
+// sayısı. Tetik, dışa aktar ve "Tümünü temizle" 44 px, kaba girişte 48 px. Bileşen durumsuzdur (değerler props): arama,
+// sıralama, mod ve etkin filtreler profil ve görünüm modu değişiminde çağıranda korunur. antd importu yok; yalnız ../ui.
+// Geniş-özel parça (yalnız masaüstündeki "Kayıtlı görünüm") ./QueryBar.wide'dadır ve lazyWide ile yüklenir: telefon
+// profili onu hiç indirmez; masaüstünde modül gelene kadar yeri boş kalır (diğer kontroller hemen çalışır).
 
 const ARA = 'Ara';
 const ARA_IPUCU_GENIS = 'Ad, kimlik kodu veya satıcı';
 const ARA_IPUCU_DAR = 'Ad veya kimlik kodu';
-const KAYITLI_GORUNUM = 'Kayıtlı görünüm';
 const SIRALAMA = 'Sıralama';
 const GORUNUM_MODU = 'Görünüm modu';
 const DISA_AKTAR = 'Dışa aktar';
@@ -24,6 +31,8 @@ const ETKIN_FILTRELER = 'Etkin filtreler';
 const TUMUNU_TEMIZLE = 'Tümünü temizle';
 const SORGU = 'Sorgu';
 const sayi = new Intl.NumberFormat('tr-TR');
+
+const KayitliGorunum = lazyWide<KayitliGorunumProps>('querybar-kayitli-gorunum', () => import('./QueryBar.wide'));
 
 /** "Gantt kullanılamaz: alımların başlangıç ve bitiş tarihi yok." — gerekçe verilmezse yalnız "Gantt kullanılamaz." */
 export function kullanilamazNotu(mode: ViewMode, reason?: string): string {
@@ -35,10 +44,17 @@ export function kullanilamazNotu(mode: ViewMode, reason?: string): string {
 
 const cx = (...parts: (string | false | undefined)[]) => parts.filter(Boolean).join(' ');
 
+/** QueryBarProps + isteğe bağlı ekler (sözleşme dosyası değişmeden). */
+export interface QueryBarViewProps extends QueryBarProps {
+  /** "Filtreler (N)" tetiğinde yazılacak etkin filtre sayısı; verilmezse activeFilters.length. Arama gibi panel dışı
+   *  etkinler etiket olarak görünür ama çekmecede sayılmaz; çağıran activeFilterCount(facets) verir. */
+  filterCount?: number;
+}
+
 export function QueryBar({
   mode, onModeChange, supported, unsupportedReason, search, onSearchChange, sort, sortOptions, onSort, savedViews,
-  exportLabel, onExport, activeFilters, onOpenFilters, resultCount,
-}: QueryBarProps) {
+  exportLabel, onExport, activeFilters, onOpenFilters, resultCount, filterCount,
+}: QueryBarViewProps) {
   const device = useDevice();
   const dar = device !== 'desktop';
 
@@ -56,7 +72,6 @@ export function QueryBar({
     const secenek = sortOptions?.find(option => option.key === key);
     if (secenek) onSort?.(secenek);
   };
-  const gorunumSec = (id: string) => savedViews?.find(view => view.id === id)?.onSelect();
   const tumunuTemizle = () => activeFilters.forEach((filter: ActiveFilter) => filter.onRemove());
 
   const arama = (
@@ -91,7 +106,7 @@ export function QueryBar({
       {activeFilters.map(filter => (
         <Tag key={filter.id} removable label={filter.label} onRemove={filter.onRemove}>{filter.label}</Tag>
       ))}
-      <Button variant="quiet" onClick={tumunuTemizle}>{TUMUNU_TEMIZLE}</Button>
+      <Button variant="quiet" onClick={tumunuTemizle} className="aile-sorgu-temizle">{TUMUNU_TEMIZLE}</Button>
     </div>
   );
 
@@ -100,11 +115,11 @@ export function QueryBar({
       <div role="search" aria-label={SORGU} className={cx('aile-sorgu', 'aile-sorgu--dar')}>
         {arama}
         <div className="aile-sorgu-satir">
-          <Button variant="secondary" icon="filter" onClick={onOpenFilters} aria-haspopup="dialog">
-            {`Filtreler (${sayi.format(activeFilters.length)})`}
+          <Button variant="secondary" icon="filter" onClick={onOpenFilters} aria-haspopup="dialog" className="aile-sorgu-filtre">
+            {`Filtreler (${sayi.format(filterCount ?? activeFilters.length)})`}
           </Button>
           {siralama}
-          {disaAktarEtiketi && <IconButton icon="download" label={disaAktarEtiketi} variant="secondary" onClick={onExport} />}
+          {disaAktarEtiketi && <IconButton icon="download" label={disaAktarEtiketi} variant="secondary" onClick={onExport} className="aile-sorgu-disa" />}
         </div>
         {modSecimi}
         {sonuc}
@@ -117,15 +132,7 @@ export function QueryBar({
     <div role="search" aria-label={SORGU} className="aile-sorgu">
       <div className="aile-sorgu-satir">
         {arama}
-        {kayitliVar && (
-          <Select
-            label={KAYITLI_GORUNUM}
-            options={savedViews!.map(view => ({ value: view.id, label: view.label }))}
-            value={savedViews!.find(view => view.active)?.id}
-            onChange={gorunumSec}
-            className="aile-sorgu-secim"
-          />
-        )}
+        {kayitliVar && <KayitliGorunum savedViews={savedViews!} />}
         {siralama}
         {disaAktarEtiketi && <Button variant="secondary" icon="download" onClick={onExport}>{disaAktarEtiketi}</Button>}
       </div>
