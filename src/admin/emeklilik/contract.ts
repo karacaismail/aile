@@ -17,6 +17,8 @@
 //   - Ödenmeyen Bağ-Kur borcunun aylık kesintisi yalnız borç bitene kadar sürer; borç bilinmiyorsa süre bilinmiyor.
 //   - Aylık tahmini tek değer ve etiketlidir; ölçülmemiş ±% aralık üretilmez.
 //   - Yollar ortak bir dönemde karşılaştırılır: geç yolun emekliliğinden sonra karsilastirmaSuresiYil yıl.
+//   - Geri kazanma (başa baş): referansa göre birikimli fark (ödeme ve vazgeçilen ücret dahil) ilk kez ≥ 0 olduğu ay;
+//     dönem içinde yoksa null ve neden yok ("geri dönmüyor"). Net aylık eksiye düşmez (ayda en az 0).
 //   - Sekiz bileşimin hepsi değerlendirilir; mali sıralama yapılamıyorsa öneri "en erken tarih" olarak adlandırılır.
 
 export type SecenekAnahtari = 'askerlik' | 'bagkur' | 'ihya';
@@ -26,7 +28,7 @@ export const SECENEK_ANAHTARLARI: readonly SecenekAnahtari[] = ['askerlik', 'bag
 export type AyMetni = string;
 /** 'YYYY-MM-DD' takvim günü. */
 export type TarihMetni = string;
-/** Ondalık TL metni, nokta ondalık ayırıcı; ör. '208089.00'. Kayan noktaya çevrilmeden işlenir. */
+/** Ondalık TL metni, nokta ondalık ayırıcı; ör. '8500.00'. Kayan noktaya çevrilmeden işlenir. */
 export type TlMetni = string;
 
 /** Tutar bilgisi: bilinen tek tutar, aralık ya da bilinmiyor. Kaynak/neden her zaman yazılır. */
@@ -48,6 +50,11 @@ export interface EmeklilikProfili {
   hedefGun: number;
   /** Sigortalılık süresi şartı (yıl). 18 yaşından önce girişte süre 18. doğum gününden başlar. */
   sigortalilikYili: number;
+  /**
+   * İsteğe bağlı asgari yaş şartı (tam yıl, 0–100). Yaş şartı varsayılan olarak kapsam dışıdır; alan varsa planlama ayı
+   * bu yaşın dolduğu aydan önce olamaz (docs/EMEKLILIK-PLANI.md). Alan yoksa hesap değişmez.
+   */
+  asgariYas?: number;
   kayitliGun: { gun: number; sonAy: AyMetni; once2008Gun: number; sonra2008Gun: number };
   /** Kayıt düzeltmesi önerisi (ör. 31 günlük ayın 30'a inmesi: -1). Uygulanıp uygulanmayacağı varsayımdır. */
   gunDuzeltmesi: { gun: number; aciklama: string };
@@ -143,8 +150,16 @@ export interface YolSonucu {
   emeklilikAyi: AyMetni | null;
   /** Emeklilik ayı sonundaki yaş. */
   yas: number | null;
-  /** Tarihi belirleyen koşul. */
+  /**
+   * Tarihi belirleyen koşul: prim günü ya da sigortalılık süresi. null: hedefe ulaşılamıyor (emeklilikAyi null) ya da
+   * tarihi bu iki koşul dışında bir şey belirliyor (sinirlayanAyrinti).
+   */
   sinirlayanKosul: 'gun' | 'sigortalilikSuresi' | null;
+  /**
+   * İsteğe bağlı: sinirlayanKosul null ve emeklilikAyi varken tarihi ne belirledi. 'asgariYas': profildeki asgari yaş
+   * şartı; 'kayitAyi': gün ve süre kayıt ayından önce dolmuş, planlama ayı kayıt ayıdır. Diğer durumlarda null.
+   */
+  sinirlayanAyrinti?: 'asgariYas' | 'kayitAyi' | null;
   /** Geçmiş günler için toplam ödeme ve kalemleri. */
   odeme: TutarBilgisi;
   odemeKalemleri: Array<{ anahtar: SecenekAnahtari; tutar: TutarBilgisi }>;
@@ -167,10 +182,19 @@ export interface KarsilastirmaSonucu {
   gecYolEmekliOlunca: TutarBilgisi;
   /** Karşılaştırma süresinin sonunda birikimli fark. */
   donemSonunda: TutarBilgisi;
-  /** Ek ödemeyi karşılayan emekli aylığı sayısı; hesaplanamıyorsa null. */
+  /**
+   * Geri kazanma (başa baş): ortak dönemin başından (erken yolun emekliliği) kaç ay sonra referansa göre birikimli fark
+   * (ödeme ve vazgeçilen ücret dahil) ilk kez ≥ 0 olur; 0 = ek ödeme yok. Aralıklı girdide iki senaryonun uzun olanı.
+   * null: girdi bilinmiyor (hesaplanamayanNeden dolu) ya da dönem içinde başa baş yok (hesaplanamayanNeden null).
+   */
   geriKazanmaAylikSayisi: number | null;
   /** Mali sonuç üretilemiyorsa neden (Türkçe, kullanıcıya gösterilir). */
   hesaplanamayanNeden: string | null;
+  /**
+   * İsteğe bağlı: karşılaştırmadaki aylık net iş ücreti (zam varsayımı uygulanmış) ve kaynağı. isUcretiDevam=false iken
+   * emekli olan yolun vazgeçtiği ücrettir; true iken iki yolda aynı olduğundan farka girmez. Profilden gelir.
+   */
+  isUcreti?: TutarBilgisi;
 }
 
 export interface SecimEtkisi {

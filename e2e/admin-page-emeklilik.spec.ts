@@ -9,7 +9,10 @@ import { accentEdges, focusRing, overflow, smallText, touchTargets } from './adm
 // 820×1180 tablet ve 1440 masaüstünde de koşar. Belge: docs/EMEKLILIK-PLANI.md; katmanlar src/admin/emeklilik/contract.ts.
 // Yolculuk: başlık + amaç + öneri ve "Bunu seç" ilk ekranda → üç bağımsız Evet/Hayır sorusu (yerel radyo grubu, 44/48 px)
 // → sonuç özeti anında değişir (planlama ayı, yaş, ödeme, aylık + model adı, kesinti) → öneriye dönüş → sekiz bileşim
-// telefonda akordeon (ilk satır açık) → "Gün ve tutarları düzenle" içinde aralık dışı gün hatası alanın yanında.
+// telefonda akordeon (ilk satır açık) → "Gün ve tutarları düzenle" içinde aralık dışı gün hatası alanın yanında → bütün
+// bölümler açıkken sayfadaki her etkileşimli denetim dokunma hedefini (44; kaba girişte 48) karşılar.
+// Alanlar arası kural: borç ortak ödemeden az yazılınca ("4") alan hatası; sayfa hata durumuna geçmez, odak ve açık bölüm
+// korunur. Geniş sunum dar kapsayıcıda (768×1024 ve 1024×768 çevresi, N−1/N/N+1): sonuç seçimlerin hemen altında.
 // Durumlar: profil yok (üretim varsayılanı: dosya içe aktarma, yalnız bellekte) ve hata, adlarıyla.
 // Veri: yalnız sentetik profil (fixtures/emeklilik/profil-sentetik.json) /__aile/emeklilik/profil.json yolundan
 // page.route ile verilir; kişisel profil ve geliştirme ortam değişkeni kullanılmaz. Google'a istek gitmez (kesilir).
@@ -147,7 +150,14 @@ test.describe('Emeklilik planı › telefon', () => {
     await gun.blur();
     await expect(gun).not.toHaveAttribute('aria-invalid', 'true');
 
-    // 8. Kurallar ve teslim: geniş/antd/grafik modülü istenmez, Google'a istek yok.
+    // 8. Bütün bölümler açık: sayfadaki her etkileşimli denetim (radyo, onay, alan, düğme, akordeon, dosya seçici) hedefi karşılar.
+    const maas = main.getByRole('button', { name: 'Maaş ve aylık varsayımları' });
+    await maas.scrollIntoViewIfNeeded();
+    await maas.click();
+    await expect(maas).toHaveAttribute('aria-expanded', 'true');
+    expect(await touchTargets(page, { root: 'main#admin-content' }), `sayfadaki bütün dokunma hedefleri ≥ ${kaba ? HEDEF_KABA : HEDEF}`).toEqual([]);
+
+    // 9. Kurallar ve teslim: geniş/antd/grafik modülü istenmez, Google'a istek yok.
     await kurallar(page);
     expect(istekler.filter(yol => GENIS_ISTEK.test(yol)), 'telefonda geniş/antd/grafik modülü').toEqual([]);
     expect(google, "Google'a istek").toEqual([]);
@@ -168,6 +178,61 @@ test.describe('Emeklilik planı › telefon', () => {
     await page.keyboard.press(tabKey(browserName));
     expect(await focusRing(page), 'sonraki duraklarda halka yok').toEqual([]);
   });
+});
+
+test('Bağ-Kur borcu ortak ödemeden az ("4"): alan hatası; sayfa hata durumuna geçmez, odak ve açık bölüm korunur', async ({ page }) => {
+  const { main } = await emeklilikAc(page);
+  const duzenle = main.getByRole('button', { name: 'Gün ve tutarları düzenle' });
+  await duzenle.scrollIntoViewIfNeeded();
+  await duzenle.click();
+  await main.getByRole('radiogroup', { name: 'Bağ-Kur borcunun kaynağı' }).getByRole('radio', { name: 'Tutarı gir' }).click();
+  const tutar = main.getByLabel('Düzeltilmiş Bağ-Kur borcu');
+  await tutar.fill('');
+  await tutar.pressSequentially('4');
+  await expect(tutar).toBeFocused();
+  await expect(tutar).toHaveAttribute('aria-invalid', 'true');
+  await expect(main.getByText('Hata: Borç, yalnız SSK yolunda da ödenecek tutardan (₺50.000,00) az olamaz.')).toBeVisible();
+  await expect(duzenle).toHaveAttribute('aria-expanded', 'true');
+  await expect(main.getByRole('alert')).toHaveCount(0);
+  await expect(sonuc(main)).toBeVisible();
+  await expect(sonuc(main)).toContainText('1 alanda hata var; sonuç son geçerli değerlerle hesaplandı.');
+  await tutar.pressSequentially('00.000,00');
+  await expect(tutar).toHaveValue('400.000,00');
+  await expect(tutar).not.toHaveAttribute('aria-invalid', 'true');
+  await expect(tutar).toBeFocused();
+  await kurallar(page);
+});
+
+// Geniş sunumun dar kapsayıcısı: tablet dikey (768) ve masaüstü kırılımı (1024) çevresinde N−1/N/N+1. Sonuç ya sağ
+// sütunda (iki sütun) ya da seçimlerin hemen altında (tek sütun, paylardan önce); hiçbir genişlikte sayfanın sonuna düşmez.
+const KIRILIMLAR = [
+  { width: 767, height: 1024 }, { width: 768, height: 1024 }, { width: 769, height: 1024 },
+  { width: 1023, height: 768 }, { width: 1024, height: 768 }, { width: 1025, height: 768 },
+] as const;
+
+test('geniş sunum dar kapsayıcıda: sonuç seçimlerin hemen altında ya da sağ sütunda (768×1024, 1024×768; N−1/N/N+1)', async ({ page }) => {
+  await googleKapisi(page);
+  await sentetikProfil(page);
+  for (const boyut of KIRILIMLAR) {
+    const ad = `${boyut.width}×${boyut.height}`;
+    await page.setViewportSize(boyut);
+    const main = await openAdmin(page, '/emeklilik');
+    await expect(sonuc(main), ad).toBeVisible();
+    await expect(main.locator('[data-emeklilik-yerlesim]'), ad).toHaveAttribute('data-emeklilik-yerlesim', 'genis');
+    const kutu = async (bolum: string) => (await main.getByRole('region', { name: bolum, exact: true }).boundingBox())!;
+    const secimler = await kutu('Seçimler');
+    const s = await kutu('Sonuç');
+    const paylar = await kutu('Her seçimin payı');
+    const ihya = await kutu('İhya karşılaştırması');
+    if (s.x >= secimler.x + secimler.width - 1) {
+      expect(s.y, `${ad}: sağ sütunda sonuç seçimlerle aynı hizada başlar`).toBeLessThan(secimler.y + secimler.height);
+    } else {
+      expect(s.y, `${ad}: sonuç seçimlerin altında`).toBeGreaterThanOrEqual(secimler.y + secimler.height - 1);
+      expect(s.y + s.height, `${ad}: sonuç paylardan önce`).toBeLessThanOrEqual(paylar.y + 1);
+    }
+    expect(s.y, `${ad}: sonuç ihya karşılaştırmasından önce`).toBeLessThan(ihya.y);
+    expect(await horizontalOverflow(page), `${ad}: sayfa düzeyinde yatay taşma yok`).toEqual([]);
+  }
 });
 
 test.describe('Emeklilik planı › profil durumları', () => {
@@ -223,7 +288,7 @@ test('Emeklilik planı uyarlanır yerleşim: başlık, öneri eylemi ve sorular 
     await expect(evet).toBeInViewport();
   }
   const kaba = await page.evaluate(() => matchMedia('(any-pointer: coarse)').matches);
-  expect(await touchTargets(page, { root: '[data-bolum="secimler"]' }), `dokunma hedefi ≥ ${kaba ? HEDEF_KABA : HEDEF}`).toEqual([]);
+  expect(await touchTargets(page, { root: 'main#admin-content' }), `sayfadaki bütün dokunma hedefleri ≥ ${kaba ? HEDEF_KABA : HEDEF}`).toEqual([]);
   await kurallar(page);
 });
 

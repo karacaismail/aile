@@ -46,10 +46,28 @@ describe('YolKarsilastirici', () => {
     expect(k.yol).toBe(askerlik.sonuc());
   });
 
-  it('iş ücreti devam etmezse emekli olan yol ücretten vazgeçer (zamlı ücret)', () => {
+  it('iş ücreti devam etmezse emekli olan yol ücretten vazgeçer (zamlı ücret); geri kazanma vazgeçilen ücreti de sayar', () => {
     const k = new YolKarsilastirici(kosul({ isUcretiDevam: false })).karsilastir(askerlik, ref);
     expect(kisa(k.gecYolEmekliOlunca)).toBe('-1078362.00');
-    expect(k.geriKazanmaAylikSayisi).toBe(8);
+    // Codex compareCashToSsk: aylık fark = aylık − vazgeçilen ücret < 0 → dönem içinde başa baş yok (geri dönmüyor).
+    expect(k.geriKazanmaAylikSayisi).toBeNull();
+    expect(k.geriKazanmaAraligi).toEqual({ alt: null, ust: null });
+    expect(k.hesaplanamayanNeden).toBeNull();
+  });
+
+  it('geri kazanma: hiçbir şey ödemeyen yola göre birikimli farkın ilk kez sıfıra ulaştığı ay; geç yol emekli olduktan sonra da sayılır', () => {
+    const yuksek = sahteYol({ ...HIC, askerlik: true }, '2032-05', tl('400000.00'), '30000.00');
+    // İlk 12 ay yalnız bu yol aylık alır: 12 × 30.000 − 400.000 = −40.000. Sonra ayda 30.000 − 25.000 = 5.000 → 8 ay daha.
+    const birYil = new YolKarsilastirici(kosul({ karsilastirmaSuresiYil: 1 })).karsilastir(yuksek, ref);
+    expect(kisa(birYil.gecYolEmekliOlunca)).toBe('-40000.00');
+    expect(kisa(birYil.donemSonunda)).toBe('20000.00');
+    expect(birYil.geriKazanmaAylikSayisi).toBe(20);
+    expect(birYil.geriKazanmaAraligi).toEqual({ alt: 20, ust: 20 });
+    // Ortak dönem geç yolun emekliliğinde biterse başa baş dönem içinde yoktur: null ve neden yok ("geri dönmüyor").
+    const donemsiz = new YolKarsilastirici(kosul()).karsilastir(yuksek, ref);
+    expect(donemsiz.geriKazanmaAylikSayisi).toBeNull();
+    expect(donemsiz.geriKazanmaAraligi).toEqual({ alt: null, ust: null });
+    expect(donemsiz.hesaplanamayanNeden).toBeNull();
   });
 
   it('ortak dönem geç yolun emekliliğinden sonra seçilen yıl kadar sürer', () => {
@@ -60,9 +78,12 @@ describe('YolKarsilastirici', () => {
     expect(kisa(k.ekOdeme)).toBe('247725.00');
     expect(kisa(k.gecYolEmekliOlunca)).toBe('136275.00');
     expect(kisa(k.donemSonunda)).toBe('-103725.00');
+    // Codex compareIhyaChoice: başa baş erken dönemde (16 ay) gelir: ⌈247.725 / 24.000⌉ = 11.
+    expect(k.geriKazanmaAylikSayisi).toBe(11);
     const isiBirakan = new YolKarsilastirici(kosul({ karsilastirmaSuresiYil: 10, isUcretiDevam: false })).karsilastir(erken, gec);
     expect(kisa(isiBirakan.gecYolEmekliOlunca)).toBe('-1463725.00');
     expect(kisa(isiBirakan.donemSonunda)).toBe('-1703725.00');
+    expect(isiBirakan.geriKazanmaAylikSayisi).toBeNull();
   });
 
   it('yol referanstan geçse fark işaret değiştirir', () => {

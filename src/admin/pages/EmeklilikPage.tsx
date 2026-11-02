@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useSyncExternalStore, type ReactNode } from 'react';
+import { useCallback, useMemo, useSyncExternalStore, type ReactNode } from 'react';
 import { Adaptive, lazyWide, useProfile, useWideModule } from '../adaptive';
 import type { EmeklilikPlanlayici, EmeklilikProfilKaynagi, EmeklilikProfili, MevzuatParametreleri, ProfilDurumu } from '../emeklilik/contract';
 import { varsayilanProfilKaynagi } from '../emeklilik/data';
@@ -6,10 +6,11 @@ import { MEVZUAT_2026, emeklilikPlanlayicisiOlustur } from '../emeklilik/model';
 import { EmeklilikPlaniViewModel } from '../emeklilik/viewmodel';
 import { PageHeader } from '../shell/PageHeader';
 import { currentAdminLink } from '../shell/navigation';
+import { Button } from '../ui/Button';
 import { ErrorState } from '../ui/ErrorState';
 import { LoadingShell } from '../ui/LoadingShell';
 import { EmeklilikTelefon } from './emeklilik/EmeklilikTelefon';
-import { SecimlerBolumu, VarsayimlarBolumu, useEmeklilikEkrani, type EmeklilikSunumProps } from './emeklilik/parcalar';
+import { useEmeklilikEkrani, type EmeklilikSunumProps } from './emeklilik/parcalar';
 import { BELLEK_NOTU, ProfilEylemleri, ProfilIceAktar, ProfilSatiri } from './emeklilik/profil';
 import './EmeklilikPage.css';
 
@@ -18,8 +19,10 @@ import './EmeklilikPage.css';
 // EmeklilikPlanlayici) → EmeklilikPlaniViewModel → görünüm (pages/emeklilik/*). Görünüm hesap yapmaz; ViewModel'in
 // değişmez anlık görüntüsünü çizer ve komutlarını çağırır. Testler kaynak ve planlayıcıyı enjekte eder (sahte sınıflar).
 // Profil durumları ayrı ve adıyla: yükleniyor (iskelet), yok (dosya içe aktar; yalnız bellekte), hata (ErrorState +
-// yeniden dene + içe aktar), hazır; kayıt 30 günden eskiyse "Eski veri". Hesap hatası (planlayıcı kurulamaz ya da hata
-// atar) adıyla gösterilir; sayfa çökmez, tutar gösterilmez.
+// yeniden dene + içe aktar), hazır; kayıt 30 günden eskiyse "Eski veri". Profili depo okur (geliştirmede ilk abonelikte);
+// sayfa ayrıca yenilemez, profil bir kez istenir. Hesap hatası (planlayıcı kurulamaz ya da hata atar) adıyla gösterilir;
+// sayfa çökmez, tutar gösterilmez. Hazır sayfada hesap hatası tek sabit ağaçta çizilir: ErrorState üstte, sunum (Adaptive)
+// yerinde kalır; seçimler ve form yeniden kurulmaz (açık bölüm ve odak korunur). Eylem "Varsayımları sıfırla"dır.
 // Uyarlamalı teslim (W0): telefon temel sunumu yerel HTML (EmeklilikTelefon); tablet/masaüstü iki sütunlu geniş sunum
 // pages/emeklilik/EmeklilikGenis.wide.tsx lazyWide ile, telefonda indirilmez. Geniş modül beklenirken kök aria-busy taşır.
 // Kişisel profil Git'e ve dist'e girmez: geliştirmede kaynak Git dışı dosyayı okur, üretimde kullanıcı dosya içe aktarır.
@@ -70,11 +73,6 @@ export function EmeklilikPage({
   const abone = useCallback((dinleyici: () => void) => profilKaynagi.subscribe(dinleyici), [profilKaynagi]);
   const oku = useCallback(() => profilKaynagi.durum(), [profilKaynagi]);
   const durum: ProfilDurumu = useSyncExternalStore(abone, oku, oku);
-
-  // Açılışta kaynak bir kez sorulur (geliştirmede Git dışı profil dosyası); hazır profil yeniden okunmaz.
-  useEffect(() => {
-    if (profilKaynagi.durum().tur !== 'hazir') profilKaynagi.yenile().catch(yut);
-  }, [profilKaynagi]);
 
   const dosyadanYukle = useCallback((dosya: File) => { profilKaynagi.dosyadanYukle(dosya).catch(yut); }, [profilKaynagi]);
   const profil = durum.tur === 'hazir' ? durum.profil : null;
@@ -156,24 +154,25 @@ function HazirSayfa({ location, vm, kaynak, onDosya, onKaldir }: {
     </Baslik>
   );
 
-  if (ekran.hesap.durum === 'hata') {
-    // Hesap hatası: tutar yok; seçimler ve varsayımlar kalır ki kullanıcı hatalı girdiyi düzeltebilsin.
-    return (
-      <div className="aile-emeklilik">
-        {baslik}
-        <ErrorState title={ekran.hesap.neden ?? 'Hesap yapılamadı'} message="Tutarlar, yanıltmaması için gösterilmiyor." onRetry={() => vm.varsayimlariSifirla()} />
-        <div className="aile-em-telefon">
-          <SecimlerBolumu ekran={ekran} komutlar={vm} />
-          {ekran.form ? <VarsayimlarBolumu form={ekran.form} komutlar={vm} /> : null}
-        </div>
-        {eylemler}
+  // Tek sabit ağaç: hesap hatası yalnız üstte ErrorState ekler; sunum (seçimler, form) aynı yerde kalır, tutarlı bölümler
+  // (öneri, sonuç, paylar, bileşimler) anlık görüntüde yoktur. "Yeniden dene" yok: hesap girdiye bağlıdır, eylem
+  // varsayımları sıfırlamaktır ve adı budur.
+  const hata = ekran.hesap.durum === 'hata' ? (
+    <div className="aile-em-hata">
+      <ErrorState
+        title={ekran.hesap.neden ?? 'Hesap yapılamadı'}
+        message="Tutarlar, yanıltmaması için gösterilmiyor. Hatalı varsayımı düzeltin ya da varsayımları sıfırlayın."
+      />
+      <div className="aile-em-hata__eylem">
+        <Button variant="primary" onClick={() => vm.varsayimlariSifirla()}>Varsayımları sıfırla</Button>
       </div>
-    );
-  }
+    </div>
+  ) : null;
 
   return (
     <div className="aile-emeklilik" aria-busy={genisBekleniyor || undefined}>
       {baslik}
+      {hata}
       <Adaptive phone={<EmeklilikTelefon ekran={ekran} komutlar={vm} />} wide={<EmeklilikGenis ekran={ekran} komutlar={vm} />} />
       {eylemler}
     </div>

@@ -284,6 +284,28 @@ describe('profilDogrula › Bağ-Kur borcu tahmini (isteğe bağlı)', () => {
   });
 });
 
+describe('profilDogrula › asgari yaş (isteğe bağlı)', () => {
+  it('alan yoksa profil geçerlidir ve sonuçta alan yoktur', () => {
+    expect(gecerli(sentetik())).not.toHaveProperty('asgariYas');
+  });
+
+  it('0–100 arası tam yıl kabul edilir ve korunur', () => {
+    for (const yas of [0, 50, 100]) {
+      const girdi = sentetik();
+      girdi.asgariYas = yas;
+      expect(gecerli(girdi).asgariYas).toBe(yas);
+    }
+  });
+
+  it('tam sayı olmayan, negatif, 100\'ü aşan ve null değer alan yoluyla reddedilir', () => {
+    for (const deger of [-1, 1.5, 101, null, '50']) {
+      const girdi = sentetik();
+      girdi.asgariYas = deger;
+      expect(reddedilir(girdi), JSON.stringify(deger)).toContain('asgariYas');
+    }
+  });
+});
+
 describe('profilDogrula › aylık modeli', () => {
   it('yalnız sgkReferans, kazancTahmini ve elle', () => {
     for (const model of ['sgkReferans', 'kazancTahmini', 'elle']) {

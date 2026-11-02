@@ -1,4 +1,4 @@
-import type { AylikModeliAdi, EmeklilikProfili, SecenekAnahtari, TlMetni, Varsayimlar } from '../contract';
+import type { AylikModeliAdi, EmeklilikProfili, SecenekAnahtari, TlMetni, TutarBilgisi, Varsayimlar } from '../contract';
 import { OranAlani, ParaAlani, TamSayiAlani, TutarBilgisiAlani, type Araclar, type Erisim, type FormAlani } from './alanlar';
 import { BORC_ALANI, ELLE_BOS_HATA, ELLE_BOS_NEDENI } from './borcKaynagi';
 import type { AlanAnahtari, AlanGrubuAnahtari, AylikModeliSecenegi, BayrakAnahtari, IhyaAlanAnahtari } from './ekran';
@@ -56,15 +56,31 @@ function ihya<A extends keyof IhyaGirdileri>(alan: A): Erisim<IhyaGirdileri, Ihy
 
 export interface BayrakTanimi { anahtar: BayrakAnahtari; grup: AlanGrubuAnahtari; etiket: string; aciklama: string }
 
+/** Alanlar arası kural ihlali: aynı ihlalin iki alandan görünen metni ("Hata:" öneki sunumda eklenir). */
+export interface CaprazHata { borcIcin: string; ortakIcin: string }
+
+/** TL metninin uçları (kuruş, BigInt; kayan nokta yok); bilinmeyen tutar null. */
+function uclar(t: TutarBilgisi): [bigint, bigint] | null {
+  const kurus = (tl: TlMetni) => {
+    const [tam, kesir = ''] = tl.split('.');
+    return BigInt(tam!) * 100n + BigInt(`${kesir}00`.slice(0, 2));
+  };
+  if (t.tur === 'bilinen') return [kurus(t.tl), kurus(t.tl)];
+  if (t.tur === 'aralik') return [kurus(t.altTl), kurus(t.ustTl)];
+  return null;
+}
+
 export class VarsayimFormu {
   readonly alanlar: readonly VarsayimAlani[];
   readonly ihyaAlanlari: Readonly<Record<IhyaAlanAnahtari, IhyaAlani>>;
   readonly bayraklar: readonly BayrakTanimi[];
   readonly aylikModelleri: readonly AylikModeliSecenegi[];
   private readonly dizin: ReadonlyMap<string, VarsayimAlani>;
+  private readonly bicimleyici: Araclar['bicimleyici'];
 
   constructor(profil: EmeklilikProfili, sinirlar: FormSinirlari, araclar: Araclar) {
     const { bicimleyici } = araclar;
+    this.bicimleyici = bicimleyici;
     const azamiAskerlik = profil.secenekler.askerlik.azamiGun;
     const hedef = profil.hedefGun;
     const resmiBedel = 'Boşsa mevzuattaki asgari günlük bedel kullanılır.';
@@ -107,6 +123,22 @@ export class VarsayimFormu {
       { deger: 'kazancTahmini', etiket: AYLIK_MODELI_ETIKETI.kazancTahmini, aciklama: 'Gün ve kazanç girdilerinden tahmin; resmî hesap değildir.' },
       { deger: 'elle', etiket: AYLIK_MODELI_ETIKETI.elle, aciklama: 'Girdiğiniz aylık bütün yollarda kullanılır.' },
     ];
+  }
+
+  /**
+   * Alanlar arası kural (planlayıcının RangeError'ı yerine alan hatası): yalnız SSK yolunda da ödenecek Bağ-Kur tutarı
+   * düzeltilmiş borcu aşamaz. Model ödenmeyen borcu senaryo senaryo (alt − alt, üst − üst) hesapladığından uçlar ayrı
+   * karşılaştırılır; tutarlardan biri bilinmiyorsa karşılaştırma yoktur. İhlal yoksa null.
+   */
+  caprazHata(v: Varsayimlar): CaprazHata | null {
+    const { borc, yalnizSskYolundaOdenecek: ortak } = v.secenekGirdileri.bagkur;
+    const b = uclar(borc);
+    const o = uclar(ortak);
+    if (b === null || o === null || (o[0] <= b[0] && o[1] <= b[1])) return null;
+    return {
+      borcIcin: `Borç, yalnız SSK yolunda da ödenecek tutardan (${this.bicimleyici.tutar(ortak)}) az olamaz.`,
+      ortakIcin: `Bu tutar düzeltilmiş borcu (${this.bicimleyici.tutar(borc)}) aşamaz.`,
+    };
   }
 
   alan(anahtar: AlanAnahtari): VarsayimAlani {

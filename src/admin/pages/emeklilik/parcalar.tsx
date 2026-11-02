@@ -147,7 +147,7 @@ export function SecimlerBolumu({ ekran, komutlar }: EmeklilikSunumProps) {
 }
 
 // --- Sonuç özeti ---------------------------------------------------------------------------------------------------------
-// Fark hesaplanamıyorsa neden ölçülerin yanında zaten yazılıdır (fark "Bilinmiyor · …", "Ödemeyi karşılayan" notu); ayrı
+// Fark hesaplanamıyorsa neden ölçülerin yanında zaten yazılıdır (fark "Bilinmiyor · …", "Geri kazanma" notu); ayrı
 // satırda yinelenmez: panel kısa kalır, masaüstünde yapışkan sütun ilk ekranın altına taşmaz.
 export function SonucBolumu({ sonuc, hataOzeti }: { sonuc: SonucGorunumu; hataOzeti: string | null }) {
   return (
@@ -260,15 +260,18 @@ function Alan({ alan, onChange }: { alan: AlanGorunumu; onChange(metin: string):
   );
 }
 
-function Onay({ etiket, aciklama, deger, onChange }: { etiket: string; aciklama: string; deger: boolean; onChange(deger: boolean): void }) {
+function Onay({ etiket, aciklama, not, deger, onChange }: { etiket: string; aciklama: string; not: string | null; deger: boolean; onChange(deger: boolean): void }) {
   const id = useId();
+  const aciklananlar = [`${id}-aciklama`, ...(not ? [`${id}-not`] : [])].join(' ');
   return (
     <div className="aile-em-onay">
       <label className="aile-em-onay__satir" data-focus-line="">
-        <input type="checkbox" className="aile-em-onay__girdi" checked={deger} aria-describedby={`${id}-aciklama`} onChange={event => onChange(event.target.checked)} />
+        <input type="checkbox" className="aile-em-onay__girdi" checked={deger} aria-describedby={aciklananlar} onChange={event => onChange(event.target.checked)} />
         <span>{etiket}</span>
       </label>
       <p id={`${id}-aciklama`} className="aile-kucuk aile-ikincil">{aciklama}</p>
+      {/* Bayrağın güncel değeri (ör. karşılaştırmadaki iş ücreti ve kaynağı); tutar tabular hizada. */}
+      {not ? <p id={`${id}-not`} className="aile-kucuk aile-em-onay__not">{not}</p> : null}
     </div>
   );
 }
@@ -356,7 +359,7 @@ export function VarsayimlarBolumu({ form, komutlar }: { form: FormGorunumu; komu
               </Fragment>
             ))}
             {grup.bayraklar.map(bayrak => (
-              <Onay key={bayrak.anahtar} etiket={bayrak.etiket} aciklama={bayrak.aciklama} deger={bayrak.deger} onChange={deger => komutlar.bayrakDegistir(bayrak.anahtar, deger)} />
+              <Onay key={bayrak.anahtar} etiket={bayrak.etiket} aciklama={bayrak.aciklama} not={bayrak.not} deger={bayrak.deger} onChange={deger => komutlar.bayrakDegistir(bayrak.anahtar, deger)} />
             ))}
           </div>
         </Disclosure>
@@ -373,7 +376,8 @@ export function IhyaBolumu({ ihya, komutlar }: { ihya: IhyaGorunumu; komutlar: E
   return (
     <Bolum baslik="İhya karşılaştırması" className="aile-em-ihya">
       <p className="aile-kucuk aile-ikincil">
-        Diğer iki seçim şimdiki hâliyle; ihya eklenen erken yol ile ihyasız bekleyen yol elle girilen net aylıklarla karşılaştırılır.
+        Diğer iki seçim şimdiki hâliyle; ihya eklenen erken yol ile ihyasız bekleyen yol net aylıklarla karşılaştırılır. Boş
+        bırakılan aylık için seçili aylık modeli kullanılır.
       </p>
       <dl className="aile-em-yollar">
         <div className="aile-em-yol">

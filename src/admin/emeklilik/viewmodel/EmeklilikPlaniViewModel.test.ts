@@ -64,7 +64,8 @@ describe('EmeklilikPlaniViewModel › ilk anlık görüntü', () => {
     expect(s.kesinti).toEqual({ etiket: 'Borç kesintisi', deger: '%10 kesinti · süre bilinmiyor', not: 'Ödenmeyen Bağ-Kur borcu bitene kadar', ton: 'uyari', bicim: 'metin' });
     expect(s.donemSonunda).toEqual({ etiket: 'Ortak dönem sonunda fark (10 yıl)', deger: '+₺274.300,00', not: null, ton: 'olumlu', bicim: 'tutar' });
     expect(s.gecYolEmekliOlunca).toEqual({ etiket: 'Geç yol emekli olduğunda fark', deger: '+₺274.300,00', not: null, ton: 'olumlu', bicim: 'tutar' });
-    expect(s.geriKazanma).toEqual({ etiket: 'Ödemeyi karşılayan', deger: '18 emekli aylığı', not: null, ton: 'notr', bicim: 'metin' });
+    // Geri kazanma (başa baş): hiçbir şey ödemeyen yola göre birikimli farkın sıfıra ulaştığı ay, emeklilikten sayılır.
+    expect(s.geriKazanma).toEqual({ etiket: 'Geri kazanma', deger: '18 ay sonra', not: null, ton: 'notr', bicim: 'metin' });
     expect(s.referansMi).toBe(false);
     expect(s.duyuru).toBe('Ağustos 2030 · 44 yaşında · 28 ay erken');
   });
@@ -112,7 +113,7 @@ describe('EmeklilikPlaniViewModel › ilk anlık görüntü', () => {
     expect(satirlar.map(s => s.anahtar)).toEqual(['hicbiri', 'askerlik', 'bagkur', 'ihya', 'askerlik+bagkur', 'askerlik+ihya', 'bagkur+ihya', 'askerlik+bagkur+ihya']);
     expect(satirlar.filter(s => s.secili).map(s => s.anahtar)).toEqual(['askerlik+ihya']);
     expect(satirlar[0]).toMatchObject({ emeklilik: 'Aralık 2032', yas: '46', erken: 'Referans', odeme: 'Ödeme yok', donemSonunda: 'Referans yol', geriKazanma: 'Gerekmez' });
-    expect(satirlar[1]).toMatchObject({ emeklilik: 'Aralık 2031', yas: '45', erken: '12 ay erken', odeme: '₺178.200,00', aylik: '₺25.000,00', donemSonunda: '+₺121.800,00', donemTon: 'olumlu', geriKazanma: '8 emekli aylığı' });
+    expect(satirlar[1]).toMatchObject({ emeklilik: 'Aralık 2031', yas: '45', erken: '12 ay erken', odeme: '₺178.200,00', aylik: '₺25.000,00', donemSonunda: '+₺121.800,00', donemTon: 'olumlu', geriKazanma: '8 ay' });
     // Tablo hücresi kısa kalır ("Bilinmiyor"); neden ayrı alanda, hücrenin altında yazılır.
     expect(satirlar[2]).toMatchObject({
       emeklilik: 'Nisan 2031', odeme: 'Bilinmiyor', odemeNedeni: 'SGK düzeltilmiş tutarı bilinmiyor',
@@ -122,6 +123,18 @@ describe('EmeklilikPlaniViewModel › ilk anlık görüntü', () => {
     // Aralıklı borçta ödeme aralık yazılır; sahte planlayıcı aralıktan tek fark üretmez ve nedenini söyler.
     vm.borcKaynagiSec('tahmin');
     expect(ekran().bilesimler[2]).toMatchObject({ odeme: '₺280.000,00 – ₺420.000,00', odemeNedeni: null, donemSonunda: 'Bilinmiyor', donemNedeni: 'Ödeme aralık; tek fark hesaplanmadı' });
+  });
+
+  it('names a payback that does not happen within the common period ("geri dönmüyor") apart from an unknown one', () => {
+    const { vm, ekran } = kur();
+    // Askerlik bedeli 360 × ₺5.000,00 + ihya ₺247.500,00 = ₺2.047.500,00; ⌈÷ ₺25.000,00⌉ = 82 ay > 28 ay erken.
+    vm.alanGuncelle('askerlikGunlukBedel', '5.000,00');
+    expect(ekran().sonuc!.geriKazanma).toEqual({
+      etiket: 'Geri kazanma', deger: 'Dönem içinde geri dönmüyor', not: 'Ortak dönem içinde birikimli fark sıfıra ulaşmıyor.', ton: 'notr', bicim: 'metin',
+    });
+    expect(ekran().bilesimler.find(s => s.anahtar === 'askerlik+ihya')!.geriKazanma).toBe('Geri dönmüyor');
+    vm.secimDegistir('bagkur', true);
+    expect(ekran().sonuc!.geriKazanma).toEqual({ etiket: 'Geri kazanma', deger: 'Bilinmiyor', not: 'SGK düzeltilmiş tutarı bilinmiyor', ton: 'notr', bicim: 'metin' });
   });
 
   it('shows each choice’s share with the other choices held', () => {
@@ -305,11 +318,21 @@ describe('EmeklilikPlaniViewModel › alan doğrulaması', () => {
     expect(ekran().sonuc!.aylik).toMatchObject({ deger: '₺27.000,00', not: 'Kazanç tahmini' });
     vm.aylikModeliSec('elle');
     expect(alan(ekran(), 'elleAylik')).toMatchObject({ metin: '', zorunlu: true, hata: 'Hata: Elle aylık için tutar girin.' });
-    expect(ekran().sonuc!.aylik).toMatchObject({ deger: 'Bilinmiyor · Elle aylık girilmedi', not: 'Elle girilen', bicim: 'metin' });
-    expect(ekran().bilesimler[1]).toMatchObject({ aylik: 'Bilinmiyor', aylikNedeni: 'Elle aylık girilmedi' });
+    expect(ekran().sonuc!.aylik).toMatchObject({ deger: 'Bilinmiyor · Elle aylık girilmedi.', not: 'Elle girilen', bicim: 'metin' });
+    expect(ekran().bilesimler[1]).toMatchObject({ aylik: 'Bilinmiyor', aylikNedeni: 'Elle aylık girilmedi.' });
     vm.alanGuncelle('elleAylik', '30.000,00');
     expect(alan(ekran(), 'elleAylik').hata).toBeNull();
     expect(ekran().sonuc!.aylik).toMatchObject({ deger: '₺30.000,00', not: 'Elle girilen' });
+  });
+
+  it('shows the wage used in the comparison next to the wage flag with its source; it is not editable', () => {
+    const { vm, ekran } = kur();
+    const bayrak = () => ekran().form!.gruplar.flatMap(g => g.bayraklar).find(b => b.anahtar === 'isUcretiDevam')!;
+    expect(bayrak().not).toBe('İş ücreti ayda ₺80.000,00 (profildeki net ücret); iki yolda aynı olduğundan farka girmez.');
+    vm.bayrakDegistir('isUcretiDevam', false);
+    expect(bayrak().not).toBe('Vazgeçilen ücret ayda ₺80.000,00 (profildeki net ücret); emekli olan yol işi bıraktığı her ay bu ücreti almaz.');
+    expect(ekran().form!.gruplar.flatMap(g => g.bayraklar).find(b => b.anahtar === 'gunDuzeltmesiUygula')!.not).toBeNull();
+    expect(ekran().form!.gruplar.flatMap(g => g.alanlar).map(a => a.etiket).join(' ')).not.toMatch(/ücret/i);
   });
 
   it('toggles the day correction and the wage assumption', () => {
@@ -502,6 +525,78 @@ describe('EmeklilikPlaniViewModel › Bağ-Kur borcunun kaynağı', () => {
   });
 });
 
+describe('EmeklilikPlaniViewModel › borç ve ortak ödeme çapraz denetimi', () => {
+  const kaynak = (e: EmeklilikEkrani) => e.form!.borcKaynagi;
+  const bagkur = (planlayici: SahtePlanlayici) => planlayici.sonVarsayim!.secenekGirdileri.bagkur;
+
+  it('a debt below the shared payment is a field error; the planner keeps the last valid assumption', () => {
+    const { vm, planlayici, ekran } = kur();
+    vm.borcKaynagiSec('elle');
+    vm.alanGuncelle('bagkurBorc', '4');
+    expect(kaynak(ekran()).alan).toMatchObject({ metin: '4', hata: 'Hata: Borç, yalnız SSK yolunda da ödenecek tutardan (₺50.000,00) az olamaz.' });
+    expect(ekran().form!.hataOzeti).toBe('1 alanda hata var; sonuç son geçerli değerlerle hesaplandı.');
+    expect(ekran().hesap.durum).toBe('hazir');
+    expect(bagkur(planlayici).borc).toEqual(PROFIL.secenekler.bagkur.borc);
+    expect(alan(ekran(), 'bagkurOrtakOdeme').hata).toBeNull();
+    vm.alanGuncelle('bagkurBorc', '400.000,00');
+    expect(kaynak(ekran()).alan!.hata).toBeNull();
+    expect(ekran().form!.hataOzeti).toBeNull();
+    expect(bagkur(planlayici).borc).toEqual({ tur: 'bilinen', tl: '400000.00', kaynak: 'Elle girildi' });
+  });
+
+  it('while the rule is broken other edits still apply; repeated invalid input does not ask the planner again', () => {
+    const { vm, planlayici, ekran } = kur();
+    vm.borcKaynagiSec('elle');
+    vm.alanGuncelle('bagkurBorc', '4');
+    vm.alanGuncelle('askerlikGun', '300');
+    expect(planlayici.sonVarsayim!.secenekGirdileri.askerlik.gun).toBe(300);
+    expect(bagkur(planlayici).borc).toEqual(PROFIL.secenekler.bagkur.borc);
+    expect(kaynak(ekran()).alan!.hata).toBe('Hata: Borç, yalnız SSK yolunda da ödenecek tutardan (₺50.000,00) az olamaz.');
+    const bilesimCagrisi = planlayici.cagrilar.tumBilesimler;
+    vm.alanGuncelle('bagkurBorc', '45');
+    expect(kaynak(ekran()).alan!.metin).toBe('45');
+    expect(planlayici.cagrilar.tumBilesimler).toBe(bilesimCagrisi);
+  });
+
+  it('a shared payment above the debt is an error on that field; ranges are compared end by end', () => {
+    const { vm, planlayici, ekran } = kur();
+    vm.borcKaynagiSec('tahmin');
+    vm.alanGuncelle('bagkurOrtakOdeme', '300.000,00');
+    expect(alan(ekran(), 'bagkurOrtakOdeme').hata).toBe('Hata: Bu tutar düzeltilmiş borcu (₺280.000,00 – ₺420.000,00) aşamaz.');
+    expect(bagkur(planlayici).yalnizSskYolundaOdenecek).toEqual(PROFIL.secenekler.bagkur.yalnizSskYolundaOdenecek);
+    // Uç uca: alt ≤ alt ve üst ≤ üst ise geçerli.
+    vm.alanGuncelle('bagkurOrtakOdeme', '280.000,00 – 300.000,00');
+    expect(alan(ekran(), 'bagkurOrtakOdeme').hata).toBeNull();
+    expect(bagkur(planlayici).yalnizSskYolundaOdenecek).toEqual({ tur: 'aralik', altTl: '280000.00', ustTl: '300000.00', kaynak: 'Elle girildi' });
+  });
+
+  it('a source change that breaks the rule is kept as a choice but computed with the last valid debt; an unknown debt clears it', () => {
+    const { vm, planlayici, ekran } = kur();
+    vm.borcKaynagiSec('elle');
+    vm.alanGuncelle('bagkurBorc', '500.000,00');
+    vm.alanGuncelle('bagkurOrtakOdeme', '400.000,00');
+    expect(alan(ekran(), 'bagkurOrtakOdeme').hata).toBeNull();
+    vm.borcKaynagiSec('tahmin');
+    expect(kaynak(ekran()).secili).toBe('tahmin');
+    expect(alan(ekran(), 'bagkurOrtakOdeme').hata).toBe('Hata: Bu tutar düzeltilmiş borcu (₺280.000,00 – ₺420.000,00) aşamaz.');
+    expect(bagkur(planlayici).borc).toEqual({ tur: 'bilinen', tl: '500000.00', kaynak: 'Elle girildi' });
+    expect(ekran().form!.hataOzeti).toBe('1 alanda hata var; sonuç son geçerli değerlerle hesaplandı.');
+    vm.borcKaynagiSec('bilinmiyor');
+    expect(alan(ekran(), 'bagkurOrtakOdeme').hata).toBeNull();
+    expect(bagkur(planlayici).borc).toEqual(SGK_BILINMIYOR);
+    expect(bagkur(planlayici).yalnizSskYolundaOdenecek).toEqual({ tur: 'bilinen', tl: '400000.00', kaynak: 'Elle girildi' });
+  });
+
+  it('reset clears the cross error', () => {
+    const { vm, ekran } = kur();
+    vm.borcKaynagiSec('elle');
+    vm.alanGuncelle('bagkurBorc', '4');
+    vm.varsayimlariSifirla();
+    expect(ekran().form!.hataOzeti).toBeNull();
+    expect(alan(ekran(), 'bagkurOrtakOdeme').hata).toBeNull();
+  });
+});
+
 describe('EmeklilikPlaniViewModel › ihya karşılaştırması', () => {
   it('compares the current choices with and without ihya; entered net monthlies go to the matching path', () => {
     const { vm, planlayici, ekran } = kur();
@@ -512,10 +607,11 @@ describe('EmeklilikPlaniViewModel › ihya karşılaştırması', () => {
     expect(ihya.donemSonunda).toEqual({ etiket: 'Sonraki 10 yılın sonunda fark', deger: '-₺25.700,00', not: null, ton: 'hata', bicim: 'tutar' });
     expect(planlayici.sonYolKarsilastir!.a).toEqual({ askerlik: true, bagkur: false, ihya: true });
     expect(planlayici.sonYolKarsilastir!.b).toEqual({ askerlik: true, bagkur: false, ihya: false });
-    expect(planlayici.sonYolKarsilastir!.elleAylik).toEqual({ a: null, b: null });
+    // Boş net aylık gönderilmez: yol seçili aylık modelinde kalır (yardım metni "Boşsa seçili aylık modeli kullanılır").
+    expect(planlayici.sonYolKarsilastir!.elleAylik).toEqual({});
 
     vm.ihyaAylikGuncelle('ihyali', '30.000,00');
-    expect(planlayici.sonYolKarsilastir!.elleAylik).toEqual({ a: '30000.00', b: null });
+    expect(planlayici.sonYolKarsilastir!.elleAylik).toEqual({ a: '30000.00' });
     expect(ekran().ihya.ihyali.aylik).toBe('₺30.000,00 · Elle girilen');
     expect(ekran().ihya.donemSonunda.deger).toBe('+₺54.300,00');
     expect(ekran().ihya.aylikIhyali).toMatchObject({ metin: '30.000,00', hata: null, etiket: 'İhya eklenen yolda net aylık' });
@@ -525,6 +621,10 @@ describe('EmeklilikPlaniViewModel › ihya karşılaştırması', () => {
     vm.ihyaAylikGuncelle('ihyasiz', 'yirmi');
     expect(ekran().ihya.aylikIhyasiz.hata).toBe('Hata: Tutarı 8.500,00 biçiminde girin.');
     expect(planlayici.sonYolKarsilastir!.elleAylik).toEqual({ a: '30000.00', b: '25000.00' });
+    vm.ihyaAylikGuncelle('ihyali', '');
+    expect(ekran().ihya.aylikIhyali.hata).toBeNull();
+    expect(planlayici.sonYolKarsilastir!.elleAylik).toEqual({ b: '25000.00' });
+    expect(ekran().ihya.ihyali.aylik).toBe('₺25.000,00 · SGK referansı');
   });
 
   it('has its own comparison period, independent of the main assumption', () => {
@@ -543,7 +643,7 @@ describe('EmeklilikPlaniViewModel › ihya karşılaştırması', () => {
     vm.secimDegistir('bagkur', true);
     expect(planlayici.sonYolKarsilastir!.a).toEqual({ askerlik: true, bagkur: true, ihya: true });
     expect(planlayici.sonYolKarsilastir!.b).toEqual({ askerlik: true, bagkur: true, ihya: false });
-    expect(planlayici.sonYolKarsilastir!.elleAylik).toEqual({ a: '30000.00', b: null });
+    expect(planlayici.sonYolKarsilastir!.elleAylik).toEqual({ a: '30000.00' });
   });
 });
 

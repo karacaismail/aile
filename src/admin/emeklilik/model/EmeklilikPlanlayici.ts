@@ -176,8 +176,10 @@ export class EmeklilikPlanlayiciImpl implements EmeklilikPlanlayici {
 
   private kosullar(v: Varsayimlar): KarsilastirmaKosullari {
     const net = Para.tlden(this.profil.kazanc.netUcretTl);
+    const zam = this.profil.kazanc.ucretZamOrani;
     return {
-      ucret: net.topla(net.carp(this.profil.kazanc.ucretZamOrani)),
+      ucret: net.topla(net.carp(zam)),
+      ucretKaynagi: `Profildeki net ücret ${net.goster()}${zam === 0 ? '' : ` + ${yuzde(zam)} zam varsayımı`}`,
       ortakOdeme: v.secenekGirdileri.bagkur.yalnizSskYolundaOdenecek,
       karsilastirmaSuresiYil: v.karsilastirmaSuresiYil,
       isUcretiDevam: v.isUcretiDevam,

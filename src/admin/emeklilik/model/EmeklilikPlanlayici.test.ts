@@ -127,11 +127,25 @@ describe('EmeklilikPlanlayiciImpl — karşılaştırma', () => {
     }
   });
 
-  it('altın değer: iş bırakılırsa vazgeçilen zamlı ücret farka girer', () => {
+  it('altın değer: iş bırakılırsa vazgeçilen zamlı ücret farka girer; aylık ücretten azsa başa baş yoktur', () => {
+    // Kaynak: Codex compareCashToSsk (workAfter=false) sentetik sabitlerle repo dışında: aylık fark = aylık − ücret < 0.
     const v = varsayimKopya(codexKosullari(), (k) => { k.isUcretiDevam = false; });
     const p = planlayici();
-    expect(kisa(p.karsilastir(sec('100'), v).donemSonunda)).toBe('-1078362.00');
-    expect(kisa(p.karsilastir(HEPSI, v).donemSonunda)).toBe('-4276087.00');
+    const askerlik = p.karsilastir(sec('100'), v);
+    expect(kisa(askerlik.donemSonunda)).toBe('-1078362.00');
+    expect(askerlik.geriKazanmaAylikSayisi).toBeNull();
+    expect(askerlik.hesaplanamayanNeden).toBeNull();
+    const hepsi = p.karsilastir(HEPSI, v);
+    expect(kisa(hepsi.donemSonunda)).toBe('-4276087.00');
+    expect(hepsi.geriKazanmaAylikSayisi).toBeNull();
+  });
+
+  it('karşılaştırmadaki aylık iş ücretini (vazgeçilen ücret) tutarı ve kaynağıyla verir', () => {
+    // Sentetik profil: net ücret ₺80.000,00 × (1 + %25 zam) = ₺100.000,00; düzenlenebilir değil, profilden gelir.
+    const beklenen = { tur: 'bilinen', tl: '100000.00', kaynak: 'Profildeki net ücret ₺80.000,00 + %25 zam varsayımı' };
+    const p = planlayici();
+    expect(p.karsilastir(sec('100'), sentetikVarsayimlar()).isUcreti).toEqual(beklenen);
+    expect(p.yolKarsilastir(HEPSI, sec('110'), sentetikVarsayimlar((k) => { k.isUcretiDevam = false; })).isUcreti).toEqual(beklenen);
   });
 
   it('altın değer: ihya karşılaştırması elle girilen net aylıklarla (Codex compareIhyaChoice)', () => {
@@ -142,8 +156,18 @@ describe('EmeklilikPlanlayiciImpl — karşılaştırma', () => {
     expect(kisa(k.ekOdeme)).toBe('247725.00');
     expect(kisa(k.gecYolEmekliOlunca)).toBe('136275.00');
     expect(kisa(k.donemSonunda)).toBe('-103725.00');
+    expect(k.geriKazanmaAylikSayisi).toBe(11);
     expect(k.yol.aylikModeli).toBe('elle');
     expect(k.referans.aylikModeli).toBe('elle');
+    // İş bırakılırsa erken dönemde fark eksi, sonra da ihyasız yolun aylığı yüksek: başa baş yok.
+    const isiBirakan = p.yolKarsilastir(HEPSI, sec('110'), varsayimKopya(v, (x) => { x.isUcretiDevam = false; }), { a: '24000.00', b: '26000.00' });
+    expect(kisa(isiBirakan.gecYolEmekliOlunca)).toBe('-1463725.00');
+    expect(isiBirakan.geriKazanmaAylikSayisi).toBeNull();
+    // Başa baş geç yol emekli olduktan sonra: 16 ayda −55.725; sonra ayda 2.000 → 28 ay daha (Codex: lead + ⌈−fark / aylık farkı⌉).
+    const sonra = p.yolKarsilastir(HEPSI, sec('110'), v, { a: '12000.00', b: '10000.00' });
+    expect(kisa(sonra.gecYolEmekliOlunca)).toBe('-55725.00');
+    expect(kisa(sonra.donemSonunda)).toBe('184275.00');
+    expect(sonra.geriKazanmaAylikSayisi).toBe(44);
     const bos = p.yolKarsilastir(HEPSI, sec('110'), v, { a: null, b: null });
     expect(bos.donemSonunda).toMatchObject({ tur: 'bilinmiyor' });
     expect(bos.erkenAy).toBe(16);
@@ -188,6 +212,25 @@ describe('EmeklilikPlanlayiciImpl — karşılaştırma', () => {
     const kesintisiz = varsayimKopya(v, (k) => { k.borcKesintiOrani = 0; });
     expect(kisa(p.karsilastir(sec('100'), kesintisiz).donemSonunda)).toBe('121638.00');
     expect(p.yol(HIC, kesintisiz).kesinti).toBeNull();
+  });
+
+  it('iki yolda da seçili kalem ek ödemede birbirini götürür: borç bilinmese de ihya farkı bilinir (Codex compareIhyaChoice)', () => {
+    const v = sentetikVarsayimlar((k) => {
+      k.secenekGirdileri.bagkur.borc = { tur: 'bilinmiyor', neden: 'SGK düzeltilmiş tutarı bilinmiyor' };
+    });
+    const p = planlayici();
+    // Bağ-Kur iki yolda da seçili: kesinti yok, borç iki ödemede aynı; ek ödeme yalnız ihya bedelidir.
+    const ihya = p.yolKarsilastir(HEPSI, sec('110'), v);
+    expect(ihya.yol.odeme).toMatchObject({ tur: 'bilinmiyor' });
+    expect(kisa(ihya.ekOdeme)).toBe('247725.00');
+    expect(kisa(ihya.gecYolEmekliOlunca)).toBe('152275.00');
+    expect(ihya.hesaplanamayanNeden).toBeNull();
+    expect(ihya.geriKazanmaAylikSayisi).toBe(10);
+    // Seçim etkileri de: Bağ-Kur seçiliyken askerliğin ve ihyanın payı bilinir; Bağ-Kur'un kendi payı bilinmez.
+    const etkiler = p.secimEtkileri(HEPSI, v);
+    expect(kisa(etkiler[0].ekOdeme)).toBe('178362.00');
+    expect(etkiler[1].ekOdeme).toMatchObject({ tur: 'bilinmiyor' });
+    expect(kisa(etkiler[2].ekOdeme)).toBe('247725.00');
   });
 
   it('seçimlerin tek başına etkisi diğer seçimler sabitken hesaplanır', () => {
@@ -308,6 +351,14 @@ describe('EmeklilikPlanlayiciImpl — özellikler', () => {
     const kesintisiz = p.karsilastir(sec('010'), varsayimKopya(v, (k) => { k.borcKesintiOrani = 0; }));
     expect(kisa(kesintili.donemSonunda)).toBe('500000.00');
     expect(kisa(kesintisiz.donemSonunda)).toBe('250000.00');
+  });
+
+  it('net aylık eksiye düşmez: diğer kesintiler aylığı aşarsa fark yalnız ek ödemedir', () => {
+    const p = planlayici();
+    const v = varsayimKopya(codexKosullari(), (k) => { k.digerKesintilerTl = '30000.00'; });
+    const k = p.karsilastir(sec('100'), v);
+    expect(kisa(k.donemSonunda)).toBe('-178362.00');
+    expect(k.geriKazanmaAylikSayisi).toBeNull();
   });
 
   it('geçersiz varsayımı reddeder', () => {

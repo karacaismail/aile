@@ -4,7 +4,7 @@ import type { AyMetni, AylikModeliAdi, SecenekAnahtari, Secim, YolSonucu } from 
 import type { Ay } from './Ay';
 import type { TarihSonucu } from './EmeklilikTarihiHesabi';
 import type { KesintiPlani } from './KesintiPlani';
-import type { Para } from './Para';
+import { Para } from './Para';
 import { Tutar } from './Tutar';
 import type { KarsilastirilabilirYol } from './YolKarsilastirici';
 
@@ -38,17 +38,24 @@ export class YolHesabi implements KarsilastirilabilirYol {
     this.odeme = Tutar.toplam(g.kalemler.map((k) => k.tutar));
   }
 
+  get kalemler(): YolHesabiGirdisi['kalemler'] {
+    return this.g.kalemler;
+  }
+
   get emeklilikAyi(): Ay | null {
     return this.g.tarih.emeklilikAyi;
   }
 
-  /** Emekliliğin ilk n ayında eline geçen toplam: n × (aylık − diğer kesintiler) − borç kesintisi. */
+  /**
+   * Emekliliğin ilk n ayında eline geçen toplam: her ay aylık − diğer kesintiler − o ayın borç kesintisi, ayda en az 0
+   * (net aylık eksiye düşmez). Borç kesintisi borç bitince durur.
+   */
   emekliGeliri(n: number): Tutar {
     if (!Number.isSafeInteger(n) || n < 0) throw new RangeError(`Ay sayısı geçersiz: ${n}`);
     if (n === 0) return Tutar.sifir('Aylık yok');
-    const brut = this.g.aylik.carpTam(n);
-    const diger = this.g.digerKesinti.sifirMi() ? brut : brut.cikar(Tutar.bilinen(this.g.digerKesinti.carpTam(n), 'Diğer kesintiler'));
-    return this.g.kesinti === null ? diger : diger.cikar(this.g.kesinti.toplam(n));
+    const kullanilabilir = this.g.digerKesinti.sifirMi() ? this.g.aylik : this.g.aylik.cikar(Tutar.bilinen(this.g.digerKesinti, 'Diğer kesintiler'));
+    if (this.g.kesinti === null) return kullanilabilir.donustur((p) => Para.enBuyuk(p, Para.sifir()).carpTam(n));
+    return this.g.kesinti.netToplam(n, kullanilabilir);
   }
 
   sonuc(): YolSonucuAyrintili {
@@ -60,6 +67,7 @@ export class YolHesabi implements KarsilastirilabilirYol {
       emeklilikAyi: tarih.emeklilikAyi?.metin() ?? null,
       yas: tarih.yas,
       sinirlayanKosul: tarih.sinirlayanKosul,
+      sinirlayanAyrinti: tarih.sinirlayanAyrinti,
       odeme: this.odeme.bilgi(),
       odemeKalemleri: this.g.kalemler.map((k) => ({ anahtar: k.anahtar, tutar: k.tutar.bilgi() })),
       aylik: this.g.aylik.bilgi(),

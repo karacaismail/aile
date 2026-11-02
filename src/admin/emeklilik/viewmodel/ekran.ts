@@ -2,7 +2,7 @@ import type { AylikModeliAdi, SecenekAnahtari } from '../contract';
 import type { Ton } from './bicim';
 
 // Ekran anlık görüntüsü (MVVM'de görünümün tek girdisi). Yalnız biçimlenmiş metin ve görünüm verisi taşır: tutar
-// "₺208.089,00", ay "Aralık 2027", eksik bilgi "Bilinmiyor · <neden>". Model nesneleri (TutarBilgisi, Secim) ve işlev
+// "₺178.362,00", ay "Mayıs 2033", eksik bilgi "Bilinmiyor · <neden>". Model nesneleri (TutarBilgisi, Secim) ve işlev
 // yoktur; görünüm hesap yapmaz, yalnız çizer ve ViewModel komutlarını çağırır. Nesneler derin dondurulmuştur.
 
 export type { Ton } from './bicim';
@@ -60,7 +60,7 @@ export interface OdemeKalemiGorunumu { readonly ad: string; readonly tutar: stri
 
 export interface SonucGorunumu {
   readonly secimAdi: string;
-  /** "Aralık 2027" ya da "Ulaşılamıyor". */
+  /** "Mayıs 2033" ya da "Ulaşılamıyor". */
   readonly planlamaAyi: string;
   readonly yas: string;
   readonly sinirlayan: string;
@@ -76,7 +76,7 @@ export interface SonucGorunumu {
   /** Seçili yol referansın kendisi (hiçbir şey ödememek). */
   readonly referansMi: boolean;
   readonly hesaplanamayanNeden: string | null;
-  /** Canlı bölge için tek satır: "Aralık 2027 · 41 yaşında · 14 ay erken". */
+  /** Canlı bölge için tek satır: "Mayıs 2032 · 46 yaşında · 12 ay erken". */
   readonly duyuru: string;
 }
 
@@ -106,6 +106,7 @@ export interface BilesimSatiri {
   readonly donemSonunda: string;
   readonly donemNedeni: string | null;
   readonly donemTon: Ton;
+  /** Kısa hücre: "8 ay", "Gerekmez", "Geri dönmüyor" ya da "Bilinmiyor". */
   readonly geriKazanma: string;
   readonly secili: boolean;
 }
@@ -129,6 +130,8 @@ export interface BayrakGorunumu {
   readonly etiket: string;
   readonly aciklama: string;
   readonly deger: boolean;
+  /** Bayrağın yanında yazılan güncel değer (ör. karşılaştırmadaki iş ücreti ve kaynağı); yoksa null. */
+  readonly not: string | null;
 }
 
 export interface FormGrubuGorunumu {

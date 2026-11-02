@@ -3,10 +3,10 @@ import { Ay, TakvimGunu } from './Ay';
 
 describe('Ay (YYYY-MM planlama ayı)', () => {
   it('ay ekler, çıkarır ve farkı ay olarak verir', () => {
-    expect(Ay.metinden('2027-02').ekle(10).metin()).toBe('2027-12');
+    expect(Ay.metinden('2032-07').ekle(10).metin()).toBe('2033-05');
     expect(Ay.metinden('2027-01').ekle(-2).metin()).toBe('2026-11');
-    expect(Ay.metinden('2032-12').fark(Ay.metinden('2027-12'))).toBe(60);
-    expect(Ay.metinden('2027-12').fark(Ay.metinden('2032-12'))).toBe(-60);
+    expect(Ay.metinden('2038-05').fark(Ay.metinden('2033-05'))).toBe(60);
+    expect(Ay.metinden('2033-05').fark(Ay.metinden('2038-05'))).toBe(-60);
   });
 
   it('ay sonunu artık yıla göre verir', () => {
@@ -17,12 +17,12 @@ describe('Ay (YYYY-MM planlama ayı)', () => {
   });
 
   it('karşılaştırır ve en geç ayı seçer', () => {
-    const a = Ay.metinden('2027-05');
-    const b = Ay.metinden('2027-12');
+    const a = Ay.metinden('2029-03');
+    const b = Ay.metinden('2033-05');
     expect(a.karsilastir(b)).toBe(-1);
     expect(b.sonrasiMi(a)).toBe(true);
     expect(a.oncesiMi(b)).toBe(true);
-    expect(a.esit(Ay.metinden('2027-05'))).toBe(true);
+    expect(a.esit(Ay.metinden('2029-03'))).toBe(true);
     expect(Ay.enGec(a, b)).toBe(b);
   });
 
@@ -33,13 +33,13 @@ describe('Ay (YYYY-MM planlama ayı)', () => {
   });
 
   it('tarihten ayı ve Europe/Istanbul takvim ayını bulur', () => {
-    expect(Ay.tarihten('2027-05-19').metin()).toBe('2027-05');
+    expect(Ay.tarihten('2029-03-10').metin()).toBe('2029-03');
     expect(Ay.istanbulda(new Date('2026-10-31T21:30:00Z')).metin()).toBe('2026-11');
     expect(Ay.istanbulda(new Date('2026-10-31T20:30:00Z')).metin()).toBe('2026-10');
   });
 
   it('Türkçe ay adını verir', () => {
-    expect(Ay.metinden('2027-12').adi()).toBe('Aralık 2027');
+    expect(Ay.metinden('2033-05').adi()).toBe('Mayıs 2033');
     expect(Ay.metinden('2029-05').adi()).toBe('Mayıs 2029');
   });
 });

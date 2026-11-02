@@ -14,6 +14,8 @@ import { importsOf } from '../adaptive/sourceRules';
 import { DeviceContext } from '../device';
 import type { Device } from '../shell/contracts';
 import type { EmeklilikProfilKaynagi, EmeklilikProfili, ProfilDurumu } from '../emeklilik/contract';
+import { profilKaynagiOlustur } from '../emeklilik/data';
+import { MEVZUAT_2026, emeklilikPlanlayicisiOlustur } from '../emeklilik/model';
 import { SahtePlanlayici } from '../emeklilik/viewmodel/test/SahtePlanlayici';
 import { EmeklilikPage, type EmeklilikPageProps } from './EmeklilikPage';
 
@@ -88,15 +90,26 @@ const soru = (ad: string) => screen.getByRole('radiogroup', { name: ad });
 const ay = () => within(bolge('Sonuç')).getByTestId('planlama-ayi');
 
 describe('EmeklilikPage › başlık ve profil durumları', () => {
-  it('yükleniyor: başlık iskeleti kalır, profil okunurken iskelet ve adı; kaynak bir kez yenilenir', () => {
+  it('yükleniyor: başlık iskeleti kalır, profil okunurken iskelet ve adı; sayfa kaynağı kendisi yenilemez (okuma deponundur)', () => {
     const kaynak = new SahteProfilKaynagi({ tur: 'yukleniyor' });
     ciz('phone', { profilKaynagi: kaynak });
     expect(screen.getByRole('heading', { level: 1, name: 'Emeklilik planı' })).toBeInTheDocument();
     expect(screen.getByText('Para')).toBeInTheDocument();
     expect(screen.getByText(AMAC)).toBeInTheDocument();
     expect(screen.getByText('Profil okunuyor').closest('[role="status"]')).toHaveAttribute('aria-busy', 'true');
-    expect(kaynak.yenilemeSayisi).toBe(1);
+    expect(kaynak.yenilemeSayisi).toBe(0);
     expect(screen.queryByText(/₺/)).not.toBeInTheDocument();
+  });
+
+  it('geliştirme deposu: profil bir kez istenir (ilk abonelik okur; sayfa ikinci istek yapmaz)', async () => {
+    const istekler: string[] = [];
+    const sayanFetch = async (adres: string) => {
+      istekler.push(adres);
+      return new Response(PROFIL_METNI, { status: 200, headers: { 'content-type': 'application/json' } });
+    };
+    ciz('phone', { profilKaynagi: profilKaynagiOlustur({ mod: 'gelistirme', fetch: sayanFetch }) });
+    expect(await screen.findByRole('region', { name: 'Sonuç' })).toBeInTheDocument();
+    expect(istekler).toEqual(['/__aile/emeklilik/profil.json']);
   });
 
   it('yok: "Profil dosyasını içe aktar" ve yalnız bellekte tutulur metni; içe aktarılan dosya hesaplanır', async () => {
@@ -125,6 +138,52 @@ describe('EmeklilikPage › başlık ve profil durumları', () => {
     await userEvent.click(within(uyari).getByRole('button', { name: 'Yeniden dene' }));
     expect(kaynak.yenilemeSayisi).toBe(once + 1);
     expect(screen.getByLabelText('Profil dosyasını içe aktar')).toBeInTheDocument();
+  });
+
+  it('hesap hatası sonradan gelirse ağaç sabit kalır: ErrorState üstte, açık bölüm ve odak korunur; eylem "Varsayımları sıfırla"', async () => {
+    let sahte: SahtePlanlayici | null = null;
+    ciz('phone', { profilKaynagi: new SahteProfilKaynagi(hazir()), planlayiciOlustur: p => (sahte = new SahtePlanlayici(p)) });
+    const ac = screen.getByRole('button', { name: 'Gün ve tutarları düzenle' });
+    await userEvent.click(ac);
+    const secimler = bolge('Seçimler');
+    const gun = screen.getByLabelText('Askerlikten eklenecek gün');
+    await userEvent.clear(gun);
+    sahte!.hata = 'Geçici model hatası';
+    await userEvent.type(gun, '3');
+    const uyari = screen.getByRole('alert');
+    expect(uyari).toHaveTextContent('Hata: Hesap yapılamadı: Geçici model hatası');
+    expect(screen.queryByRole('button', { name: 'Yeniden dene' })).not.toBeInTheDocument();
+    expect(uyari.compareDocumentPosition(bolge('Seçimler')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // Aynı düğümler: seçimler ve form yeniden kurulmadı; odak alanda, bölüm açık.
+    expect(bolge('Seçimler')).toBe(secimler);
+    expect(gun).toBeInTheDocument();
+    expect(gun).toHaveFocus();
+    expect(ac).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.queryByRole('region', { name: 'Sonuç' })).not.toBeInTheDocument();
+    sahte!.hata = null;
+    await userEvent.type(gun, '0');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(bolge('Sonuç')).toBeInTheDocument();
+    expect(gun).toHaveFocus();
+    expect(gun).toHaveValue('30');
+  });
+
+  it('hesap hatasında eylem "Varsayımları sıfırla": varsayımları varsayılana döndürür ve hesap geri gelir', async () => {
+    let sahte: SahtePlanlayici | null = null;
+    ciz('phone', { profilKaynagi: new SahteProfilKaynagi(hazir()), planlayiciOlustur: p => (sahte = new SahtePlanlayici(p)) });
+    await userEvent.click(screen.getByRole('button', { name: 'Gün ve tutarları düzenle' }));
+    const gun = screen.getByLabelText('Askerlikten eklenecek gün');
+    await userEvent.clear(gun);
+    sahte!.hata = 'Geçici model hatası';
+    await userEvent.type(gun, '3');
+    sahte!.hata = null;
+    const uyari = screen.getByRole('alert');
+    const sifirla = screen.getAllByRole('button', { name: 'Varsayımları sıfırla' })[0]!;
+    expect(uyari.compareDocumentPosition(sifirla) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(sifirla.compareDocumentPosition(bolge('Seçimler')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    await userEvent.click(sifirla);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(gun).toHaveValue('360');
   });
 
   it('hesap hatası: planlayıcı kurulamazsa adıyla hata, sayfa çökmez', () => {
@@ -238,7 +297,7 @@ describe('EmeklilikPage › telefon yolculuğu', () => {
     // Varsayılan borç kaynağı "SGK düzeltilmiş tutarı bilinmiyor": kesinti süresi adıyla bilinmiyor.
     expect(tanim('Borç kesintisi')).toHaveTextContent('%10 kesinti · süre bilinmiyor');
     expect(tanim('Ortak dönem sonunda fark (10 yıl)')).toHaveTextContent('+₺274.300,00');
-    expect(tanim('Ödemeyi karşılayan')).toHaveTextContent('18 emekli aylığı');
+    expect(tanim('Geri kazanma')).toHaveTextContent('18 ay sonra');
     expect(within(sonuc).getByRole('list', { name: 'Ödeme kalemleri' })).toHaveTextContent('Askerlik borçlanması₺178.200,00');
     // Tutarlar tabular hizada (aile-tutar).
     expect(within(sonuc).getByText('₺425.700,00')).toHaveClass('aile-tutar');
@@ -285,6 +344,35 @@ describe('EmeklilikPage › telefon yolculuğu', () => {
     expect(duzeltme).toBeChecked();
   });
 
+  it('Bağ-Kur borcu "4" (ortak ödemeden az): gerçek planlayıcıyla alan hatası; odak ve açık bölüm korunur, sonuç kalır', async () => {
+    ciz('phone', { profilKaynagi: new SahteProfilKaynagi(hazir()), planlayiciOlustur: p => emeklilikPlanlayicisiOlustur(p, MEVZUAT_2026), mevzuat: MEVZUAT_2026 });
+    const ac = screen.getByRole('button', { name: 'Gün ve tutarları düzenle' });
+    await userEvent.click(ac);
+    await userEvent.click(screen.getByRole('radio', { name: 'Tutarı gir' }));
+    const tutar = screen.getByLabelText('Düzeltilmiş Bağ-Kur borcu');
+    await userEvent.clear(tutar);
+    await userEvent.type(tutar, '4');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(tutar).toHaveFocus();
+    expect(ac).toHaveAttribute('aria-expanded', 'true');
+    expect(tutar).toHaveAttribute('aria-invalid', 'true');
+    expect(tutar).toHaveAccessibleDescription(expect.stringContaining('Hata: Borç, yalnız SSK yolunda da ödenecek tutardan (₺50.000,00) az olamaz.'));
+    expect(bolge('Sonuç')).toHaveTextContent('1 alanda hata var; sonuç son geçerli değerlerle hesaplandı.');
+    await userEvent.type(tutar, '00.000,00');
+    expect(tutar).toHaveValue('400.000,00');
+    expect(tutar).not.toHaveAttribute('aria-invalid', 'true');
+    expect(tutar).toHaveFocus();
+  });
+
+  it('iş ücreti bayrağı: karşılaştırmadaki aylık ücret ve kaynağı yanında yazılır (düzenlenmez)', async () => {
+    ciz('phone', { profilKaynagi: new SahteProfilKaynagi(hazir()) });
+    await userEvent.click(screen.getByRole('button', { name: 'Maaş ve aylık varsayımları' }));
+    const devam = screen.getByRole('checkbox', { name: 'İki yolda da iş ücreti aynı devam eder' });
+    expect(devam).toHaveAccessibleDescription(expect.stringContaining('İş ücreti ayda ₺80.000,00 (profildeki net ücret); iki yolda aynı olduğundan farka girmez.'));
+    await userEvent.click(devam);
+    expect(devam).toHaveAccessibleDescription(expect.stringContaining('Vazgeçilen ücret ayda ₺80.000,00'));
+  });
+
   it('Bağ-Kur borcunun kaynağı: yerel radyo grubu, varsayılan "bilinmiyor"; tahmin ve girilen tutar sonucu anında değiştirir; sıfırla varsayılana döner', async () => {
     const { container } = ciz('phone', { profilKaynagi: new SahteProfilKaynagi(hazir()) });
     await userEvent.click(screen.getByRole('button', { name: 'Gün ve tutarları düzenle' }));
@@ -311,7 +399,7 @@ describe('EmeklilikPage › telefon yolculuğu', () => {
     // yinelenmez (sonuç paneli kısa kalır; masaüstünde yapışkan panel ilk ekranın altına taşmaz).
     await userEvent.click(bagkurEvet);
     expect(tanim('Ortak dönem sonunda fark (10 yıl)')).toHaveTextContent('Bilinmiyor · SGK düzeltilmiş tutarı bilinmiyor');
-    expect(tanim('Ödemeyi karşılayan')).toHaveTextContent('BilinmiyorSGK düzeltilmiş tutarı bilinmiyor');
+    expect(tanim('Geri kazanma')).toHaveTextContent('BilinmiyorSGK düzeltilmiş tutarı bilinmiyor');
     expect(within(bolge('Sonuç')).queryByText(/^Fark hesaplanamadı/)).not.toBeInTheDocument();
     await userEvent.click(within(soru('Bağ-Kur borcunu ödeyecek misiniz?')).getByRole('radio', { name: 'Hayır' }));
 
@@ -399,6 +487,12 @@ describe('EmeklilikPage › geniş', () => {
     expect(sag!.contains(bolge('Sonuç'))).toBe(true);
     expect(sag!.contains(bolge('Seçimler'))).toBe(false);
     expect(within(bolge('Sekiz bileşim')).getByRole('table')).toBeInTheDocument();
+    // Belge (okuma) sırası dar kapsayıcının sırasıdır: öneri → seçimler → sonuç → paylar → varsayımlar → ihya; iki sütunda
+    // sonuç ızgara alanıyla sağa yerleşir (Sonuç dar alanda sayfanın sonuna düşmez).
+    const sira = ['Öneri', 'Seçimler', 'Sonuç', 'Her seçimin payı', 'Varsayımlar', 'İhya karşılaştırması'].map(bolge);
+    for (let i = 1; i < sira.length; i++) {
+      expect(sira[i - 1]!.compareDocumentPosition(sira[i]!) & Node.DOCUMENT_POSITION_FOLLOWING, `${i}`).toBeTruthy();
+    }
     // Geniş sunum aynı ViewModel'i kullanır: seçim anında sonucu değiştirir.
     await act(async () => { await userEvent.click(within(soru('Askerliği borçlanacak mısınız?')).getByRole('radio', { name: 'Hayır' })); });
     expect(ay()).toHaveTextContent('Ağustos 2031');
