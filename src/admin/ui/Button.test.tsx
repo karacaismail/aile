@@ -470,7 +470,9 @@ describe('Button.css (tasarım kuralları, statik)', () => {
     expect(css).not.toMatch(/\b(?:rgba?|hsla?)\(/);
     expect(css).not.toMatch(/box-shadow\s*:/);
     expect(css).toContain('var(--aile-');
-    for (const rule of rules.filter(r => !forced(r))) expect(rule.body, rule.selector).not.toMatch(/\d(?:\.\d+)?px\b/);
+    // Tek izinli px: yazı ölçeği taban değeri (max(14px|16px, …rem)); kullanıcının kök boyutu küçükse bile metin 14 CSS px altına inmez.
+    const fontFloor = /font-size\s*:\s*max\(\s*1[46]px\s*,\s*\d+(?:\.\d+)?rem\s*\)/g;
+    for (const rule of rules.filter(r => !forced(r))) expect(rule.body.replace(fontFloor, ''), rule.selector).not.toMatch(/\d(?:\.\d+)?px\b/);
     expect(css).not.toMatch(/transition\s*:\s*all\b/);
   });
 
@@ -558,12 +560,12 @@ describe('Button.css (tasarım kuralları, statik)', () => {
   it('sets the label typography from the font token at body size (never below 14 px) without truncation', () => {
     const base = rules.find(r => r.selector === '.aile-dugme')!;
     expect(decl(base.body, 'font-family')).toBe('var(--aile-font-sans)');
-    expect(decl(base.body, 'font-size')).toBe('1rem');
+    expect(decl(base.body, 'font-size')).toBe('max(16px, 1rem)');
     expect(decl(base.body, 'font-weight')).toBe('500');
     const button = rules.find(r => r.selector === '.aile-btn')!;
     expect(decl(button.body, 'white-space')).toBe('nowrap');
     expect(css).not.toMatch(/text-overflow\s*:\s*ellipsis/);
     const reason = rules.find(r => r.selector === '.aile-btn-neden')!;
-    expect(decl(reason.body, 'font-size')).toBe('0.875rem');
+    expect(decl(reason.body, 'font-size')).toBe('max(14px, 0.875rem)');
   });
 });

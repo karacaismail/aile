@@ -246,7 +246,7 @@ describe('bilinçli farklar (adlandırılmış)', () => {
     expect(JSON.stringify(yeni)).not.toMatch(/evidence|harcand/i);
   });
 
-  it('2–4 · para zarfı, eksik tutar ve ay anahtarı: kuruş altı artık 2 haneye sabitlenir, görünen tutar aynı; eksik tutar sıfır olmaz', async () => {
+  it('2–4 · para zarfı, eksik tutar ve ay anahtarı: kuruş altı artık ondalık metin olarak korunur (yuvarlama yalnız görüntülemede), görünen tutar aynı; eksik tutar sıfır olmaz', async () => {
     const kaynak = syntheticCurrentSheets();
     // Sheets toplamlarındaki kayan nokta artığı. Kalem satırlarında bütünlük kuralı yoktur; ay toplamları değişmez.
     const fatura = kaynak.plan.find(satir => satir[0] === 'Fatura A')!;
@@ -257,8 +257,9 @@ describe('bilinçli farklar (adlandırılmış)', () => {
     const eskiFatura = eski.categories.find(c => c.label === 'Fatura A')!;
     const yeniFatura = yeni.categories.find(c => c.label === 'Fatura A')!;
     expect(eskiFatura.plan.slice(0, 2)).toEqual([4000.004, 0.30000000000000004]);
-    expect(yeniFatura.planned['2098-11']).toEqual({ amount: '4000.00', currency: 'TRY' });
-    expect(yeniFatura.planned['2098-12']).toEqual({ amount: '0.30', currency: 'TRY' });
+    // Canlı tutar data-platform decimal() kuralıyla ondalık metne çevrilir; 2 haneye yuvarlama yalnız görüntülemededir (r4-privacy).
+    expect(yeniFatura.planned['2098-11']).toEqual({ amount: '4000.004', currency: 'TRY' });
+    expect(yeniFatura.planned['2098-12']).toEqual({ amount: '0.30000000000000004', currency: 'TRY' });
     expect(money(eskiFatura.plan[0])).toBe(money(Number(yeniFatura.planned['2098-11']!.amount)));
     expect(money(eskiFatura.plan[1])).toBe(money(Number(yeniFatura.planned['2098-12']!.amount)));
     // Eksik tutar: eski null ("Tutar yok") ↔ live null; sıfır değil.
