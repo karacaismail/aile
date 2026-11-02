@@ -1,121 +1,62 @@
-import { useCallback, useId, useMemo, useState, type ComponentProps, type ReactNode } from 'react';
-import { designTokens } from '../../design/tokens.ts';
+import { useCallback, useId, useMemo, useState, type ReactNode } from 'react';
+import { useProfile } from '../adaptive/context';
+import { lazyWide } from '../adaptive/loader';
 import { useCollection, useGeneration } from '../data/useGeneration';
-import type { ForecastMonth, GenerationState, Money as MoneyValue } from '../data/types';
-import { useDevice } from '../device';
-import type { DataStatusProps, DataStatusState, PageHeaderAction, PageHeaderSummary, ResponsiveColumn } from '../shell/contracts';
+import type { GenerationState } from '../data/types';
+import type { DataStatusProps, DataStatusState, PageHeaderAction, PageHeaderSummary } from '../shell/contracts';
 import { PageHeader } from '../shell/PageHeader';
-import { Button, Chart, Dialog, ErrorState, LoadingShell, Money, ResponsiveTable } from '../ui';
-import { formatMoney, HENUZ_YOK } from '../ui/Money';
+import { Button } from '../ui/Button';
+import { Dialog } from '../ui/Dialog';
+import { ErrorState } from '../ui/ErrorState';
+import { LoadingShell } from '../ui/LoadingShell';
+import { BILINMIYOR, formatMoney, HENUZ_YOK } from '../ui/Money';
+import { Select } from '../ui/Select';
+import { BakiyeListesi } from './hesaplar/BakiyeListesi';
+import {
+  buAyMi, donemBakiyeleri, donemMetni, donemSecenekleri, kapanisOzeti, projeksiyon, tahminAdlari, varsayilanDonem,
+} from './hesaplar/model';
 import './HesaplarPage.css';
 
-// Hesaplar ve borçlar (Para). Tasarım: README "Sayfa iskeleti", bundle.js Aile.Pages.Hesaplar (Sec › Hesaplar tablosu
-// mobileMode list, Sec › Borçlar tablosu; başlıkta "Hesap ekle" + Diğer › "Borç ekle"; özet üç ölçü). Veri platformunda
-// hesap/borç koleksiyonu yoktur (payments/providers gibi); bu bölümler bunu adıyla söyler, tutar uydurmaz. Nesilde olan
-// tek bakiye verisi forecast_months'tır (record_basis: forecast, _Finans web): dönem anahtarlı tablo (data-platform
-// README: "period-keyed table, not additive pivot sums") + kapanış bakiyesi çizgisi. Forecast ne plan ne gerçektir;
-// her yerde "forecast / tahmin" diye adlandırılır ve gerçek banka hesabı kaydı sayılmaz. Para Money (₺8.500,00),
-// dönem 11.2026 (tasarım bitiş "09.2033"), eksik ölçü "Henüz yok". Yazma yok: "Hesap ekle" ve "Borç ekle" bunu
-// açıklayan diyalog açar (işlevsiz düğme yerine dürüst gerekçe). Ham antd/echarts yok; tokenlar designTokens/--aile.
+// Hesaplar ve borçlar (Para). Tasarım: tasarim-sistemi/README.md "Sayfa iskeleti" + "Uyarlanır teslim", bundle.js
+// Aile.Pages.Hesaplar (Sec › Hesaplar mobileMode list, Sec › Borçlar; başlıkta "Hesap ekle" + Diğer › "Borç ekle";
+// özet üç ölçü). Veri gerçeği: nesilde hesap ve borç koleksiyonu yoktur; tek bakiye kaynağı forecast_months'tır
+// (hesaplar/model.ts). Bu yüzden:
+//  - Hesaplar bölümü seçili dönemin tahmini bakiyelerini düz liste satırı olarak gösterir (kart değil); her satır
+//    "Tahmin" der, toplam satırı yoktur; ayların ve tahminlerin bakiyeleri toplanmaz. Hesap kaydı yokluğu adıyla yazılır.
+//  - Dönem ui/Select ile seçilir: telefonda alt sayfa (BottomSheet). Varsayılan, içinde bulunulan ay (Europe/Istanbul).
+//  - Borçlar bölümü "Kaynakta borç kaydı yok" der; tutar uydurulmaz. Özet hesap/borç toplamını uydurmaz.
+//  - Geniş profil (tablet/masaüstü) ek olarak tüm dönemlerin tablosu ve kapanış çizgisini yükler
+//    (hesaplar/Projeksiyon.wide.tsx, lazyWide); telefon bunu ve echarts'ı indirmez.
+// Durumlar ayrı ve adıyla: yükleniyor (iskelet), boş ("Kaynakta tahmin dönemi kaydı yok"), hata ("Hata: …" + Yeniden
+// dene, tutar yok), eski veri (son başarılı tahmin + "Eski veri"). Nesil hiç okunamazsa sayfa düzeyinde tek hata.
+// Yazma yok: "Hesap ekle" ve "Borç ekle" bunu açıklayan diyalog açar (telefonda alt sayfa). ui/ API'si doğrudan
+// modül yollarıyla alınır (barrel değil): telefon sayfa parçası yalnız kullandığı bileşenleri çeker.
 
 export interface HesaplarPageProps {
   /** Hash yolu; PageHeader bölüm/menü adını buradan doğrular. */
   location?: string;
+  /** "Bugün" (varsayılan dönem ve "Bu ay" notu için); verilmezse açılış anı. Testler sabitler. */
+  today?: Date;
 }
+
+const ProjeksiyonWide = lazyWide('hesaplar-projeksiyon', () => import('./hesaplar/Projeksiyon.wide'));
 
 const KONUM = '/hesaplar';
 const BOLUM = 'Para';
 const BASLIK = 'Hesaplar ve borçlar';
 const AMAC = 'Hesap bakiyelerini ve kalan borçları, taksit planıyla birlikte görün.';
 const KAYNAKTA_YOK = 'Kaynakta kayıt yok';
-const HESAP_YOK = 'Kaynakta hesap kaydı yok';
+const YUKLENIYOR = 'Yükleniyor';
+const KAYNAK_NOTU = 'Bakiye tek kaynaktan, nakit tahmininden gelir: tahmindir, gerçek banka hesabı kaydı değildir. Aylar ve tahminler toplanmaz.';
+const HESAP_YOK = 'Kaynakta hesap kaydı yok: bakiye hesap hesap değil, tek nakit tahmini olarak gelir.';
 const BORC_YOK = 'Kaynakta borç kaydı yok';
-const DONEM_YOK = 'Kaynakta forecast dönemi kaydı yok';
-const FORECAST_NOTU = 'Bu forecast; gerçek banka hesabı kaydı değil.';
-const TABLO_ADI = 'Nakit projeksiyonu (forecast)';
-const KAPANIS = 'closing_balance';
-const BILINMIYOR = 'Bilinmiyor';
-const ISKELET_SATIR = 6;
-
-/** Ölçü anahtarı → sütun adı; bilinmeyen anahtar okunur hâle getirilir ("kmh_limit" → "Kmh limit"). */
-const OLCU_ADLARI: Record<string, string> = {
-  opening_balance: 'Açılış bakiyesi',
-  planned_inflow: 'Planlanan giriş',
-  planned_outflow: 'Planlanan çıkış',
-  closing_balance: 'Kapanış bakiyesi',
-};
-/** Bilinen ölçülerin sütun sırası (açılış → hareket → kapanış); diğerleri ilk görüldükleri sırada sonda. */
-const OLCU_SIRASI = Object.keys(OLCU_ADLARI);
-
-export function olcuAdi(key: string): string {
-  const bilinen = OLCU_ADLARI[key];
-  if (bilinen) return bilinen;
-  const metin = key.replace(/[_-]+/g, ' ').trim();
-  return metin ? metin.charAt(0).toLocaleUpperCase('tr-TR') + metin.slice(1) : BILINMIYOR;
-}
-
-/** "2026-11" → "11.2026"; biçim dışı ya da eksik dönem "Bilinmiyor". */
-export function donemMetni(period: string | undefined): string {
-  const match = period ? /^(\d{4})-(\d{2})$/.exec(period) : null;
-  return match ? `${match[2]}.${match[1]}` : BILINMIYOR;
-}
-
-/** Chart sarmalayıcısının option tipi; ham 'echarts' importu ui/ dışına çıkmaz. */
-type ChartOption = ComponentProps<typeof Chart>['option'];
+const DONEM_YOK = 'Kaynakta tahmin dönemi kaydı yok';
+const DONEM_YOK_NEDEN = 'Tahmin e-tabloda tanımlanıp yeni nesil üretilince bakiyeler burada görünür.';
+const ESKI_VERI = 'Eski veri: son başarılı nesil gösteriliyor; yenilenemedi.';
+const KAPANIS_ETIKETI = 'Kapanış bakiyesi (tahmin)';
+const ISKELET_SATIR = 3;
 
 const DURUM: Record<GenerationState, DataStatusState> = { idle: 'checking', checking: 'checking', ready: 'fresh', stale: 'stale', error: 'error' };
-
-interface DonemSatiri {
-  key: string;
-  period: string | undefined;
-  donem: string;
-  tahmin: string;
-  olculer: Record<string, MoneyValue | undefined>;
-}
-
-interface Projeksiyon {
-  satirlar: DonemSatiri[];
-  olcuAnahtarlari: string[];
-  /** Kapanış bakiyesi çizgisi: yalnız her dönemde aynı para biriminde tutar varsa. */
-  cizgi: { donemler: string[]; degerler: number[]; currency: string } | null;
-  sonKapanis: MoneyValue | undefined;
-}
-
-/** Dönem anahtarlı projeksiyon: dönemler artan, ölçüler sütun; toplam alınmaz (forecast ayları toplanabilir değildir). */
-export function projeksiyon(months: readonly ForecastMonth[], tahminAdlari: ReadonlyMap<string, string>): Projeksiyon {
-  const sirali = [...months].sort((a, b) => (a.period ?? '').localeCompare(b.period ?? '') || a.id.localeCompare(b.id));
-  const gorulen: string[] = [];
-  const satirlar = sirali.map<DonemSatiri>(month => {
-    const olculer = (month.measures ?? {}) as Record<string, MoneyValue | undefined>;
-    for (const key of Object.keys(olculer)) if (!gorulen.includes(key)) gorulen.push(key);
-    const forecastId = typeof month.forecast_id === 'string' ? month.forecast_id : '';
-    return { key: month.id, period: month.period, donem: donemMetni(month.period), tahmin: tahminAdlari.get(forecastId) ?? BILINMIYOR, olculer };
-  });
-  const olcuAnahtarlari = [...OLCU_SIRASI.filter(key => gorulen.includes(key)), ...gorulen.filter(key => !OLCU_SIRASI.includes(key))];
-
-  let cizgi: Projeksiyon['cizgi'] = null;
-  const kapanislar = satirlar.map(satir => satir.olculer[KAPANIS]);
-  const currency = kapanislar[0]?.currency;
-  const tamam = satirlar.length >= 2 && currency !== undefined && kapanislar.every(money => money != null && money.currency === currency && Number.isFinite(Number(money.amount)));
-  if (tamam) {
-    cizgi = { donemler: satirlar.map(satir => satir.donem), degerler: kapanislar.map(money => Number(money!.amount)), currency };
-  }
-  const sonKapanis = satirlar.at(-1)?.olculer[KAPANIS];
-  return { satirlar, olcuAnahtarlari, cizgi, sonKapanis };
-}
-
-function Blok({ title, extra, children }: { title: string; extra?: ReactNode; children: ReactNode }) {
-  const id = useId();
-  return (
-    <section className="aile-hesaplar__blok" aria-labelledby={id}>
-      <div className="aile-hesaplar__bas">
-        <h2 id={id} className="aile-hesaplar__baslik">{title}</h2>
-        {extra ? <span className="aile-kucuk aile-ikincil">{extra}</span> : null}
-      </div>
-      {children}
-    </section>
-  );
-}
 
 type Ekleme = 'hesap' | 'borc';
 const EKLEME: Record<Ekleme, { title: string; neden: string }> = {
@@ -124,27 +65,44 @@ const EKLEME: Record<Ekleme, { title: string; neden: string }> = {
 };
 const YAZMA_YOK = 'E-tabloya yazma bu sürümde yok; kayıt e-tabloda tanımlanıp yeni nesil üretilince burada görünür.';
 
-export function HesaplarPage({ location = KONUM }: HesaplarPageProps) {
-  const device = useDevice();
-  const dar = device !== 'desktop';
+function Bolum({ title, children }: { title: string; children: ReactNode }) {
+  const id = useId();
+  return (
+    <section className="aile-hesaplar__blok" aria-labelledby={id}>
+      <div className="aile-hesaplar__bas">
+        <h2 id={id} className="aile-hesaplar__baslik">{title}</h2>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+export function HesaplarPage({ location = KONUM, today }: HesaplarPageProps) {
+  const profile = useProfile();
+  const telefon = profile === 'phone';
   const generation = useGeneration();
   const forecasts = useCollection('forecasts');
   const months = useCollection('forecast_months');
+  const [acilis] = useState(() => new Date());
+  const bugun = today ?? acilis;
+  const [secim, setSecim] = useState<string | null>(null);
   const [ekleme, setEkleme] = useState<Ekleme | null>(null);
   const kapat = useCallback(() => setEkleme(null), []);
 
-  const tahminAdlari = useMemo(() => {
-    const map = new Map<string, string>();
-    forecasts.rows.forEach((forecast, index) => map.set(forecast.id, forecast.label?.trim() || `Tahmin ${index + 1}`));
-    return map;
-  }, [forecasts.rows]);
-  const veri = useMemo(() => projeksiyon(months.rows, tahminAdlari), [months.rows, tahminAdlari]);
-  const cokTahmin = forecasts.rows.length > 1;
+  const veri = useMemo(() => projeksiyon(months.rows, tahminAdlari(forecasts.rows)), [months.rows, forecasts.rows]);
+  const varsayilan = useMemo(() => varsayilanDonem(veri.donemler, bugun), [veri.donemler, bugun]);
+  const secili = secim !== null && veri.donemler.includes(secim) ? secim : varsayilan;
+  const secenekler = useMemo(() => donemSecenekleri(veri.donemler, bugun), [veri.donemler, bugun]);
 
   const yukleniyor = months.loading || forecasts.loading;
   const hata = months.error ?? forecasts.error;
   const refresh = generation.refresh;
   const yenile = useCallback(() => { void refresh(); }, [refresh]);
+  // Nesil hiç okunamadı: sayfa düzeyinde tek hata; hesap/borç yokluğu da iddia edilmez. Koleksiyon önce manifesti okur:
+  // manifest yokken gelen koleksiyon hatası da nesil hatasıdır (bölüm hatası kısa süre görünüp yer değiştirmez).
+  // Manifest varken parça hatası bölümde kalır.
+  const nesilHatasi = generation.manifest === null && (generation.state === 'error' || hata !== null);
+  const veriVar = !yukleniyor && !hata && veri.donemler.length > 0;
 
   const status: DataStatusProps = {
     state: DURUM[generation.state],
@@ -155,102 +113,89 @@ export function HesaplarPage({ location = KONUM }: HesaplarPageProps) {
     onRefresh: yenile,
   };
 
-  const sonDonem = veri.satirlar.at(-1);
+  let kapanis: PageHeaderSummary;
+  if (nesilHatasi || hata) {
+    kapanis = { label: KAPANIS_ETIKETI, value: BILINMIYOR };
+  } else if (yukleniyor) {
+    kapanis = { label: KAPANIS_ETIKETI, value: YUKLENIYOR };
+  } else {
+    const ozet = kapanisOzeti(veri, varsayilan);
+    kapanis = ozet.kind === 'tek'
+      ? { label: KAPANIS_ETIKETI, value: formatMoney(ozet.deger, BILINMIYOR), note: `${donemMetni(varsayilan ?? undefined)} · tahmin, gerçek değil` }
+      : ozet.kind === 'cok'
+        ? { label: KAPANIS_ETIKETI, value: `${ozet.sayi} tahmin`, note: 'bakiyeler toplanmaz' }
+        : { label: KAPANIS_ETIKETI, value: HENUZ_YOK };
+  }
+  const hesapToplami = nesilHatasi ? BILINMIYOR : KAYNAKTA_YOK;
   const summary: readonly PageHeaderSummary[] = [
-    { label: 'Hesaplardaki toplam', value: KAYNAKTA_YOK },
-    { label: 'Kalan borç', value: KAYNAKTA_YOK },
-    {
-      label: 'Kapanış bakiyesi (forecast)',
-      value: formatMoney(veri.sonKapanis, HENUZ_YOK),
-      note: sonDonem ? `${sonDonem.donem} · tahmin, gerçek değil` : undefined,
-    },
+    { label: 'Hesaplardaki toplam', value: hesapToplami },
+    { label: 'Kalan borç', value: hesapToplami },
+    kapanis,
   ];
   const more: readonly PageHeaderAction[] = [{ label: 'Borç ekle', icon: 'plus', onClick: () => setEkleme('borc') }];
 
-  const columns = useMemo<ResponsiveColumn<DonemSatiri>[]>(() => {
-    const list: ResponsiveColumn<DonemSatiri>[] = [{ key: 'donem', title: 'Dönem', minWidth: 112, m: 'title', render: satir => satir.donem }];
-    if (cokTahmin) list.push({ key: 'tahmin', title: 'Tahmin', minWidth: 160, m: 'meta', render: satir => satir.tahmin });
-    for (const key of veri.olcuAnahtarlari) {
-      list.push({
-        key,
-        title: olcuAdi(key),
-        align: 'right',
-        minWidth: 136,
-        m: key === KAPANIS ? 'lead' : 'body',
-        render: satir => <Money value={satir.olculer[key]} label={HENUZ_YOK} />,
-      });
-    }
-    return list;
-  }, [cokTahmin, veri.olcuAnahtarlari]);
+  const header = (
+    <PageHeader
+      location={location}
+      section={BOLUM}
+      title={BASLIK}
+      purpose={AMAC}
+      primary={<Button variant="primary" icon="plus" onClick={() => setEkleme('hesap')}>Hesap ekle</Button>}
+      more={more}
+      status={status}
+      summary={summary}
+    />
+  );
 
-  const option = useMemo<ChartOption | null>(() => {
-    if (!veri.cizgi) return null;
-    const ad = 'Kapanış bakiyesi (forecast)';
-    return {
-      legend: { data: [ad] },
-      xAxis: { type: 'category', data: veri.cizgi.donemler },
-      yAxis: { type: 'value' },
-      // Forecast plan ya da gerçek değildir: acik-mavi (plan tonu) ile tek çizgi; yığılmaz, toplanmaz.
-      series: [{ name: ad, type: 'line', data: veri.cizgi.degerler, color: designTokens.acikMavi, connectNulls: false }],
-    };
-  }, [veri.cizgi]);
-
-  // Nesil hiç okunamadı: sayfa düzeyinde hata, eski tutar yok. Manifest varken parça hatası bölümde kalır.
-  const nesilHatasi = generation.state === 'error' && generation.manifest === null;
-
-  let projeksiyonIcerik: ReactNode;
-  if (nesilHatasi) {
-    projeksiyonIcerik = <ErrorState title="Nesil okunamadı" message={generation.message ?? undefined} onRetry={yenile} />;
-  } else if (hata) {
-    projeksiyonIcerik = <ErrorState title="Projeksiyon okunamadı" message={hata} onRetry={yenile} />;
+  let bakiyeIcerik: ReactNode;
+  if (hata) {
+    bakiyeIcerik = (
+      <div className="aile-hesaplar__hata">
+        <ErrorState title="Bakiye tahmini okunamadı" message={hata} onRetry={yenile} />
+      </div>
+    );
   } else if (yukleniyor) {
-    projeksiyonIcerik = <LoadingShell rows={ISKELET_SATIR} narrow={device === 'phone'} />;
-  } else if (veri.satirlar.length === 0) {
-    projeksiyonIcerik = <p className="aile-hesaplar__yok aile-ikincil">{DONEM_YOK}</p>;
+    bakiyeIcerik = <LoadingShell rows={ISKELET_SATIR} narrow={telefon} />;
+  } else if (veri.donemler.length === 0 || !secili) {
+    bakiyeIcerik = (
+      <div className="aile-hesaplar__bos">
+        <p className="aile-hesaplar__bos-baslik">{DONEM_YOK}</p>
+        <p className="aile-kucuk aile-ikincil">{DONEM_YOK_NEDEN}</p>
+      </div>
+    );
   } else {
-    const ilk = veri.satirlar[0]!.donem;
-    const son = veri.satirlar.at(-1)!.donem;
-    const tablo = <ResponsiveTable<DonemSatiri> caption={TABLO_ADI} columns={columns} rows={veri.satirlar} />;
-    projeksiyonIcerik = (
+    bakiyeIcerik = (
       <>
-        <p className="aile-hesaplar__meta aile-kucuk aile-ikincil">
-          <span>{ilk === son ? ilk : `${ilk} – ${son}`}</span>
-          <span aria-hidden="true"> · </span>
-          <span>{`${forecasts.rows.length} tahmin`}</span>
-        </p>
-        {option ? (
-          <Chart
-            option={option}
-            ariaLabel="Dönemlere göre tahmini kapanış bakiyesi çizgisi (forecast); değerler aşağıdaki tabloda"
-            description={tablo}
-          />
-        ) : tablo}
+        {/* Canlı durum bölgesi: duyurulur; kaydın kendisi değildir (son iyi içerik aynen kalır, f05 eski veri). */}
+        {generation.state === 'stale' ? <p role="status" className="aile-hesaplar__eski">{ESKI_VERI}</p> : null}
+        <div className="aile-hesaplar__secici">
+          <Select label="Dönem" options={secenekler} value={secili} onChange={setSecim} />
+        </div>
+        <BakiyeListesi donem={donemMetni(secili)} buAy={buAyMi(secili, bugun)} gruplar={donemBakiyeleri(veri, secili)} />
       </>
     );
   }
 
   return (
-    <div className={`aile-hesaplar${dar ? ' aile-hesaplar--dar' : ''}`}>
-      <PageHeader
-        location={location}
-        section={BOLUM}
-        title={BASLIK}
-        purpose={AMAC}
-        primary={<Button variant="primary" icon="plus" onClick={() => setEkleme('hesap')}>Hesap ekle</Button>}
-        more={more}
-        status={status}
-        summary={summary}
-      />
-      <Blok title="Hesaplar" extra="0 kayıt">
-        <p className="aile-hesaplar__yok aile-ikincil">{HESAP_YOK}</p>
-      </Blok>
-      <Blok title="Borçlar" extra="0 kayıt">
-        <p className="aile-hesaplar__yok aile-ikincil">{BORC_YOK}</p>
-      </Blok>
-      <Blok title="Nakit projeksiyonu" extra={veri.satirlar.length > 0 && !yukleniyor && !hata ? `${veri.satirlar.length} dönem` : undefined}>
-        <p className="aile-hesaplar__not">{FORECAST_NOTU}</p>
-        {projeksiyonIcerik}
-      </Blok>
+    <div className={`aile-hesaplar${telefon ? ' aile-hesaplar--dar' : ''}`}>
+      {header}
+      {nesilHatasi ? (
+        <div className="aile-hesaplar__hata">
+          <ErrorState title="Nesil okunamadı" message={generation.message ?? undefined} onRetry={yenile} />
+        </div>
+      ) : (
+        <>
+          <Bolum title="Hesaplar">
+            <p className="aile-hesaplar__not">{KAYNAK_NOTU}</p>
+            {bakiyeIcerik}
+            <p className="aile-hesaplar__yok aile-kucuk aile-ikincil">{HESAP_YOK}</p>
+          </Bolum>
+          <Bolum title="Borçlar">
+            <p className="aile-hesaplar__yok aile-ikincil">{BORC_YOK}</p>
+          </Bolum>
+          {veriVar ? <ProjeksiyonWide veri={veri} secili={secili} onSec={setSecim} /> : null}
+        </>
+      )}
       {ekleme ? (
         <Dialog title={EKLEME[ekleme].title} onClose={kapat}>
           <p className="aile-hesaplar__neden">{EKLEME[ekleme].neden}</p>
