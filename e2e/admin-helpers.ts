@@ -13,7 +13,8 @@ export async function gotoAdmin(page: Page, hash = '/alimlar') {
 /**
  * Yönetim sayfasının hazır olmadığı gerekçeler; boş liste = hazır. Sayfa bağlamında da çalışır (openAdmin bu fonksiyonun
  * kaynak metnini tarayıcıya gönderir), bu yüzden dış kapsamdan hiçbir şey kullanmaz. Hazır = main#admin-content görünür,
- * main içinde görünür ve dolu bir h1 var, belgede aria-busy="true" taşıyan öğe (LoadingShell iskeleti) kalmadı.
+ * main içinde görünür ve dolu bir h1 var, belgede aria-busy="true" taşıyan öğe (LoadingShell iskeleti) kalmadı ve hiçbir
+ * geniş modül yüklenmiyor (AdaptiveRoot kökünde data-wide-loading yok; lazyWide/wideResource uçuştayken vardır).
  */
 export function adminNotReadyReasons(): string[] {
   const visible = (element: Element): boolean => {
@@ -32,6 +33,7 @@ export function adminNotReadyReasons(): string[] {
   else if (heading && !(heading.textContent ?? '').trim()) reasons.push('main h1 boş');
   const busy = document.querySelectorAll('[aria-busy="true"]').length;
   if (busy > 0) reasons.push(`${busy} öğe aria-busy="true"`);
+  if (document.querySelector('[data-wide-loading]')) reasons.push('geniş modül yükleniyor (data-wide-loading)');
   return reasons;
 }
 
@@ -45,8 +47,9 @@ let readyProbe = 0;
 
 /**
  * admin.html'i verilen hash rotasında TAM yükleme ile açar ve gerçek hazır sinyalini bekler: main görünür, main içinde
- * görünür h1, aria-busy kalmadı; koşul iki ardışık animasyon karesinde sağlanmalı (React efekti arasındaki ara kare
- * yanıltmaz). Sabit bekleme yoktur. Sayfa zaten admin.html'de ise önce about:blank'e gider: yalnız hash değişimi eski
+ * görünür h1, aria-busy kalmadı, geniş modül yüklemesi (data-wide-loading) bitti; koşul iki ardışık animasyon karesinde
+ * sağlanmalı (React efekti arasındaki ara kare yanıltmaz). Geniş profilde döndüğünde geniş adalar (ör. yan gezinme)
+ * yerindedir ya da yüklenemediyse kurtarma bildirimi görünür. Sabit bekleme yoktur. Sayfa zaten admin.html'de ise önce about:blank'e gider: yalnız hash değişimi eski
  * sayfanın h1'ini "hazır" sanabilirdi. Süre dolarsa rota ve eksik sinyallerle hata verir. Döner: main landmark.
  * Yükleme/hata durumlarını gözlemleyen testler bunun yerine gotoAdmin kullanır.
  */

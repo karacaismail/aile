@@ -8,7 +8,6 @@ import { memoryLocation } from 'wouter/memory-location';
 import { ChangeSet, FixtureGenerationSource, GenerationProvider, createMemoryStorage } from './data';
 import { DeviceContext } from './device';
 import { adminPages, settingsLink } from './shell/navigation';
-import { AntApp, ConfigProvider } from './ui/antd';
 import { AdminRoutes } from './routes';
 
 // Rota → sayfa eşlemesi: her nav yolu kendi sayfasını React.lazy ile yükler; yüklenirken aynı PageHeader (başlık
@@ -69,18 +68,15 @@ const FILES: Record<string, string> = Object.fromEntries(
 function renderAt(path: string) {
   const memory = memoryLocation({ path, record: true });
   const changeSet = () => ChangeSet.load({ storage: createMemoryStorage() });
+  // Üretim ağacıyla aynı: antd sağlayıcısı yok (App.tsx uygulama ağacını hiçbir profilde antd ile sarmaz).
   const view = render(
-    <ConfigProvider>
-      <AntApp>
-        <DeviceContext.Provider value="desktop">
-          <GenerationProvider source={new FixtureGenerationSource(FILES, 'sentetik')} cache={null} changeSet={changeSet}>
-            <Router hook={memory.hook}>
-              <AdminRoutes />
-            </Router>
-          </GenerationProvider>
-        </DeviceContext.Provider>
-      </AntApp>
-    </ConfigProvider>,
+    <DeviceContext.Provider value="desktop">
+      <GenerationProvider source={new FixtureGenerationSource(FILES, 'sentetik')} cache={null} changeSet={changeSet}>
+        <Router hook={memory.hook}>
+          <AdminRoutes />
+        </Router>
+      </GenerationProvider>
+    </DeviceContext.Provider>,
   );
   return { ...view, memory };
 }

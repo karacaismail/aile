@@ -6,6 +6,12 @@ import { reloadPage } from './reload';
 import type { Profile } from './profile';
 
 vi.mock('./reload', () => ({ reloadPage: vi.fn() }));
+// antd adası testleri için sağlayıcı taslağı: gerçek WideProviders antd'yi yükler; burada yalnız sarmalama sınanır.
+vi.mock('./WideProviders', async () => {
+  const { createElement } = await import('react');
+  const MarkerProviders = ({ children }: { children: ReactNode }) => createElement('div', { 'data-testid': 'antd-providers' }, children);
+  return { default: MarkerProviders, WideProviders: MarkerProviders };
+});
 
 // Her test kendi anahtarını kullanır: kayıt defteri modül düzeyindedir (aynı anahtar = aynı kaynak).
 let seq = 0;
@@ -249,5 +255,58 @@ describe('<WideOnly> and a standalone lazy component', () => {
     expect(screen.getByText('Temel görünüm')).toBeInTheDocument();
     expect(screen.queryByText(/Geniş görünüm/)).toBeNull();
     expect(Wide.resource.getState().status).toBe('ready');
+  });
+});
+
+// antd adası: antd gerektiren geniş ada sağlayıcıyı (adaptive/WideProviders) yalnız kendisi için yükler ve yalnız kendini
+// sarar. Uygulama ağacı hiçbir profilde sağlayıcıyla sarılmaz (AdaptiveRoot); telefon ikisini de indirmez.
+describe('lazyWide antd adası', () => {
+  const providersStatus = () => wideManifest().find(entry => entry.key === 'wide-providers')?.status;
+
+  it('phone profile: neither the island module nor the antd providers download', async () => {
+    const importer = vi.fn(() => Promise.resolve(wideModule));
+    const Island = lazyWide(key('antd-phone'), importer, { antd: true, retryDelayMs: 0 });
+    render(<AtProfile profile="phone"><Island label="Tablo" wideFallback={<PhoneView />} /></AtProfile>);
+    await act(async () => { await Promise.resolve(); });
+    expect(importer).not.toHaveBeenCalled();
+    expect(providersStatus()).toBe('idle');
+    expect(screen.getByLabelText('Telefon notu')).toBeInTheDocument();
+    expect(screen.queryByTestId('antd-providers')).toBeNull();
+  });
+
+  it('wide profile: loads the module and the providers, wraps only the island; a sibling keeps its node and state', async () => {
+    const Island = lazyWide(key('antd-wide'), () => Promise.resolve(wideModule), { antd: true, retryDelayMs: 0 });
+    render(
+      <AtProfile profile="desktop">
+        <PhoneView />
+        <Island label="Tablo" wideFallback={<p>Temel tablo</p>} />
+      </AtProfile>,
+    );
+    const sibling = screen.getByLabelText('Telefon notu');
+    fireEvent.change(sibling, { target: { value: 'kiler rafı' } });
+    const wrapper = await screen.findByTestId('antd-providers');
+    expect(wrapper).toContainElement(screen.getByText('Geniş görünüm: Tablo'));
+    expect(wrapper).not.toContainElement(sibling);
+    expect(screen.getByLabelText('Telefon notu')).toBe(sibling);
+    expect(sibling).toHaveValue('kiler rafı');
+    expect(screen.queryByText('Temel tablo')).toBeNull();
+    expect(providersStatus()).toBe('ready');
+  });
+
+  it('keeps the fallback until both the module and the providers are ready; preload() fetches both', async () => {
+    const pending = deferred<WideModule>();
+    const Island = lazyWide(key('antd-wait'), () => pending.promise, { antd: true, retryDelayMs: 0 });
+    render(<AtProfile profile="tablet"><Island label="Tablo" wideFallback={<p>Temel tablo</p>} /></AtProfile>);
+    expect(screen.getByText('Temel tablo')).toBeInTheDocument();
+    const preloaded = Island.preload();
+    await act(async () => { pending.resolve(wideModule); await preloaded; });
+    expect(screen.getByTestId('antd-providers')).toContainElement(screen.getByText('Geniş görünüm: Tablo'));
+  });
+
+  it('a plain island is never wrapped in the antd providers', async () => {
+    const Plain = lazyWide(key('plain'), () => Promise.resolve(wideModule));
+    render(<AtProfile profile="desktop"><Plain label="Pivot" /></AtProfile>);
+    const view = await screen.findByText('Geniş görünüm: Pivot');
+    expect(view.closest('[data-testid="antd-providers"]')).toBeNull();
   });
 });
