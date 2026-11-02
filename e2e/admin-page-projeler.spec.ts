@@ -200,8 +200,11 @@ test.describe('Projeler › telefon yolculuğu', () => {
     await expect(panel.getByText('register_warranty_and_maintenance', { exact: true })).toBeVisible();
     await expect(panel.getByText('İşin kabul kontrolünü kaydet', { exact: true })).toBeVisible();
     await expect(panel.getByText('inspect_and_accept', { exact: true })).toHaveCount(0);
-    // Diğer şablonların anahtarları kapalı ayrıntıda kalır (görünmez).
-    expect(await bolum.evaluate(el => (el as HTMLElement).innerText.match(/\b[a-z]+(?:_[a-z]+)+\b/g) ?? [])).toEqual(['register_warranty_and_maintenance']);
+    // Diğer şablonların anahtarları kapalı ayrıntıda kalır (görünmez). Açılan panel 240 ms grid-row geçişiyle büyür;
+    // geçiş sürerken (yüksekliği henüz 0'a yakın, overflow gizli) WebKit innerText'i açılan anahtarı dışarıda bırakır.
+    // Metin geçiş bitince okunur: ölçüm yeniden denenir (expect.poll), varsayılan süre içinde kararlı değere ulaşır.
+    await expect.poll(() => bolum.evaluate(el => (el as HTMLElement).innerText.match(/\b[a-z]+(?:_[a-z]+)+\b/g) ?? []),
+      'görünür metinde yalnız açılan şablonun teknik anahtarı').toEqual(['register_warranty_and_maintenance']);
     expect(await horizontalOverflow(page)).toEqual([]);
     expect(await smallText(page)).toEqual([]);
   });

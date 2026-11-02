@@ -105,27 +105,38 @@ function antdPaths(entry: string): string[] {
 }
 
 describe('Menu › liste (gezinme ve eylem listesi)', () => {
-  it('renders href items as links inside an accessible menu', () => {
+  // WAI-ARIA APG Menu (bağlantılı öğe): <li role="none"><a role="menuitem" href>. Bağlantı öğenin kendisidir; menuitem
+  // içinde ayrı bir link rolü ya da ikinci odak hedefi yoktur, aria-current yalnız menuitem'de ve bir kez durur.
+  it('APG: an href item is the menuitem itself — <li role="none"><a role="menuitem" href>; no link role inside the menu', () => {
     render(<Menu items={nav} label="Sayfalar" />);
     const menu = screen.getByRole('menu', { name: 'Sayfalar' });
-    expect(within(menu).getByRole('link', { name: 'Genel durum' })).toHaveAttribute('href', '#/genel');
-    expect(within(menu).getByRole('link', { name: /Alımlar ve eşyalar/ })).toHaveAttribute('href', '#/alimlar');
-    expect(within(menu).getByRole('link', { name: 'Ayarlar' })).toHaveAttribute('href', '#/ayarlar');
+    expect(within(menu).queryAllByRole('link')).toEqual([]);
+    const genel = within(menu).getByRole('menuitem', { name: 'Genel durum' });
+    expect(genel.tagName).toBe('A');
+    expect(genel).toHaveAttribute('href', '#/genel');
+    expect(genel.parentElement?.tagName).toBe('LI');
+    expect(genel.parentElement).toHaveAttribute('role', 'none');
+    expect(within(menu).getByRole('menuitem', { name: /Alımlar ve eşyalar/ })).toHaveAttribute('href', '#/alimlar');
+    expect(within(menu).getByRole('menuitem', { name: 'Ayarlar' })).toHaveAttribute('href', '#/ayarlar');
+    // menuitem iç içe değildir; öğe başına tek odak hedefi (data-menu-target) öğenin kendisidir.
+    for (const item of within(menu).getAllByRole('menuitem')) {
+      expect(item.querySelector('[role="menuitem"], a, [tabindex]'), item.textContent ?? '').toBeNull();
+    }
   });
 
-  it('marks only the selected item with aria-current="page"', () => {
+  it('marks only the selected item with aria-current="page", once, on the menuitem', () => {
     render(<Menu items={nav} selectedKey="alimlar" />);
-    const selected = screen.getByRole('link', { name: /Alımlar ve eşyalar/ });
+    const selected = screen.getByRole('menuitem', { name: /Alımlar ve eşyalar/ });
     expect(selected).toHaveAttribute('aria-current', 'page');
-    expect(selected.closest('[role="menuitem"]')).toHaveAttribute('aria-current', 'page');
-    expect(screen.getByRole('link', { name: 'Genel durum' })).not.toHaveAttribute('aria-current');
-    expect(screen.getByRole('link', { name: 'Ayarlar' })).not.toHaveAttribute('aria-current');
-    expect(screen.getAllByRole('menuitem').filter(item => item.getAttribute('aria-current') === 'page')).toHaveLength(1);
+    expect(selected).toHaveAttribute('href', '#/alimlar');
+    expect(screen.getByRole('menuitem', { name: 'Genel durum' })).not.toHaveAttribute('aria-current');
+    expect(screen.getByRole('menuitem', { name: 'Ayarlar' })).not.toHaveAttribute('aria-current');
+    expect(document.querySelectorAll('[aria-current]')).toHaveLength(1);
   });
 
   it('opens external links in a new tab with the hidden note and the external icon', () => {
     render(<Menu items={nav} />);
-    const link = screen.getByRole('link', { name: 'E-tabloyu aç (yeni sekmede açılır)' });
+    const link = screen.getByRole('menuitem', { name: 'E-tabloyu aç (yeni sekmede açılır)' });
     expect(link).toHaveAttribute('href', 'https://example.invalid/sheet');
     expect(link).toHaveAttribute('target', '_blank');
     expect(link.getAttribute('rel')?.split(/\s+/)).toContain('noopener');
@@ -135,7 +146,7 @@ describe('Menu › liste (gezinme ve eylem listesi)', () => {
 
   it('keeps internal links in the same tab', () => {
     render(<Menu items={nav} />);
-    const link = screen.getByRole('link', { name: 'Genel durum' });
+    const link = screen.getByRole('menuitem', { name: 'Genel durum' });
     expect(link).not.toHaveAttribute('target');
     expect(link).not.toHaveAttribute('rel');
     expect(link).toHaveAccessibleName('Genel durum');
@@ -143,10 +154,10 @@ describe('Menu › liste (gezinme ve eylem listesi)', () => {
 
   it('shows the count as a tr-TR number next to the label without cutting the label', () => {
     render(<Menu items={nav} />);
-    const link = screen.getByRole('link', { name: /Alımlar ve eşyalar/ });
+    const link = screen.getByRole('menuitem', { name: /Alımlar ve eşyalar/ });
     expect(link).toHaveTextContent('Alımlar ve eşyalar');
     expect(link).toHaveTextContent('1.250');
-    expect(screen.getByRole('link', { name: 'Genel durum' })).not.toHaveTextContent(/\d/);
+    expect(screen.getByRole('menuitem', { name: 'Genel durum' })).not.toHaveTextContent(/\d/);
   });
 
   it('renders a divider as a separator', () => {
@@ -158,6 +169,8 @@ describe('Menu › liste (gezinme ve eylem listesi)', () => {
     render(<Menu items={nav} />);
     const item = screen.getByRole('menuitem', { name: 'Veri kalitesi ve içe aktarma' });
     expect(item).toHaveAttribute('aria-disabled', 'true');
+    expect(item).not.toHaveAttribute('href');
+    expect(item).not.toHaveAttribute('tabindex');
     expect(within(item).queryByRole('link')).toBeNull();
     expect(screen.queryByRole('link', { name: 'Veri kalitesi ve içe aktarma' })).toBeNull();
   });
@@ -178,7 +191,7 @@ describe('Menu › liste (gezinme ve eylem listesi)', () => {
     const user = userEvent.setup();
     const onSelect = vi.fn();
     render(<Menu items={nav} onSelect={onSelect} />);
-    await user.click(screen.getByRole('link', { name: 'Ayarlar' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Ayarlar' }));
     expect(onSelect).toHaveBeenCalledWith('ayarlar');
   });
 
@@ -186,14 +199,35 @@ describe('Menu › liste (gezinme ve eylem listesi)', () => {
     const user = userEvent.setup();
     render(<><Menu items={nav} selectedKey="ayarlar" /><button type="button">Sonraki</button></>);
     expect(screen.getByRole('menu')).not.toHaveAttribute('tabindex');
-    const stops = screen.getAllByRole('link').filter(link => link.getAttribute('tabindex') === '0');
-    expect(stops.map(link => link.textContent)).toEqual(['Ayarlar']);
+    const stops = Array.from(screen.getByRole('menu').querySelectorAll<HTMLElement>('[tabindex="0"]'));
+    expect(stops).toEqual([screen.getByRole('menuitem', { name: 'Ayarlar' })]);
     await user.tab();
-    expect(screen.getByRole('link', { name: 'Ayarlar' })).toHaveFocus();
+    expect(screen.getByRole('menuitem', { name: 'Ayarlar' })).toHaveFocus();
     await user.tab();
     expect(screen.getByRole('button', { name: 'Sonraki' })).toHaveFocus();
     await user.tab({ shift: true });
-    expect(screen.getByRole('link', { name: 'Ayarlar' })).toHaveFocus();
+    expect(screen.getByRole('menuitem', { name: 'Ayarlar' })).toHaveFocus();
+  });
+
+  it('APG: focus always lands on an element with role menuitem (never on an inner link), for href and action items', async () => {
+    const user = userEvent.setup();
+    const mixed: readonly MenuItem[] = [
+      { key: 'genel', label: 'Genel durum', href: '#/genel' },
+      { key: 'csv', label: 'CSV indir' },
+      { key: 'ayarlar', label: 'Ayarlar', href: '#/ayarlar' },
+    ];
+    render(<Menu items={mixed} />);
+    const focusedRole = () => (document.activeElement as HTMLElement | null)?.getAttribute('role');
+    await user.tab();
+    expect(focusedRole()).toBe('menuitem');
+    expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: 'Genel durum' }));
+    await user.keyboard('{ArrowDown}');
+    expect(focusedRole()).toBe('menuitem');
+    expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: 'CSV indir' }));
+    await user.keyboard('{ArrowDown}');
+    expect(focusedRole()).toBe('menuitem');
+    expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: 'Ayarlar' }));
+    expect(screen.getByRole('menuitem', { name: 'Ayarlar' })).toHaveAttribute('tabindex', '0');
   });
 
   it('APG: without a selection the first enabled item is the tab stop; disabled items never are', async () => {
@@ -208,7 +242,7 @@ describe('Menu › liste (gezinme ve eylem listesi)', () => {
     const user = userEvent.setup();
     render(<Menu items={nav} />);
     await user.tab();
-    const link = (name: string | RegExp) => screen.getByRole('link', { name });
+    const link = (name: string | RegExp) => screen.getByRole('menuitem', { name });
     expect(link('Genel durum')).toHaveFocus();
     await user.keyboard('{ArrowDown}');
     expect(link(/Alımlar ve eşyalar/)).toHaveFocus();
@@ -286,7 +320,8 @@ describe('Menu › liste (gezinme ve eylem listesi)', () => {
     const onSelect = vi.fn();
     render(<Menu items={nav} onSelect={onSelect} selectedKey="ayarlar" />);
     await user.tab();
-    const ayarlar = screen.getByRole('link', { name: 'Ayarlar' });
+    const ayarlar = screen.getByRole('menuitem', { name: 'Ayarlar' });
+    expect(ayarlar).toHaveFocus();
     const clicked = vi.fn((event: MouseEvent) => event.preventDefault());
     ayarlar.addEventListener('click', clicked);
     expect(fireEvent.keyDown(ayarlar, { key: ' ', code: 'Space' })).toBe(false);
@@ -313,6 +348,21 @@ describe('Menu › liste (gezinme ve eylem listesi)', () => {
     const sil = screen.getByRole('menuitem', { name: 'Sil' });
     fireEvent.pointerDown(sil, { pointerType: 'touch', button: 0 });
     expect(sil).not.toHaveAttribute('data-pressed');
+  });
+
+  it('Pointer Events on an href item: the pressed surface is the menuitem itself; pointercancel clears it without selecting', () => {
+    const onSelect = vi.fn();
+    render(<Menu items={nav} onSelect={onSelect} />);
+    const item = screen.getByRole('menuitem', { name: 'Ayarlar' });
+    fireEvent.pointerDown(item, { pointerType: 'touch', button: 0, isPrimary: true });
+    expect(item).toHaveAttribute('data-pressed');
+    expect(item.parentElement).not.toHaveAttribute('data-pressed');
+    fireEvent.pointerCancel(item, { pointerType: 'touch' });
+    expect(item).not.toHaveAttribute('data-pressed');
+    expect(onSelect).not.toHaveBeenCalled();
+    const disabled = screen.getByRole('menuitem', { name: 'Veri kalitesi ve içe aktarma' });
+    fireEvent.pointerDown(disabled, { pointerType: 'touch', button: 0 });
+    expect(disabled).not.toHaveAttribute('data-pressed');
   });
 
   it('marks the nav variant on the root for the lacivert surface', () => {
@@ -350,6 +400,22 @@ describe('Menu › görsel sözleşme (Menu.css)', () => {
     expect(source).not.toMatch(/border-(left|right|top|bottom|inline|block)[^:]*:/);
     expect(source).not.toMatch(/inset\s+[-\d]/);
     expect(source).not.toMatch(/::before/);
+  });
+
+  it('the menuitem carries the surface: a link menuitem inherits the menu colour (beats admin.css .aile-admin a), no underline', () => {
+    const source = css();
+    // admin.css `.aile-admin a { color: eylem }` özgüllüğü (0,1,1); menü öğesi kuralı en az (0,2,0) olmalı.
+    const item = rule(source, /^\.aile-menu \.aile-menu-item$/);
+    expect(item).toMatch(/color:\s*inherit/);
+    expect(item).toMatch(/text-decoration:\s*none/);
+    // Durum renkleri de aynı özgüllükle, öğenin kendisinde (bağlantı öğesinde <a>, eylem öğesinde <li>).
+    expect(rule(source, /^\.aile-menu \.aile-menu-item\[aria-current='page'\]$/)).toMatch(/color:\s*var\(--aile-metin\)/);
+    expect(rule(source, /^\.aile-menu \.aile-menu-item--tehlike$/)).toMatch(/color:\s*var\(--aile-hata\)/);
+    expect(rule(source, /^\.aile-menu \.aile-menu-item\[aria-disabled='true'\]$/)).toMatch(/color:\s*var\(--aile-metin-ikincil\)/);
+    // Sarmalayıcı li[role=none] yalnız yerleşimdir: zemin, köşe ve basılı yüzey taşımaz.
+    const row = rule(source, /^\.aile-menu-satir$/);
+    expect(row).toMatch(/display:\s*flex/);
+    expect(row).not.toMatch(/background|border-radius/);
   });
 
   it('targets come from the central touch token (44 px, 48 px on coarse input, admin.css); every font-size is at least 14 px', () => {
