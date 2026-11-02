@@ -524,19 +524,22 @@ describe('Tabs kaynak kuralları (statik)', () => {
 
   it('imports its stylesheet; nothing it statically reaches imports antd, @ant-design/*, ./antd, echarts or a *.wide module', () => {
     expect(read('Tabs.tsx')).toContain("import './Tabs.css'");
-    // Yürüyücünün kendisi: antd'yi gerçekten statik çeken bir modülde ui/antd.ts'yi ve antd paketlerini bulmalı; yoksa
-    // bu test boşuna geçer. Tanık W0 sözleşmesindeki tek onaylı antd içe aktarıcısı adaptive/WideProviders.tsx'tir
-    // (Select a03'te yerelleşti; artık antd çekmediği için tanık olamaz).
+    const FORBIDDEN = /^(antd|@ant-design\/|echarts|zrender)(\/|$)/;
+    // Yürüyücünün kendisi: antd'yi gerçekten statik çeken bir modülde ui/antd.ts'yi ve antd paketini bulmalı ve aynı
+    // yasak süzgeci onu yakalamalı; yoksa bu test boşuna geçer. Tanık W0 sözleşmesindeki tek onaylı antd içe aktarıcısı
+    // adaptive/WideProviders.tsx'tir. ui/antd.ts'nin hangi antd alt yollarını yeniden dışa aktardığı (pro-components,
+    // locale…) entegrasyonda değişebilir; tanık yalnız süzgecin antd'yi yakaladığını şart koşar.
     const witness = staticGraph('../adaptive/WideProviders.tsx');
     expect(witness.files).toContain('src/admin/ui/antd.ts');
-    expect(witness.packages.map(({ spec }) => spec)).toEqual(expect.arrayContaining(['antd', '@ant-design/pro-components']));
+    expect(witness.packages.filter(({ spec }) => FORBIDDEN.test(spec)).map(({ spec }) => spec)).toContain('antd');
     const graph = staticGraph('Tabs.tsx');
     expect(graph.files).toEqual(expect.arrayContaining([
       'src/admin/ui/Tabs.tsx', 'src/admin/ui/Tabs.secim.tsx', 'src/admin/ui/Tabs.gezinme.ts', 'src/admin/ui/icons.tsx', 'src/admin/device.ts',
     ]));
     expect(graph.files).not.toContain('src/admin/ui/antd.ts');
+    expect(graph.files).not.toContain('src/admin/adaptive/WideProviders.tsx');
     expect(graph.files.filter(file => /\.wide\.|\/wide\//.test(file))).toEqual([]);
-    expect(graph.packages.filter(({ spec }) => /^(antd|@ant-design\/|echarts|zrender)(\/|$)/.test(spec))).toEqual([]);
+    expect(graph.packages.filter(({ spec }) => FORBIDDEN.test(spec))).toEqual([]);
     for (const file of graph.files.filter(name => /^src\/admin\/ui\/Tabs\./.test(name))) {
       const source = readFileSync(resolve(__dirname, '..', '..', '..', file), 'utf8');
       expect(source, file).not.toMatch(/from ['"](antd|@ant-design\/[^'"]*|\.\/antd)['"]/);
@@ -559,20 +562,39 @@ describe('Tabs kaynak kuralları (statik)', () => {
     expect(fontSizes.every(size => size >= 14)).toBe(true);
   });
 
-  it('styles selection as secili + 600 with a straight line whose corners are square; no curved accent edge', () => {
+  it('styles selection as secili + 600 only (design: no selection stripe); every tab corner keeps the control radius', () => {
     const css = read('Tabs.css');
-    expect(css).toContain('var(--aile-secili)');
-    expect(css).toContain('font-weight: 600');
+    const rules = css.replace(/\/\*[\s\S]*?\*\//g, '');
+    // Tasarım (tasarim-sistemi/README.md: "Seçimi şeritle gösterme"; components/Tabs/README.md: "Alt çizgi yalnız odak
+    // içindir, seçimi göstermez"; antd teması inkBarColor transparent): seçili sekme/radyo/seçenek = secili yüzey + 600.
+    expect(rules).toMatch(/\.aile-tabs__oge\[aria-selected='true'\][^{]*\{[^}]*background-color:\s*var\(--aile-secili\)/);
+    expect(rules).toMatch(/\.aile-tabs__oge\[aria-selected='true'\],\s*\.aile-tabs__oge\[aria-checked='true'\]\s*\{\s*font-weight:\s*600;/);
+    expect(rules).toMatch(/\.aile-tabs-sayfa__secenek\[aria-selected='true'\]\s*\{\s*font-weight:\s*600;/);
     expect(css).toContain('var(--aile-metin-ikincil)');
     expect(css).toContain('var(--aile-bilgi-yuzey)');
-    // Sekme kutusunun alt köşeleri her durumda radiussuz; seçim çizgisi ::before ile alt kenarda (odak çizgisi
-    // admin.css'te ::after, kontrolün 4 px altında: ikisi ayrı göstergeler).
-    expect(css).toMatch(/\.aile-tabs__oge\[role='tab'\]\s*\{[^}]*border-radius:\s*var\(--aile-kose-kontrol\) var\(--aile-kose-kontrol\) 0 0;/);
-    expect(css).toMatch(/\.aile-tabs__oge\[role='tab'\]::before\s*\{[^}]*bottom:\s*0;[^}]*height:\s*var\(--aile-odak-kalinlik\)/);
-    expect(css).toMatch(/\.aile-tabs__oge\[role='tab'\]\[aria-selected='true'\]::before\s*\{[^}]*background(?:-color)?:\s*var\(--aile-metin\)/);
-    expect(css).not.toMatch(/::after/);
+    // Seçim şeridi yok: bileşen sözde öğe çizmez (odak çizgisi admin.css'te, kontrolün 4 px altında, köşelere değmez).
+    expect(rules).not.toMatch(/::(?:before|after)/);
+    // Öğenin köşeleri her durumda kontrol köşesi: hiçbir kural sekme/radyo köşesini kısmen sıfırlamaz.
+    const ogeRadii = Array.from(rules.matchAll(/([^{}]+)\{([^{}]*)\}/g))
+      .filter(([, selector]) => /\.aile-tabs__oge/.test(selector!))
+      .flatMap(([, , body]) => Array.from(body!.matchAll(/border-[a-z-]*radius\s*:\s*([^;]+);/g), match => match[1]!.trim()));
+    expect(ogeRadii).toEqual(['var(--aile-kose-kontrol)']);
+    // Üzerine gelmek seçimi silmez (tasarım: hover kuralı seçili kuraldan önce, eşit özgüllükte): seçili sekme, radyo ve
+    // seçenek imleç üstündeyken de secili yüzeyde kalır.
+    const hoverSelectors = Array.from(rules.matchAll(/([^{}]+)\{[^{}]*\}/g), ([, selector]) => selector!.trim()).filter(selector => /:hover/.test(selector));
+    const hoverOf = (part: string) => hoverSelectors.filter(selector => selector.includes(part));
+    expect(hoverOf('.aile-tabs__oge').length).toBeGreaterThan(0);
+    for (const selector of hoverOf('.aile-tabs__oge')) {
+      expect(selector).toContain(":not([aria-selected='true'])");
+      expect(selector).toContain(":not([aria-checked='true'])");
+    }
+    expect(hoverOf('.aile-tabs-sayfa__secenek').length).toBeGreaterThan(0);
+    for (const selector of hoverOf('.aile-tabs-sayfa__secenek')) expect(selector).toContain(":not([aria-selected='true'])");
     expect(css).not.toMatch(/border-(?:left|right|top|bottom|inline|block)[a-z-]*\s*:\s*(?!0|none)[^;]*var\(--aile-(?:eylem|odak|metin|secili)\)/);
     expect(css).not.toMatch(/inset\s+[^;]*var\(--aile-/);
+    // Zorlanmış renkte secili yüzey Canvas'a döner: seçili sekme ve radyo sistem vurgusuyla (Highlight) görünür kalır.
+    const forced = rules.match(/@media \(forced-colors: active\)\s*\{([\s\S]*?\})\s*\}/)?.[1] ?? '';
+    expect(forced).toMatch(/\.aile-tabs__oge\[aria-selected='true'\],\s*\.aile-tabs__oge\[aria-checked='true'\]\s*\{[^}]*background-color:\s*Highlight;[^}]*color:\s*HighlightText;/);
   });
 
   it('gives every interactive part a 44 px target and 48 px on coarse input; motion is one duration and one curve', () => {

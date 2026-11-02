@@ -3,10 +3,10 @@
    tasarım tip ölçeği (14/20 küçük, 16/24 gövde, 18/26 başlık). Hedef tek merkezi token --aile-dokunma-hedefi: 44 px,
    kaba (dokunmatik) girişte 48 px (admin.css; [data-input-coarse] AdaptiveRoot'tan <html>'e yansır, portal katmanı da
    alır). Bileşen kaba girişi kendisi yeniden türetmez.
-   Seçim: secili yüzey + 600; sekmede ayrıca alt kenarda düz çizgi (::before). Sekmenin alt köşeleri her durumda 0:
-   çizgi radiuslu köşeye hiç değmez (kavisli vurgu kenarı yok). Odak çizgisini admin.css çizer ([role=tab] ve
-   [data-focus-line] "after" sözde öğesi, klavye modunda, kontrolün 4 px altında); burada çevreleyen çizgi, halka gölge
-   ve "after" sözde öğesi yok.
+   Seçim (tasarım README: "Seçimi şeritle gösterme"; Tabs README: "Alt çizgi yalnız odak içindir"): secili yüzey + 600,
+   şerit/çizgi yok; öğenin dört köşesi de kontrol köşesi. Odak çizgisini admin.css çizer ([role=tab] ve
+   [data-focus-line] "after" sözde öğesi, klavye modunda, kontrolün 4 px altında, köşelere değmez); burada sözde öğe,
+   çevreleyen çizgi ve halka gölge yok.
    Hareket tek süre (--aile-sure) ve tek eğri (--aile-egri) ile iki yönde; reduced-motion'da süre 0, durum anında. */
 .aile-tabs {
   display: flex;
@@ -85,8 +85,11 @@
   -webkit-tap-highlight-color: transparent;
   transition: background-color var(--aile-sure) var(--aile-egri), color var(--aile-sure) var(--aile-egri);
 }
+/* Üzerine gelme seçili öğeyi değiştirmez: seçili sekme/radyo imleç üstündeyken de secili yüzeyde kalır. */
 @media (hover: hover) {
-  .aile-tabs__oge:not([aria-disabled='true']):not(:disabled):hover { background-color: var(--aile-bilgi-yuzey); }
+  .aile-tabs__oge:not([aria-disabled='true']):not(:disabled):not([aria-selected='true']):not([aria-checked='true']):hover {
+    background-color: var(--aile-bilgi-yuzey);
+  }
 }
 .aile-tabs__oge:not([aria-disabled='true']):not(:disabled):active,
 .aile-tabs__oge[aria-selected='true'],
@@ -104,24 +107,6 @@
   text-decoration-thickness: 1px;
   cursor: not-allowed;
 }
-
-/* Sekme: üst köşeler kontrol köşesi, alt köşeler her durumda 0. Seçim çizgisi alt kenarda, tam genişlik, düz;
-   seçimde metin renginde görünür, seçim kalkınca saydamlaşır (iki yönde aynı geçiş). */
-.aile-tabs__oge[role='tab'] {
-  border-radius: var(--aile-kose-kontrol) var(--aile-kose-kontrol) 0 0;
-}
-.aile-tabs__oge[role='tab']::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: var(--aile-odak-kalinlik);
-  background-color: transparent;
-  pointer-events: none;
-  transition: background-color var(--aile-sure) var(--aile-egri);
-}
-.aile-tabs__oge[role='tab'][aria-selected='true']::before { background-color: var(--aile-metin); }
 
 /* --- Taşma ipucu: gizli öğe olan kenarda yükseltilmiş yuvarlak ok; süsleyici (aria-hidden), basınca kaydırır. --- */
 .aile-tabs__ipucu {
@@ -327,7 +312,7 @@
   transition: background-color var(--aile-sure) var(--aile-egri);
 }
 @media (hover: hover) {
-  .aile-tabs-sayfa__secenek:not([aria-disabled='true']):hover { background-color: var(--aile-bilgi-yuzey); }
+  .aile-tabs-sayfa__secenek:not([aria-disabled='true']):not([aria-selected='true']):hover { background-color: var(--aile-bilgi-yuzey); }
 }
 .aile-tabs-sayfa__secenek:not([aria-disabled='true']):active,
 .aile-tabs-sayfa__secenek[aria-selected='true'] { background-color: var(--aile-secili); }
@@ -350,12 +335,9 @@
 }
 .aile-tabs-sayfa__onay { flex: none; }
 
-/* Zorlanmış renkler: yüzeyler sistem rengine döner; seçim çizgisi ve seçili segment sistem vurgusuyla görünür kalır. */
+/* Zorlanmış renkler: secili yüzey Canvas'a döner; seçili sekme ve seçili segment sistem vurgusuyla görünür kalır. */
 @media (forced-colors: active) {
-  .aile-tabs__oge[role='tab'][aria-selected='true']::before {
-    forced-color-adjust: none;
-    background-color: CanvasText;
-  }
+  .aile-tabs__oge[aria-selected='true'],
   .aile-tabs__oge[aria-checked='true'] {
     forced-color-adjust: none;
     background-color: Highlight;
@@ -366,7 +348,6 @@
 /* Azaltılmış hareket: geçişler anında; durum, ARIA ve odak aynı anda güncellenir. */
 @media (prefers-reduced-motion: reduce) {
   .aile-tabs__oge,
-  .aile-tabs__oge::before,
   .aile-tabs__ipucu,
   .aile-tabs__tetik,
   .aile-tabs__ok,
