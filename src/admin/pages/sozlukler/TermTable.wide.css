@@ -1,0 +1,13 @@
+/* Geniş-özel ağaç tablosu (wide parçasında; telefon indirmez). Yalnız --aile tokenları. Ad hücresi derinlik başına
+   bosluk-6 (24 px, bundle) içeri; kök 600; "└" süsleyici ikincil. Ad kelime ortasından bölünmez. */
+.aile-sz-tablo { min-width: 0; }
+
+.aile-sz-tablo-ad {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--aile-bosluk-2);
+  min-width: 0;
+  padding-inline-start: calc(var(--aile-sz-derinlik, 0) * var(--aile-bosluk-6));
+}
+.aile-sz-tablo-dal { color: var(--aile-metin-ikincil); }
+.aile-sz-tablo-kok { font-weight: 600; }

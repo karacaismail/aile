@@ -1,14 +1,21 @@
-/* Sözlükler ve iş akışları — sayfa düzeni. Kaynak: bundle.css › .ai-ov-block/.ai-ov-head (bölüm), .pg-flow (durum sırası),
-   .ai-help/.ai-opt-count (14 px ikincil yardım ve sayım). Yalnız --aile tokenları; sabit renk yok. Kart ve kenarlık yok:
-   bölümler zeminde boşlukla ayrılır; tablo ve akordeon kendi yüzeyini çizer. Odak çizgisini admin.css çizer. Geçiş yok:
-   sekme ve bölüm değişimi semantik güncellemedir, anında olur (reduced-motion'da da aynı). */
+/* Sözlükler ve iş akışları — sayfa düzeni (temel / telefon önce). Kaynak: bundle.css › .ai-ov-block/.ai-ov-head (bölüm),
+   .pg-flow (durum sırası), .ai-help/.ai-opt-count (14 px ikincil yardım ve sayım). Yalnız --aile tokenları; sabit renk
+   yok. Kart ve kenarlık yok: bölümler zeminde boşlukla ayrılır; ağaç, tablo ve akordeon kendi yüzeyini çizer. Odak
+   çizgisini admin.css çizer. Sekme/bölüm değişimi semantik güncellemedir, anında olur (reduced-motion'da da aynı).
+   Terim ağacı sozlukler/TermTree.css, geniş tablo sozlukler/TermTable.wide.css (wide parçası). */
 
 .aile-sz { min-width: 0; }
+.aile-sz-icerik { min-width: 0; }
+
+/* Telefonda "Sözlük" seçimi (ui Select, alt sayfa): içerik genişliğinde, bölümlerden önce. */
+.aile-sz-secim { margin: 0 0 var(--aile-bosluk-2); }
 
 .aile-sz-bolum {
-  margin: var(--aile-bosluk-8) 0 0;
+  margin: var(--aile-bosluk-6) 0 0;
   min-width: 0;
 }
+[data-profile='desktop'] .aile-sz-bolum,
+[data-profile='tablet'] .aile-sz-bolum { margin-top: var(--aile-bosluk-8); }
 
 .aile-sz-bolum-ust {
   display: flex;
@@ -24,20 +31,12 @@
 
 .aile-sz-sayim { font-variant-numeric: tabular-nums; }
 
-/* Ağaç satırı: alt terim bir boşluk birimi içeri (bundle 24 px = bosluk-6), kök 600. */
-.aile-sz-ad {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--aile-bosluk-2);
-  min-width: 0;
-}
-.aile-sz-ad[data-depth='1'] { padding-left: var(--aile-bosluk-6); }
-.aile-sz-ad-kok { font-weight: 600; }
-
+/* E-tablo kodu (alias): sabit genişlikli yazı, gövde ölçüsünde (≥14 px), ikincil; uzun kod sarılır. */
 .aile-sz-kod {
   font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   font-size: inherit;
   color: var(--aile-metin-ikincil);
+  overflow-wrap: anywhere;
 }
 
 .aile-sz-yardim { margin: var(--aile-bosluk-3) 0 0; }
@@ -48,28 +47,25 @@
   color: var(--aile-metin-ikincil);
 }
 
-/* Durum sırası: etiketler ve süsleyici oklar; dar ekranda dikey. */
+/* Durum sırası: etiketler + başlangıç/son durum sözcükleri; dar alanda kendiliğinden alt satıra sarar. */
 .aile-sz-akis {
   list-style: none;
   margin: 0 0 var(--aile-bosluk-4);
-  padding: var(--aile-bosluk-3) 0;
+  padding: var(--aile-bosluk-2) 0;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--aile-bosluk-2);
+  gap: var(--aile-bosluk-2) var(--aile-bosluk-3);
 }
 .aile-sz-akis li {
   display: inline-flex;
-  align-items: center;
-  gap: var(--aile-bosluk-2);
-  color: var(--aile-metin-ikincil);
-}
-.aile-sz-akis--dar {
-  flex-direction: column;
-  align-items: flex-start;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--aile-bosluk-1);
+  min-width: 0;
 }
 
-/* Bekleyen öneriler: tek yüzey, satırlar cizgi ile ayrılır; kart yok. */
+/* Bekleyen öneriler: tek yüzey, satırlar çizgiyle ayrılır; kart yok. Satır yüksekliği dokunma hedefi (44 / coarse 48). */
 .aile-sz-oneriler {
   list-style: none;
   margin: 0;
@@ -79,10 +75,11 @@
 }
 .aile-sz-oneri {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--aile-bosluk-3);
-  min-height: var(--aile-hedef-asgari);
+  min-height: var(--aile-dokunma-hedefi);
   padding: var(--aile-bosluk-2) var(--aile-bosluk-4);
 }
 .aile-sz-oneri + .aile-sz-oneri { border-top: 1px solid var(--aile-cizgi); }
@@ -91,7 +88,7 @@
   flex-direction: column;
   gap: var(--aile-bosluk-1);
   min-width: 0;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 /* Terim ekle formu: alanlar dikey, boşlukla ayrılır. */
