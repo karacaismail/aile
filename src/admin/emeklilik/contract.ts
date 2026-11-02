@@ -204,3 +204,19 @@ export const BILESIM_SIRASI: readonly Secim[] = [
   { askerlik: false, bagkur: true, ihya: true },
   { askerlik: true, bagkur: true, ihya: true },
 ];
+
+/** Profil kaynağının durumu. Üretimde varsayılan kaynak yoktur ('yok'): kullanıcı dosya içe aktarır. */
+export type ProfilDurumu =
+  | { tur: 'yukleniyor' }
+  | { tur: 'hazir'; profil: EmeklilikProfili; kaynak: 'gelistirme' | 'dosya' | 'sentetik' }
+  | { tur: 'yok'; neden: string }
+  | { tur: 'hata'; neden: string };
+
+/** Profil deposu (repository). Profil yalnız bellekte tutulur; kalıcı depolama yoktur. */
+export interface EmeklilikProfilKaynagi {
+  durum(): ProfilDurumu;
+  subscribe(dinleyici: () => void): () => void;
+  yenile(): Promise<void>;
+  dosyadanYukle(dosya: File): Promise<void>;
+  temizle(): void;
+}
