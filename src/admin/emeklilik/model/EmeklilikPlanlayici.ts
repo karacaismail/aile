@@ -162,11 +162,9 @@ export class EmeklilikPlanlayiciImpl implements EmeklilikPlanlayici {
     if (!ayniSecim(kesintisiz.secim, temel.secim)) farklar.push(`kesinti olmazsa: ${bilesimAdi(kesintisiz.secim)}`);
     if (!ayniSecim(borcUst.secim, temel.secim)) farklar.push(`borç aralığın üst ucunda olursa: ${bilesimAdi(borcUst.secim)}`);
     const saglam = farklar.length === 0;
-    const ek = !saglam
-      ? ` Öneri varsayıma duyarlı — ${farklar.join('; ')}.`
-      : borc.tur === 'aralik'
-        ? ' Kesinti olmasa ya da borç aralığın üst ucunda olsa da öneri aynı.'
-        : ' Kesinti olmasa da öneri aynı.';
+    // Sağlamlık ayrı alanda (saglam) taşınır ve görünüm modeli kendi cümlesiyle yazar; gerekçe yalnız duyarlılığın
+    // ayrıntısını (hangi varsayımda hangi bileşimin öne geçtiği) ekler, aynı bilgiyi iki kez söylemez.
+    const ek = saglam ? '' : ` Öneri varsayıma duyarlı — ${farklar.join('; ')}.`;
     return { tur: temel.tur, secim: { ...temel.secim }, gerekce: temel.gerekce + ek, saglam };
   }
 
