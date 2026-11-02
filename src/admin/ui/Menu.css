@@ -1,78 +1,108 @@
-/* aile Menu — tasarım: components/Menu/README.md, bundle.css › MENU. Tek kaynak tokenlar --aile-* (admin.css :root
-   yedekleri portallanan alt sayfa/çekmece içinde de çözer). Sabit renk yok; 14 px sayım metni tasarım ölçüsüdür.
+/* aile Menu — tasarım: components/Menu/README.md, bundle.css › MENU (.ai-menu) ve .ai-pop. Tek kaynak tokenlar --aile-*
+   (src/design/tokens.ts; admin.css :root yedekleri portallanan alt sayfa ve üst katmandaki panelde de çözer). Sabit renk
+   yok; 14/16 px metin ölçüleri tasarım tipografisidir (tokens.json › type).
 
-   antd 6 Menu (mode="vertical") öğeyi 44 px sabit yükseklik + tek satır + üç nokta ile keser; tasarımda etiket kesilmez,
-   öğe en az 44 px olup gerekirse sarılır. antd'nin en özgül ataması .ant-menu-vertical .ant-menu-item (0,2,0) ya da
-   .ant-menu-light .ant-menu-item-disabled (0,2,0; renk !important); bizim ul.ant-menu.aile-menu > li.ant-menu-item.aile-menu-item
-   (0,4,2) her zaman kazanır. Odak çizgisi admin.css'tedir (a / .ant-menu-item ::after, nav üzerinde odak-nav); burada
-   outline ve box-shadow yok. Seçili yüzey, hover ve basılı dolgu antd temasından (antdTheme.ts Menu tokenları). */
+   Yerel işaretleme: ul[role=menu].aile-menu > li[role=menuitem].aile-menu-item > (a | span).aile-menu-link. Zemin,
+   köşe ve basılı/seçili yüzey li'dedir; bağlantı satırı tüm öğeyi kaplar. Odak çizgisini admin.css çizer (odak
+   hedefinin ::after'ı, 4 px altında, 3 px); burada outline/halka yok. Öğeler arası boşluk bosluk-2 (8 px): çizgi
+   (aralık 4 + kalınlık 3) iki öğe arasına sığar, alttaki öğenin üstüne binmez. Seçili durum vurgu kenarı değil yüzey
+   tonu (secili) + 600 ağırlıktır. Hover yalnız birincil işaretçi hover destekliyorsa (hibrit dokunmatikte takılı kalmaz);
+   basılı yüzey Pointer Events ile (data-pressed, pointercancel siler). */
 
-ul.ant-menu.aile-menu {
-  background: transparent;
-  border-inline-end: 0;
+.aile-menu,
+.aile-menu-grup {
+  list-style: none;
+  margin: 0;
   padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-2);
 }
+.aile-menu {
+  font-family: var(--aile-font-sans);
+  color: var(--aile-metin);
+}
+.aile-menu[data-variant='nav'] { color: var(--aile-nav-metin); }
+.aile-menu-grup-kap { display: block; }
 
-ul.ant-menu.aile-menu > li.ant-menu-item.aile-menu-item {
-  display: block;
-  height: auto;
+/* Öğe: en az 44 px (coarse girişte 48), etiket kesilmez; gerekirse sarılır. */
+.aile-menu-item {
+  position: relative;
+  display: flex;
+  align-items: stretch;
   min-height: var(--aile-hedef-asgari);
-  margin-inline: 0;
-  margin-block: 0 var(--aile-bosluk-1);
-  padding-inline: var(--aile-bosluk-3);
-  width: 100%;
-  line-height: 1.5;
-  white-space: normal;
-  overflow: visible;
-  text-overflow: clip;
   border-radius: var(--aile-kose-kontrol);
+  background: transparent;
+  color: inherit;
+  font-size: 16px;
+  line-height: 24px;
   font-weight: 500;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
   transition: background-color var(--aile-sure) var(--aile-egri), color var(--aile-sure) var(--aile-egri);
 }
-ul.ant-menu.aile-menu > li.ant-menu-item.aile-menu-item:last-child { margin-block-end: 0; }
-ul.ant-menu.aile-menu > li.ant-menu-item.aile-menu-item[aria-current='page'] { font-weight: 600; }
+[data-input-coarse] .aile-menu-item { min-height: calc(var(--aile-hedef-asgari) + var(--aile-bosluk-1)); }
 
-/* Devre dışı: ikincil metin; nav üzerinde acik-mavi (5,8:1). antd rengi !important ile yazar; eşleşmek için zorunlu. */
-ul.ant-menu.aile-menu[data-variant='nav'] > li.ant-menu-item.aile-menu-item[aria-disabled='true'] { color: var(--aile-acik-mavi) !important; }
-
-/* İçerik: antd'nin sarmalayıcısı blok; bağlantı/eylem satırı tüm genişlikte tek kontrol. */
-ul.ant-menu.aile-menu .aile-menu-content {
-  display: block;
-  overflow: visible;
-  text-overflow: clip;
-  white-space: normal;
-}
-ul.ant-menu.aile-menu .aile-menu-link {
+.aile-menu .aile-menu-link {
   display: flex;
+  flex: 1 1 auto;
   align-items: center;
   gap: var(--aile-bosluk-3);
-  min-height: var(--aile-hedef-asgari);
-  width: 100%;
-  padding: var(--aile-bosluk-2) 0;
+  min-width: 0;
+  min-height: inherit;
+  padding: var(--aile-bosluk-2) var(--aile-bosluk-3);
+  border-radius: inherit;
   color: inherit;
-  font-weight: inherit;
+  font: inherit;
   text-decoration: none;
   cursor: inherit;
 }
-ul.ant-menu.aile-menu .aile-menu-link:hover,
-ul.ant-menu.aile-menu .aile-menu-link:active { color: inherit; }
-ul.ant-menu.aile-menu .aile-menu-link[aria-disabled='true'] { cursor: not-allowed; }
-ul.ant-menu.aile-menu .aile-menu-link svg { flex: none; }
-ul.ant-menu.aile-menu .aile-menu-label { flex: 1 1 auto; min-width: 0; overflow-wrap: break-word; }
+.aile-menu .aile-menu-link svg { flex: none; }
+.aile-menu .aile-menu-label { flex: 1 1 auto; min-width: 0; overflow-wrap: break-word; }
 
-/* Sayım: 14 px, tabular; açık yüzeyde ikincil metin, nav üzerinde acik-mavi; seçili öğede metin rengi. */
-ul.ant-menu.aile-menu .aile-menu-count {
+/* Hover, basılı, seçili, devre dışı — açık yüzey. Seçili öğe hover/basılıda kendi tonunu korur. */
+@media (hover: hover) {
+  .aile-menu-item:not([aria-disabled='true']):not([aria-current='page']):hover { background: var(--aile-bilgi-yuzey); }
+}
+.aile-menu-item[data-pressed]:not([aria-current='page']) { background: var(--aile-secili); }
+.aile-menu-item[aria-current='page'] {
+  background: var(--aile-secili);
+  color: var(--aile-metin);
+  font-weight: 600;
+}
+.aile-menu-item[aria-disabled='true'] { color: var(--aile-metin-ikincil); cursor: not-allowed; }
+
+/* Tehlikeli eylem: hata metni, hata yüzeyi. */
+.aile-menu-item--tehlike { color: var(--aile-hata); }
+@media (hover: hover) {
+  .aile-menu-item--tehlike:not([aria-disabled='true']):hover { background: var(--aile-hata-yuzey); }
+}
+.aile-menu-item--tehlike[data-pressed] { background: var(--aile-hata-yuzey); }
+
+/* Lacivert panel (nav). */
+@media (hover: hover) {
+  .aile-menu[data-variant='nav'] .aile-menu-item:not([aria-disabled='true']):not([aria-current='page']):hover { background: var(--aile-nav-hover); }
+}
+.aile-menu[data-variant='nav'] .aile-menu-item[data-pressed]:not([aria-current='page']) { background: var(--aile-nav-basili); }
+.aile-menu[data-variant='nav'] .aile-menu-item[aria-disabled='true'] { color: var(--aile-acik-mavi); }
+
+/* Odak çizgisi lacivert panelde acik-mavi (odak-nav). Çizgi öğenin altındaki lacivert boşluğa düşer; seçili öğede de
+   odak-nav kalır (odak rengi lacivert üzerinde 3:1 karşıtlığı sağlamaz). admin.css nav kuralından özgüldür. */
+html[data-keyboard='true'] ul.aile-menu[data-variant='nav'] :is(a, [role=menuitem]):focus-visible::after { background: var(--aile-odak-nav); }
+
+/* Sayım: 14 px, tabular; ikincil metin, nav üzerinde acik-mavi; seçili öğede metin rengi. */
+.aile-menu .aile-menu-count {
   flex: none;
   font-size: 14px;
   line-height: 20px;
   font-variant-numeric: tabular-nums;
   color: var(--aile-metin-ikincil);
 }
-ul.ant-menu.aile-menu[data-variant='nav'] .aile-menu-count { color: var(--aile-acik-mavi); }
-ul.ant-menu.aile-menu > li.ant-menu-item.aile-menu-item[aria-current='page'] .aile-menu-count { color: var(--aile-metin); }
+.aile-menu[data-variant='nav'] .aile-menu-count { color: var(--aile-acik-mavi); }
+.aile-menu .aile-menu-item[aria-current='page'] .aile-menu-count { color: var(--aile-metin); }
 
 /* Görsel gizli not: ekran okuyucuya "yeni sekmede açılır". */
-ul.ant-menu.aile-menu .aile-menu-sr {
+.aile-menu .aile-menu-sr {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -81,10 +111,56 @@ ul.ant-menu.aile-menu .aile-menu-sr {
   white-space: nowrap;
 }
 
-/* Ayırıcı: açık yüzeyde cizgi (antd colorSplit), nav üzerinde nav-basili. */
-ul.ant-menu.aile-menu > li.ant-menu-item-divider.aile-menu-divider { margin-block: var(--aile-bosluk-2); }
-ul.ant-menu.aile-menu[data-variant='nav'] > li.ant-menu-item-divider.aile-menu-divider { border-color: var(--aile-nav-basili); }
+/* Ayırıcı: işlevsel tek çizgi (grup sınırı); açık yüzeyde cizgi, nav üzerinde nav-basili. */
+.aile-menu-divider {
+  height: 1px;
+  background: var(--aile-cizgi);
+}
+.aile-menu[data-variant='nav'] .aile-menu-divider { background: var(--aile-nav-basili); }
+
+/* --- Menü düğmesi ve açılır panel (tablet, masaüstü) ----------------------------------------------------------- */
+.aile-menu-dugme {
+  position: relative;
+  display: inline-flex;
+}
+
+/* Panel: Popover API ile üst katmanda (UA stilleri sıfırlanır), sabit konum JS'ten (top/left/max-height). Alt boşluk
+   bosluk-2: son öğenin odak çizgisi (7 px) kaydırma kutusunda kırpılmaz. Kenarlık yok; ayrım gölge ve yüzeyle. */
+.aile-menu-panel {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  width: max-content;
+  height: auto;
+  max-width: calc(100vw - 2 * var(--aile-bosluk-2));
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--aile-bosluk-2);
+  border: 0;
+  border-radius: var(--aile-kose-kart);
+  background: var(--aile-yuzey);
+  color: var(--aile-metin);
+  box-shadow: var(--aile-golge-yukseltilmis);
+  opacity: 0;
+  transform: translateY(calc(-1 * var(--aile-bosluk-1)));
+  transition: opacity var(--aile-sure) var(--aile-egri), transform var(--aile-sure) var(--aile-egri);
+}
+.aile-menu-panel[data-side='top'] { transform: translateY(var(--aile-bosluk-1)); }
+.aile-menu-panel[data-state='open'] { opacity: 1; transform: none; }
+.aile-menu-panel[data-variant='nav'] { background: var(--aile-nav); color: var(--aile-nav-metin); }
+/* Yerinde (inline) çizim: düğmenin altında, sayfa akışına göre. */
+.aile-menu-panel[data-inline] {
+  position: absolute;
+  top: calc(100% + var(--aile-bosluk-3));
+  inset-inline-start: 0;
+}
+.aile-menu-panel[data-inline][data-align='end'] {
+  inset-inline-start: auto;
+  inset-inline-end: 0;
+}
 
 @media (prefers-reduced-motion: reduce) {
-  ul.ant-menu.aile-menu > li.ant-menu-item.aile-menu-item { transition: none; }
+  .aile-menu-item,
+  .aile-menu-panel { transition-duration: 0s; }
 }

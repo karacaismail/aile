@@ -1,62 +1,30 @@
-/* OverflowActions — tasarım: components/OverflowActions/README.md, bundle.css › .ai-pop / .ai-menu. Tek kaynak tokenlar
-   --aile-* (src/design/tokens.ts; admin.css :root yedekleri portallanan menüde de çözer). Sabit renk yok.
+/* OverflowActions — tasarım: components/OverflowActions/README.md, bundle.css › .ai-pop-anchor / .ai-pop. Tek kaynak
+   tokenlar --aile-* (src/design/tokens.ts). Sabit renk yok. Menü listesi, açılır panel (köşe kose-kart, gölge
+   golge-yukseltilmis, min 240 px) ve alt sayfa listesi Menu.css'tedir; burada yalnız eylem satırının yerleşimi.
+   Odak çizgisini admin.css çizer; outline/halka/box-shadow yok. Kart/kenarlık yok: ayrım boşlukla. */
 
-   Masaüstü/tablet paneli antd Dropdown'dur: köşe (kose-kart), gölge (golge-yukseltilmis), iç boşluk (bosluk-1) ve
-   hover/basılı yüzeyleri (bilgi-yuzey / secili) antd temasından gelir (theme/antdTheme.ts). Burada yalnız 44 px öğe,
-   simge-metin aralığı ve hareket süresi bağlanır. Odak çizgisini admin.css çizer ([role=menuitem]:focus-visible::after);
-   outline/halka/box-shadow yok. Min genişlik (240) bileşen sabitidir (OVERFLOW_MENU_MIN_WIDTH), stile buradan değil
-   bileşenden iner. */
-
-.aile-overflow { position: relative; display: inline-flex; }
-
-/* Açılır menü öğesi (antd li[role=menuitem]). */
-.aile-overflow-menu .aile-overflow-eylem {
-  display: flex;
-  align-items: center;
-  gap: var(--aile-bosluk-3);
-  min-height: var(--aile-hedef-asgari);
-  padding-inline: var(--aile-bosluk-3);
-  font-weight: 500;
-  color: var(--aile-metin);
-  white-space: nowrap;
-  transition: background-color var(--aile-sure) var(--aile-egri);
-}
-.aile-overflow-menu .aile-overflow-simge { display: inline-flex; flex: none; }
-.aile-overflow-menu .aile-overflow-simge svg { display: block; }
-
-/* Telefon listesi (BottomSheet içinde): tek yüzey, kart/kenar yok; ayrım boşlukla. */
-.aile-overflow-liste {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--aile-bosluk-1);
-}
-.aile-overflow-secenek {
+.aile-overflow {
   position: relative;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: var(--aile-bosluk-3);
-  width: 100%;
-  min-height: var(--aile-hedef-asgari);
-  padding: 0 var(--aile-bosluk-3);
-  border: 0;
-  border-radius: var(--aile-kose-kontrol);
-  background: transparent;
-  font: inherit;
-  font-weight: 500;
-  color: var(--aile-metin);
-  text-align: left;
-  cursor: pointer;
-  transition: background-color var(--aile-sure) var(--aile-egri);
+  gap: var(--aile-bosluk-2);
 }
-.aile-overflow-secenek:hover { background: var(--aile-bilgi-yuzey); }
-.aile-overflow-secenek:active { background: var(--aile-secili); }
-.aile-overflow-secenek svg { flex: none; }
-.aile-overflow-secenek-etiket { flex: 1; min-width: 0; }
 
-@media (prefers-reduced-motion: reduce) {
-  .aile-overflow-menu .aile-overflow-eylem,
-  .aile-overflow-secenek { transition-duration: 0s; }
+/* collapse="auto": satır üst kapsayıcıya sığar (min-width 0, en çok %100); sığmazsa bileşen "Diğer" menüsüne geçer. */
+.aile-overflow--satir {
+  display: flex;
+  flex-wrap: nowrap;
+  min-width: 0;
+  max-width: 100%;
+}
+/* Düğmeler doğal genişliğinde kalır: sıkışıp etiketi sarmazlar (kesilmez kuralı); sığmayan satır taşar, ölçülür ve
+   "Diğer" menüsüne geçer. */
+.aile-overflow--satir > *,
+.aile-overflow-tehlike > * { flex: none; }
+
+/* Tehlikeli eylemler ayrı grup: diğerlerinden fazladan bir boşlukla ayrılır. */
+.aile-overflow-tehlike {
+  display: inline-flex;
+  gap: var(--aile-bosluk-2);
+  margin-inline-start: var(--aile-bosluk-2);
 }
