@@ -1,10 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { createElement, type ReactNode } from 'react';
+import { createElement, useState, type ReactNode } from 'react';
 import { DeviceContext } from '../device';
-import type { ActiveFilter, Device, QueryBarProps, SavedView, SortOption } from './contracts';
+import type { ActiveFilter, Device, QueryBarProps, SavedView, SortOption, ViewMode } from './contracts';
 import { QueryBar } from './QueryBar';
 
 // Kaynak: aile-tasarim/tasarim-sistemi/README.md › Sayfa iskeleti (3. Sorgu çubuğu, 4. Filtreler), components/QueryBar/README.md,
@@ -22,7 +22,7 @@ const SIRALAR: readonly SortOption[] = [
 const GEREKCE = 'alımların başlangıç ve bitiş tarihi yok';
 const TAM_GEREKCE = 'Gantt kullanılamaz: alımların başlangıç ve bitiş tarihi yok.';
 
-function makeProps(over: Partial<QueryBarProps> = {}): QueryBarProps {
+function makeProps(over: Partial<QueryBarProps> & { filterCount?: number } = {}): QueryBarProps & { filterCount?: number } {
   return {
     mode: 'listing',
     onModeChange: vi.fn(),
@@ -105,7 +105,8 @@ describe('QueryBar › geniş (masaüstü)', () => {
     const props = makeProps({ savedViews: kaydedilenler });
     render(<QueryBar {...props} />, { wrapper });
 
-    const gorunum = screen.getByRole('combobox', { name: 'Kayıtlı görünüm' });
+    // Kayıtlı görünüm geniş-özel modülden (lazyWide, ./QueryBar.wide) gelir; ayrıntı QueryBar.adaptive.test.tsx'te.
+    const gorunum = await screen.findByRole('combobox', { name: 'Kayıtlı görünüm' });
     expect(screen.getByText('Tüm alımlar')).toBeInTheDocument();
     await user.click(gorunum);
     await user.click(await screen.findByRole('option', { name: 'Bebek odası hazırlığı' }));
@@ -184,11 +185,78 @@ describe('QueryBar › dar (telefon ve tablet)', () => {
     expect(aktif[1].onRemove).toHaveBeenCalledTimes(1);
   });
 
+  it('telefon: tetik sayısı filterCount verilince onu yazar (arama gibi panel dışı etkinler sayılmaz)', () => {
+    const aktif: readonly ActiveFilter[] = [{ id: 'ara', label: 'Arama: kase', onRemove: vi.fn() }, ...filtreler()];
+    const { rerender } = render(<QueryBar {...makeProps({ activeFilters: aktif, filterCount: 2 })} />, { wrapper: onDevice('phone') });
+    expect(screen.getByRole('button', { name: 'Filtreler (2)' })).toBeInTheDocument();
+    rerender(<QueryBar {...makeProps({ activeFilters: aktif })} />);
+    expect(screen.getByRole('button', { name: 'Filtreler (3)' })).toBeInTheDocument();
+    rerender(<QueryBar {...makeProps({ activeFilters: aktif, filterCount: 1250 })} />);
+    expect(screen.getByRole('button', { name: 'Filtreler (1.250)' })).toBeInTheDocument();
+  });
+
+  it('telefon: arama tam genişlik ve sıralama Select (görsel etiketsiz, erişilebilir adlı); "Tümünü temizle" hedef sınıfında', () => {
+    render(<QueryBar {...makeProps({ activeFilters: filtreler() })} />, { wrapper: onDevice('phone') });
+    const ara = screen.getByRole('searchbox', { name: 'Ara' });
+    expect(ara.closest('.aile-sorgu-ara')).not.toBeNull();
+    expect(screen.getByRole('combobox', { name: 'Sıralama' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Tümünü temizle' })).toHaveClass('aile-sorgu-temizle');
+    expect(screen.getByRole('button', { name: 'Filtreler (2)' })).toHaveClass('aile-sorgu-filtre');
+  });
+
   it('tablet: aynı dar düzen (filtre sağdan çekmece), mod seçimi segment kalır', () => {
     render(<QueryBar {...makeProps()} />, { wrapper: onDevice('tablet') });
     expect(screen.getByRole('button', { name: 'Filtreler (0)' })).toHaveAttribute('aria-haspopup', 'dialog');
     expect(screen.getByRole('radiogroup', { name: 'Görünüm modu' })).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: 'Gantt' })).toBeDisabled();
+  });
+});
+
+describe('QueryBar › durum profil ve görünüm modu değişiminde korunur', () => {
+  function Harness({ profile }: { profile: Device }) {
+    const [mode, setMode] = useState<ViewMode>('listing');
+    const [search, setSearch] = useState('');
+    const [sort, setSort] = useState<SortOption>(SIRALAR[0]);
+    const [aktif, setAktif] = useState<readonly string[]>(['Aşama: Önce']);
+    return (
+      <DeviceContext.Provider value={profile}>
+        <QueryBar
+          {...makeProps({
+            mode, onModeChange: setMode, search, onSearchChange: setSearch, sort, onSort: setSort,
+            activeFilters: aktif.map(label => ({ id: label, label, onRemove: () => setAktif(list => list.filter(item => item !== label)) })),
+          })}
+        />
+      </DeviceContext.Provider>
+    );
+  }
+
+  it('telefon → masaüstü → tablet → telefon ve mod değişimi: arama, sıralama, mod ve etkin filtreler aynı kalır', async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<Harness profile="phone" />);
+    await user.type(screen.getByRole('searchbox', { name: 'Ara' }), 'kase');
+    await user.click(screen.getByRole('combobox', { name: 'Sıralama' }));
+    await user.click(await screen.findByRole('option', { name: 'Ada göre' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(screen.getAllByText('Ada göre').length).toBeGreaterThan(0);
+
+    rerender(<Harness profile="desktop" />);
+    expect(screen.getByRole('searchbox', { name: 'Ara' })).toHaveValue('kase');
+    expect(screen.getAllByText('Ada göre').length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: 'Aşama: Önce filtresini kaldır' })).toBeInTheDocument();
+    await user.click(screen.getByText('Tablo'));
+    expect(screen.getByRole('radio', { name: 'Tablo' })).toBeChecked();
+    expect(screen.getByRole('searchbox', { name: 'Ara' })).toHaveValue('kase');
+    expect(screen.getAllByText('Ada göre').length).toBeGreaterThan(0);
+
+    rerender(<Harness profile="tablet" />);
+    expect(screen.getByRole('radio', { name: 'Tablo' })).toBeChecked();
+    expect(screen.getByRole('button', { name: 'Filtreler (1)' })).toBeInTheDocument();
+
+    rerender(<Harness profile="phone" />);
+    expect(screen.getByRole('searchbox', { name: 'Ara' })).toHaveValue('kase');
+    expect(screen.getByRole('button', { name: 'Filtreler (1)' })).toBeInTheDocument();
+    expect(screen.getAllByText('Ada göre').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Tablo').length).toBeGreaterThan(0);
   });
 });
 
@@ -214,5 +282,14 @@ describe('QueryBar.css ve kaynak (tasarım kuralları, statik)', () => {
     const sizes = [...css.matchAll(/font-size\s*:\s*(\d+)px/g)].map(m => Number(m[1]));
     expect(sizes.every(size => size >= 14)).toBe(true);
     expect(css).toMatch(/var\(--aile-/);
+  });
+
+  it('dokunma hedefi: Filtreler ve "Tümünü temizle" en az 44 px, kaba girişte 48 px (token hesabı, sabit px yok)', () => {
+    const css = read('QueryBar.css');
+    // Merkezi uyarlamalı hedef tokenı (b04, admin.css): 44 px, kaba girişte ([data-input-coarse]) 48 px; yerelde yeniden türetilmez.
+    expect(css).toMatch(/\.aile-sorgu-temizle[^{]*\{[^}]*min-height:\s*var\(--aile-dokunma-hedefi\)/);
+    expect(css).toMatch(/\.aile-sorgu-filtre[^{]*\{[^}]*min-height:\s*var\(--aile-dokunma-hedefi\)/);
+    expect(css).toMatch(/\.aile-sorgu-disa\s*\{[^}]*min-width:\s*var\(--aile-dokunma-hedefi\)/);
+    expect(css).not.toMatch(/data-input-coarse|calc\(var\(--aile-hedef-asgari\)/);
   });
 });

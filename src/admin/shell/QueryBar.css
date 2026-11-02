@@ -2,7 +2,9 @@
    (src/design/tokens.ts). Kutusuz: arama, seçimler ve düğmeler zeminde yan yana durur; kenar yalnız kontrollerin
    kendi sınırıdır (TextField/Select/Button). Geniş: satır sarar, arama esner (en az 280), seçimler 220 sabit;
    dar: her kontrol tam genişlik, ikinci satırda Filtreler düğmesi esner. Odak çizgisini admin.css çizer
-   ([data-focus-line], .ant-btn, antd kontrolleri); burada outline/halka/box-shadow yok. Hareket yok. */
+   ([data-focus-line], .ant-btn, antd kontrolleri); burada outline/halka/box-shadow yok. Hareket yok.
+   Dokunma hedefi: Filtreler tetiği, dışa aktar ve "Tümünü temizle" en az merkezi --aile-dokunma-hedefi (admin.css:
+   44 px, kaba giriş katmanında 48 px; AdaptiveRoot katmanı <html>'e yazar). */
 .aile-sorgu {
   /* tokens.json'da sorgu çubuğu ölçüsü yok; değerler tasarım bundle.css › .ai-qb-search / .ai-qb-sel. */
   --aile-sorgu-ara-asgari: 280px;
@@ -56,3 +58,14 @@
    yanında daralınca seçili değer kesiliyordu (320'de 15 px). */
 .aile-sorgu--dar .aile-sorgu-secim { flex: 1 1 100%; }
 .aile-sorgu--dar .aile-tabs { width: 100%; }
+
+/* Dokunma hedefi: düğmenin kendi tabanı (ui/Button.css) en az merkezi hedef kadar. Seçiciler o tabanı aşmak için üç
+   sınıflıdır (0,3,0); yalnız bu bileşenin sınıfları kullanılır. */
+.aile-sorgu .aile-sorgu-etkin > .aile-sorgu-temizle,
+.aile-sorgu .aile-sorgu-satir > .aile-sorgu-filtre {
+  min-height: var(--aile-dokunma-hedefi);
+}
+.aile-sorgu .aile-sorgu-satir > .aile-sorgu-disa {
+  min-width: var(--aile-dokunma-hedefi);
+  min-height: var(--aile-dokunma-hedefi);
+}
