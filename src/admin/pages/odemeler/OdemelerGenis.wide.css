@@ -1,0 +1,5 @@
+/* Ödemeler geniş sunumu (yalnız geniş parçada): yerleşim ve aralık; renk/ölçü --aile tokenları. Kart ya da kenarlık yok. */
+.aile-odemeler-genis { display: flex; flex-direction: column; gap: var(--aile-bosluk-3); min-width: 0; }
+.aile-odemeler-sayim { margin: 0; font-weight: 600; }
+.aile-odemeler-ad { display: block; font-weight: 600; }
+.aile-odemeler-alt { display: block; }
