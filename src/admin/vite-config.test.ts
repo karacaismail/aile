@@ -402,11 +402,11 @@ describe('üretim derlemesi PWA ön belleği ve teslim grafiği', () => {
     expect(report.mode).toBe('strict');
     expect(report.violations).toEqual([]);
     expect(baseline.violations, 'scripts/delivery-baseline.json yalnız daralır; kesimden sonra boştur').toEqual([]);
-    // Telefon profili rota sayfalarının kapanışlarını da kapsar (routes.tsx PAGE_LOADERS: 12 sayfa).
+    // Telefon profili rota sayfalarının kapanışlarını da kapsar (routes.tsx PAGE_LOADERS: 13 sayfa, Emeklilik planı dahil).
     expect(report.phone.routes.map((entry: { root: string }) => entry.root).sort()).toEqual(
       Object.keys(manifest).filter((key) => /^src\/admin\/pages\/[^/]+Page\.tsx$/.test(key)).sort(),
     );
-    expect(report.phone.routes).toHaveLength(12);
+    expect(report.phone.routes).toHaveLength(13);
     // babel-runtime ayrı ve yasak olmayan bir sınıftır: hiçbir ihlal kimliği onu taşımaz, raporda kendi grubu vardır.
     expect(report.forbidden).not.toContain('babel-runtime');
     expect(report.groups['babel-runtime']?.files).toBe(1);
@@ -433,7 +433,7 @@ describe('üretim derlemesi PWA ön belleği ve teslim grafiği', () => {
     const staticClosure = (start: string) => closure(start, () => false, false);
     const isWide = (key: string) => (graph.chunks[manifest[key].file]?.groups.wide ?? 0) * 2 > (graph.chunks[manifest[key].file]?.modules ?? 0);
     const pages = Object.keys(manifest).filter((key) => /^src\/admin\/pages\/[^/]+Page\.tsx$/.test(key)).sort();
-    expect(pages).toHaveLength(12);
+    expect(pages).toHaveLength(13);
     const wideChunks = Object.keys(manifest).filter(isWide);
     expect(wideChunks.length, 'wide sınıfı parçalar').toBeGreaterThan(1);
     const leaks: string[] = [];

@@ -38,6 +38,8 @@ export function aileBasePort(raw: string | undefined = process.env.AILE_PORT, fa
 export const syntheticServerEnv = {
   VITE_BUDGET_SHEET_ID: 'synthetic-budget-sheet-2098',
   AILE_GENERATION_DIR: join(root, 'fixtures', 'generation-synthetic'),
+  // Emeklilik planı: yalnız sentetik profil (kişisel profil Git dışındadır).
+  AILE_EMEKLILIK_PROFILE: join(root, 'fixtures', 'emeklilik', 'profil-sentetik.json'),
 };
 
 const port = aileBasePort();

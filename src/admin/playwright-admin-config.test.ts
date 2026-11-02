@@ -12,6 +12,7 @@ import { ADMIN, ADMIN_MAIN, adminNotReadyReasons, openAdmin } from '../../e2e/ad
 
 const root = resolve(__dirname, '../..');
 const SYNTHETIC_DIR = join(root, 'fixtures', 'generation-synthetic');
+const SYNTHETIC_EMEKLILIK = join(root, 'fixtures', 'emeklilik', 'profil-sentetik.json');
 const specs = readdirSync(join(root, 'e2e')).filter((name) => name.endsWith('.spec.ts'));
 
 type Env = { AILE_PORT?: string; CI?: string };
@@ -116,7 +117,7 @@ describe('port yalıtımı: her koşu kendi sunucusunu kendi portunda başlatır
 
   it('dev sunucusu yalnız sentetik nesil ve sentetik Sheet kimliği görür', async () => {
     const server = webServer(await load('dev', { AILE_PORT: '5300' }));
-    expect(server.env).toEqual({ VITE_BUDGET_SHEET_ID: 'synthetic-budget-sheet-2098', AILE_GENERATION_DIR: SYNTHETIC_DIR });
+    expect(server.env).toEqual({ VITE_BUDGET_SHEET_ID: 'synthetic-budget-sheet-2098', AILE_GENERATION_DIR: SYNTHETIC_DIR, AILE_EMEKLILIK_PROFILE: SYNTHETIC_EMEKLILIK });
   });
 
   it('AILE_PORT yoksa varsayılan 5174 (pnpm dev ile aynı); yine de yeniden kullanım yok', async () => {
@@ -143,7 +144,7 @@ describe('port yalıtımı: her koşu kendi sunucusunu kendi portunda başlatır
     expect(config.use?.baseURL).toBe('http://127.0.0.1:5301/aile/');
     expect(server.reuseExistingServer).toBe(false);
     expect(server.cwd).toBe(root);
-    expect(server.env).toEqual({ VITE_BUDGET_SHEET_ID: 'synthetic-budget-sheet-2098', AILE_GENERATION_DIR: SYNTHETIC_DIR });
+    expect(server.env).toEqual({ VITE_BUDGET_SHEET_ID: 'synthetic-budget-sheet-2098', AILE_GENERATION_DIR: SYNTHETIC_DIR, AILE_EMEKLILIK_PROFILE: SYNTHETIC_EMEKLILIK });
     const fallback = webServer(await load('production'));
     expect(fallback.command).toBe('pnpm exec vite preview --host 127.0.0.1 --port 5178 --strictPort');
     expect(fallback.url).toBe('http://127.0.0.1:5178/aile/');
