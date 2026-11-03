@@ -2,12 +2,13 @@ import type { EmeklilikProfili, TutarBilgisi } from '../contract';
 import type { TurkceBicimleyici } from './bicim';
 import type { AlanAnahtari, BorcKaynagiAnahtari, BorcKaynagiSecenegi } from './ekran';
 
-// Bağ-Kur borcunun kaynağı: iki kaynak aracın seçenekleri yan yana. Codex aracı düzeltilmiş tutar bilinmediği için
-// 'bilinmiyor' kullanır (varsayılan; tutar uydurulmaz), sade araç tahmin aralığı kullanır (profilde tahminiBorc varsa),
-// kullanıcı tutarı kendisi de girebilir. Seçici yalnız durumu tutar ve seçili kaynağın borcunu (TutarBilgisi) verir;
-// ViewModel bunu varsayımlar.secenekGirdileri.bagkur.borc'a yazar, hesap modeldedir. Girilen tutar kaynak değişince
-// unutulmaz (geri dönülünce yeniden kullanılır); sıfırlama varsayılana döner. Profilde bilinen bir borç varsa "Tutarı gir"
-// o tutarla başlar (profil bilgisi kaybolmaz) ama varsayılan kaynak yine 'bilinmiyor'dur.
+// Bağ-Kur borcunun kaynağı. Profilde kaynağı yazılı bir borç (tek tutar ya da aralık; ör. e-Devlet 4B borç ekranı) varsa
+// varsayılan kaynak odur ('profil'): sayfa bilinen tutarla hesaplar, kaynağı seçeneğin açıklamasında yazar. Profilde
+// tutar yoksa varsayılan 'bilinmiyor'dur (tutar uydurulmaz). 'bilinmiyor' her zaman seçilebilir; sade aracın tahmin aralığı
+// (profilde tahminiBorc varsa) ve kullanıcının girdiği tutar da seçeneklerdir. Seçici yalnız durumu tutar ve seçili
+// kaynağın borcunu (TutarBilgisi) verir; ViewModel bunu varsayımlar.secenekGirdileri.bagkur.borc'a yazar, hesap
+// modeldedir. Girilen tutar kaynak değişince unutulmaz (geri dönülünce yeniden kullanılır); sıfırlama varsayılana döner.
+// "Tutarı gir" profildeki tutarla başlar.
 
 export const BORC_KAYNAGI_BASLIGI = 'Bağ-Kur borcunun kaynağı';
 export const SGK_BILINMIYOR_NEDENI = 'SGK düzeltilmiş tutarı bilinmiyor';
@@ -20,32 +21,40 @@ export const BORC_ALANI = 'bagkurBorc' satisfies AlanAnahtari;
 export const BORC_KAYNAGI_KONUMU = 'bagkurGun' satisfies AlanAnahtari;
 
 const ETIKET: Readonly<Record<BorcKaynagiAnahtari, string>> = {
+  profil: 'Profildeki tutar',
   bilinmiyor: SGK_BILINMIYOR_NEDENI,
   tahmin: 'Sade araç tahmini (aralık)',
   elle: 'Tutarı gir',
 };
-const SIRA: readonly BorcKaynagiAnahtari[] = ['bilinmiyor', 'tahmin', 'elle'];
+const SIRA: readonly BorcKaynagiAnahtari[] = ['profil', 'bilinmiyor', 'tahmin', 'elle'];
 
 export class BorcKaynagiSecici {
-  private kaynak: BorcKaynagiAnahtari = 'bilinmiyor';
+  private kaynak: BorcKaynagiAnahtari;
   private elle: TutarBilgisi | null;
   private readonly tahmin: TutarBilgisi | null;
-  /** Profildeki bilinen borç ("Tutarı gir"in başlangıç değeri); bilinmiyorsa null. */
-  private readonly profilTutari: TutarBilgisi | null;
+  /** Profildeki bilinen borç (varsayılan kaynak ve "Tutarı gir"in başlangıç değeri); bilinmiyorsa null. */
+  private readonly profilTutari: Exclude<TutarBilgisi, { tur: 'bilinmiyor' }> | null;
 
   constructor(profil: EmeklilikProfili) {
     const { borc, tahminiBorc } = profil.secenekler.bagkur;
     this.tahmin = tahminiBorc ?? null;
     this.profilTutari = borc.tur === 'bilinmiyor' ? null : borc;
     this.elle = this.profilTutari;
+    this.kaynak = this.varsayilan;
+  }
+
+  /** Profilde tutar varsa 'profil', yoksa 'bilinmiyor'. */
+  get varsayilan(): BorcKaynagiAnahtari {
+    return this.profilTutari ? 'profil' : 'bilinmiyor';
   }
 
   get secili(): BorcKaynagiAnahtari {
     return this.kaynak;
   }
 
-  /** 'tahmin' yalnız profilde tahmin varsa kullanılabilir. */
+  /** 'profil' yalnız profilde tutar, 'tahmin' yalnız profilde tahmin varsa kullanılabilir. */
   kullanilabilir(kaynak: BorcKaynagiAnahtari): boolean {
+    if (kaynak === 'profil') return this.profilTutari !== null;
     return kaynak !== 'tahmin' || this.tahmin !== null;
   }
 
@@ -58,6 +67,7 @@ export class BorcKaynagiSecici {
 
   /** Seçili kaynağın borcu (yeni kopya; varsayımlar profille nesne paylaşmaz). */
   deger(): TutarBilgisi {
+    if (this.kaynak === 'profil' && this.profilTutari) return { ...this.profilTutari };
     if (this.kaynak === 'tahmin' && this.tahmin) return { ...this.tahmin };
     if (this.kaynak === 'elle') return this.elle ? { ...this.elle } : { tur: 'bilinmiyor', neden: ELLE_BOS_NEDENI };
     return { tur: 'bilinmiyor', neden: SGK_BILINMIYOR_NEDENI };
@@ -68,9 +78,9 @@ export class BorcKaynagiSecici {
     this.elle = tutar;
   }
 
-  /** Varsayılana döner: 'bilinmiyor'; girilen tutar unutulur ("Tutarı gir" yine profildeki tutarla başlar). */
+  /** Varsayılana döner; girilen tutar unutulur ("Tutarı gir" yine profildeki tutarla başlar). */
   sifirla(): void {
-    this.kaynak = 'bilinmiyor';
+    this.kaynak = this.varsayilan;
     this.elle = this.profilTutari;
   }
 
@@ -79,6 +89,7 @@ export class BorcKaynagiSecici {
   }
 
   private aciklama(kaynak: BorcKaynagiAnahtari, b: TurkceBicimleyici): string {
+    if (kaynak === 'profil') return `${b.tutar(this.profilTutari!)} · ${this.profilTutari!.kaynak}`;
     if (kaynak === 'bilinmiyor') return 'Ödeme, fark ve geri kazanma bilinmiyor olur; tutar uydurulmaz.';
     if (kaynak === 'elle') return 'SGK’dan öğrendiğiniz ya da kendi tahmininiz; tek tutar ya da aralık.';
     const tahmin = this.tahmin!;

@@ -79,12 +79,15 @@ export interface EmeklilikProfili {
     askerlik: { gun: number; azamiGun: number; gunlukBedelTl: TlMetni | null; aciklama: string };
     bagkur: {
       gun: number;
-      /** SGK'nın düzeltilmiş borç tutarı; bilinmiyorsa 'bilinmiyor' (tutar uydurulmaz). */
+      /**
+       * Bağ-Kur borcu ve kaynağı (ör. e-Devlet 4B borç ekranı ya da SGK'nın düzeltilmiş tutarı); bilinmiyorsa 'bilinmiyor'
+       * (tutar uydurulmaz). Bilinen ya da aralık tutar sayfada varsayılan borç kaynağıdır ("Profildeki tutar").
+       */
       borc: TutarBilgisi;
       /**
        * İsteğe bağlı: sade karar aracının borç tahmini (çoğunlukla aralık: çakışan aylar silinirse alt, silinmezse üst uç;
-       * gecikme zammı dahil). Yalnız kullanıcı "Sade araç tahmini" kaynağını seçerse hesaba girer; varsayılan kaynak
-       * "SGK düzeltilmiş tutarı bilinmiyor"dur. Alan yoksa bu kaynak sunulmaz.
+       * gecikme zammı dahil). Yalnız kullanıcı "Sade araç tahmini" kaynağını seçerse hesaba girer. Alan yoksa bu kaynak
+       * sunulmaz.
        */
       tahminiBorc?: TutarBilgisi;
       yalnizSskYolundaOdenecek: TutarBilgisi;

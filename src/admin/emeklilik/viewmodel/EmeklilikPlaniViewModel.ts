@@ -29,8 +29,9 @@ import { Hatirlayici } from './hatirlayici';
 // Alanlar arası kural (ortak ödeme borcu aşamaz) planlayıcıya gitmeden formda denetlenir: istenen varsayımlar (aday)
 // kuralı bozarsa alan hatası yazılır ve planlayıcıya borç/ortak ödeme çiftinin son geçerli hâli gider; diğer
 // değişiklikler yine uygulanır. Böylece kullanıcı yazarken sayfa hata durumuna düşmez (odak ve açık bölüm korunur).
-// Bağ-Kur borcunun kaynağı (borcKaynagi.ts): varsayılan "SGK düzeltilmiş tutarı bilinmiyor"dur; planlayıcının varsayılan
-// varsayımlarındaki profil borcu bu yüzden seçili kaynağın borcuyla değiştirilir (ilk yüklemede ve sıfırlamada).
+// Bağ-Kur borcunun kaynağı (borcKaynagi.ts): profilde tutar varsa varsayılan odur, yoksa "SGK düzeltilmiş tutarı
+// bilinmiyor"; planlayıcının varsayılan varsayımlarındaki profil borcu seçili kaynağın borcuyla değiştirilir (ilk yüklemede
+// ve sıfırlamada).
 
 export interface ViewModelAyarlari {
   /** Doğrulama sınırları için mevzuat (borç kesintisi tavanı). Verilmezse oran %0–100 ile sınırlanır. */
@@ -297,11 +298,11 @@ export class EmeklilikPlaniViewModel implements EmeklilikPlaniKomutlari, Emeklil
   }
 
   /**
-   * Varsayımlar yoksa planlayıcıdan alır (hata atabilir); Bağ-Kur borcu seçili kaynağın borcudur (varsayılan: bilinmiyor).
-   * İhya süresi varsayımdaki karşılaştırma süresiyle başlar.
+   * Varsayımlar yoksa planlayıcıdan alır (hata atabilir); Bağ-Kur borcu seçili kaynağın borcudur (varsayılan: profildeki
+   * tutar, yoksa bilinmiyor). İhya süresi varsayımdaki karşılaştırma süresiyle başlar.
    * Başlangıç çifti de alanlar arası kurala göre form.caprazHata ile denetlenir: profil şeması "ortak ödeme ≤ borç"
-   * kuralını denetlemez. Varsayılan borç kaynağı 'bilinmiyor' olduğundan kural başlangıçta bugün uygulanmaz; yine de ihlal
-   * olursa son geçerli çift yoktur: hata ortak ödeme alanında yazılır, planlayıcıya ortak tutar adıyla bilinmiyor gider
+   * kuralını denetlemez. Varsayılan kaynak profildeki tutar olduğunda profil çifti burada denetlenir; ihlal olursa son
+   * geçerli çift yoktur: hata ortak ödeme alanında yazılır, planlayıcıya ortak tutar adıyla bilinmiyor gider
    * (tutar uydurulmaz, sayfa hata durumuna düşmez). Sonraki komutlar adayla denetlenir (adayUygula).
    */
   private varsayimlariAl(): Varsayimlar {

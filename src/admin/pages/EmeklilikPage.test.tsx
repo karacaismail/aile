@@ -71,6 +71,12 @@ class SahteProfilKaynagi implements EmeklilikProfilKaynagi {
 }
 
 const hazir = (kaynak: 'gelistirme' | 'dosya' | 'sentetik' = 'gelistirme'): ProfilDurumu => ({ tur: 'hazir', profil: PROFIL, kaynak });
+/** Bağ-Kur borç tutarı olmayan profil: varsayılan borç kaynağı "SGK düzeltilmiş tutarı bilinmiyor". */
+const borcsuz = (): ProfilDurumu => {
+  const profil = structuredClone(PROFIL);
+  profil.secenekler.bagkur.borc = { tur: 'bilinmiyor', neden: 'Sentetik: düzeltilmiş borç sorgulanmadı.' };
+  return { tur: 'hazir', profil, kaynak: 'gelistirme' };
+};
 
 function ciz(device: Device, props: Partial<EmeklilikPageProps> & { profilKaynagi: EmeklilikProfilKaynagi }): { container: HTMLElement; tekrar: (ui: ReactNode) => void } {
   const sarmala = (ui: ReactNode) => <DeviceContext.Provider value={device}>{ui}</DeviceContext.Provider>;
@@ -315,7 +321,7 @@ describe('EmeklilikPage › telefon yolculuğu', () => {
   });
 
   it('sonuç özeti: ay, yaş, koşul, ödeme ve kalemleri, aylık + model adı, kesinti, ortak dönem farkı, geri kazanma', () => {
-    ciz('phone', { profilKaynagi: new SahteProfilKaynagi(hazir()) });
+    ciz('phone', { profilKaynagi: new SahteProfilKaynagi(borcsuz()) });
     const sonuc = bolge('Sonuç');
     expect(sonuc).toHaveTextContent('Askerlik + ihya');
     expect(sonuc).toHaveTextContent('44 yaşında');
@@ -325,7 +331,7 @@ describe('EmeklilikPage › telefon yolculuğu', () => {
     expect(tanim('Geçmiş günler için ödeme')).toHaveTextContent('₺425.700,00');
     expect(tanim('Aylık')).toHaveTextContent('₺25.000,00');
     expect(tanim('Aylık')).toHaveTextContent('SGK referansı');
-    // Varsayılan borç kaynağı "SGK düzeltilmiş tutarı bilinmiyor": kesinti süresi adıyla bilinmiyor.
+    // Profilde borç tutarı yok: varsayılan kaynak "SGK düzeltilmiş tutarı bilinmiyor", kesinti süresi adıyla bilinmiyor.
     expect(tanim('Borç kesintisi')).toHaveTextContent('%10 kesinti · süre bilinmiyor');
     expect(tanim('Ortak dönem sonunda fark (10 yıl)')).toHaveTextContent('+₺274.300,00');
     expect(tanim('Geri kazanma')).toHaveTextContent('18 ay sonra');
@@ -404,16 +410,18 @@ describe('EmeklilikPage › telefon yolculuğu', () => {
     expect(devam).toHaveAccessibleDescription(expect.stringContaining('Vazgeçilen ücret ayda ₺80.000,00'));
   });
 
-  it('Bağ-Kur borcunun kaynağı: yerel radyo grubu, varsayılan "bilinmiyor"; tahmin ve girilen tutar sonucu anında değiştirir; sıfırla varsayılana döner', async () => {
+  it('Bağ-Kur borcunun kaynağı: yerel radyo grubu, varsayılan profildeki tutar; bilinmiyor, tahmin ve girilen tutar sonucu anında değiştirir; sıfırla varsayılana döner', async () => {
     const { container } = ciz('phone', { profilKaynagi: new SahteProfilKaynagi(hazir()) });
     await userEvent.click(screen.getByRole('button', { name: 'Gün ve tutarları düzenle' }));
     const grup = screen.getByRole('radiogroup', { name: 'Bağ-Kur borcunun kaynağı' });
     const radyolar = within(grup).getAllByRole('radio');
-    expect(radyolar.map(r => (r as HTMLInputElement).type)).toEqual(['radio', 'radio', 'radio']);
+    expect(radyolar.map(r => (r as HTMLInputElement).type)).toEqual(['radio', 'radio', 'radio', 'radio']);
+    const profilTutari = within(grup).getByRole('radio', { name: 'Profildeki tutar' });
     const bilinmiyor = within(grup).getByRole('radio', { name: 'SGK düzeltilmiş tutarı bilinmiyor' });
     const tahmin = within(grup).getByRole('radio', { name: 'Sade araç tahmini (aralık)' });
     const elle = within(grup).getByRole('radio', { name: 'Tutarı gir' });
-    expect(bilinmiyor).toBeChecked();
+    expect(profilTutari).toBeChecked();
+    expect(profilTutari).toHaveAccessibleDescription(expect.stringMatching(/^₺300\.000,00 – ₺450\.000,00 · /));
     expect(tahmin).toHaveAccessibleDescription(expect.stringMatching(/^₺280\.000,00 – ₺420\.000,00 · /));
     expect(screen.queryByLabelText('Düzeltilmiş Bağ-Kur borcu')).not.toBeInTheDocument();
     // Grup Bağ-Kur günü alanından sonra, ortak ödeme alanından önce durur.
@@ -423,6 +431,10 @@ describe('EmeklilikPage › telefon yolculuğu', () => {
     expect(grup.compareDocumentPosition(ortak) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
     const bagkurEvet = within(soru('Bağ-Kur borcunu ödeyecek misiniz?')).getByRole('radio', { name: 'Evet' });
+    expect(bagkurEvet).toHaveAccessibleDescription('600 gün · ₺300.000,00 – ₺450.000,00');
+    // "SGK düzeltilmiş tutarı bilinmiyor" seçilince tutar uydurulmaz; neden değerlerin yanında yazılır.
+    await userEvent.click(bilinmiyor);
+    expect(bilinmiyor).toBeChecked();
     expect(bagkurEvet).toHaveAccessibleDescription('600 gün · Bilinmiyor · SGK düzeltilmiş tutarı bilinmiyor');
     const tanim = (etiket: string) => within(bolge('Sonuç')).getByText(etiket, { selector: 'dt' }).nextElementSibling as HTMLElement;
     expect(tanim('Borç kesintisi')).toHaveTextContent('%10 kesinti · süre bilinmiyor');
@@ -453,20 +465,20 @@ describe('EmeklilikPage › telefon yolculuğu', () => {
     expect(bagkurEvet).toHaveAccessibleDescription('600 gün · ₺350.000,00');
 
     await userEvent.click(screen.getByRole('button', { name: 'Varsayımları sıfırla' }));
-    expect(bilinmiyor).toBeChecked();
+    expect(profilTutari).toBeChecked();
     expect(screen.queryByLabelText('Düzeltilmiş Bağ-Kur borcu')).not.toBeInTheDocument();
-    expect(bagkurEvet).toHaveAccessibleDescription('600 gün · Bilinmiyor · SGK düzeltilmiş tutarı bilinmiyor');
+    expect(bagkurEvet).toHaveAccessibleDescription('600 gün · ₺300.000,00 – ₺450.000,00');
     expect(container.querySelector('select')).toBeNull();
   });
 
-  it('Bağ-Kur borcunun kaynağı: profilde tahmin yoksa yalnız "bilinmiyor" ve "Tutarı gir" sunulur', async () => {
+  it('Bağ-Kur borcunun kaynağı: profilde tahmin yoksa "Sade araç tahmini" sunulmaz', async () => {
     const profil = structuredClone(PROFIL);
     delete (profil.secenekler.bagkur as { tahminiBorc?: unknown }).tahminiBorc;
     ciz('phone', { profilKaynagi: new SahteProfilKaynagi({ tur: 'hazir', profil, kaynak: 'gelistirme' }) });
     await userEvent.click(screen.getByRole('button', { name: 'Gün ve tutarları düzenle' }));
     const grup = screen.getByRole('radiogroup', { name: 'Bağ-Kur borcunun kaynağı' });
     expect(within(grup).getAllByRole('radio').map(r => r.getAttribute('aria-labelledby') && (document.getElementById(r.getAttribute('aria-labelledby')!)?.textContent ?? ''))).toEqual([
-      'SGK düzeltilmiş tutarı bilinmiyor', 'Tutarı gir',
+      'Profildeki tutar', 'SGK düzeltilmiş tutarı bilinmiyor', 'Tutarı gir',
     ]);
   });
 

@@ -17,17 +17,28 @@ const PROFIL = JSON.parse(readFileSync(resolve(__dirname, '../../../../fixtures/
 const MEVZUAT = { borcKesintiTavani: 0.25 };
 
 const BUGUN = () => new Date('2026-11-02T12:00:00+03:00');
-// Bağ-Kur borcunun varsayılan kaynağı "SGK düzeltilmiş tutarı bilinmiyor"dur: profil aralık taşısa da borç bilinmiyor
-// başlar (tutar uydurulmaz); bu yüzden Bağ-Kur kalemi, kesinti süresi ve Bağ-Kur'lu yolların farkı adıyla bilinmiyordur.
+// Bağ-Kur borcunun varsayılan kaynağı profildeki tutardır (varsa). Bilinmeyen borcun biçimi (Bağ-Kur kalemi, kesinti
+// süresi ve Bağ-Kur'lu yolların farkı adıyla bilinmiyor) borç tutarı olmayan profille sınanır: orada varsayılan kaynak
+// "SGK düzeltilmiş tutarı bilinmiyor"dur (tutar uydurulmaz).
 const SGK_BILINMIYOR = { tur: 'bilinmiyor', neden: 'SGK düzeltilmiş tutarı bilinmiyor' } as const;
 const BILINMIYOR_METNI = 'Bilinmiyor · SGK düzeltilmiş tutarı bilinmiyor';
 const ELLE_BOS_HATA = 'Hata: Tutarı girin; bilinmiyorsa “SGK düzeltilmiş tutarı bilinmiyor” seçeneğini seçin.';
 
-function kur(ayarlar: ConstructorParameters<typeof SahtePlanlayici>[1] = {}) {
-  const planlayici = new SahtePlanlayici(PROFIL, ayarlar);
-  const vm = new EmeklilikPlaniViewModel(planlayici, PROFIL, { mevzuat: MEVZUAT, bugun: BUGUN });
+/** Bağ-Kur borç tutarı olmayan sentetik profil: varsayılan kaynak "SGK düzeltilmiş tutarı bilinmiyor". */
+const PROFIL_BORCSUZ: EmeklilikProfili = (() => {
+  const kopya = structuredClone(PROFIL);
+  kopya.secenekler.bagkur.borc = { tur: 'bilinmiyor', neden: 'Sentetik: düzeltilmiş borç sorgulanmadı.' };
+  return kopya;
+})();
+
+function kur(ayarlar: ConstructorParameters<typeof SahtePlanlayici>[1] = {}, profil: EmeklilikProfili = PROFIL) {
+  const planlayici = new SahtePlanlayici(profil, ayarlar);
+  const vm = new EmeklilikPlaniViewModel(planlayici, profil, { mevzuat: MEVZUAT, bugun: BUGUN });
   return { planlayici, vm, ekran: () => vm.getSnapshot() };
 }
+
+/** Borç tutarı olmayan profille (bilinmeyen borcun biçimi). */
+const kurBorcsuz = (ayarlar: ConstructorParameters<typeof SahtePlanlayici>[1] = {}) => kur(ayarlar, PROFIL_BORCSUZ);
 
 function alan(ekran: EmeklilikEkrani, anahtar: string): AlanGorunumu {
   const bulunan = ekran.form?.gruplar.flatMap(grup => grup.alanlar).find(a => a.anahtar === anahtar);
@@ -43,7 +54,7 @@ function derinDondurulmus(deger: unknown, yol = 'ekran'): string[] {
 
 describe('EmeklilikPlaniViewModel › ilk anlık görüntü', () => {
   it('starts from the recommendation and formats the selected path (month, age, payment, monthly with model, deduction)', () => {
-    const { ekran } = kur();
+    const { ekran } = kurBorcsuz();
     const e = ekran();
     expect(e.hesap).toEqual({ durum: 'hazir', neden: null });
     expect(e.sorular.map(s => [s.anahtar, s.evet])).toEqual([['askerlik', true], ['bagkur', false], ['ihya', true]]);
@@ -72,7 +83,7 @@ describe('EmeklilikPlaniViewModel › ilk anlık görüntü', () => {
   });
 
   it('describes each question with days and cost (cost from the all-options path; unknown debt named, ranges kept as ranges)', () => {
-    const { vm, ekran } = kur();
+    const { vm, ekran } = kurBorcsuz();
     expect(ekran().sorular).toEqual([
       { anahtar: 'askerlik', soru: 'Askerliği borçlanacak mısınız?', aciklama: '360 gün · ₺178.200,00', evet: true },
       { anahtar: 'bagkur', soru: 'Bağ-Kur borcunu ödeyecek misiniz?', aciklama: `600 gün · ${BILINMIYOR_METNI}`, evet: false },
@@ -96,7 +107,7 @@ describe('EmeklilikPlaniViewModel › ilk anlık görüntü', () => {
   });
 
   it('calls a non-financial recommendation "En erken tarih senaryosu" and says it may change', () => {
-    const { ekran } = kur({ oneri: { tur: 'enErkenTarih', saglam: false, secim: { askerlik: true, bagkur: true, ihya: true } } });
+    const { ekran } = kurBorcsuz({ oneri: { tur: 'enErkenTarih', saglam: false, secim: { askerlik: true, bagkur: true, ihya: true } } });
     const o = ekran().oneri!;
     expect(o.etiket).toBe('En erken tarih senaryosu');
     expect(o.secimAdi).toBe('Üçü birlikte');
@@ -105,7 +116,7 @@ describe('EmeklilikPlaniViewModel › ilk anlık görüntü', () => {
   });
 
   it('lists the eight combinations in contract order with formatted cells and the selected one marked', () => {
-    const { vm, ekran } = kur();
+    const { vm, ekran } = kurBorcsuz();
     const satirlar = ekran().bilesimler;
     expect(satirlar.map(s => s.secimAdi)).toEqual([
       'Hiçbir şey ödememek', 'Yalnız askerlik', 'Yalnız Bağ-Kur borcu', 'Yalnız ihya',
@@ -129,7 +140,7 @@ describe('EmeklilikPlaniViewModel › ilk anlık görüntü', () => {
   });
 
   it('names a payback that does not happen within the common period ("geri dönmüyor") apart from an unknown one', () => {
-    const { vm, ekran } = kur();
+    const { vm, ekran } = kurBorcsuz();
     // Askerlik bedeli 360 × ₺5.000,00 + ihya ₺247.500,00 = ₺2.047.500,00; ⌈÷ ₺25.000,00⌉ = 82 ay > 28 ay erken.
     vm.alanGuncelle('askerlikGunlukBedel', '5.000,00');
     expect(ekran().sonuc!.geriKazanma).toEqual({
@@ -141,7 +152,7 @@ describe('EmeklilikPlaniViewModel › ilk anlık görüntü', () => {
   });
 
   it('shows each choice’s share with the other choices held', () => {
-    const { ekran } = kur();
+    const { ekran } = kurBorcsuz();
     expect(ekran().paylar).toEqual([
       { anahtar: 'askerlik', ad: 'Askerlik borçlanması', durum: 'Seçili', erken: '12 ay erken', ekOdeme: '₺178.200,00', donemSonunda: '−₺125.700,00', ton: 'hata' },
       { anahtar: 'bagkur', ad: 'Bağ-Kur borcunu ödemek', durum: 'Seçili değil', erken: '20 ay erken', ekOdeme: BILINMIYOR_METNI, donemSonunda: BILINMIYOR_METNI, ton: 'notr' },
@@ -354,7 +365,7 @@ describe('EmeklilikPlaniViewModel › alan doğrulaması', () => {
   });
 
   it('varsayimlariSifirla restores defaults and drafts, clears errors and keeps the selection', () => {
-    const { vm, planlayici, ekran } = kur();
+    const { vm, planlayici, ekran } = kurBorcsuz();
     vm.secimDegistir('bagkur', true);
     vm.alanGuncelle('askerlikGun', '100');
     vm.alanGuncelle('ihyaGun', 'x');
@@ -396,8 +407,24 @@ describe('EmeklilikPlaniViewModel › Bağ-Kur borcunun kaynağı', () => {
   const kaynak = (e: EmeklilikEkrani) => e.form!.borcKaynagi;
   const borc = (planlayici: SahtePlanlayici) => planlayici.sonVarsayim!.secenekGirdileri.bagkur.borc;
 
-  it('starts from "SGK düzeltilmiş tutarı bilinmiyor" and does not invent the amount, even if the profile carries one', () => {
-    const { planlayici, ekran } = kur();
+  it('starts from the profile amount when the profile carries one, naming its source; "bilinmiyor" stays selectable', () => {
+    const { vm, planlayici, ekran } = kur();
+    const profilBorcu = PROFIL.secenekler.bagkur.borc as { kaynak: string };
+    expect(kaynak(ekran()).secili).toBe('profil');
+    expect(kaynak(ekran()).secenekler.map(s => s.deger)).toEqual(['profil', 'bilinmiyor', 'tahmin', 'elle']);
+    expect(kaynak(ekran()).secenekler[0]).toEqual({ deger: 'profil', etiket: 'Profildeki tutar', aciklama: `₺300.000,00 – ₺450.000,00 · ${profilBorcu.kaynak}` });
+    expect(kaynak(ekran()).alan).toBeNull();
+    expect(borc(planlayici)).toEqual(PROFIL.secenekler.bagkur.borc);
+    expect(ekran().sorular[1]!.aciklama).toBe('600 gün · ₺300.000,00 – ₺450.000,00');
+    vm.borcKaynagiSec('bilinmiyor');
+    expect(borc(planlayici)).toEqual(SGK_BILINMIYOR);
+    vm.varsayimlariSifirla();
+    expect(kaynak(ekran()).secili).toBe('profil');
+    expect(borc(planlayici)).toEqual(PROFIL.secenekler.bagkur.borc);
+  });
+
+  it('with no amount in the profile, starts from "SGK düzeltilmiş tutarı bilinmiyor" and does not invent one', () => {
+    const { planlayici, ekran } = kurBorcsuz();
     expect(kaynak(ekran())).toEqual({
       baslik: 'Bağ-Kur borcunun kaynağı',
       secili: 'bilinmiyor',
@@ -418,11 +445,11 @@ describe('EmeklilikPlaniViewModel › Bağ-Kur borcunun kaynağı', () => {
 
   it('offers the tahmin source only when the profile has tahminiBorc; the command is ignored otherwise', () => {
     const { vm, ekran } = kurProfille(profilKopya(bagkur => { delete bagkur.tahminiBorc; }));
-    expect(kaynak(ekran()).secenekler.map(s => s.deger)).toEqual(['bilinmiyor', 'elle']);
+    expect(kaynak(ekran()).secenekler.map(s => s.deger)).toEqual(['profil', 'bilinmiyor', 'elle']);
     const dinleyici = vi.fn();
     vm.subscribe(dinleyici);
     vm.borcKaynagiSec('tahmin');
-    expect(kaynak(ekran()).secili).toBe('bilinmiyor');
+    expect(kaynak(ekran()).secili).toBe('profil');
     expect(dinleyici).not.toHaveBeenCalled();
   });
 
@@ -502,7 +529,7 @@ describe('EmeklilikPlaniViewModel › Bağ-Kur borcunun kaynağı', () => {
   });
 
   it('the amount also paid on the SSK-only path keeps its own unknown / entered choice (blank = unknown, named)', () => {
-    const { vm, planlayici, ekran } = kur();
+    const { vm, planlayici, ekran } = kurBorcsuz();
     expect(alan(ekran(), 'bagkurOrtakOdeme')).toMatchObject({ metin: '50.000,00', zorunlu: false });
     vm.alanGuncelle('bagkurOrtakOdeme', '');
     expect(planlayici.sonVarsayim!.secenekGirdileri.bagkur.yalnizSskYolundaOdenecek).toEqual({ tur: 'bilinmiyor', neden: 'Ortak ödenecek Bağ-Kur tutarı girilmedi' });
@@ -512,18 +539,26 @@ describe('EmeklilikPlaniViewModel › Bağ-Kur borcunun kaynağı', () => {
     expect(kaynak(ekran()).secili).toBe('bilinmiyor');
   });
 
-  it('varsayimlariSifirla returns to "SGK düzeltilmiş tutarı bilinmiyor" and forgets the manual amount', () => {
+  it('varsayimlariSifirla returns to the default source (the profile amount) and forgets the manual amount', () => {
     const { vm, planlayici, ekran } = kur();
     vm.borcKaynagiSec('elle');
     vm.alanGuncelle('bagkurBorc', '350.000,00');
     vm.varsayimlariSifirla();
-    expect(kaynak(ekran())).toMatchObject({ secili: 'bilinmiyor', alan: null });
-    expect(borc(planlayici)).toEqual(SGK_BILINMIYOR);
+    expect(kaynak(ekran())).toMatchObject({ secili: 'profil', alan: null });
+    expect(borc(planlayici)).toEqual(PROFIL.secenekler.bagkur.borc);
     vm.borcKaynagiSec('elle');
     expect(kaynak(ekran()).alan).toMatchObject({ metin: '300.000,00 – 450.000,00', hata: null });
+    vm.borcKaynagiSec('bilinmiyor');
+    vm.varsayimlariSifirla();
+    expect(kaynak(ekran()).secili).toBe('profil');
+    expect(borc(planlayici)).toEqual(PROFIL.secenekler.bagkur.borc);
+  });
+
+  it('with no amount in the profile, varsayimlariSifirla returns to "SGK düzeltilmiş tutarı bilinmiyor"', () => {
+    const { vm, planlayici, ekran } = kurBorcsuz();
     vm.borcKaynagiSec('tahmin');
     vm.varsayimlariSifirla();
-    expect(kaynak(ekran()).secili).toBe('bilinmiyor');
+    expect(kaynak(ekran())).toMatchObject({ secili: 'bilinmiyor', alan: null });
     expect(borc(planlayici)).toEqual(SGK_BILINMIYOR);
   });
 });

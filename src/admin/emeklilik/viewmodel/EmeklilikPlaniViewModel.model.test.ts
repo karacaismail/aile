@@ -14,14 +14,30 @@ const BUGUN = () => new Date('2026-11-02T12:00:00+03:00');
 const ARALIK_FARK = /^[+−]?₺\d{1,3}(?:\.\d{3})*,\d{2} – [+−]?₺\d{1,3}(?:\.\d{3})*,\d{2}$/;
 const TEK_FARK = /^[+−]?₺\d{1,3}(?:\.\d{3})*,\d{2}$/;
 
-function kur() {
-  const vm = new EmeklilikPlaniViewModel(emeklilikPlanlayicisiOlustur(PROFIL, MEVZUAT_2026), PROFIL, { mevzuat: MEVZUAT_2026, bugun: BUGUN });
+function kur(profil: EmeklilikProfili = PROFIL) {
+  const vm = new EmeklilikPlaniViewModel(emeklilikPlanlayicisiOlustur(profil, MEVZUAT_2026), profil, { mevzuat: MEVZUAT_2026, bugun: BUGUN });
   return { vm, ekran: () => vm.getSnapshot() };
 }
 
+/** Bağ-Kur borç tutarı olmayan sentetik profil: varsayılan kaynak "SGK düzeltilmiş tutarı bilinmiyor". */
+function borcsuz(): EmeklilikProfili {
+  const kopya = structuredClone(PROFIL);
+  kopya.secenekler.bagkur.borc = { tur: 'bilinmiyor', neden: 'Sentetik: düzeltilmiş borç sorgulanmadı.' };
+  return kopya;
+}
+
 describe('EmeklilikPlaniViewModel + model › Bağ-Kur borcunun kaynağı', () => {
+  it('a known profile debt is the default source, so the plan ranks scenarios financially with no unknown values', () => {
+    const { ekran } = kur();
+    expect(ekran().hesap.durum).toBe('hazir');
+    expect(ekran().form!.borcKaynagi.secili).toBe('profil');
+    expect(ekran().oneri!.etiket).toBe('Senaryo önerisi');
+    expect(ekran().sonuc!.donemSonunda.deger).not.toMatch(/Bilinmiyor/);
+    expect(ekran().bilesimler.map(s => `${s.odeme} ${s.donemSonunda}`).join(' ')).not.toMatch(/Bilinmiyor/);
+  });
+
   it('unknown corrected debt names the earliest-date scenario; the tahmin range and an entered amount allow a financial ranking', () => {
-    const { vm, ekran } = kur();
+    const { vm, ekran } = kur(borcsuz());
     expect(ekran().hesap.durum).toBe('hazir');
     expect(ekran().form!.borcKaynagi.secili).toBe('bilinmiyor');
     expect(ekran().oneri).toMatchObject({ etiket: 'En erken tarih senaryosu', secimAdi: 'Üçü birlikte' });

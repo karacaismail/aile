@@ -19,10 +19,11 @@ export type AlanGrubuAnahtari = 'gunVeTutar' | 'maasVeAylik';
 /** İhya karşılaştırmasında iki yol: ihya eklenen (erken) ve ihyasız (bekleyen). */
 export type IhyaYolu = 'ihyali' | 'ihyasiz';
 /**
- * Bağ-Kur borcunun kaynağı: 'bilinmiyor' SGK düzeltilmiş tutarı bilinmiyor (varsayılan; tutar uydurulmaz), 'tahmin' sade
- * aracın tahmini (yalnız profilde varsa), 'elle' kullanıcının girdiği tutar.
+ * Bağ-Kur borcunun kaynağı: 'profil' profildeki kaynaklı tutar (varsa varsayılan), 'bilinmiyor' SGK düzeltilmiş tutarı
+ * bilinmiyor (profilde tutar yoksa varsayılan; tutar uydurulmaz), 'tahmin' sade aracın tahmini (yalnız profilde varsa),
+ * 'elle' kullanıcının girdiği tutar.
  */
-export type BorcKaynagiAnahtari = 'bilinmiyor' | 'tahmin' | 'elle';
+export type BorcKaynagiAnahtari = 'profil' | 'bilinmiyor' | 'tahmin' | 'elle';
 
 /**
  * Etiket + değer (+ ikincil not) + ton; ton yalnız destekler, anlam metindedir. bicim 'tutar': değer biçimli tutardır
