@@ -207,6 +207,6 @@ Bu tablodaki commit kimlikleri yerel entegrasyon dalına aittir. Codex'e `main` 
 | ~~Emeklilik: Bağ-Kur borcu kaynak seçimi ve bağımsız inceleme bulguları~~ | — | Kapandı: em-preset, em-fix, em-fix2 |
 | Tam doğrulama ve aday commit | entegrasyon | Tam Vitest, build, üç kapı, dev E2E tüm projeler, üretim E2E; ardından Codex devri (`docs/ADMIN-RUNBOOK.md` §7) |
 | Yönetim kapılarının CI'ya eklenmesi | Codex, Hüseyin Cengiz | `docs/ADMIN-DEPLOY-PROPOSAL.md` §4.5–4.6; önce koruma testi RED |
-| antd ve Pro bağımlılığı: kaldır, masaüstünde bilinçli kullan ya da bırak | kullanıcı | Hiçbir profilde yüklenmiyor |
+| ~~antd ve Pro bağımlılığı~~ | — | Karar (kullanıcı, 3 Kasım 2026): bağımlılık kalır, hiçbir profilde yüklenmez; `wide-antd` bütçesi 0 B |
 | Yayında kalıcı önbellek ve ortak köken | kullanıcı | Kod varsayılanı üretimde kapalı (`docs/ADMIN-DEPLOY-PROPOSAL.md` §6) |
 | Gerçek cihaz: iPhone Safari, Android Chrome, macOS Safari | insan | Emülasyon yerine geçmez; yapılmadı (`not_run`) |
