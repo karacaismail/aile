@@ -39,3 +39,9 @@ priority transitions, manual dates, salary reservation, immutability and executi
 of the ES2020 bundle without Node or `structuredClone` globals. The financial
 algorithm port was also compared with the existing private ledger oracle; real
 source fixtures are not checked into Git.
+
+Kart ödeme hedefleri her hesapta Plan ve Gerçekleşen sayfalarından ayrı okunur.
+Kurulum tutarları güncellemeyi engellemez. Başlangıç borcu hedef ödemeden ayrıdır.
+Mevcut hedef anapara ödemesidir. Asgari ödeme, fatura ve maliyetler toplam ödemeyi
+etkiler. Ekstre anaparasını aşan veya ödeme döngüsü bulunmayan hedefler kaynak
+notunda açıkça belirtilir. Aşan tutardan yeni borç, ödeme veya kart alacağı türetilmez.

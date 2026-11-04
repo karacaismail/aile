@@ -5,6 +5,7 @@ import { projectPlan } from './integrated-projection.mjs';
 import { openingCashRequirement } from './opening-requirement.mjs';
 import { currentInput, extractIrregularOverrides } from './current-input.mjs';
 import { monthlyOutput } from './monthly-output.mjs';
+import { cardPaymentTargets } from './card-payment-targets.mjs';
 
 const REGULAR_ROWS = [5,6,7,8,12,13,16,17,21,22,23,24,25,26,27,28,32,33,37,38,39,43,44,45,46,47];
 const ACTUAL_ROWS = [5,6,7,8,12,13,14,15,16,17,21,22,23,24,25,26,27,28,32,33,37,38,39,43,44,45,46,47];
@@ -49,7 +50,7 @@ export function computeFinance({ source, config, hash, now, sourceHash: supplied
     }
     check(Math.abs(actual - expected) < .01, 'Plan ' + r + ' month ' + m + ' amount missing from source events');
   }
-  for (const repayment of config.preflight.openingRepayments) for (let m = 0; m < MONTHS; m++) check(value(plan[repayment.row - 1]?.[m + 2]) === repayment.amounts[m], 'opening card repayment changed');
+  policy.cardPaymentTargets = cardPaymentTargets({plan,banks:config.summaryBanks,startDate:policy.startDate});
   check(facts.openingCash === policy.openingCash, 'opening cash changed');
   check(facts.overdraft.limit === policy.overdraftLimit && facts.overdraft.openingUsedPrincipal === policy.openingOverdraftPrincipal, 'overdraft changed');
   const reserve = facts.existingReserve;
@@ -106,7 +107,7 @@ export function computeFinance({ source, config, hash, now, sourceHash: supplied
     }
   }
   const mandatory = flow.filter(r => r[2] === 'Zorunlu' && r[4] > 0).map(r => ({key:r[0],label:r[1],date:iso(dateFromSerial(r[3])),amount:r[4],method:r[5],bank:r[6],installments:r[7]}));
-  const openingRequirement = openingCashRequirement({cashEvents:sourceCash,openingCards:base.openingCards,startDate:base.startDate,firstSalaryDate:config.scheduling.firstSalaryDate});
+  const openingRequirement = openingCashRequirement({cashEvents:sourceCash,openingCards:base.openingCards,payments:base.requiredPaymentSchedule,startDate:base.startDate,firstSalaryDate:config.scheduling.firstSalaryDate});
   const result = {
     planningFx,generatedAt:now,source:{...config.sourceProvenance,sha256:sourceHash},
     unknownSourceDates:sourceCash.filter(e => e.sourceDateStatus === 'Tarih varsayımı').map(e => ({id:e.id,label:e.label,originalSourceDate:e.originalSourceDate,budgetReservationDate:e.date,actualPaymentDate:null,note:e.sourceNote})),

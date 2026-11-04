@@ -61,3 +61,15 @@ korunan girdi, boş batch ve tekrar çalıştırma kapısıdır. `cell-write` g�
 istenen/karşılaştırılan/değişen hücre sayısını içerir; hücre içeriklerini içermez.
 Aynı sahiplik kaydı yenilemeler boyunca birikmez: aralık, dışlanan girdiler ve
 digest birlikte aynıysa tek kayıt saklanır. Farklı kanıtlar birleştirilmez.
+
+Plan ve Gerçekleşen sayfalarının 14. ve 15. satırındaki kart ödeme hedefleri her
+hesapta yeniden okunur. Kurulumdaki eski tutarla eşitlik aranmaz. Banka satır adı,
+sonlu ve negatif olmayan tutar ile bankanın ekstre vade ayı doğrulanır. Başlangıç
+borcu ödeme hedefinden ayrı kalır. Güncel hedef Plan'dan farklıysa kendi hesabında
+uygulanır. Mevcut modelde hedef anapara ödemesidir. Asgari ödeme, faturalar ve
+maliyetler toplam ödemeyi ayrıca etkiler.
+
+Hedef ekstre anaparasını aşıyorsa aşan kısım yeni borç, harcama veya kart alacağı
+sayılmaz. Girilen hedef, hesaplanan ödeme ve uygulanmayan tutar ödeme adımının
+kaynak açıklamasında görünür. Eşleşen ödeme dönemi bulunmayan sıfır dışı hedefler
+başlangıç adımında banka, ay ve tutarla açıklanır. Kaynak hücreler değiştirilmez.

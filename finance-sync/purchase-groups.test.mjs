@@ -31,4 +31,7 @@ test('native publication changes only the type and guards category edits even ou
  const after=buildFinance(args).manifest;
  assert.equal(after.outputs.find(c=>c.row===43&&c.column===2).value,'Alışveriş · Taşınma sonrası');
  assert.deepEqual(after.outputs.filter(c=>c.column!==2),before.outputs.filter(c=>c.column!==2));
+ event.type='card-payment';event.sourceNote='Girilen hedefin 100.00 TL kısmı ekstre anaparasını aşıyor.';
+ const payment=buildFinance(args).manifest.outputs.find(c=>c.row===43&&c.column===16);
+ assert.match(payment.value,/100.00 TL.*ekstre anaparasını aşıyor/);
 });

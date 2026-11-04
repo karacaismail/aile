@@ -7,7 +7,11 @@ export function currentInput({modelInput,regular,savings,irregular,pendingKeys=[
  if(byId.size!==all.length)throw new Error('duplicate source event ID');
  const finite=n=>{if(typeof n!=='number'||!Number.isFinite(n)||n<0)throw new Error('Current amount must be finite and nonnegative');};
  const change=(e,field,v,reason)=>{if(e[field]!==v){changes.push({id:e.id,field,before:e[field],after:v,reason});e[field]=v;}};
- for(const r of regular){finite(r.plan);finite(r.current);if(r.plan===r.current)continue;if(r.row===38)throw new Error('Changed weekly budget needs actual dated weekly payments');if([14,15].includes(r.row))throw new Error('Opening card payment change needs explicit statement mapping');
+ for(const r of regular){finite(r.plan);finite(r.current);if(r.plan===r.current)continue;if(r.row===38)throw new Error('Changed weekly budget needs actual dated weekly payments');if([14,15].includes(r.row)){
+   const targets=(next.cardPaymentTargets??[]).filter(t=>t.sourceRow===r.row&&t.sourceMonth===r.month);
+   if(targets.length!==1)throw new Error('Opening card payment change needs explicit statement mapping');
+   change(targets[0],'amount',r.current,'Current card payment target');continue;
+  }
   const kind=r.row<=8?'income':r.row>=21&&r.row<=28?'bill':'regular';
   for(const month of[r.month,...(r.month===13?Array.from({length:12},(_,i)=>14+i):[])]){const id=`month-${month}-${kind}-${r.row}`,e=byId.get(id);if(!e)throw new Error('Current change has no dated source event: '+id);change(e,'amount',e.amount<0?-r.current:r.current,'Current source amount');}
  }

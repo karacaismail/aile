@@ -457,7 +457,7 @@ var __finance = (() => {
     const priced = options.filter((x) => x.totalCost != null).sort((a, b) => a.totalCost - b.totalCost || b.dueDate.localeCompare(a.dueDate));
     return { billId: bill.id, options, preferredBank: priced[0]?.bank ?? null, selectionStatus: "cost-only; liquidity and account eligibility must be checked in integrated run" };
   }
-  function projectPlan({ startDate, endDate, cashEvents = [], purchases = [], openingCards = [], cardSettings, tariffs, taxes, openingCash = 0, openingOverdraftPrincipal = 0, overdraftLimit = 0, overdraftMonthlyRate, protectUntil = startDate, paymentMode = "capacity", billPolicy = "source", extraCashEvents = [], requiredPaymentSchedule = [], openingReserve = 0, reserveTransfers = [], reserveTransferLimit = openingReserve, reserveTransferStart = startDate, reserveTransferEnd = endDate, salaryDay, minimumPaymentRate, overdraftBank }) {
+  function projectPlan({ startDate, endDate, cashEvents = [], purchases = [], openingCards = [], cardPaymentTargets: cardPaymentTargets2 = [], cardSettings, tariffs, taxes, openingCash = 0, openingOverdraftPrincipal = 0, overdraftLimit = 0, overdraftMonthlyRate, protectUntil = startDate, paymentMode = "capacity", billPolicy = "source", extraCashEvents = [], requiredPaymentSchedule = [], openingReserve = 0, reserveTransfers = [], reserveTransferLimit = openingReserve, reserveTransferStart = startDate, reserveTransferEnd = endDate, salaryDay, minimumPaymentRate, overdraftBank }) {
     if (!Number.isInteger(salaryDay) || salaryDay < 1 || salaryDay > 28) throw new TypeError("Explicit salary day 1\u201328 required");
     if (!Number.isFinite(minimumPaymentRate) || minimumPaymentRate < 0 || minimumPaymentRate > 1) throw new TypeError("Explicit minimum payment rate required");
     if (!cardSettings[overdraftBank]) throw new TypeError("Explicit overdraft bank required");
@@ -486,6 +486,14 @@ var __finance = (() => {
     });
     if (plannedTransfers > openingReserve + 5e-3 || plannedTransfers > reserveTransferLimit + 5e-3) throw new TypeError("Reserve transfer exceeds existing asset or authorized total");
     const flags = ["future_tariffs_scenario", "mixed_card_allocation_scenario", "overdraft_booking_value_date_scenario", "overdraft_divisor_30_scenario", "opening_overdraft_charges_unknown_lower_bound", "bill_cost_reserved_at_payment_not_bank_posting", "same_day_income_before_payment_scenario", "same_day_cutoff_posting_scenario"];
+    const targetByCycle = /* @__PURE__ */ new Map(), consumedTargets = /* @__PURE__ */ new Set();
+    for (const t of cardPaymentTargets2) {
+      if (!cardSettings[t.bank] || !/^\d{4}-(0[1-9]|1[0-2])$/.test(t.month)) throw new TypeError("Invalid card payment target mapping");
+      nonnegative(t.amount, "card payment target");
+      const key2 = t.bank + "|" + t.month;
+      if (targetByCycle.has(key2)) throw new TypeError("Duplicate card payment target");
+      targetByCycle.set(key2, t);
+    }
     const state2 = Object.fromEntries(Object.entries(cardSettings).map(([bank, settings]) => {
       nonnegative(settings.limit, "card limit");
       return [bank, { settings, purchase: 0, future: 0, bills: [], charges: 0, previous: null }];
@@ -559,7 +567,8 @@ var __finance = (() => {
     record({ id: "opening-finance", date: startDate, rank: 0, type: "opening", label: "D\xF6nem ba\u015Flang\u0131c\u0131", source: "Teyitli nakit, mevcut rezerv, KMH ve kart a\xE7\u0131l\u0131\u015F bor\xE7lar\u0131", sourceDateStatus: "Teyitli a\xE7\u0131l\u0131\u015F durumu" });
     const minimumFor = (stmt) => {
       const billPrincipal = stmt.bills.reduce((s, b) => s + b.amount, 0), billCost = stmt.bills.reduce((s, b) => s + (b.cost ?? 0), 0), statementTotal = round3(stmt.purchasePrincipal + stmt.charges + billPrincipal + billCost), minimum = round3(statementTotal * minimumPaymentRate), fullBillsCharges = round3(billPrincipal + billCost + stmt.charges);
-      return { statementTotal, minimum, fullBillsCharges, billPrincipal, billCost, required: round3(Math.max(minimum, fullBillsCharges + stmt.oldScheduled)) };
+      const sourceTarget = targetByCycle.get(stmt.bank + "|" + stmt.dueDate.slice(0, 7)), requestedPrincipal = sourceTarget?.amount ?? stmt.oldScheduled, appliedPrincipal = round3(Math.min(requestedPrincipal, stmt.purchasePrincipal)), unappliedPrincipal = round3(requestedPrincipal - appliedPrincipal);
+      return { statementTotal, minimum, fullBillsCharges, billPrincipal, billCost, requestedPrincipal, unappliedPrincipal, sourceTarget, required: round3(Math.min(statementTotal, Math.max(minimum, fullBillsCharges + appliedPrincipal))) };
     };
     const futureDue = (at, currentBank) => {
       const candidates = requiredPaymentSchedule.length ? requiredPaymentSchedule : Object.entries(state2).filter(([, b]) => b.previous && !b.previous.paid).map(([bank, b]) => ({ date: b.previous.dueDate, amount: minimumFor(b.previous).required, bank }));
@@ -616,6 +625,7 @@ var __finance = (() => {
           for (const [bank, b] of Object.entries(state2)) {
             const stmt = b.previous;
             if (!stmt || stmt.dueDate !== at || stmt.paid) continue;
+            consumedTargets.add(bank + "|" + at.slice(0, 7));
             const q = minimumFor(stmt), reserve = reserveUntilSalary({ at, atRank: 2e4, events: [...cashEvents, ...extraCashEvents, ...transferEvents], duePayments: futureDue(at, bank), salaryDay });
             const capacity = Math.max(0, net - reserve);
             let target = q.required;
@@ -631,7 +641,7 @@ var __finance = (() => {
             stmt.purchaseMinimum = round3(Math.max(0, q.minimum - q.fullBillsCharges));
             stmt.paid = true;
             for (const bill of stmt.bills) financeCosts.push({ date: at, bank, kind: "automatic_bill", id: bill.id, interest: bill.interest, tax: bill.tax, total: bill.cost });
-            const payment = { id: `payment-${bank}-${at}`, date: at, bank, type: "card-payment", amount: target, purchasePrincipalPaid: purchasePay, billPrincipalPaid: q.billPrincipal, billCostReserved: q.billCost, priorChargesPaid: stmt.charges, minimum: q.minimum, minimumMet: target + 5e-3 >= q.minimum, required: q.required, reserve, statementDate: stmt.statementDate };
+            const payment = { id: `payment-${bank}-${at}`, date: at, bank, type: "card-payment", amount: target, purchasePrincipalPaid: purchasePay, billPrincipalPaid: q.billPrincipal, billCostReserved: q.billCost, priorChargesPaid: stmt.charges, minimum: q.minimum, minimumMet: target + 5e-3 >= q.minimum, required: q.required, reserve, statementDate: stmt.statementDate, requestedPrincipal: q.requestedPrincipal, unappliedPrincipal: q.unappliedPrincipal, ...q.sourceTarget ? { source: "Plan/G\xFCncel kart \xF6deme hedefi", sourceNote: `Girilen anapara \xF6deme hedefi ${q.requestedPrincipal.toFixed(2)} TL. Hesaplanan toplam \xF6deme ${target.toFixed(2)} TL. Tutar asgari \xF6deme, fatura ve maliyetleri de i\xE7erir.` + (q.unappliedPrincipal > 0 ? ` Hedefin ${q.unappliedPrincipal.toFixed(2)} TL k\u0131sm\u0131 hesaplanan ekstre anaparas\u0131n\u0131 a\u015F\u0131yor. Bu k\u0131s\u0131m \xF6deme, yeni bor\xE7 veya kart alaca\u011F\u0131 say\u0131lmad\u0131.` : "") } : {} };
             payments.push(payment);
             record(payment);
           }
@@ -665,13 +675,15 @@ var __finance = (() => {
       if (at < endDate) kmhRaw += actualPrincipal * overdraftMonthlyRate / 30;
       if (at === endDate || add(at, 1).slice(0, 7) !== at.slice(0, 7)) record({ id: "month-end-" + at, date: at, type: "month-end" });
     }
+    const unappliedPaymentTargets = cardPaymentTargets2.filter((t) => t.amount > 0 && !consumedTargets.has(t.bank + "|" + t.month)).map((t) => ({ ...t, reason: t.month < startDate.slice(0, 7) || t.month > endDate.slice(0, 7) ? "outside-horizon" : "no-due-cycle" }));
+    if (unappliedPaymentTargets.length) ledger[0].sourceNote = unappliedPaymentTargets.map((t) => `${t.bank} ${t.month} d\xF6nemi i\xE7in girilen ${t.amount.toFixed(2)} TL \xF6deme hedefi uygulanmad\u0131. ${t.reason === "outside-horizon" ? "Bu d\xF6nem hesap aral\u0131\u011F\u0131n\u0131n d\u0131\u015F\u0131nda." : "Bu d\xF6nemde e\u015Fle\u015Fen ekstre \xF6deme g\xFCn\xFC yok."} \xD6deme veya yeni bor\xE7 olu\u015Fturulmad\u0131.`).join(" ");
     const last = ledger[ledger.length - 1] ?? balance(endDate, "end");
-    return { status: "conditional_required_balance_projection", feasible: unfunded.length || limitViolations.length ? false : null, mathematicallyFeasible: unfunded.length === 0 && limitViolations.length === 0 && unpriced.length === 0, bankReconciled: false, fundingEventsInjected: 0, openingKnownNetAssets, openingReserve, reserveTransferred, reserveBalance, externalIncome, plannedReserveTransfers: transferEvents, firstUnfunded: unfunded[0] ?? null, maximumUnfundedCash: Math.max(0, ...unfunded.map((x) => x.unfundedCash)), unfunded, limitViolations, unpriced, flags, ledger, payments, statements, financeCosts, billComparisons, last, monthEnds: ledger.filter((x) => x.type === "month-end"), interestPaidOnOverdraft: kmhInterest };
+    return { unappliedPaymentTargets, status: "conditional_required_balance_projection", feasible: unfunded.length || limitViolations.length ? false : null, mathematicallyFeasible: unfunded.length === 0 && limitViolations.length === 0 && unpriced.length === 0, bankReconciled: false, fundingEventsInjected: 0, openingKnownNetAssets, openingReserve, reserveTransferred, reserveBalance, externalIncome, plannedReserveTransfers: transferEvents, firstUnfunded: unfunded[0] ?? null, maximumUnfundedCash: Math.max(0, ...unfunded.map((x) => x.unfundedCash)), unfunded, limitViolations, unpriced, flags, ledger, payments, statements, financeCosts, billComparisons, last, monthEnds: ledger.filter((x) => x.type === "month-end"), interestPaidOnOverdraft: kmhInterest };
   }
 
   // finance-engine/opening-requirement.mjs
-  function openingCashRequirement({ cashEvents, openingCards, startDate, firstSalaryDate }) {
-    const components = [...cashEvents.filter((e) => e.date >= startDate && e.date < firstSalaryDate && e.amount < 0).map((e) => ({ id: e.id, date: e.date, amount: -e.amount, label: e.label })), ...openingCards.filter((e) => e.dueDate >= startDate && e.dueDate < firstSalaryDate).map((e) => ({ date: e.dueDate, amount: e.scheduledPayment, label: e.bank + " ekstre \xF6demesi" }))].sort((a, b) => a.date.localeCompare(b.date));
+  function openingCashRequirement({ cashEvents, openingCards, payments, startDate, firstSalaryDate }) {
+    const components = [...cashEvents.filter((e) => e.date >= startDate && e.date < firstSalaryDate && e.amount < 0).map((e) => ({ id: e.id, date: e.date, amount: -e.amount, label: e.label })), ...(payments ?? openingCards.map((e) => ({ date: e.dueDate, amount: e.scheduledPayment, bank: e.bank }))).filter((e) => e.date >= startDate && e.date < firstSalaryDate).map((e) => ({ date: e.date, amount: e.amount, label: e.bank + " ekstre \xF6demesi" }))].sort((a, b) => a.date.localeCompare(b.date));
     if (components.some((c) => !Number.isFinite(c.amount) || c.amount < 0)) throw new TypeError("Opening obligation must have a finite nonnegative amount");
     const amount = Math.round((components.reduce((sum, c) => sum + c.amount, 0) + Number.EPSILON) * 100) / 100;
     return { amount, components };
@@ -698,7 +710,12 @@ var __finance = (() => {
       finite3(r.current);
       if (r.plan === r.current) continue;
       if (r.row === 38) throw new Error("Changed weekly budget needs actual dated weekly payments");
-      if ([14, 15].includes(r.row)) throw new Error("Opening card payment change needs explicit statement mapping");
+      if ([14, 15].includes(r.row)) {
+        const targets = (next.cardPaymentTargets ?? []).filter((t) => t.sourceRow === r.row && t.sourceMonth === r.month);
+        if (targets.length !== 1) throw new Error("Opening card payment change needs explicit statement mapping");
+        change(targets[0], "amount", r.current, "Current card payment target");
+        continue;
+      }
       const kind = r.row <= 8 ? "income" : r.row >= 21 && r.row <= 28 ? "bill" : "regular";
       for (const month of [r.month, ...r.month === 13 ? Array.from({ length: 12 }, (_, i) => 14 + i) : []]) {
         const id = `month-${month}-${kind}-${r.row}`, e = byId.get(id);
@@ -822,6 +839,23 @@ var __finance = (() => {
     return result;
   }
 
+  // finance-engine/card-payment-targets.mjs
+  function cardPaymentTargets({ plan, banks, startDate, months = 14 }) {
+    const targets = [], seen = /* @__PURE__ */ new Set();
+    for (const row of [14, 15]) {
+      const bank = row === 14 ? banks.Denizbank : row === 15 ? banks.Isbank : null;
+      if (!bank || seen.has(bank) || value(plan[row - 1]?.[1]) !== "KK " + bank) throw new Error("Card payment bank mapping is missing or ambiguous");
+      seen.add(bank);
+      for (let m = 0; m < months; m++) {
+        const amount = value(plan[row - 1]?.[m + 2]);
+        if (typeof amount !== "number" || !Number.isFinite(amount) || amount < 0) throw new Error("Card payment amount must be finite and nonnegative");
+        const month = new Date(Date.UTC(Number(startDate.slice(0, 4)), Number(startDate.slice(5, 7)) - 1 + m, 1)).toISOString().slice(0, 7);
+        targets.push({ bank, month, amount, sourceRow: row, sourceMonth: m });
+      }
+    }
+    return targets;
+  }
+
   // finance-engine/compute.mjs
   var REGULAR_ROWS = [5, 6, 7, 8, 12, 13, 16, 17, 21, 22, 23, 24, 25, 26, 27, 28, 32, 33, 37, 38, 39, 43, 44, 45, 46, 47];
   var ACTUAL_ROWS = [5, 6, 7, 8, 12, 13, 14, 15, 16, 17, 21, 22, 23, 24, 25, 26, 27, 28, 32, 33, 37, 38, 39, 43, 44, 45, 46, 47];
@@ -864,7 +898,7 @@ var __finance = (() => {
       }
       check(Math.abs(actual2 - expected) < 0.01, "Plan " + r + " month " + m + " amount missing from source events");
     }
-    for (const repayment of config.preflight.openingRepayments) for (let m = 0; m < MONTHS; m++) check(value(plan[repayment.row - 1]?.[m + 2]) === repayment.amounts[m], "opening card repayment changed");
+    policy.cardPaymentTargets = cardPaymentTargets({ plan, banks: config.summaryBanks, startDate: policy.startDate });
     check(facts.openingCash === policy.openingCash, "opening cash changed");
     check(facts.overdraft.limit === policy.overdraftLimit && facts.overdraft.openingUsedPrincipal === policy.openingOverdraftPrincipal, "overdraft changed");
     const reserve = facts.existingReserve;
@@ -924,7 +958,7 @@ var __finance = (() => {
       }
     }
     const mandatory = flow.filter((r) => r[2] === "Zorunlu" && r[4] > 0).map((r) => ({ key: r[0], label: r[1], date: iso(dateFromSerial(r[3])), amount: r[4], method: r[5], bank: r[6], installments: r[7] }));
-    const openingRequirement = openingCashRequirement({ cashEvents: sourceCash, openingCards: base.openingCards, startDate: base.startDate, firstSalaryDate: config.scheduling.firstSalaryDate });
+    const openingRequirement = openingCashRequirement({ cashEvents: sourceCash, openingCards: base.openingCards, payments: base.requiredPaymentSchedule, startDate: base.startDate, firstSalaryDate: config.scheduling.firstSalaryDate });
     const result = {
       planningFx,
       generatedAt: now,
@@ -2275,7 +2309,7 @@ var __finance = (() => {
   }
 
   // gas/finance/main.mjs
-  var ENGINE_REV = true ? "40d83503b320677ebf55db5bbf07df96737f84a8fedf14519546bf1a998e857d" : "development";
+  var ENGINE_REV = true ? "cc250902b9908afba29355954d6e2af0e3674fae5dbbb295b9376bfae83e2b45" : "development";
   var properties = () => PropertiesService.getScriptProperties();
   var stateStore = () => new DurableStateStore({ properties: properties(), utilities: Utilities });
   var sheetRepository = () => new FinanceSheetRepository({

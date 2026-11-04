@@ -6,6 +6,7 @@ import { projectPlan } from './integrated-projection.mjs';
 const cell = value => ({effectiveValue: {[typeof value === 'number' ? 'numberValue' : typeof value === 'boolean' ? 'boolValue' : 'stringValue']: value}});
 function fixture() {
   const plan = Array.from({length: 80}, () => Array.from({length: 16}, () => cell(0)));
+  plan[13][1]=cell('KK Bank A');plan[14][1]=cell('KK Bank B');
   const actual = structuredClone(plan), kasa = Array.from({length: 430}, () => []);
   const events = [];
   for (let m = 0; m < 14; m++) {
@@ -112,4 +113,104 @@ test('uses the verified source hash without serializing the workbook or hashing 
 
 test('rejects invalid supplied source hashes instead of silently generating new provenance',()=>{
   for(const sourceHash of [null,'',42,'not-a-digest'])assert.throws(()=>computeFinance({...fixture(),sourceHash}),/supplied source hash/i);
+});
+
+function paymentFixture() {
+  const input=fixture();
+  input.config.modelPolicy.endDate='2030-01-31';
+  input.config.modelPolicy.paymentMode='minimum';
+  input.config.modelPolicy.openingCards=[{bank:'Bank A',principal:800,statementDate:'2030-01-17',dueDate:'2030-01-27',scheduledPayment:400}];
+  input.config.preflight.openingRepayments=[{row:14,amounts:[400,...Array(13).fill(0)]}];
+  for(const title of ['Plan','Gerçekleşen']){
+    const rows=input.source.sheets.find(s=>s.properties.title===title).data[0].rowData;
+    rows[13].values[1]=cell('KK Bank A');rows[13].values[2]=cell(500);
+  }
+  return input;
+}
+
+test('recalculates edited Sheet card targets without changing opening debt or source cells',()=>{
+  const input=paymentFixture(), before=JSON.stringify(input);
+  const result=computeFinance(input);
+  assert.equal(result.ledger.payments[0].amount,500);
+  assert.equal(result.currentLedger.payments[0].amount,500);
+  assert.equal(result.ledger.openingKnownNetAssets,-800);
+  assert.equal(JSON.stringify(input),before);
+  const current=input.source.sheets.find(s=>s.properties.title==='Gerçekleşen').data[0].rowData;
+  current[13].values[2]=cell(600);
+  const changed=computeFinance(input);
+  assert.equal(changed.ledger.payments[0].amount,500);
+  assert.equal(changed.currentLedger.payments[0].amount,600);
+  assert.equal(changed.currentMonthly[0].closingCash,400);
+  assert.equal(changed.currentMonthly[0].cashIdentityDifference,0);
+});
+
+test('reports the unapplied part of a target above modeled debt instead of inventing debt or expense',()=>{
+  const input=paymentFixture();
+  for(const title of ['Plan','Gerçekleşen'])input.source.sheets.find(s=>s.properties.title===title).data[0].rowData[13].values[2]=cell(900);
+  const result=computeFinance(input),payment=result.ledger.payments[0];
+  assert.equal(payment.amount,800);
+  assert.equal(payment.required,800);
+  assert.equal(payment.requestedPrincipal,900);
+  assert.equal(payment.unappliedPrincipal,100);
+  assert.match(payment.sourceNote,/100/);
+  assert.equal(result.currentMonthly[0].closingCash,200);
+});
+
+test('validates edited targets and mapping rather than comparing with installation amounts',()=>{
+  for(const amount of [-1,'500',NaN,Infinity]){
+    const input=paymentFixture();input.source.sheets.find(s=>s.properties.title==='Plan').data[0].rowData[13].values[2]=cell(amount);
+    assert.throws(()=>computeFinance(input),/card payment.*amount/i);
+  }
+  const input=paymentFixture();input.source.sheets.find(s=>s.properties.title==='Plan').data[0].rowData[13].values[1]=cell('KK Other Bank');
+  assert.throws(()=>computeFinance(input),/card payment.*bank/i);
+});
+
+
+test('reads both payment rows even when installation only listed one',()=>{
+ const input=paymentFixture();
+ for(const title of ['Plan','Gerçekleşen'])input.source.sheets.find(s=>s.properties.title===title).data[0].rowData[14].values[2]=cell(100);
+ const result=computeFinance(input);
+ assert.equal(result.modelInput.cardPaymentTargets.find(t=>t.bank==='Bank B'&&t.month==='2030-01').amount,100);
+ assert.equal(result.ledger.unappliedPaymentTargets[0].amount,100);
+ assert.match(result.ledger.ledger[0].sourceNote,/Bank B.*2030-01.*100/);
+});
+
+test('zero and reduced targets retain statutory minimum without rewriting the Sheet',()=>{
+ for(const amount of [0,100,350]){
+  const input=paymentFixture();
+  for(const title of ['Plan','Gerçekleşen'])input.source.sheets.find(s=>s.properties.title===title).data[0].rowData[13].values[2]=cell(amount);
+  assert.equal(computeFinance(input).ledger.payments[0].amount,Math.max(320,amount));
+ }
+});
+
+test('matches targets by due month across a year boundary and reserves both banks before salary',()=>{
+ const p={...fixture().config.modelPolicy,startDate:'2030-12-01',endDate:'2031-01-31',openingCash:2000,openingCards:[
+  {bank:'Bank A',principal:500,statementDate:'2030-11-17',dueDate:'2030-12-07',scheduledPayment:500},
+  {bank:'Bank B',principal:500,statementDate:'2030-11-28',dueDate:'2030-12-07',scheduledPayment:500}],
+  cardPaymentTargets:[{bank:'Bank A',month:'2030-12',amount:300},{bank:'Bank B',month:'2030-12',amount:250},{bank:'Bank A',month:'2031-01',amount:100}],paymentMode:'minimum'};
+ const result=projectPlan(p),first=result.payments.filter(x=>x.date==='2030-12-07');
+ assert.deepEqual(first.map(x=>x.amount),[300,250]);
+ assert.equal(first[0].reserve,250);
+ assert.equal(first[1].reserve,0);
+ assert.equal(result.payments.find(x=>x.bank==='Bank A'&&x.date.startsWith('2031-01')).requestedPrincipal,100);
+});
+
+test('opening requirement uses bounded computed payments instead of stale installation targets',async()=>{
+ const {openingCashRequirement}=await import('./opening-requirement.mjs');
+ const result=openingCashRequirement({cashEvents:[],openingCards:[{dueDate:'2030-01-07',scheduledPayment:900,bank:'Bank A'}],payments:[{date:'2030-01-07',amount:800,bank:'Bank A'},{date:'2030-01-09',amount:100,bank:'Bank B'}],startDate:'2030-01-01',firstSalaryDate:'2030-01-09'});
+ assert.equal(result.amount,800);
+});
+
+test('keeps bill principal and priced costs separate from the editable principal target',()=>{
+ const p={...fixture().config.modelPolicy,endDate:'2030-01-31',openingCash:2000,openingCards:[{bank:'Bank A',principal:800,statementDate:'2030-01-17',dueDate:'2030-01-27',scheduledPayment:400}],
+  cardPaymentTargets:[{bank:'Bank A',month:'2030-01',amount:500}],paymentMode:'minimum',
+  purchases:[{id:'synthetic-bill',bank:'Bank A',date:'2030-01-05',amount:100,kind:'automatic_bill'}],
+  tariffs:[{bank:'Bank A',transactionType:'automatic_bill',validFrom:'2030-01-01',validTo:'2031-01-01',monthlyRate:.03,flatFee:0,confidence:'confirmed',source:'synthetic'}]};
+ const payment=projectPlan(p).payments[0];
+ assert.equal(payment.purchasePrincipalPaid,500);
+ assert.equal(payment.billPrincipalPaid,100);
+ assert.ok(payment.billCostReserved>0);
+ assert.equal(payment.amount,Math.round((600+payment.billCostReserved)*100)/100);
+ assert.equal(payment.required,payment.amount);
+ assert.equal(payment.unappliedPrincipal,0);
 });
