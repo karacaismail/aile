@@ -226,6 +226,8 @@ test('stale native bridge removes previously displayed amounts instead of retain
   source.invalidate();
   await page.getByRole('button', { name: 'Yenile', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('Plan veya Güncel kaynağı değişti');
+  await expect(page.getByRole('alert')).toContainText('Yenile düğmesi yalnızca sonucu tekrar okur');
+  await expect(page.getByRole('alert')).not.toContainText('erişimini kontrol');
   await expect(page.getByRole('region', { name: 'Seçili ay özeti' })).toHaveCount(0);
   await expect(page.locator('.budget-app')).not.toContainText('₺');
   await expect(page.getByRole('alert')).not.toContainText('Son başarılı veriler');

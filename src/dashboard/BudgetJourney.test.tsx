@@ -79,3 +79,11 @@ it('names a shared period the budget cannot show and does not overwrite it unles
     view.unmount();
   }
 });
+
+it('explains an invalid calculation without suggesting a sharing change', () => {
+  vi.mocked(useBudget).mockReturnValue({ data: null, error: 'Plan veya Güncel kaynağı değişti.', errorKind: 'stale', loading: false, updatedAt: null, refresh: vi.fn() });
+  mount();
+  expect(screen.getByRole('alert')).toHaveTextContent('E-tablodaki finans hesabı yeniden hesaplanmalı');
+  expect(screen.getByRole('alert')).not.toHaveTextContent('erişimini kontrol');
+  expect(screen.getByRole('alert')).toHaveTextContent('Yenile düğmesi yalnızca sonucu tekrar okur');
+});

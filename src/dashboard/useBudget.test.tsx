@@ -319,3 +319,16 @@ it('keeps the first rendered re-enable snapshot loading after an abandoned cold 
   expect(renders[nextRender]).toMatchObject({ data: null, error: null, loading: true });
   expect(fetchBudget).toHaveBeenCalledTimes(2);
 });
+
+it('keeps stale calculation distinct from a network failure and clears it on recovery', async () => {
+  const { BudgetIntegrityError } = await import('./integrity');
+  const first = buildBudget(syntheticSheets());
+  vi.mocked(fetchBudget).mockRejectedValueOnce(new BudgetIntegrityError('Hesap güncel değil.', 'stale')).mockResolvedValueOnce(first);
+  const { result, unmount } = renderHook(() => useBudget());
+  await waitFor(() => expect(result.current.errorKind).toBe('stale'));
+  expect(result.current.data).toBeNull();
+  act(() => result.current.refresh());
+  await waitFor(() => expect(result.current.data).toBe(first));
+  expect(result.current.errorKind).toBeUndefined();
+  unmount();
+});

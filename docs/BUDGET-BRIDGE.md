@@ -33,3 +33,5 @@ Native finansman/iç aktarım toplamı dış kredi + KMH kullanımı + rezerv ak
 ## Doğrulama
 
 Sentetik kaynaklar: `src/dashboard/bridgeFixtures.ts`; kişisel rakam veya kaynak kimliği içermez. `src/dashboard/fetchBudget.test.ts` iki kontrolü, okuma sırasında değişen üretimi, eksik/bozuk aktarım verisini ve kapasite ayrımını doğrular. `useBudget.test.tsx` geçersiz kaynağın eski rakamları kaldırmasını ve ağ hatasının ayrı davranışını kapsar. `VehiclePage.test.tsx` borçla oluşan pozitif nakdin ödeme kapasitesi sayılmadığını denetler. Bütçe ve araç tarayıcı testleri aynı davranışı kullanıcı ekranında sınar.
+
+Kaynak kontrolü kapanırsa web tutarları kaldırır ve bunu bağlantı hatasından ayrı gösterir. Webdeki Yenile yalnız okuma yapar. Paylaşım iznini değiştirmek hesabı yeniden üretmez. Yetkili operatör, finans otomasyonunun `financeStatus` sonucunu kontrol ederek mevcut `financeTimer` girişini elle çalıştırmalı ve native doğrulama sonucunu tekrar okumalıdır. Kontrol hücresini elle TRUE yapmak çözüm değildir.

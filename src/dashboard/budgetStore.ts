@@ -1,7 +1,7 @@
 import { fetchBudget, type Budget } from './data';
 import { BudgetIntegrityError } from './integrity';
 
-type BudgetState = { data: Budget | null; error: string | null; loading: boolean; updatedAt: Date | null };
+type BudgetState = { data: Budget | null; error: string | null; errorKind?: 'stale' | 'integrity' | 'network'; loading: boolean; updatedAt: Date | null };
 const freshnessMs = 60_000;
 let state: BudgetState = { data: null, error: null, loading: true, updatedAt: null };
 const subscribers = new Set<() => void>();
@@ -37,6 +37,7 @@ const refresh = (force = false) => {
     ...state,
     ...(error instanceof BudgetIntegrityError ? { data: null, updatedAt: null } : {}),
     loading: false,
+    errorKind: error instanceof BudgetIntegrityError ? error.reason === 'stale' ? 'stale' : 'integrity' : 'network',
     error: error instanceof Error && error.name !== 'AbortError' ? error.message : 'Bağlantı zaman aşımına uğradı.',
   });
   current.timeout = window.setTimeout(() => {
