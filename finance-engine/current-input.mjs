@@ -17,14 +17,13 @@ export function currentInput({modelInput,regular,savings,irregular,pendingKeys=[
  }
  for(const s of savings){finite(s.amount);for(const month of[s.month,...(s.month===13?Array.from({length:12},(_,i)=>14+i):[])]){const id=`month-${month}-saving`,e=byId.get(id);if(!e&&s.amount!==0)throw new Error('Current savings have no dated source event: '+id);if(e)change(e,'amount',-s.amount,'Current quantities at dated planning FX');}}
  for(const item of irregular){finite(item.currentPrice);const matches=all.filter(e=>e.id==='candidate-'+item.key||e.id.startsWith(item.key+'-'));
-  if(!matches.length&&item.explicitCurrentDate)throw new Error('Changed Current item has no model event: '+item.key);
-  if(item.status==='Alındı'&&item.currentPrice>0&&!matches.length){issues.push({key:item.key,amount:item.currentPrice,kind:'acquired-item-payment-unclassified',sourceDate:item.linkedFutureDate??null});continue;}
+  if(item.status==='Alındı'&&item.currentPrice>0&&!matches.length){issues.push({key:item.key,amount:item.currentPrice,kind:'acquired-item-payment-unclassified',sourceDate:item.explicitCurrentDate??item.linkedFutureDate??null});continue;}
+  // A Sheet edit for an item the budget could not schedule is reported, never turned into a payment.
   if(!matches.length){
-   if(pending.has(item.key)){
-    if(item.currentPrice!==item.planPrice)issues.push({key:item.key,amount:item.currentPrice,planAmount:item.planPrice,kind:'pending-current-price-override',sourceDate:null});
-    continue;
-   }
-   if(item.currentPrice!==item.planPrice)throw new Error('Changed Current item has no model event: '+item.key);continue;
+   if(!pending.has(item.key)){if(item.explicitCurrentDate||item.currentPrice!==item.planPrice)issues.push({key:item.key,amount:item.currentPrice,planAmount:item.planPrice,kind:'unmapped-current-override',sourceDate:item.explicitCurrentDate??null});continue;}
+   if(item.explicitCurrentDate)issues.push({key:item.key,amount:item.currentPrice,planAmount:item.planPrice,kind:'pending-current-date-override',sourceDate:item.explicitCurrentDate});
+   else if(item.currentPrice!==item.planPrice)issues.push({key:item.key,amount:item.currentPrice,planAmount:item.planPrice,kind:'pending-current-price-override',sourceDate:null});
+   continue;
   }
   if(matches.length!==1)throw new Error('Current item needs explicit split allocation: '+item.key);
   const e=matches[0];change(e,'amount',e.amount<0?-item.currentPrice:item.currentPrice,'Current irregular price');

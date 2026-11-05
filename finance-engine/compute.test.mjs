@@ -99,7 +99,52 @@ test('keeps an unaffordable Current price override pending without inventing a p
   assert.equal(result.currentMonthly[0].closingCash,1000);
   const serial=(Date.parse('2030-02-12T00:00:00Z')-Date.UTC(1899,11,30))/86400000;
   row.values[5]={...cell(serial),userEnteredValue:{numberValue:serial}};
-  assert.throws(()=>computeFinance(input),/Current item has no model event/);
+  const dated=computeFinance(input);
+  assert.deepEqual(dated.currentInput.issues,[{key:'pending-price',amount:51000,planAmount:50000,kind:'pending-current-date-override',sourceDate:'2030-02-12'}]);
+  assert.equal(dated.currentLedger.ledger.some(e=>e.id.includes('pending-price')),false);
+});
+
+test('reports a Current edit without any source mapping separately from budget-pending items',()=>{
+  const input=fixture(), row=Array.from({length:16},()=>cell(''));
+  row[1]=cell('Orphan item');row[3]=cell('Plan');row[6]=cell(100);row[7]=cell(150);row[15]=cell('orphan');
+  const irregular=input.source.sheets.find(s=>s.properties.title==='Arızi Giderler').data[0].rowData;
+  while(irregular.length<4)irregular.push({values:[]}); irregular.push({values:row});
+  const result=computeFinance(input);
+  assert.deepEqual(result.currentInput.issues,[{key:'orphan',amount:150,planAmount:100,kind:'unmapped-current-override',sourceDate:null}]);
+  assert.equal(result.currentLedger.ledger.some(e=>e.id.includes('orphan')),false);
+});
+
+test('publishes an unaffordable Sheet plan with an explicit funding gap instead of stopping',async()=>{
+  const {monthlyOutput}=await import('./monthly-output.mjs');
+  const input=fixture();
+  input.source.sheets.find(s=>s.properties.title==='_Timeline kaynak').data[0].rowData.push({values:['KASA-GAP-0','2030-02-20',60000,'Alışveriş','Large cash purchase','Arızi',-5000,0,0,'Confirmed','',true].map(cell)});
+  const result=computeFinance(input), feb=result.currentMonthly.find(m=>m.month==='2030-02'), mar=result.currentMonthly.find(m=>m.month==='2030-03');
+  assert.equal(feb.unfundedCash,3000);
+  assert.equal(feb.closingCash,0);
+  assert.equal(feb.unfundedPrincipalChange,3000);
+  assert.equal(feb.cashIdentityDifference,0);
+  assert.equal(mar.unfundedCash,2000);
+  assert.equal(mar.unfundedPrincipalChange,-1000);
+  assert.equal(mar.cashIdentityDifference,0);
+  assert.equal(result.result.candidate.monthEnds.find(m=>m.month==='2030-02').unfundedCash,3000);
+  assert.equal(monthlyOutput(result.ledger).find(m=>m.month==='2030-02').unfundedCash,3000);
+});
+
+test('publishes a funding gap that includes unpaid KMH interest at month end',async()=>{
+  const {monthlyOutput}=await import('./monthly-output.mjs');
+  const p={...fixture().config.modelPolicy,endDate:'2030-02-28',overdraftLimit:1000,overdraftMonthlyRate:0.05,cashEvents:[{id:'large-expense',date:'2030-01-02',amount:-5000},{id:'small-refund',date:'2030-01-20',amount:1,sourceType:'Gelir'}],purchases:[]};
+  const jan=monthlyOutput(projectPlan(p)).find(m=>m.month==='2030-01');
+  assert.ok(jan.unfundedCash>jan.unfundedPrincipalChange,'month-end gap must include unpaid KMH cost');
+  assert.equal(jan.unfundedPrincipalChange,4000);
+  assert.equal(jan.cashIdentityDifference,0);
+});
+
+test('still rejects a monthly cash identity broken by something other than a funding gap',async()=>{
+  const {monthlyOutput}=await import('./monthly-output.mjs');
+  const projection=projectPlan({...fixture().config.modelPolicy,endDate:'2030-01-31',openingCash:100,cashEvents:[{id:'expense',date:'2030-01-05',amount:-50}],purchases:[]});
+  const broken=structuredClone(projection),row=broken.ledger.findLast(r=>r.date.startsWith('2030-01'));
+  row.cash=row.cash+10;row.cashRequiredBalance=row.cashRequiredBalance+10;
+  assert.throws(()=>monthlyOutput(broken),/Monthly cash identity failed 2030-01/);
 });
 
 test('uses the verified source hash without serializing the workbook or hashing it again',()=>{

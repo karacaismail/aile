@@ -734,17 +734,17 @@ var __finance = (() => {
     for (const item of irregular) {
       finite3(item.currentPrice);
       const matches = all.filter((e2) => e2.id === "candidate-" + item.key || e2.id.startsWith(item.key + "-"));
-      if (!matches.length && item.explicitCurrentDate) throw new Error("Changed Current item has no model event: " + item.key);
       if (item.status === "Al\u0131nd\u0131" && item.currentPrice > 0 && !matches.length) {
-        issues.push({ key: item.key, amount: item.currentPrice, kind: "acquired-item-payment-unclassified", sourceDate: item.linkedFutureDate ?? null });
+        issues.push({ key: item.key, amount: item.currentPrice, kind: "acquired-item-payment-unclassified", sourceDate: item.explicitCurrentDate ?? item.linkedFutureDate ?? null });
         continue;
       }
       if (!matches.length) {
-        if (pending.has(item.key)) {
-          if (item.currentPrice !== item.planPrice) issues.push({ key: item.key, amount: item.currentPrice, planAmount: item.planPrice, kind: "pending-current-price-override", sourceDate: null });
+        if (!pending.has(item.key)) {
+          if (item.explicitCurrentDate || item.currentPrice !== item.planPrice) issues.push({ key: item.key, amount: item.currentPrice, planAmount: item.planPrice, kind: "unmapped-current-override", sourceDate: item.explicitCurrentDate ?? null });
           continue;
         }
-        if (item.currentPrice !== item.planPrice) throw new Error("Changed Current item has no model event: " + item.key);
+        if (item.explicitCurrentDate) issues.push({ key: item.key, amount: item.currentPrice, planAmount: item.planPrice, kind: "pending-current-date-override", sourceDate: item.explicitCurrentDate });
+        else if (item.currentPrice !== item.planPrice) issues.push({ key: item.key, amount: item.currentPrice, planAmount: item.planPrice, kind: "pending-current-price-override", sourceDate: null });
         continue;
       }
       if (matches.length !== 1) throw new Error("Current item needs explicit split allocation: " + item.key);
@@ -771,6 +771,7 @@ var __finance = (() => {
   function monthlyOutput(projection) {
     const rows = projection.ledger;
     if (!rows?.length || rows[0].type !== "opening") throw new Error("Opening ledger snapshot required");
+    const shortfall = (r) => round4(number3(r.cash) - number3(r.overdraftPrincipal) - number3(r.cashRequiredBalance));
     const result = [], byMonth = /* @__PURE__ */ new Map();
     let prev = rows[0];
     for (const r of rows) {
@@ -818,6 +819,7 @@ var __finance = (() => {
       m.closingReserve = number3(r.reserveBalance);
       m.netCashAndDebt = number3(r.knownNetAssets);
       m.unfundedCash = number3(r.unfundedCash);
+      m.unfundedPrincipal = shortfall(r);
       m.futureInstallments = round4(Object.values(r.cards).reduce((n, c) => n + number3(c.futureInstallmentPrincipal), 0));
       for (const [bank, c] of Object.entries(r.cards)) {
         const b = m.banks[bank];
@@ -827,14 +829,17 @@ var __finance = (() => {
       }
       prev = r;
     }
+    let priorShortfall = shortfall(rows[0]);
     for (const m of result) {
+      m.unfundedPrincipalChange = round4(m.unfundedPrincipal - priorShortfall);
+      priorShortfall = m.unfundedPrincipal;
       m.financeInflow = round4(m.creditInflow + m.kmhDrawn);
       m.savingsTransfer = round4(m.reserveTransfer + m.withdrawal);
       m.kmhCashOut = round4(m.kmhPrincipalRepaid + m.kmhCostPaid);
       m.grossCashOut = round4(m.otherCashOut + m.loanPayments + m.cardPayments + m.kmhCashOut);
       m.netCashMovement = round4(m.income + m.financeInflow + m.savingsTransfer - m.grossCashOut - m.savings);
-      m.cashIdentityDifference = round4(m.openingCash + m.netCashMovement - m.closingCash);
-      if (Math.abs(m.cashIdentityDifference) > 1e-6) throw new Error("Monthly cash identity failed " + m.month + "; unfunded capacity cannot be reported as cash");
+      m.cashIdentityDifference = round4(m.openingCash + m.netCashMovement + m.unfundedPrincipalChange - m.closingCash);
+      if (Math.abs(m.cashIdentityDifference) > 1e-6) throw new Error("Monthly cash identity failed " + m.month);
     }
     return result;
   }
@@ -1020,8 +1025,8 @@ var __finance = (() => {
   var DAY_HEADERS = ["Tarih", "Ad\u0131m", "T\xFCr", "Nakit de\u011Fi\u015Fimi", "Gerekli bakiye", "Harcanabilir nakit", "KMH anapara", "KMH faiz + vergi", "Denizbank anapara", "Denizbank faiz + vergi", "\u0130\u015Fbank anapara", "\u0130\u015Fbank faiz + vergi", "Gelecek taksit taahh\xFCd\xFC", "Toplam kart borcu", "Fon eksi\u011Fi", "Kesinlik", "Kaynak", "ID"];
   var STALE = "Sheet verisi de\u011Fi\u015Fti; hesap yenilenmeli";
   var currentIssueNote = (issues) => {
-    const pending = (issues ?? []).filter((i) => i.kind === "pending-current-price-override").length, acquired = (issues ?? []).filter((i) => i.kind === "acquired-item-payment-unclassified").length;
-    return (pending ? ` G\xFCncel fiyat\u0131 de\u011Fi\u015Fen ${pending} al\u0131m b\xFCt\xE7e nedeniyle takvime al\u0131namad\u0131; fiyatlar\u0131 korunuyor, \xF6deme veya bor\xE7 olu\u015Fmu\u015F say\u0131lm\u0131yor.` : "") + (acquired ? ` Al\u0131nd\u0131 i\u015Faretli ${acquired} kayd\u0131n \xF6deme g\xFCn\xFC ve y\xF6ntemi do\u011Frulanmad\u0131; \xF6deme ger\xE7ekle\u015Fmi\u015F say\u0131lm\u0131yor.` : "");
+    const pending = (issues ?? []).filter((i) => i.kind === "pending-current-price-override").length, dated = (issues ?? []).filter((i) => i.kind === "pending-current-date-override").length, unmapped = (issues ?? []).filter((i) => i.kind === "unmapped-current-override").length, acquired = (issues ?? []).filter((i) => i.kind === "acquired-item-payment-unclassified").length;
+    return (unmapped ? ` Kaynak e\u015Fle\u015Fmesi bulunamayan ${unmapped} G\xFCncel kay\u0131t hesaba kat\u0131lmad\u0131. Ar\u0131zi Giderler anahtar\u0131n\u0131 kontrol edin.` : "") + (dated ? ` G\xFCncel tarihi girilen ${dated} al\u0131m b\xFCt\xE7e plan\u0131nda yer almad\u0131\u011F\u0131 i\xE7in takvime eklenmedi. \xD6deme veya bor\xE7 olu\u015Fmu\u015F say\u0131lm\u0131yor.` : "") + (pending ? ` G\xFCncel fiyat\u0131 de\u011Fi\u015Fen ${pending} al\u0131m b\xFCt\xE7e nedeniyle takvime al\u0131namad\u0131; fiyatlar\u0131 korunuyor, \xF6deme veya bor\xE7 olu\u015Fmu\u015F say\u0131lm\u0131yor.` : "") + (acquired ? ` Al\u0131nd\u0131 i\u015Faretli ${acquired} kayd\u0131n \xF6deme g\xFCn\xFC ve y\xF6ntemi do\u011Frulanmad\u0131; \xF6deme ger\xE7ekle\u015Fmi\u015F say\u0131lm\u0131yor.` : "");
   };
   var ROUND = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
   var quoted = (s) => '"' + String(s).replaceAll('"', '""') + '"';
@@ -2309,7 +2314,7 @@ var __finance = (() => {
   }
 
   // gas/finance/main.mjs
-  var ENGINE_REV = true ? "cc250902b9908afba29355954d6e2af0e3674fae5dbbb295b9376bfae83e2b45" : "development";
+  var ENGINE_REV = true ? "9e1715ce67d9615a5e2ca450e6ea78972604b19af97cb2805c8f4ddf97f669a6" : "development";
   var properties = () => PropertiesService.getScriptProperties();
   var stateStore = () => new DurableStateStore({ properties: properties(), utilities: Utilities });
   var sheetRepository = () => new FinanceSheetRepository({
