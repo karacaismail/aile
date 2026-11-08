@@ -1,0 +1,13 @@
+/* IconButton — yalnız simgeli kare düğme, 44 × 44 (kaba işaretçi katmanında 48 × 48).
+   Kaynak: aile-tasarim/tasarim-sistemi/components/IconButton/README.md ve bundle.css .ai-btn + .ai-iconbtn.
+   Renk durumları (quiet/secondary, nav, seçili, meşgul, devre dışı), odak alt çizgisi, hover medyası ve hareket ortak
+   tabandadır: Button.css .aile-dugme (IconButton.tsx onu da içe aktarır).
+   Burada yalnız kare ölçü: görünür simge 20 px olsa da kutu dokunma hedefidir (b04 --aile-dokunma-hedefi: 44, html ya da
+   .aile-admin [data-input-coarse] altında 48); esnek satırda (ör. dar sorgu satırı) uzamaz. */
+
+.aile-iconbtn {
+  width: var(--aile-dokunma-hedefi);
+  height: var(--aile-dokunma-hedefi);
+  padding: 0;
+  flex: none;
+}

@@ -22,9 +22,14 @@
     "finance:test": "node --test finance-engine/*.test.mjs finance-sync/*.test.mjs",
     "gas:push": "pnpm gas:build && clasp push -f",
     "seed": "node scripts/seed.mjs",
-    "e2e:dashboard": "playwright test --config playwright.dashboard.config.ts"
+    "e2e:dashboard": "playwright test --config playwright.dashboard.config.ts",
+    "e2e:admin": "playwright test --config playwright.admin.config.ts",
+    "check:privacy": "node scripts/check-dist-privacy.mjs dist",
+    "check:delivery": "node scripts/check-delivery.mjs dist --strict",
+    "check:budgets": "node scripts/check-budgets.mjs dist"
   },
   "dependencies": {
+    "@ant-design/pro-components": "3.1.15-9",
     "@mantine/core": "9.7.4",
     "@mantine/dates": "9.7.4",
     "@mantine/form": "9.7.4",
@@ -32,6 +37,7 @@
     "@mantine/modals": "9.7.4",
     "@mantine/notifications": "9.7.4",
     "@phosphor-icons/react": "2.1.10",
+    "antd": "6.6.8",
     "dayjs": "1.11.23",
     "echarts": "6.0.0",
     "idb-keyval": "6.3.0",

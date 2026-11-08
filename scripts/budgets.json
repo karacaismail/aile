@@ -1,0 +1,99 @@
+{
+  "schema": 1,
+  "entry": "admin.html",
+  "recorded": "2026-11-02, entegrasyon (p-phonejs, p-phonejs2, p-fix ve simge tokenı sonrası), VITE_BUDGET_SHEET_ID=synthetic-budget-sheet-2098, Node v24.21.0, Vite 8.3.5",
+  "units": {
+    "kb": 1000,
+    "measure": "gzip",
+    "note": "Bütçe ve tavan değerleri bayttır (istek bütçesi istek sayısı). 1 KB = 1000 B. gzip = node:zlib gzipSync seviye 9, dosya başına. Aktarım = HTML/JS/CSS gzip + font ham bayt. Ayrıntı: docs/ADMIN-BUDGETS.md"
+  },
+  "firstRoute": {
+    "path": "/genel",
+    "page": "src/admin/pages/GenelPage.tsx",
+    "note": "Varsayılan yönetim rotası (shell/navigation.ts defaultAdminPath = adminPages[0].path, b02 sonrası Genel durum) ve routes.tsx sayfa modülü; check-budgets.test.mjs eşleşmeyi doğrular"
+  },
+  "wideStartup": {
+    "sources": [],
+    "classes": [
+      "wide"
+    ],
+    "note": "Geniş profilin ilk rotada ek yüklediği dinamik kökler: wide sınıfı parçalar (statik kapanışlarıyla), zincirleme. r4-gates sonrası wide birim başınadır: /genel için wide-shell-workspacenav (masaüstü gezinme) ve wide-genel; başka sayfanın parçası çekilmez. adaptive/WideProviders (antd sağlayıcısı) geniş başlangıç kökü değildir: uygulama ağacını sarmaz, yalnız lazyWide(…, { antd: true }) adası geniş profilde render edilince iner; bugün böyle ada yok (t3-root)"
+  },
+  "budgets": [
+    {
+      "id": "phone-html",
+      "profile": "phone",
+      "metric": "html",
+      "max": 50000,
+      "source": "adaptive-qa: Compressed initial HTML 50 KB"
+    },
+    {
+      "id": "phone-js",
+      "profile": "phone",
+      "metric": "js",
+      "max": 120000,
+      "source": "adaptive-qa: Complete phone initial-route JS 120 KB"
+    },
+    {
+      "id": "phone-css",
+      "profile": "phone",
+      "metric": "css",
+      "max": 35000,
+      "source": "adaptive-qa: Phone profile CSS 35 KB (rotanın tüm CSS'i; kritik CSS ayrı ölçülmez)"
+    },
+    {
+      "id": "phone-capability",
+      "profile": "phone",
+      "metric": "capabilityRequests",
+      "max": 0,
+      "source": "adaptive-qa: Unnecessary capability-specific resources, hedef sıfır istek; sınıflar delivery-report forbidden (antd, pro, icons, echarts, wide)"
+    },
+    {
+      "id": "phone-transfer",
+      "profile": "phone",
+      "metric": "transfer",
+      "max": 500000,
+      "source": "adaptive-qa: Initial transfer, excluding user content 500 KB"
+    },
+    {
+      "id": "wide-js",
+      "profile": "wide",
+      "metric": "js",
+      "classes": {
+        "exclude": [
+          "antd"
+        ]
+      },
+      "max": 180000,
+      "source": "adaptive-qa: Complete desktop initial-route JS 180 KB; tablet ve masaüstü aynı geniş kaynak kümesini alır"
+    },
+    {
+      "id": "wide-antd",
+      "profile": "wide",
+      "metric": "js",
+      "classes": {
+        "only": [
+          "antd"
+        ]
+      },
+      "max": 0,
+      "exception": true,
+      "source": "Ölçülmüş istisna, t3-root sonrası kapalı: geniş ilk rota antd istemez (0 B). antd sağlayıcısı (adaptive/WideProviders) uygulama ağacını sarmaz; yalnız lazyWide(…, { antd: true }) adası render edilince iner ve bugün böyle ada yok. Önceki kayıtlar: 84410 B (x-cut, WideProviders tembel geniş başlangıç kökü), 0a8d903 ölçümü 37209 B. wide-js dışında, ayrı tavanla; antd'yi geniş ilk rotaya geri getiren ada entegrasyon sahibinin açık kararı ve yeni ölçüm ister"
+    }
+  ],
+  "measured": {
+    "note": "Kayıtlı ölçüm (recorded koşulları, ilk rota /genel): node scripts/check-budgets.mjs dist. Son ölçüm 2026-11-02 entegrasyon (p-phonejs2 + p-fix + simge tokenı sonrası). Ratchet tavanı yok; wide-antd istisnası 0. Önce/sonra: docs/ADMIN-BUDGETS.md",
+    "phone-html": 2051,
+    "phone-js": 114637,
+    "phone-css": 8780,
+    "phone-capability": 0,
+    "phone-transfer": 221652,
+    "wide-js": 117310,
+    "wide-antd": 0
+  },
+  "ratchet": {
+    "policy": "Geçiş ratchet'i: tavan, bütçeyi aşan kayıtlı ölçümdür ve yalnız düşer. check-budgets 'daraltılabilir' derse tavanı yeni ölçüme indirin; 'silinebilir' derse kaydı silin. Tavan yükseltmek ya da yeni kayıt eklemek bütçeyi gevşetir: yalnız entegrasyon sahibinin açık kararıyla; tavanlar scripts/check-budgets.test.mjs CEILING_LOCK ile kilitlidir. Liste boşalınca kapı --strict ile koşar.",
+    "ceilings": {},
+    "karar": "2 Kasım 2026, p-phonejs: phone-js 174066 → 118807 B, bütçe (120000) içinde; ratchet kaydı ve CEILING_LOCK girdisi silindi, ratchet listesi boş (check-budgets --strict de PASS). Kazanç: Zod ve sözleşme şemaları nesil okunurken tembel (store.ts), kabuk e-tablo adresi dashboard/data.ts'siz, girişin veri barrel'ı yerine sağlayıcı modülü, indeks/sorgu katmanı useGeneration.rows.tsx'te, Phosphor simgeleri derlemede yalnız regular ağırlıkla ve ilk rotada yalnız 6 çekirdek simge, Sayfalar çekmecesi ilk niyette. Önceki karar (aynı gün, entegrasyon sahibi): phone-js tavanı 171040 → 174066 B (+3026 B; dördüncü/son tur düzeltmeleri ve Emeklilik planının gezinme kaydı). Ayrıntı ve önce/sonra: docs/ADMIN-BUDGETS.md."
+  }
+}

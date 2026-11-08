@@ -1,0 +1,175 @@
+/* aile Menu — tasarım: components/Menu/README.md, bundle.css › MENU (.ai-menu) ve .ai-pop. Tek kaynak tokenlar --aile-*
+   (src/design/tokens.ts; admin.css :root yedekleri portallanan alt sayfa ve üst katmandaki panelde de çözer). Sabit renk
+   yok; 14/16 px metin ölçüleri tasarım tipografisidir (tokens.json › type).
+
+   Yerel işaretleme (WAI-ARIA APG Menu): eylem öğesi ul[role=menu].aile-menu > li[role=menuitem].aile-menu-item;
+   bağlantı öğesi ul > li[role=none].aile-menu-satir > a[role=menuitem].aile-menu-item. İçerik her ikisinde
+   span.aile-menu-link. Zemin, köşe, basılı/seçili yüzey, aria-current ve odak menuitem'in kendisindedir; li[role=none]
+   yalnız yerleşimdir. Odak çizgisini admin.css çizer (odak hedefinin ::after'ı, 4 px altında, 3 px); burada
+   outline/halka yok. Öğeler arası boşluk bosluk-2 (8 px): çizgi
+   (aralık 4 + kalınlık 3) iki öğe arasına sığar, alttaki öğenin üstüne binmez. Seçili durum vurgu kenarı değil yüzey
+   tonu (secili) + 600 ağırlıktır. Hover yalnız birincil işaretçi hover destekliyorsa (hibrit dokunmatikte takılı kalmaz);
+   basılı yüzey Pointer Events ile (data-pressed, pointercancel siler). */
+
+.aile-menu,
+.aile-menu-grup {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-2);
+}
+.aile-menu {
+  font-family: var(--aile-font-sans);
+  color: var(--aile-metin);
+}
+.aile-menu[data-variant='nav'] { color: var(--aile-nav-metin); }
+.aile-menu-grup-kap { display: block; }
+/* Bağlantı öğesinin sarmalayıcısı (li[role=none]): menuitem satırı doldurur. Zemin ve köşe taşımaz. */
+.aile-menu-satir { display: flex; }
+.aile-menu-satir > .aile-menu-item { flex: 1 1 auto; min-width: 0; }
+
+/* Öğe: tek merkezi dokunma hedefi --aile-dokunma-hedefi (admin.css: 44 px; kaba işaretçi katmanında, :root ve
+   .aile-admin [data-input-coarse], 48 px); etiket kesilmez, gerekirse sarılır. */
+.aile-menu-item {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  min-height: var(--aile-dokunma-hedefi);
+  border-radius: var(--aile-kose-kontrol);
+  background: transparent;
+  color: inherit;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 500;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--aile-sure) var(--aile-egri), color var(--aile-sure) var(--aile-egri);
+}
+/* Renk menüden gelir: bağlantı menuitem'i admin.css `.aile-admin a` (eylem rengi, 0,1,1) kuralını almaz; altı çizili
+   değildir. Durum renkleri aynı özgüllükle (0,2,0+) ve bu kuraldan sonra. */
+.aile-menu .aile-menu-item {
+  color: inherit;
+  text-decoration: none;
+}
+
+.aile-menu .aile-menu-link {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: var(--aile-bosluk-3);
+  min-width: 0;
+  min-height: inherit;
+  padding: var(--aile-bosluk-2) var(--aile-bosluk-3);
+  border-radius: inherit;
+  color: inherit;
+  font: inherit;
+  cursor: inherit;
+}
+.aile-menu .aile-menu-link svg { flex: none; }
+.aile-menu .aile-menu-label { flex: 1 1 auto; min-width: 0; overflow-wrap: break-word; }
+
+/* Hover, basılı, seçili, devre dışı — açık yüzey. Seçili öğe hover/basılıda kendi tonunu korur. */
+@media (hover: hover) {
+  .aile-menu-item:not([aria-disabled='true']):not([aria-current='page']):hover { background: var(--aile-bilgi-yuzey); }
+}
+.aile-menu-item[data-pressed]:not([aria-current='page']) { background: var(--aile-secili); }
+.aile-menu-item[aria-current='page'] {
+  background: var(--aile-secili);
+  color: var(--aile-metin);
+  font-weight: 600;
+}
+/* Tehlikeli eylem: hata metni, hata yüzeyi. */
+.aile-menu .aile-menu-item--tehlike { color: var(--aile-hata); }
+.aile-menu .aile-menu-item[aria-current='page'] { color: var(--aile-metin); }
+.aile-menu .aile-menu-item[aria-disabled='true'] { color: var(--aile-metin-ikincil); cursor: not-allowed; }
+
+@media (hover: hover) {
+  .aile-menu-item--tehlike:not([aria-disabled='true']):hover { background: var(--aile-hata-yuzey); }
+}
+.aile-menu-item--tehlike[data-pressed] { background: var(--aile-hata-yuzey); }
+
+/* Lacivert panel (nav). */
+@media (hover: hover) {
+  .aile-menu[data-variant='nav'] .aile-menu-item:not([aria-disabled='true']):not([aria-current='page']):hover { background: var(--aile-nav-hover); }
+}
+.aile-menu[data-variant='nav'] .aile-menu-item[data-pressed]:not([aria-current='page']) { background: var(--aile-nav-basili); }
+.aile-menu[data-variant='nav'] .aile-menu-item[aria-disabled='true'] { color: var(--aile-acik-mavi); }
+
+/* Odak çizgisi lacivert panelde acik-mavi (odak-nav). Çizgi öğenin altındaki lacivert boşluğa düşer; seçili öğede de
+   odak-nav kalır (odak rengi lacivert üzerinde 3:1 karşıtlığı sağlamaz). admin.css nav kuralından özgüldür. */
+html[data-keyboard='true'] ul.aile-menu[data-variant='nav'] :is(a, [role=menuitem]):focus-visible::after { background: var(--aile-odak-nav); }
+
+/* Sayım: 14 px, tabular; ikincil metin, nav üzerinde acik-mavi; seçili öğede metin rengi. */
+.aile-menu .aile-menu-count {
+  flex: none;
+  font-size: 14px;
+  line-height: 20px;
+  font-variant-numeric: tabular-nums;
+  color: var(--aile-metin-ikincil);
+}
+.aile-menu[data-variant='nav'] .aile-menu-count { color: var(--aile-acik-mavi); }
+.aile-menu .aile-menu-item[aria-current='page'] .aile-menu-count { color: var(--aile-metin); }
+
+/* Görsel gizli not: ekran okuyucuya "yeni sekmede açılır". */
+.aile-menu .aile-menu-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Ayırıcı: işlevsel tek çizgi (grup sınırı); açık yüzeyde cizgi, nav üzerinde nav-basili. */
+.aile-menu-divider {
+  height: 1px;
+  background: var(--aile-cizgi);
+}
+.aile-menu[data-variant='nav'] .aile-menu-divider { background: var(--aile-nav-basili); }
+
+/* --- Açılır panel (tablet, masaüstü) ----------------------------------------------------------------------------
+   Menü düğmesinin sarmalayıcısı (.aile-menu-dugme) Menu.lazy.css'tedir: düğme telefon ilk rotasında statik, bu dosya
+   gövdeyle (Menu.panel.tsx) tembel iner. */
+
+/* Panel: Popover API ile üst katmanda (UA stilleri sıfırlanır), sabit konum JS'ten (top/left/max-height). Alt boşluk
+   bosluk-2: son öğenin odak çizgisi (7 px) kaydırma kutusunda kırpılmaz. Kenarlık yok; ayrım gölge ve yüzeyle. */
+.aile-menu-panel {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  width: max-content;
+  height: auto;
+  max-width: calc(100vw - 2 * var(--aile-bosluk-2));
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--aile-bosluk-2);
+  border: 0;
+  border-radius: var(--aile-kose-kart);
+  background: var(--aile-yuzey);
+  color: var(--aile-metin);
+  box-shadow: var(--aile-golge-yukseltilmis);
+  opacity: 0;
+  transform: translateY(calc(-1 * var(--aile-bosluk-1)));
+  transition: opacity var(--aile-sure) var(--aile-egri), transform var(--aile-sure) var(--aile-egri);
+}
+.aile-menu-panel[data-side='top'] { transform: translateY(var(--aile-bosluk-1)); }
+.aile-menu-panel[data-state='open'] { opacity: 1; transform: none; }
+.aile-menu-panel[data-variant='nav'] { background: var(--aile-nav); color: var(--aile-nav-metin); }
+/* Yerinde (inline) çizim: düğmenin altında, sayfa akışına göre. */
+.aile-menu-panel[data-inline] {
+  position: absolute;
+  top: calc(100% + var(--aile-bosluk-3));
+  inset-inline-start: 0;
+}
+.aile-menu-panel[data-inline][data-align='end'] {
+  inset-inline-start: auto;
+  inset-inline-end: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aile-menu-item,
+  .aile-menu-panel { transition-duration: 0s; }
+}

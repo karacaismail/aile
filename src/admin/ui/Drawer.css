@@ -1,0 +1,161 @@
+/* Çekmece (ui/Drawer.tsx) — yerel katman; yalnız --aile tokenları. Katman yönetim köküne (.aile-admin) portallanır, kök
+   yoksa body'ye; iki durumda da kök data-aile-katman taşır: [data-focus-line] odak çizgisi, halka sıfırlaması ve
+   reduced-motion kuralları merkezi admin.css'ten ulaşır. Kök yazı ve rengini kendisi kurar. Odak için outline/box-shadow
+   kullanılmaz.
+   Kök .aile-drawer (+ --right/--left, --full, --nav, --inline); parçalar aile-drawer-* adlarıyla (sayfa CSS sözleşmesi).
+   --katman-ust / --katman-alt: visualViewport (sanal klavye) ile JS yazar. */
+
+/* Kök: görünür alanı kaplar; z-index antd açılır katmanlarının (1050) altında kalır. */
+.aile-drawer {
+  position: fixed;
+  inset: 0;
+  top: var(--katman-ust, 0px);
+  bottom: var(--katman-alt, 0px);
+  z-index: 1000;
+  overflow: hidden;
+  font-family: var(--aile-font-sans);
+  font-size: 16px;
+  line-height: 24px;
+  color: var(--aile-metin);
+}
+.aile-drawer--inline { position: absolute; z-index: auto; overflow: visible; }
+.aile-drawer, .aile-drawer *, .aile-drawer *::before, .aile-drawer *::after { box-sizing: border-box; }
+
+/* Örtü: ortu; yalnız opaklık hareket eder. */
+.aile-drawer .aile-drawer-mask {
+  position: absolute;
+  inset: 0;
+  background: var(--aile-ortu);
+  opacity: 0;
+  transition: opacity var(--aile-sure) var(--aile-egri);
+}
+.aile-drawer[data-durum='acik'] .aile-drawer-mask { opacity: 1; }
+
+/* Yükseltilmiş sarmal: gölge yalnız burada (odaklanan panelde değil); genişlik viewport'u aşmaz (384 → 320'de tam
+   genişlik). Kapalıyken kendi kenarının dışında; açılış ve kapanış aynı eğri ve süre. */
+.aile-drawer .aile-drawer-wrapper {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  max-width: 100%;
+  box-shadow: var(--aile-golge-yukseltilmis);
+  transform: translateX(100%);
+  transition: transform var(--aile-sure) var(--aile-egri);
+}
+.aile-drawer--left .aile-drawer-wrapper { right: auto; left: 0; transform: translateX(-100%); }
+.aile-drawer[data-durum='acik'] .aile-drawer-wrapper { transform: none; }
+
+/* Panel (role=dialog): yuzey; iç köşeler kose-panel (sağ çekmecede sol köşeler, soldakinde sağ köşeler); alt ve dış
+   kenarda güvenli alan. */
+.aile-drawer .aile-drawer-section {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  background: var(--aile-yuzey);
+  color: var(--aile-metin);
+  border-radius: var(--aile-kose-panel) 0 0 var(--aile-kose-panel);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  overflow: hidden;
+}
+.aile-drawer .aile-drawer-section:focus { outline: none; }
+.aile-drawer--left .aile-drawer-section {
+  border-radius: 0 var(--aile-kose-panel) var(--aile-kose-panel) 0;
+  padding-right: 0;
+  padding-left: env(safe-area-inset-left, 0px);
+}
+.aile-drawer--full .aile-drawer-section { border-radius: 0; padding-top: env(safe-area-inset-top, 0px); }
+
+/* Başlık: 64 px (2 × bosluk-8, AccordionList satırıyla aynı türetme), tek cizgi ayırıcı; h2 başlık h3 ölçüsünde (18/26,
+   600), kesilmez. */
+.aile-drawer .aile-drawer-header {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--aile-bosluk-3);
+  min-height: calc(2 * var(--aile-bosluk-8));
+  padding: var(--aile-bosluk-2) var(--aile-bosluk-2) var(--aile-bosluk-2) var(--aile-bosluk-4);
+  border-bottom: 1px solid var(--aile-cizgi);
+}
+.aile-drawer .aile-drawer-title {
+  margin: 0;
+  min-width: 0;
+  font-size: 18px;
+  line-height: 26px;
+  font-weight: 600;
+  color: inherit;
+  white-space: normal;
+  overflow-wrap: normal;
+  word-break: keep-all;
+}
+
+/* Kapat: metinli, her zaman görünür, sessiz düğme (Button quiet görünümü). Hedef merkezi --aile-dokunma-hedefi: 44, kaba
+   işaretçi katmanında (data-input-coarse) 48. Odak göstergesini merkezi admin.css çizer (data-focus-line; kök
+   data-aile-katman; nav tonunda yüzey data-odak-zemin="nav" ile odak-nav): burada yerel kopya yok. */
+.aile-drawer .aile-drawer-close {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--aile-bosluk-2);
+  min-height: var(--aile-dokunma-hedefi, var(--aile-hedef-asgari));
+  min-width: var(--aile-dokunma-hedefi, var(--aile-hedef-asgari));
+  margin: 0;
+  padding: 0 var(--aile-bosluk-3);
+  border: 0;
+  border-radius: var(--aile-kose-kontrol);
+  background: transparent;
+  color: var(--aile-eylem);
+  font: inherit;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--aile-sure) var(--aile-egri), color var(--aile-sure) var(--aile-egri);
+}
+@media (hover: hover) {
+  .aile-drawer .aile-drawer-close:hover { background: var(--aile-bilgi-yuzey); }
+}
+.aile-drawer .aile-drawer-close:active { background: var(--aile-secili); color: var(--aile-nav); }
+.aile-drawer .aile-drawer-close:focus { outline: none; }
+/* Gövde kendi içinde kayar, zincir sayfaya geçmez; altlık yuzey üstünde tek cizgi ile ayrılır. */
+.aile-drawer .aile-drawer-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: var(--aile-bosluk-4);
+}
+.aile-drawer .aile-drawer-footer {
+  flex: none;
+  padding: var(--aile-bosluk-3) var(--aile-bosluk-4) var(--aile-bosluk-4);
+  border-top: 1px solid var(--aile-cizgi);
+  background: var(--aile-yuzey);
+}
+
+/* Gezinme tonu: nav zemini, nav-metin; örtü 16 px görünür kalır; ayırıcılar nav-basili. */
+.aile-drawer--nav .aile-drawer-wrapper { max-width: calc(100% - var(--aile-bosluk-4)); }
+.aile-drawer--nav .aile-drawer-section { background: var(--aile-nav); color: var(--aile-nav-metin); }
+.aile-drawer--nav .aile-drawer-header { border-bottom-color: var(--aile-nav-basili); }
+.aile-drawer--nav .aile-drawer-body { display: flex; flex-direction: column; padding: var(--aile-bosluk-3); }
+.aile-drawer--nav .aile-drawer-footer { background: var(--aile-nav); border-top-color: var(--aile-nav-basili); }
+.aile-drawer.aile-drawer--nav .aile-drawer-close { color: var(--aile-nav-metin); }
+@media (hover: hover) {
+  .aile-drawer.aile-drawer--nav .aile-drawer-close:hover { background: var(--aile-nav-hover); }
+}
+.aile-drawer.aile-drawer--nav .aile-drawer-close:active { background: var(--aile-nav-basili); color: var(--aile-nav-metin); }
+
+/* Hareket tercihi: geçiş yok, durum anında (açılış/kapanış aynı karede). */
+@media (prefers-reduced-motion: reduce) {
+  .aile-drawer .aile-drawer-mask,
+  .aile-drawer .aile-drawer-wrapper,
+  .aile-drawer .aile-drawer-close {
+    transition: none;
+  }
+}

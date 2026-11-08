@@ -1,0 +1,8 @@
+{
+  "schema": 1,
+  "entry": "admin.html",
+  "profile": "phone",
+  "recorded": "2026-11-02, geçiş kesimi x-cut (taban b061e08): PHONE_WITHOUT_ANTD=true, WideProviders tembel (wideResource), ui/antd.ts daraltıldı; 'antd <- src/admin/ui/antd.ts' ve 'icons <- antd' giderildi",
+  "policy": "Liste boş: telefonun statik kapanışında bilinen ihlal yok ve kapı --strict ile koşar (node scripts/check-delivery.mjs dist --strict). Bu liste yalnız küçülür; yeni kimlik eklemek kuralı gevşetir ve yalnız entegrasyon sahibinin açık kararıyla yapılır.",
+  "violations": []
+}

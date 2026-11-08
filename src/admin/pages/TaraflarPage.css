@@ -1,0 +1,99 @@
+/* TaraflarPage — Taraflar ve teklifler, telefon öncelikli temel stil. Kaynak: bundle.css › .ai-ov-block, .ai-ov-head,
+   .ai-opt-count. Yalnız --aile-* tokenları; sabit renk yok. Kart/kenarlık yağmuru yok: bölümler zeminde boşlukla
+   ayrılır; listeler ui/AccordionList'in tek yüzeyidir. Geniş karşılaştırma stili taraflar/taraflar.wide.css'te (telefon
+   indirmez). Odak çizgisini admin.css çizer (a ve düğmelerde ::after alt çizgi); burada outline/halka/box-shadow yok.
+   Metin ≥ 14 px: küçük metinler admin.css .aile-kucuk (14/20). Hareket tek süre ve tek eğri; reduced-motion'da anlık. */
+
+.aile-taraflar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-8);
+  min-width: 0;
+}
+
+.aile-taraflar__not,
+.aile-taraflar__aciklama {
+  margin: 0;
+  max-inline-size: 65ch;
+  overflow-wrap: break-word;
+}
+
+.aile-taraflar__bolum {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-3);
+  min-width: 0;
+}
+
+.aile-taraflar__bolum-baslik {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--aile-bosluk-1) var(--aile-bosluk-3);
+  flex-wrap: wrap;
+}
+
+/* h3 ölçüsü (18/26) bölüm başlığı; admin.css h2 24/32'yi sayfa içinde küçültür (bundle.css .ai-ov-head .ai-h3). */
+.aile-admin .aile-taraflar__h2 {
+  font-size: 18px;
+  line-height: 26px;
+}
+
+.aile-taraflar__sayim {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Karşılaştırma özeti: düz metin satırları (renkli şerit yok); tutar tabular-nums. */
+.aile-taraflar__ozetler {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: break-word;
+}
+
+/* İletişim bağlantıları (Iletisim.tsx): ikincil düğme görünümü — yuzey dolgu, eylem kenar ve metin (işlevsel kontrol
+   sınırı; tek kenar şerit değil). Hedef --aile-dokunma-hedefi: 44, kaba işaretçi katmanında (data-input-coarse) 48
+   (admin.css merkezi kuralı). Sarar, kesilmez. */
+.aile-taraflar-iletisim {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--aile-bosluk-2);
+}
+
+.aile-admin .aile-taraflar-iletisim__baglanti {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-block-size: var(--aile-dokunma-hedefi);
+  min-inline-size: var(--aile-dokunma-hedefi);
+  padding: 0 var(--aile-bosluk-4);
+  border: 1px solid var(--aile-eylem);
+  border-radius: var(--aile-kose-kontrol);
+  background: var(--aile-yuzey);
+  color: var(--aile-eylem);
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    background-color var(--aile-sure) var(--aile-egri),
+    color var(--aile-sure) var(--aile-egri);
+}
+
+/* Yalnız birincil işaretçi hover destekliyorsa: dokunmatikte takılı hover olmaz. */
+@media (hover: hover) {
+  .aile-admin .aile-taraflar-iletisim__baglanti:hover { background: var(--aile-bilgi-yuzey); }
+}
+.aile-admin .aile-taraflar-iletisim__baglanti:active {
+  background: var(--aile-secili);
+  color: var(--aile-nav);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aile-admin .aile-taraflar-iletisim__baglanti { transition-duration: 0s; }
+}

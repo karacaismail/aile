@@ -1,0 +1,28 @@
+/* StatusText — süsleyici nokta + durum sözcüğü. Tokenlar yalnız --aile-* (src/design/tokens.ts → admin.css :root).
+   Yazı boyutu kalıtılır: gövde 16 ya da .aile-kucuk 14; 14 px altına inen bir bağlam yoktur. Geçiş yok: ton
+   değişimi semantik bir güncellemedir ve anında görünür (reduced-motion'da da aynı). */
+.aile-status {
+  --aile-status-ton: var(--aile-metin-ikincil);
+  display: inline;
+  font-weight: 500;
+  color: var(--aile-metin);
+}
+.aile-status-nokta {
+  display: inline-block;
+  width: var(--aile-bosluk-2);
+  height: var(--aile-bosluk-2);
+  border-radius: 50%;
+  background: var(--aile-status-ton);
+  vertical-align: middle;
+  margin-inline-end: var(--aile-bosluk-2);
+}
+/* Durum renkleri hep sözcükle gelir (README › Renk): bilgi = eylem, olumlu, uyari, hata. Nötrde sözcük metin, nokta ikincil. */
+.aile-status--bilgi { --aile-status-ton: var(--aile-eylem); color: var(--aile-eylem); }
+.aile-status--olumlu { --aile-status-ton: var(--aile-olumlu); color: var(--aile-olumlu); }
+.aile-status--uyari { --aile-status-ton: var(--aile-uyari); color: var(--aile-uyari); }
+.aile-status--hata { --aile-status-ton: var(--aile-hata); color: var(--aile-hata); }
+/* secili yüzeyinde eylem 4,03:1, uyari 4,25:1 ve hata 4,04:1 kalır (README: secili üzerinde yalnız metin ya da nav);
+   seçili satırda sözcük metin rengine döner, ton noktada kalır. */
+.aile-admin :is([aria-selected='true'], .ant-table-row-selected) .aile-status {
+  color: var(--aile-metin);
+}

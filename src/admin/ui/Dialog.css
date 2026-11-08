@@ -1,0 +1,230 @@
+/* Diyalog (ui/Dialog.tsx) — yerel, antd'siz. Kaynak: components/Dialog/README.md (ortalı, en çok 560 px, kose-panel,
+   golge-yukseltilmis, h2) ve BottomSheet/README.md + bundle.css .ai-dialog / .ai-sheet (telefonda alttan, tutamaç,
+   görünür "Kapat", en çok %85, safe-area). Renk/boşluk/köşe/gölge/hareket yalnız --aile-* tokenı (admin.css :root
+   yedekleri portala da ulaşır). Kök body'ye portallanır ve .aile-admin kapsamını taşır: admin.css odak sıfırlaması,
+   odak çizgisi ve tipografi yardımcıları içerikteki bileşenlere de uygulanır.
+   Kök durumları (Dialog.tsx yazar): data-state opening → open (açılış), closing (kapanış kopyası); data-klavye acik
+   (sanal klavye açık; --aile-dialog-ust / --aile-dialog-yukseklik görünür alanı verir). */
+
+/* Kök: görünür alanı kaplayan sabit katman. z-index --aile-dialog-katman (Dialog.tsx satır içi verir:
+   tokens.layerDropdown = antd temasının zIndexPopupBase'i, tek kaynak). Üst üste binme açılış sırasıyla (DOM sırası)
+   çözülür: diyalog içinden sonradan açılan açılır liste (taban + 50) ve alt sayfa/çekmece (taban) üstte kalır. */
+.aile-admin.aile-dialog {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: var(--aile-dialog-ust, 0px);
+  height: var(--aile-dialog-yukseklik, 100%);
+  min-height: 0;
+  z-index: var(--aile-dialog-katman);
+  background: transparent;
+  overflow: hidden;
+}
+/* Örtü: tüm alan; dokunuşta kaydırma zincirlenmez. Kapanış kopyası tıklamayı arkaya geçirir. */
+.aile-dialog .aile-dialog-ortu {
+  position: absolute;
+  inset: 0;
+  background: var(--aile-ortu);
+  touch-action: none;
+  transition: opacity var(--aile-sure) var(--aile-egri);
+}
+.aile-dialog[data-state='closing'],
+.aile-dialog[data-state='closing'] * { pointer-events: none; }
+
+/* Sarmal yerleşim yapar ve tıklamayı örtüye bırakır; yalnız panel etkileşimlidir. */
+.aile-dialog .aile-dialog-sarmal {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  pointer-events: none;
+}
+
+/* Panel: yükseltilmiş yüzey; başlık ve altlık sabit, gövde kendi içinde kayar. Gölge yalnız burada. */
+.aile-dialog .aile-dialog-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 100%;
+  pointer-events: auto;
+  background: var(--aile-yuzey);
+  color: var(--aile-metin);
+  font-family: var(--aile-font-sans);
+  font-size: 16px;
+  line-height: 24px;
+  box-shadow: var(--aile-golge-yukseltilmis);
+  transition: transform var(--aile-sure) var(--aile-egri), opacity var(--aile-sure) var(--aile-egri);
+}
+
+/* Açılış ve kapanış aynı hedef durumdan, aynı süre ve eğriyle (iki yönlü). */
+.aile-dialog:is([data-state='opening'], [data-state='closing']) .aile-dialog-ortu { opacity: 0; }
+.aile-dialog--center:is([data-state='opening'], [data-state='closing']) .aile-dialog-panel {
+  opacity: 0;
+  transform: translateY(var(--aile-bosluk-6));
+}
+.aile-dialog--sheet:is([data-state='opening'], [data-state='closing']) .aile-dialog-panel { transform: translateY(100%); }
+
+/* Başlık satırı: h2 solda (metin genişliğinde, odak çizgisi metnin altında), Kapat sağda. */
+.aile-dialog .aile-dialog-ust {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--aile-bosluk-3);
+  flex: none;
+}
+.aile-dialog .aile-dialog-baslik {
+  position: relative;
+  flex: 0 1 auto;
+  min-width: 0;
+  margin: 0 auto 0 0;
+  font-size: var(--aile-dialog-baslik-boyut);
+  line-height: var(--aile-dialog-baslik-satir);
+  font-weight: 600;
+  color: var(--aile-metin);
+  white-space: normal;
+  overflow-wrap: normal;
+  word-break: keep-all;
+}
+
+/* Kapat: en az --aile-dokunma-hedefi (44; kaba giriş katmanında admin.css 48 yapar); başlığın ilk satırına ortalanır
+   (negatif dikey pay). */
+.aile-dialog .aile-dialog-kapat {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--aile-bosluk-2);
+  min-width: var(--aile-dokunma-hedefi);
+  min-height: var(--aile-dokunma-hedefi);
+  margin: calc((var(--aile-dialog-baslik-satir) - var(--aile-dokunma-hedefi)) / 2) 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--aile-kose-kontrol);
+  background: transparent;
+  color: var(--aile-eylem);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--aile-sure) var(--aile-egri), color var(--aile-sure) var(--aile-egri);
+}
+[data-input-hover] .aile-dialog .aile-dialog-kapat:hover { background: var(--aile-bilgi-yuzey); }
+.aile-dialog .aile-dialog-kapat:active { background: var(--aile-secili); color: var(--aile-nav); }
+
+.aile-dialog .aile-dialog-govde {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.aile-dialog .aile-dialog-altlik { flex: none; }
+
+/* --- Ortalı panel (tablet, masaüstü) --- tokens.json type h2 24/32. */
+.aile-dialog--center {
+  --aile-dialog-baslik-boyut: 24px;
+  --aile-dialog-baslik-satir: 32px;
+}
+.aile-dialog--center .aile-dialog-sarmal {
+  align-items: center;
+  justify-content: center;
+  padding:
+    max(var(--aile-bosluk-4), var(--aile-safe-top))
+    max(var(--aile-bosluk-4), var(--aile-safe-right))
+    max(var(--aile-bosluk-4), var(--aile-safe-bottom))
+    max(var(--aile-bosluk-4), var(--aile-safe-left));
+}
+.aile-dialog--center .aile-dialog-panel {
+  width: min(var(--aile-dialog-genislik), 100%);
+  gap: var(--aile-bosluk-4);
+  padding: var(--aile-bosluk-6);
+  border-radius: var(--aile-kose-panel);
+}
+.aile-dialog--center .aile-dialog-kapat { margin-inline-end: calc(-1 * var(--aile-bosluk-2)); }
+
+/* --- Alt sayfa (telefon) --- başlık h3 ölçüsünde 18/26 (referans .ai-sheet h2.ai-h3). */
+.aile-dialog--sheet {
+  --aile-dialog-baslik-boyut: 18px;
+  --aile-dialog-baslik-satir: 26px;
+}
+.aile-dialog--sheet .aile-dialog-sarmal { align-items: flex-end; }
+.aile-dialog--sheet .aile-dialog-panel {
+  width: 100%;
+  max-height: 85%;
+  border-radius: var(--aile-kose-panel) var(--aile-kose-panel) 0 0;
+  padding: 0 var(--aile-safe-right) var(--aile-safe-bottom) var(--aile-safe-left);
+}
+/* Tutamaç süsleyicidir: 40 × 4 (bosluk-8 + bosluk-2; tokenı yok), acik-mavi. */
+.aile-dialog .aile-dialog-tutamac {
+  flex: none;
+  align-self: center;
+  width: calc(var(--aile-bosluk-8) + var(--aile-bosluk-2));
+  height: var(--aile-bosluk-1);
+  margin-top: var(--aile-bosluk-2);
+  border-radius: calc(var(--aile-bosluk-1) / 2);
+  background: var(--aile-acik-mavi);
+}
+.aile-dialog--sheet .aile-dialog-ust {
+  align-items: center;
+  padding: var(--aile-bosluk-1) var(--aile-bosluk-2) var(--aile-bosluk-1) var(--aile-bosluk-4);
+  border-bottom: 1px solid var(--aile-cizgi);
+}
+.aile-dialog--sheet .aile-dialog-kapat {
+  margin: 0;
+  padding: 0 var(--aile-bosluk-3);
+}
+.aile-dialog--sheet .aile-dialog-govde {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-3);
+  padding: var(--aile-bosluk-3) var(--aile-bosluk-4);
+}
+.aile-dialog--sheet .aile-dialog-altlik {
+  padding: var(--aile-bosluk-3) var(--aile-bosluk-4) var(--aile-bosluk-4);
+  border-top: 1px solid var(--aile-cizgi);
+}
+.aile-dialog--sheet .aile-dialog-altlik .aile-ff { border-top: 0; padding-top: 0; }
+
+/* Sanal klavye açık (data-klavye): görünür alan kısalır. Panel görünür alanın tamamını alabilir ve bütün olarak kayar;
+   altlık (eylemler) panelin altına yapışır, böylece en kısa yükseklikte (yatay telefon) de görünür kalır. Başlık
+   kayarak çıkabilir; odaklı alanı Dialog.tsx altlığın üstüne kaydırır. Alt güvenli alan klavyenin altında kalır. */
+.aile-dialog[data-klavye] .aile-dialog-panel {
+  max-height: 100%;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.aile-dialog--sheet[data-klavye] .aile-dialog-panel { padding-bottom: 0; }
+.aile-dialog[data-klavye] .aile-dialog-govde {
+  flex: none;
+  min-height: auto;
+  overflow: visible;
+}
+.aile-dialog[data-klavye] .aile-dialog-altlik {
+  position: sticky;
+  bottom: 0;
+  background: var(--aile-yuzey);
+}
+
+/* Telefonda klavye açıkken sık yoğunluk: yatay telefonda (568×320) görünür alan ~176 px; yığılmış iki eylem ve odaklı
+   alan birlikte görünmeli. Altlığın iç boşluğu ve eylemler arası boşluk bosluk-2'ye iner (FormFooter dar düzeni
+   yığılmış kalır, DOM ve odak sırası değişmez); metin ve dokunma hedefi küçülmez. */
+.aile-dialog--sheet[data-klavye] .aile-dialog-altlik { padding: var(--aile-bosluk-2) var(--aile-bosluk-4); }
+.aile-dialog--sheet[data-klavye] .aile-dialog-altlik .aile-ff-actions { gap: var(--aile-bosluk-2); }
+
+/* Yerinde önizleme (inline): katman değil; kapsayıcıyı doldurur. */
+.aile-admin.aile-dialog.aile-dialog--inline {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  z-index: auto;
+}
+
+/* Odak: halka yok. Tek 3 px alt çizgiyi admin.css merkezi kuralı çizer: Kapat ve başlık [data-focus-line]
+   taşıyıcısıdır, kök [data-aile-katman] + [role=dialog] kapsamındadır (klavye modu + :focus-visible; forced-colors
+   istisnası da orada). ::after odak çizgisine ayrılmıştır; bu dosya ::after ya da outline yazmaz. */
+
+/* reduced-motion: hareket yok, durum anında (kapanış kopyası da oluşturulmaz, Dialog.tsx). */
+@media (prefers-reduced-motion: reduce) {
+  .aile-dialog .aile-dialog-ortu,
+  .aile-dialog .aile-dialog-panel,
+  .aile-dialog .aile-dialog-kapat { transition: none; }
+}

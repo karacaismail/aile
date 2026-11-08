@@ -1,0 +1,52 @@
+/* Masaüstü yan gezinme (shell/wide/WorkspaceNav.wide.tsx; geniş-özel, telefon indirmez). Izgara sütunu (272 px,
+   nav-genislik) shell.css'te [data-gezinme='yan']; bağlantı görünümü shell.css'te ortak (.aile-shell-link).
+   Yalnız --aile-* tokenları; 1 px ayırıcı tasarım ölçüsüdür. Odak çizgisini admin.css çizer. */
+
+.aile-admin .aile-shell-yan {
+  position: sticky;
+  inset-block-start: 0;
+  height: 100dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--aile-nav);
+  color: var(--aile-nav-metin);
+}
+
+/* Güvenli alan: yan gezinme sol kenara ve görünüm üstüne/altına dayanır (yatay tablet, çentikli geniş görünüm); içerik
+   üst, alt ve sol paydan sonra başlar. Masaüstü tarayıcıda paylar 0'dır. */
+.aile-admin .aile-shell-yan__icerik {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-2);
+  min-height: 100%;
+  padding:
+    calc(var(--aile-bosluk-4) + var(--aile-safe-top))
+    var(--aile-bosluk-3)
+    calc(var(--aile-bosluk-4) + var(--aile-safe-bottom))
+    calc(var(--aile-bosluk-3) + var(--aile-safe-left));
+}
+
+/* Marka: küçük harf "aile", 24/32, 600 (tokenlar.md › marka). */
+.aile-admin .aile-shell-yan__marka {
+  margin: 0;
+  padding: var(--aile-bosluk-2) var(--aile-bosluk-3) var(--aile-bosluk-4);
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* Altlık: tek çizgi ayırıcı, yardımcı bağlantılar ve not. */
+.aile-admin .aile-shell-yan__alt {
+  margin-block-start: auto;
+  padding-block-start: var(--aile-bosluk-3);
+  border-block-start: 1px solid var(--aile-nav-basili);
+}
+
+.aile-admin .aile-shell-yan__not {
+  margin: var(--aile-bosluk-1) 0 0;
+  padding-inline: var(--aile-bosluk-3);
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--aile-acik-mavi);
+}

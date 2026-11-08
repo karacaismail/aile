@@ -1,0 +1,9 @@
+/* Alımlar masaüstü yerleşimi — yalnız geniş profilde yüklenir (wide parçası). Yalnız --aile tokenları. Ayrıntı sağda
+   ayrinti-genislik (384) sütunda; sonuçlar minmax(0, 1fr) ile daralır, sayfa yatay kaymaz. Odak çizgisini admin.css
+   çizer; burada outline/halka yok. */
+
+.aile-alimlar-yerlesim { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--aile-bosluk-6); align-items: start; min-width: 0; }
+.aile-alimlar-yerlesim[data-ayrinti='acik'] { grid-template-columns: minmax(0, 1fr) var(--aile-ayrinti-genislik); }
+/* Ayrıntı burada yerinde (DetailPanel inline, akışta) çizilir: liste görünür ve kullanılabilir kalır, örtü yok. Panel
+   yüksekliği görünüm alanını aşmaz, gövdesi kendi içinde kayar (ui/DetailPanel.css › .aile-detail--yerinde). */
+.aile-alimlar-ayrinti { position: sticky; top: var(--aile-bosluk-6); min-width: 0; }

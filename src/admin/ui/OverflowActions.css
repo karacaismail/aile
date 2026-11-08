@@ -1,0 +1,30 @@
+/* OverflowActions — tasarım: components/OverflowActions/README.md, bundle.css › .ai-pop-anchor / .ai-pop. Tek kaynak
+   tokenlar --aile-* (src/design/tokens.ts). Sabit renk yok. Menü listesi, açılır panel (köşe kose-kart, gölge
+   golge-yukseltilmis, min 240 px) ve alt sayfa listesi Menu.css'tedir; burada yalnız eylem satırının yerleşimi.
+   Odak çizgisini admin.css çizer; outline/halka/box-shadow yok. Kart/kenarlık yok: ayrım boşlukla. */
+
+.aile-overflow {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--aile-bosluk-2);
+}
+
+/* collapse="auto": satır üst kapsayıcıya sığar (min-width 0, en çok %100); sığmazsa bileşen "Diğer" menüsüne geçer. */
+.aile-overflow--satir {
+  display: flex;
+  flex-wrap: nowrap;
+  min-width: 0;
+  max-width: 100%;
+}
+/* Düğmeler doğal genişliğinde kalır: sıkışıp etiketi sarmazlar (kesilmez kuralı); sığmayan satır taşar, ölçülür ve
+   "Diğer" menüsüne geçer. */
+.aile-overflow--satir > *,
+.aile-overflow-tehlike > * { flex: none; }
+
+/* Tehlikeli eylemler ayrı grup: diğerlerinden fazladan bir boşlukla ayrılır. */
+.aile-overflow-tehlike {
+  display: inline-flex;
+  gap: var(--aile-bosluk-2);
+  margin-inline-start: var(--aile-bosluk-2);
+}

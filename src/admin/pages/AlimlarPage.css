@@ -1,0 +1,48 @@
+/* Alımlar ve eşyalar — temel (telefon önce) sunum; yalnız --aile tokenları. Kaynak: README › Sayfa iskeleti ve "Liste
+   satırı ve tablo" (liste ve tablo tek yuzey alanı, ayırıcı yalnız cizgi; kart/kenarlık yağmuru yok) ve Uyarlanır
+   teslim (güvenli alanlar korunur). Masaüstü yerleşimi ve pivot hücresi geniş parçada (alimlar/*.wide.css).
+   Odak çizgisini admin.css çizer; burada outline/halka yok. Metin en az 14 px. */
+
+/* Kök aralıksız: içinde aynı anda yalnız gövde ya da tam ekran ayrıntı görünür; bildirim kendi aralığını taşır. */
+.aile-alimlar { display: flex; flex-direction: column; min-width: 0; }
+.aile-alimlar-govde { display: flex; flex-direction: column; gap: var(--aile-bosluk-6); min-width: 0; }
+.aile-alimlar-govde[hidden] { display: none; }
+
+.aile-alimlar-not { margin: 0; font-size: 14px; line-height: 20px; max-width: 72ch; }
+
+/* Yerel değişiklik bildirimi: canlı bölge hep var (boşken yer tutmaz); dolunca görünüm alanının altına yapışan tek
+   yükseltilmiş yüzey (güvenli alan dahil). Ton yalnız renk değil, metin "Hata: …" ile başlar. Geçiş yok: durum anında. */
+.aile-alimlar-bildirim-yuva {
+  position: sticky;
+  bottom: calc(var(--aile-bosluk-2) + env(safe-area-inset-bottom, 0px));
+  z-index: 1;
+  min-width: 0;
+}
+.aile-alimlar-bildirim {
+  margin: var(--aile-bosluk-4) 0 0;
+  padding: var(--aile-bosluk-3) var(--aile-bosluk-4);
+  background: var(--aile-yuzey);
+  color: var(--aile-metin);
+  border-radius: var(--aile-kose-kart);
+  box-shadow: var(--aile-golge-yukseltilmis);
+  overflow-wrap: break-word;
+}
+.aile-alimlar-bildirim[data-tone='hata'] { color: var(--aile-hata); }
+/* Ayrıntı katmanının altlığında (DetailPanel footer): altlık zaten içerik kayarken yerinde kalır, yapışma gerekmez; alt
+   güvenli alanı altlık taşır. Bildirim gövdeyi örtmez, gövde kısalır. Boşken yer tutmaz. */
+.aile-alimlar-bildirim-yuva--altlik { position: static; }
+.aile-alimlar-bildirim-yuva--altlik .aile-alimlar-bildirim { margin: var(--aile-bosluk-3) 0; }
+
+.aile-alimlar-sonuc { display: flex; flex-direction: column; gap: var(--aile-bosluk-4); min-width: 0; }
+
+/* Liste: tek yüzey; satırlar ListRow'un kendi cizgi ayırıcısıyla */
+.aile-alimlar-liste {
+  list-style: none; margin: 0; padding: 0; min-width: 0;
+  background: var(--aile-yuzey); border-radius: var(--aile-kose-kart); overflow: hidden;
+}
+
+.aile-alimlar-arac { display: flex; flex-wrap: wrap; gap: var(--aile-bosluk-3); align-items: end; }
+.aile-alimlar-secim { min-width: 0; width: 100%; max-width: var(--aile-filtre-genislik); }
+
+.aile-alimlar-ad { font-weight: 600; }
+.aile-alimlar-eksik { color: var(--aile-metin-ikincil); }

@@ -1,0 +1,115 @@
+/* Sözlükler ve iş akışları — sayfa düzeni (temel / telefon önce). Kaynak: bundle.css › .ai-ov-block/.ai-ov-head (bölüm),
+   .pg-flow (durum sırası), .ai-help/.ai-opt-count (14 px ikincil yardım ve sayım). Yalnız --aile tokenları; sabit renk
+   yok. Kart ve kenarlık yok: bölümler zeminde boşlukla ayrılır; ağaç, tablo ve akordeon kendi yüzeyini çizer. Odak
+   çizgisini admin.css çizer. Sekme/bölüm değişimi semantik güncellemedir, anında olur (reduced-motion'da da aynı).
+   Terim ağacı sozlukler/TermTree.css, geniş tablo sozlukler/TermTable.wide.css (wide parçası). */
+
+.aile-sz { min-width: 0; }
+.aile-sz-icerik { min-width: 0; }
+
+/* Telefonda "Sözlük" seçimi (ui Select, alt sayfa): içerik genişliğinde, bölümlerden önce. */
+.aile-sz-secim { margin: 0 0 var(--aile-bosluk-2); }
+
+.aile-sz-bolum {
+  margin: var(--aile-bosluk-6) 0 0;
+  min-width: 0;
+}
+[data-profile='desktop'] .aile-sz-bolum,
+[data-profile='tablet'] .aile-sz-bolum { margin-top: var(--aile-bosluk-8); }
+
+/* Geniş profilde bölümler "Sözlük" sekmelerinin panelindedir (role=tabpanel). Şerit ile panel arasındaki Tabs aralığı
+   (bosluk-3) ilk bölümün üst boşluğundan düşülür: şerit → ilk bölüm aralığı yine bosluk-8. */
+.aile-sz-panel { min-width: 0; }
+[data-profile='desktop'] .aile-sz-panel > .aile-sz-bolum:first-child,
+[data-profile='tablet'] .aile-sz-panel > .aile-sz-bolum:first-child { margin-top: calc(var(--aile-bosluk-8) - var(--aile-bosluk-3)); }
+
+.aile-sz-bolum-ust {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--aile-bosluk-2) var(--aile-bosluk-4);
+  margin: 0 0 var(--aile-bosluk-3);
+}
+
+/* h2 ölçüsü admin.css başlık ölçeğinden gelir; burada yalnız kenar boşluğu. */
+.aile-sz-h2 { margin: 0; }
+
+.aile-sz-sayim { font-variant-numeric: tabular-nums; }
+
+/* E-tablo kodu (alias): sabit genişlikli yazı, gövde ölçüsünde (≥14 px), ikincil; uzun kod sarılır. */
+.aile-sz-kod {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: inherit;
+  color: var(--aile-metin-ikincil);
+  overflow-wrap: anywhere;
+}
+
+.aile-sz-yardim { margin: var(--aile-bosluk-3) 0 0; }
+
+.aile-sz-bos {
+  margin: 0;
+  padding: var(--aile-bosluk-4) 0;
+  color: var(--aile-metin-ikincil);
+}
+
+/* Durum sırası: etiketler + başlangıç/son durum sözcükleri; dar alanda kendiliğinden alt satıra sarar. */
+.aile-sz-akis {
+  list-style: none;
+  margin: 0 0 var(--aile-bosluk-4);
+  padding: var(--aile-bosluk-2) 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--aile-bosluk-2) var(--aile-bosluk-3);
+}
+.aile-sz-akis li {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--aile-bosluk-1);
+  min-width: 0;
+}
+
+/* Terim ağacı (sozlukler/TermTree.css): kapalı son düğümün başlık çizgisi listenin radiuslu alt kenarına 1 px kala
+   oturur (overflow hidden ile uçları köşe eğrisinde kırpılırdı). Yalnız çizgi görünürken (klavye modu + :focus-visible)
+   o listenin (dış ya da iç) değdiği iki alt köşesi radiussuz; açık düğümde çizgi gövdenin üstünde kalır, köşeler
+   değişmez. Üst köşeler ve işaretçi görünümü korunur, geçiş yok. */
+html[data-keyboard='true'] .aile-sz-agac-liste:has(> .aile-sz-dugum:last-child[data-open='false'] > .aile-sz-dugum-ust :focus-visible) {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+/* Bekleyen öneriler: tek yüzey, satırlar çizgiyle ayrılır; kart yok. Satır yüksekliği dokunma hedefi (44 / coarse 48). */
+.aile-sz-oneriler {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: var(--aile-yuzey);
+  border-radius: var(--aile-kose-panel);
+}
+.aile-sz-oneri {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--aile-bosluk-3);
+  min-height: var(--aile-dokunma-hedefi);
+  padding: var(--aile-bosluk-2) var(--aile-bosluk-4);
+}
+.aile-sz-oneri + .aile-sz-oneri { border-top: 1px solid var(--aile-cizgi); }
+.aile-sz-oneri-metin {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-1);
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+/* Terim ekle formu: alanlar dikey, boşlukla ayrılır. */
+.aile-sz-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-4);
+}
+.aile-sz-form p { margin: 0; }

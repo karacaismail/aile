@@ -1,0 +1,206 @@
+/* GenelPage — Genel durum, telefon temel sunumu (genel/GenelTelefon) ve iki sunumun paylaştığı blok başlığı.
+   Renk, boşluk, köşe ve hareket yalnız --aile-* tokenlarından (admin.css / aileCssVars); outline, gölge ve renkli kenar
+   şeridi yok. Kart yağmuru yok: liste tek yüzey alanı (kose-kart), satırlar çizgiyle ayrılır. Yazı boyutu gövdeden
+   (16/24); küçük metin .aile-kucuk (14/20) — 14 px altına inen metin yok. Yazı ölçeği için --aile-* değişkeni olmadığından
+   blok başlığı ve sayı admin.css'in h3/h2 ölçüsünü (18/26, 24/32) kullanır. Dokunma hedefi merkezi --aile-dokunma-hedefi
+   (44; kaba işaretçi katmanında [data-input-coarse] admin.css onu 48 yapar). Odak çizgisini admin.css çizer
+   ([data-focus-line], a); liste satırında çizgi satırın alt kenarına düşer (README › Odak). Hareket tek süre/eğri;
+   reduced-motion'da admin.css geçişleri kapatır. */
+.aile-genel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-6);
+  min-width: 0;
+}
+
+.aile-genel-telefon {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-6);
+  min-width: 0;
+}
+
+/* Blok: başlık satırı (h2, h3 ölçüsünde) + sağda sayfaya bağlantı; bağlantı satıra sığmazsa alta iner. */
+.aile-genel-blok,
+.aile-genel-grafik {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-2);
+  min-width: 0;
+}
+.aile-genel-bas {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--aile-bosluk-1) var(--aile-bosluk-3);
+  flex-wrap: wrap;
+}
+.aile-admin .aile-genel-baslik {
+  font-size: 18px;
+  line-height: 26px;
+  overflow-wrap: normal;
+  word-break: keep-all;
+}
+.aile-genel-bag {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--aile-dokunma-hedefi);
+  padding: 0 var(--aile-bosluk-2);
+  border-radius: var(--aile-kose-kontrol);
+  color: var(--aile-eylem);
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: background-color var(--aile-sure) var(--aile-egri), color var(--aile-sure) var(--aile-egri);
+}
+/* Hover yalnız hover destekleyen birincil işaretçide (dokunmatikte takılı kalmaz); basılı yüzey her girişte. */
+@media (hover: hover) {
+  .aile-genel-bag:hover { background: var(--aile-bilgi-yuzey); }
+}
+.aile-genel-bag:active { background: var(--aile-secili); color: var(--aile-nav); }
+
+/* Boş blok ve plan aynası notu: gizlenmez, adıyla yazılır; aynı yüzey alanında, kenarlıksız. */
+.aile-genel-bos,
+.aile-genel-not {
+  margin: 0;
+  padding: var(--aile-bosluk-3) var(--aile-bosluk-4);
+  background: var(--aile-yuzey);
+  border-radius: var(--aile-kose-kart);
+}
+.aile-genel-not {
+  background: var(--aile-uyari-yuzey);
+  color: var(--aile-metin);
+}
+
+/* Liste: tek yüzey, satırlar çizgi ile ayrılır; dış kenarlık yok. */
+.aile-genel-liste {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: var(--aile-yuzey);
+  border-radius: var(--aile-kose-kart);
+  overflow: hidden;
+}
+.aile-genel-liste > li + li { border-top: 1px solid var(--aile-cizgi); }
+
+.aile-genel-satir {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--aile-bosluk-1) var(--aile-bosluk-3);
+  align-items: center;
+  min-height: var(--aile-dokunma-hedefi);
+  padding: var(--aile-bosluk-3) var(--aile-bosluk-4);
+  color: var(--aile-metin);
+  text-decoration: none;
+  transition: background-color var(--aile-sure) var(--aile-egri);
+}
+.aile-genel-satir-ana {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.aile-genel-ad { font-weight: 600; overflow-wrap: break-word; }
+
+/* Ödeme satırı (320 px'ten başlar): tarih · ad + taraf; tutar ve durum sözcüğü adın altında, tutar solda. */
+.aile-genel-tarih {
+  display: flex;
+  flex-direction: column;
+  font-variant-numeric: tabular-nums;
+}
+.aile-genel-tarih strong { font-weight: 600; }
+.aile-genel-son {
+  grid-column: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--aile-bosluk-1) var(--aile-bosluk-3);
+}
+.aile-genel-son .aile-tutar { text-align: left; }
+
+/* Durum sözcüğü: renk tek işaret değildir; metin taşır. Uyarı tonu yalnız metin rengini destekler. */
+.aile-genel-durum { color: var(--aile-metin-ikincil); }
+.aile-genel-durum[data-tone='uyari'] { color: var(--aile-uyari); }
+.aile-genel-durum[data-tone='hata'] { color: var(--aile-hata); }
+.aile-genel-durum[data-tone='olumlu'] { color: var(--aile-olumlu); }
+
+/* Dikkat satırı: sayı (h2 ölçüsü, tabular) · ad + sayfa · ok. Satırın tamamı bağlantıdır. */
+.aile-genel-satir--sayi { grid-template-columns: auto minmax(0, 1fr) auto; }
+.aile-genel-sayi {
+  min-width: var(--aile-bosluk-8);
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.aile-genel-ok { color: var(--aile-metin-ikincil); }
+
+/* Görev satırı: yerel onay kutusu; satırın tamamı etikettir (hedef). Girdi görünmez ama odaklanır ve tıklanır; görünür
+   kutu yanındaki süsleyici span'dır (köşe kontrol köşesinin yarısı, README › Ölçü). */
+.aile-genel-gorev {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--aile-bosluk-3);
+  align-items: center;
+  min-height: var(--aile-dokunma-hedefi);
+  padding: var(--aile-bosluk-3) var(--aile-bosluk-4);
+  cursor: pointer;
+}
+.aile-genel-gorev-girdi {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.aile-genel-gorev-girdi:disabled { cursor: not-allowed; }
+.aile-genel-kutu {
+  display: grid;
+  place-items: center;
+  width: calc(var(--aile-bosluk-4) + var(--aile-bosluk-1));
+  height: calc(var(--aile-bosluk-4) + var(--aile-bosluk-1));
+  border: 1px solid var(--aile-kenar-kontrol);
+  border-radius: calc(var(--aile-kose-kontrol) / 2);
+  background: var(--aile-yuzey);
+  color: var(--aile-yuzey);
+  transition: background-color var(--aile-sure) var(--aile-egri), border-color var(--aile-sure) var(--aile-egri);
+}
+.aile-genel-kutu-isaret { visibility: hidden; }
+.aile-genel-gorev-girdi:checked + .aile-genel-kutu {
+  background: var(--aile-eylem);
+  border-color: var(--aile-eylem);
+}
+.aile-genel-gorev-girdi:checked + .aile-genel-kutu .aile-genel-kutu-isaret { visibility: visible; }
+.aile-genel-gorev-girdi:disabled + .aile-genel-kutu { background: var(--aile-liste-zemin); }
+.aile-genel-gorev-ad { font-weight: 500; }
+.aile-genel-gorev--bitti .aile-genel-gorev-ad {
+  color: var(--aile-metin-ikincil);
+  text-decoration: line-through;
+}
+
+/* Etkileşimli liste satırı (bağlantı, onay kutusu etiketi). Odak çizgisini admin.css değiştirmeden çizer: kontrolün
+   odak-aralik altında, odak-kalinlik kalınlığında. Satırın alt boşluğunun bu kadarı li'de durduğundan çizgi tam satırın
+   alt kenarına (ayırıcı çizgiye) oturur (README › Odak: liste satırı) ve overflow:hidden listede kesilmez. Hover ve
+   basılı yüzey li'nin tamamını boyar. */
+.aile-genel-liste > li:has(> :is(a, label)) {
+  padding-bottom: calc(var(--aile-odak-aralik) + var(--aile-odak-kalinlik));
+  transition: background-color var(--aile-sure) var(--aile-egri);
+}
+.aile-genel-liste > li > :is(a.aile-genel-satir, label.aile-genel-gorev) {
+  padding-bottom: calc(var(--aile-bosluk-3) - var(--aile-odak-aralik) - var(--aile-odak-kalinlik));
+}
+@media (hover: hover) {
+  .aile-genel-liste > li:has(> :is(a, label):hover) { background: var(--aile-bilgi-yuzey); }
+}
+.aile-genel-liste > li:has(> a:active) { background: var(--aile-secili); }
+/* Son satırın çizgisi listenin radiuslu alt kenarına oturur (li alt kenarı = liste alt kenarı, overflow hidden):
+   yalnız çizgi görünürken (klavye modu + :focus-visible) listenin değdiği iki alt köşesi radiussuz, çizgi uçlarından
+   kırpılmaz (kavisli vurgu kenarı yok). Üst köşeler ve işaretçi görünümü korunur; geçiş yok (odak anında). */
+html[data-keyboard='true'] .aile-genel-liste:has(> li:last-child :focus-visible) {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}

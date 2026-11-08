@@ -1,0 +1,16 @@
+/* Ödemeler sayfası (telefon önce): yalnız yerleşim ve aralık; renk/ölçü --aile tokenları, sabit değer yok. Kart ya da
+   kenarlık yok (README: liste tek yüzey alanı, başlık ve not zeminde çerçevesiz). Dokunma hedefleri ui bileşenlerinindir;
+   bu dosya etkileşimli öğe çizmez. Bölüm aralığı yoğunluk bandından (--aile-yogunluk-bosluk: 320'de 8, masaüstünde 20). Geniş sunumun kuralları odemeler/OdemelerGenis.wide.css'te (geniş parçada). */
+.aile-odemeler { display: flex; flex-direction: column; gap: var(--aile-yogunluk-bosluk); min-width: 0; }
+.aile-odemeler-birincil { display: flex; flex-direction: column; align-items: flex-start; gap: var(--aile-bosluk-1); min-width: 0; }
+.aile-odemeler-not { margin: 0; }
+
+.aile-odemeler-sorgu { display: flex; flex-direction: column; gap: var(--aile-yogunluk-bosluk); min-width: 0; }
+.aile-odemeler-sorgu__satir { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--aile-bosluk-2); min-width: 0; }
+.aile-odemeler-sorgu__sirala { flex: 1 1 0; min-width: 0; }
+.aile-odemeler-sorgu__etkin { display: flex; flex-wrap: wrap; align-items: center; gap: var(--aile-bosluk-2); min-width: 0; }
+
+.aile-odemeler-liste { display: flex; flex-direction: column; gap: var(--aile-yogunluk-bosluk); min-width: 0; }
+.aile-odemeler-akordeon { min-width: 0; }
+.aile-odemeler-sayfalama { display: flex; flex-direction: column; align-items: stretch; gap: var(--aile-bosluk-2); }
+.aile-odemeler-sayfalama__durum { margin: 0; }

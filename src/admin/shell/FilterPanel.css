@@ -1,0 +1,158 @@
+/* FilterPanel — tasarım › components/FilterPanel (bundle.css › .ai-filters, CHECKBOX, .ai-range), tokenlar --aile-*
+   (src/design/tokens.ts; admin.css :root yedekleri alt sayfa/çekmece portalında da çözer). Panel zeminde çerçevesiz
+   durur; kenar yalnız cizgi ayırıcı (başlık altı ve Disclosure.css) ve kutunun kendi kontrol sınırı. Seçenek satırı
+   merkezi --aile-dokunma-hedefi kadar (admin.css: 44 px, kaba girişte 48 px), hover yalnız hover katmanında bilgi-yuzey (hover tek yol değil: kutu her zaman görünür).
+   Odak çizgisini admin.css çizer ([data-focus-line]:has(:focus-visible)::after, satırın altında); burada halka yok.
+   Sabit renk ve sabit px yok; tek istisna 1 px ayırıcı. Hareket tek süre/tek eğri; reduced-motion'da anlık. */
+.aile-filtre {
+  /* Kutu 20 px (referans .ai-check), kenarı 1,5 px; ölçüler token hesabı. */
+  --aile-filtre-kutu: calc(var(--aile-bosluk-4) + var(--aile-bosluk-1));
+  --aile-filtre-kutu-kenar: calc(var(--aile-odak-kalinlik) / 2);
+
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* Masaüstünde başlıklı (bare olmayan) panel solda filtre-genislik (272) sütunudur; FilterArea içinde bare kullanılır
+   ve genişliği ızgara verir. Telefonda ve tablette panel alt sayfa/çekmece genişliğini alır. */
+[data-profile='desktop'] .aile-filtre:not(.aile-filtre--bare) {
+  flex: none;
+  inline-size: var(--aile-filtre-genislik);
+  max-inline-size: 100%;
+}
+
+.aile-filtre-baslik {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--aile-bosluk-2);
+  padding-bottom: var(--aile-bosluk-2);
+  border-bottom: 1px solid var(--aile-cizgi);
+}
+
+.aile-filtre-not {
+  margin: 0 0 var(--aile-bosluk-1);
+}
+
+.aile-filtre-secenekler {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Seçenek satırı (label): kutu + etiket solda esner, sayım sağda; tüm satır dokunma hedefi. */
+.aile-filtre-secenek {
+  display: flex;
+  align-items: center;
+  gap: var(--aile-bosluk-3);
+  min-height: var(--aile-dokunma-hedefi);
+  padding: 0 var(--aile-bosluk-1);
+  border-radius: var(--aile-kose-kontrol);
+  color: var(--aile-metin);
+  cursor: pointer;
+  transition: background-color var(--aile-sure) var(--aile-egri);
+}
+[data-input-hover] .aile-filtre-secenek:hover { background: var(--aile-bilgi-yuzey); }
+/* Alt dal: kutu genişliği + aralık kadar içeride (referans 36 px). */
+.aile-filtre-secenek--alt { padding-left: calc(var(--aile-bosluk-6) + var(--aile-bosluk-3)); }
+
+/* Kutu alanı: yerel input ile süsleyici işaret üst üste; input görünür ve odak alır. */
+.aile-filtre-kutu-alan {
+  position: relative;
+  display: grid;
+  flex: none;
+  inline-size: var(--aile-filtre-kutu);
+  block-size: var(--aile-filtre-kutu);
+}
+
+/* Yerel checkbox: appearance none ile tasarım kutusu (yuzey dolgu, kenar-kontrol, köşe kontrolün yarısı); seçili ve
+   kısmi durumda eylem dolgu. Odakta kaydırılırken alt çizgiye (satır altı 4 + 3 px) yer kalır. */
+.aile-filtre-kutu {
+  -webkit-appearance: none;
+  appearance: none;
+  grid-area: 1 / 1;
+  inline-size: 100%;
+  block-size: 100%;
+  margin: 0;
+  border: var(--aile-filtre-kutu-kenar) solid var(--aile-kenar-kontrol);
+  border-radius: calc(var(--aile-kose-kontrol) / 2);
+  background: var(--aile-yuzey);
+  cursor: pointer;
+  scroll-margin-block: var(--aile-bosluk-6);
+  transition: background-color var(--aile-sure) var(--aile-egri), border-color var(--aile-sure) var(--aile-egri);
+}
+.aile-filtre-kutu:checked,
+.aile-filtre-kutu:indeterminate {
+  border-color: var(--aile-eylem);
+  background: var(--aile-eylem);
+}
+
+/* İşaret: kutunun üstünde, tıklamayı geçirir. Onay = döndürülmüş köşe; kısmi = yatay çizgi; renk yuzey. */
+.aile-filtre-isaret {
+  grid-area: 1 / 1;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+.aile-filtre-isaret::after {
+  content: "";
+  inline-size: 30%;
+  block-size: 55%;
+  margin-block-end: 10%;
+  border: solid var(--aile-yuzey);
+  border-width: 0 calc(var(--aile-odak-kalinlik) * 2 / 3) calc(var(--aile-odak-kalinlik) * 2 / 3) 0;
+  transform: rotate(45deg);
+  opacity: 0;
+}
+.aile-filtre-kutu:checked + .aile-filtre-isaret::after { opacity: 1; }
+.aile-filtre-kutu:indeterminate + .aile-filtre-isaret::after {
+  inline-size: 50%;
+  block-size: 0;
+  margin: 0;
+  border-width: 0 0 calc(var(--aile-odak-kalinlik) * 2 / 3) 0;
+  transform: none;
+  opacity: 1;
+}
+
+/* Etiket kesilmez; kelime arasından sarılır. Seçili satır 600 (seçim = yüzey + ağırlık; renk tek işaret değil). */
+.aile-filtre-etiket {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: normal;
+  word-break: keep-all;
+}
+.aile-filtre-secenek:has(.aile-filtre-kutu:checked) { background: var(--aile-secili); }
+.aile-filtre-secenek:has(.aile-filtre-kutu:checked) .aile-filtre-etiket { font-weight: 600; }
+
+/* Sayım: 14/20 (.aile-kucuk), ikincil, tabular. */
+.aile-filtre-sayim {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+.aile-filtre-secenek:has(.aile-filtre-kutu:checked) .aile-filtre-sayim { color: var(--aile-metin); }
+
+/* Tarih ve tutar: tür seçimi üstte, iki alan yan yana; 320'de de iki sütun (gg.aa.yyyy sığar). */
+.aile-filtre-aralik-govde {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-2);
+}
+.aile-filtre-aralik {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--aile-bosluk-2);
+  min-width: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aile-filtre-secenek,
+  .aile-filtre-kutu { transition-duration: 0s; }
+}
+
+/* Zorunlu renkler: kutu sistem renkleriyle görünür kalır (appearance none kenarı korunur). */
+@media (forced-colors: active) {
+  .aile-filtre-kutu { border-color: CanvasText; }
+  .aile-filtre-kutu:checked,
+  .aile-filtre-kutu:indeterminate { background: Highlight; border-color: Highlight; }
+  .aile-filtre-isaret::after { border-color: HighlightText; }
+}

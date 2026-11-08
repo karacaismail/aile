@@ -1,0 +1,216 @@
+/* DetailPanel (ui/DetailPanel.tsx) — tasarım: components/DetailPanel/README.md, bundle.css › .ai-detail*. Yalnız --aile
+   tokenları (admin.css :root yedekleri). antd çekmecesi yok: kök kendi katmanıdır.
+   Yapı: üst çubuk (telefonda "Listeye dön", genişte h2 + "Kapat") → kendi içinde kayan gövde → isteğe bağlı altlık.
+   Telefon/tablet (.aile-detail--dar): ekranı kaplayan katman, güvenli alanlar (--aile-safe-*) iç boşluk, sanal klavye açıkken görsel
+   görünüm alanına sığar (--aile-detail-ust/--aile-detail-alt, DetailPanel.tsx ölçer). Masaüstü (.aile-detail--genis):
+   ayrinti-genislik (384) panel; yerinde (akışta) ya da örtülü katmanda sağda.
+   Kart ya da kenarlık yağmuru yok: bölümler tek yüzeyde, aralarında yalnız cizgi ayırıcı. Yazı ölçüleri tokens.json ›
+   type (h2 24/32, h3 18/26, kucuk 14/20); alt sınır 14 px. Odak: kontrollerin çizgisini admin.css çizer; diyaloğun
+   kökü odaktayken (açılışta, klavye modunda) çizgi üst çubuğun alt kenarındadır. Hareket yok (açılış/kapanış anlık). */
+
+/* --- Kök ve parçalar ------------------------------------------------------------------------------------------- */
+.aile-detail {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--aile-metin);
+  font-family: var(--aile-font-sans);
+}
+.aile-detail .aile-detail-bar,
+.aile-detail .aile-detail-ust {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--aile-bosluk-3);
+  border-bottom: 1px solid var(--aile-cizgi);
+}
+.aile-detail .aile-detail-govde {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.aile-detail .aile-detail-altlik { flex: none; }
+
+/* Klavye odağı diyaloğun kökündeyken: çubuğun alt kenarında tek çizgi (çevreleyen halka değil). */
+html[data-keyboard='true'] .aile-detail:focus-visible > :is(.aile-detail-bar, .aile-detail-ust)::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--aile-odak-kalinlik);
+  background: var(--aile-odak);
+  pointer-events: none;
+}
+
+/* --- Telefon ve tablet: ekranı kaplayan katman ------------------------------------------------------------------
+   Kabuğun üst çubuğunun (z-index 1) üstünde; seçim alt sayfası ve diyaloglar bunun üstünde açılır. */
+.aile-detail--dar {
+  position: fixed;
+  inset: var(--aile-detail-ust, 0px) 0 var(--aile-detail-alt, 0px);
+  z-index: 2;
+  /* Yan boşluk sayfanınkiyle aynı yoğunluk bandından (b04: 320'de 12, 375+ 16, tablette 20 px). */
+  --aile-detail-kenar: var(--aile-yogunluk-kenar);
+  background: var(--aile-zemin);
+}
+.aile-detail--dar .aile-detail-bar {
+  padding: calc(var(--aile-bosluk-2) + var(--aile-safe-top))
+    calc(var(--aile-detail-kenar) + var(--aile-safe-right))
+    var(--aile-bosluk-2)
+    calc(var(--aile-bosluk-2) + var(--aile-safe-left));
+  background: var(--aile-zemin);
+}
+.aile-detail--dar .aile-detail-govde {
+  padding: 0 calc(var(--aile-detail-kenar) + var(--aile-safe-right)) var(--aile-bosluk-6)
+    calc(var(--aile-detail-kenar) + var(--aile-safe-left));
+}
+.aile-detail--dar .aile-detail-govde:last-child {
+  padding-bottom: calc(var(--aile-bosluk-6) + var(--aile-safe-bottom));
+}
+.aile-detail--dar .aile-detail-altlik {
+  padding: 0 calc(var(--aile-detail-kenar) + var(--aile-safe-right)) var(--aile-safe-bottom)
+    calc(var(--aile-detail-kenar) + var(--aile-safe-left));
+  background: var(--aile-yuzey);
+}
+/* Yapışkan FormFooter alt güvenli alanı kendisi taşır (klavye açıkken bırakır); burada ikinci kez eklenmez. */
+.aile-detail--dar .aile-detail-altlik:has(> .aile-ff--yapiskan) { padding-bottom: 0; }
+
+/* --- Masaüstü: 384 px panel ------------------------------------------------------------------------------------- */
+.aile-detail--genis {
+  inline-size: var(--aile-ayrinti-genislik);
+  max-inline-size: 100%;
+  background: var(--aile-yuzey);
+  border-radius: var(--aile-kose-panel);
+}
+.aile-detail--genis .aile-detail-ust {
+  justify-content: space-between;
+  padding: var(--aile-bosluk-2) var(--aile-bosluk-2) var(--aile-bosluk-2) var(--aile-bosluk-4);
+}
+.aile-detail--genis .aile-detail-ust-baslik {
+  min-width: 0;
+  margin: 0;
+  font-size: 18px;
+  line-height: 26px;
+  font-weight: 600;
+  color: var(--aile-metin);
+  overflow-wrap: normal;
+  word-break: keep-all;
+}
+.aile-detail--genis .aile-detail-ust > .aile-btn { flex: none; }
+.aile-detail--genis .aile-detail-govde { padding: 0 var(--aile-bosluk-4); }
+.aile-detail--genis .aile-detail-altlik { padding: 0 var(--aile-bosluk-4) var(--aile-bosluk-4); }
+/* Yerinde (liste yanında, akışta): panel görünüm alanı yüksekliğini aşmaz, gövde kendi içinde kayar. */
+.aile-detail--yerinde { max-block-size: calc(100dvh - 2 * var(--aile-bosluk-6)); }
+
+/* Örtülü katman: örtü arkada, panel sağda tam yükseklik; iç köşeler kose-panel, yükseltilmiş gölge. */
+.aile-detail-katman {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  justify-content: flex-end;
+}
+.aile-detail-katman .aile-detail-ortu {
+  position: absolute;
+  inset: 0;
+  background: var(--aile-ortu);
+}
+.aile-detail-katman > .aile-detail--genis {
+  position: relative;
+  block-size: 100%;
+  border-radius: var(--aile-kose-panel) 0 0 var(--aile-kose-panel);
+  box-shadow: var(--aile-golge-yukseltilmis);
+}
+
+/* --- Bölümler --------------------------------------------------------------------------------------------------- */
+.aile-detail .aile-detail-sec {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-3);
+  padding: var(--aile-bosluk-4) 0;
+  border-bottom: 1px solid var(--aile-cizgi);
+}
+.aile-detail .aile-detail-sec:last-child { border-bottom: 0; }
+
+/* Başlıklar: katman kökü .aile-admin içinde olsa da ölçü burada yazılır (admin.css h2/h3 kuralına bağlı kalmaz). */
+.aile-detail h2, .aile-detail h3 { margin: 0; font-weight: 600; color: var(--aile-metin); }
+.aile-detail .aile-detail-baslik { font-size: 24px; line-height: 32px; }
+.aile-detail h3 { font-size: 18px; line-height: 26px; }
+
+/* Kimlik satırları ve diğer 14 px ikincil metinler. */
+.aile-detail .aile-detail-id { display: flex; flex-direction: column; gap: var(--aile-bosluk-1); }
+.aile-detail .aile-detail-meta { margin: 0; font-size: 14px; line-height: 20px; color: var(--aile-metin-ikincil); }
+.aile-detail .aile-detail-eksik { color: var(--aile-metin-ikincil); font-weight: 400; }
+.aile-detail .aile-detail-not { margin: 0; }
+
+/* Fotoğraf: doğrulanmış görsel 3:2, kose-kart. "Fotoğraf yok" alanı liste-zemin, ortalı, sözcük + not + eylem. */
+.aile-detail .aile-detail-foto { margin: 0; display: flex; flex-direction: column; gap: var(--aile-bosluk-2); }
+.aile-detail .aile-detail-foto img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  border-radius: var(--aile-kose-kart);
+}
+.aile-detail .aile-detail-fotoyok {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--aile-bosluk-2);
+  padding: var(--aile-bosluk-6) var(--aile-bosluk-4);
+  text-align: center;
+  color: var(--aile-metin);
+  background: var(--aile-liste-zemin);
+  border-radius: var(--aile-kose-kart);
+}
+.aile-detail .aile-detail-fotoyok [data-icon] { color: var(--aile-metin-ikincil); }
+
+/* Plan | Gerçek: iki ayrı sütun; aradaki düz cizgi ayırıcı radiuslu bir kutunun kenarı değildir. */
+.aile-detail .aile-detail-pg {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--aile-bosluk-4);
+}
+.aile-detail .aile-detail-pg-col { display: flex; flex-direction: column; gap: var(--aile-bosluk-2); min-width: 0; }
+.aile-detail .aile-detail-pg-col + .aile-detail-pg-col {
+  padding-inline-start: var(--aile-bosluk-4);
+  border-inline-start: 1px solid var(--aile-cizgi);
+}
+
+/* Etiket–değer listeleri (dl): etiket 14 px ikincil, değer gövde. Tutar ui/Money (.aile-tutar: tabular-nums, 500);
+   tarih aynı rakam dizgisiyle. */
+.aile-detail dl { margin: 0; display: flex; flex-direction: column; gap: var(--aile-bosluk-2); }
+.aile-detail dt { font-size: 14px; line-height: 20px; color: var(--aile-metin-ikincil); }
+.aile-detail dd { margin: 0; }
+.aile-detail .aile-detail-tarih { font-variant-numeric: tabular-nums; font-weight: 500; }
+
+/* Fark sözcükle; renk yalnız destekler (olumlu / uyari), sözcük anlamı taşır. */
+.aile-detail .aile-detail-fark { margin: 0; font-size: 14px; line-height: 20px; font-weight: 500; color: var(--aile-metin); }
+.aile-detail .aile-detail-fark--olumlu { color: var(--aile-olumlu); }
+.aile-detail .aile-detail-fark--uyari { color: var(--aile-uyari); }
+.aile-detail .aile-detail-fark--notr { color: var(--aile-metin-ikincil); }
+
+/* Eylemler alt alta; seçim kutusu tam genişlik, "Geri al" sola hizalı. */
+.aile-detail .aile-detail-eylemler { display: flex; flex-direction: column; align-items: flex-start; gap: var(--aile-bosluk-3); }
+.aile-detail .aile-detail-eylemler .aile-detail-durum-sec { width: 100%; }
+
+/* Bağlı kayıtlar: bağlantı satırları --aile-dokunma-hedefi (44 px, kaba girişte 48; b04), yalnız cizgi ayırıcı; hover yalnız hover katmanında
+   ve tek yol değil (bağlantı rengi ve satır biçimi her girişte aynı). */
+.aile-detail .aile-detail-baglar { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.aile-detail .aile-detail-bag {
+  display: flex;
+  align-items: center;
+  min-height: var(--aile-dokunma-hedefi);
+  padding: var(--aile-bosluk-2) 0;
+  color: var(--aile-eylem);
+  font-weight: 500;
+  text-decoration: none;
+  border-bottom: 1px solid var(--aile-cizgi);
+}
+.aile-detail .aile-detail-baglar li:last-child .aile-detail-bag { border-bottom: 0; }
+:where([data-input-hover]) .aile-detail .aile-detail-bag:hover { text-decoration: underline; }
+.aile-detail .aile-detail-bag:active { color: var(--aile-nav); }

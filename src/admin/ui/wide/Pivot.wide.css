@@ -1,0 +1,92 @@
+/* Geniş-özel pivot tablo (yalnız geniş profilde iner). Tasarım bundle.css .ai-table-wrap / .ai-table / .pg-pivot.
+   Kaydırma bölgesi kendi içinde yatay kayar (sayfa kaymaz); ilk sütun yapışkan, sağında 1 px cizgi gölgesi yerine
+   kenar. Kolon asgari genişlikleri tasarım envanterinden; TS tarafı PivotStack.parts (PIVOT_KOLON_ASGARI,
+   PIVOT_ILK_KOLON_ASGARI) aynı değerleri taşır. Renk/boşluk/köşe yalnız --aile-*; metin ≥ 14 px; odak çizgisini
+   admin.css çizer (bölge [tabindex] kaydırma alanıdır). Tablo ızgarası işlevsel kenarlıktır (yalnız satır ayırıcı). */
+.aile-pivot-genis {
+  --aile-pivot-kolon: 168px;
+  --aile-pivot-ilk-kolon: 160px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-2);
+  min-width: 0;
+}
+.aile-pivot-tablo-sar {
+  position: relative;
+  min-width: 0;
+}
+html[data-keyboard='true'] .aile-pivot-tablo-sar:has(> .aile-pivot-tablo-kap:focus-visible)::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(-1 * (var(--aile-odak-aralik) + var(--aile-odak-kalinlik)));
+  height: var(--aile-odak-kalinlik);
+  background: var(--aile-odak);
+  pointer-events: none;
+}
+.aile-pivot-tablo-kap {
+  overflow: auto;
+  max-width: 100%;
+  overscroll-behavior-x: contain;
+  background: var(--aile-yuzey);
+  border-radius: var(--aile-kose-kart);
+}
+.aile-pivot-tablo {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+/* Görünmez caption: tablo adı ekran okuyucuda; görünür adlandırma bölge ve sayfa başlığındadır. */
+.aile-pivot-tablo-baslik {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.aile-pivot-tablo th,
+.aile-pivot-tablo td {
+  padding: var(--aile-bosluk-3) var(--aile-bosluk-4);
+  border-bottom: 1px solid var(--aile-cizgi);
+  vertical-align: middle;
+  text-align: left;
+  min-width: var(--aile-pivot-kolon);
+}
+.aile-pivot-tablo thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--aile-zemin);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  vertical-align: bottom;
+  word-break: keep-all;
+  overflow-wrap: normal;
+}
+.aile-pivot-tablo .aile-pivot-sayi { text-align: right; }
+.aile-pivot-tablo .aile-pivot-sayi .aile-pivot-pair { align-items: flex-end; }
+/* Yapışkan ilk sütun (satır başlığı): yüzey dolgulu; köşe başlığı her iki eksende üstte. */
+.aile-pivot-tablo th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  min-width: var(--aile-pivot-ilk-kolon);
+  background: var(--aile-yuzey);
+  border-right: 1px solid var(--aile-cizgi);
+  font-weight: 600;
+}
+.aile-pivot-tablo thead th:first-child { z-index: 2; background: var(--aile-zemin); }
+.aile-pivot-tablo tbody th { word-break: keep-all; overflow-wrap: normal; }
+/* Alt toplam ve sahipsiz satır: zemin tonu (toplama girmediği yazılı); toplam satırı zemin + 600. */
+.aile-pivot-tablo tr[data-rol='subtotal'] > *,
+.aile-pivot-tablo tr[data-rol='unowned'] > * { background: var(--aile-zemin); }
+.aile-pivot-tablo tfoot th,
+.aile-pivot-tablo tfoot td {
+  background: var(--aile-zemin);
+  font-weight: 600;
+  border-bottom: 0;
+}

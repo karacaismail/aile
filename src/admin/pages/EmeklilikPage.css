@@ -1,0 +1,345 @@
+/* EmeklilikPage — telefon temel sunumu ve iki sunumun paylaştığı parçalar (pages/emeklilik/parcalar.tsx, profil.tsx).
+   Renk, boşluk, köşe, dokunma hedefi ve hareket yalnız --aile-* tokenlarından (admin.css / src/design/tokens.ts).
+   Yazı ölçeği için --aile-* değişkeni yoktur (tokens.ts yalnız renk, boşluk, köşe, gölge ve hareket taşır); sayfanın üç
+   yazı ölçüsü .aile-emeklilik üzerinde tek yerde adlandırılır (--em-*, aşağıda gerekçesiyle); 14 px altına inen metin yok. Kart yağmuru yok: bölümler boşlukla ayrılır; yalnız öneri (bilgi yüzeyi) ve
+   sonuç (yüzey) kendi yüzeyindedir; kenarlık yalnız işlevsel (form kontrolü sınırı, liste ayırıcı). Renkli kenar şeridi yok.
+   Odak çizgisini admin.css çizer ([data-focus-line] + :has(:focus-visible)); burada outline/box-shadow yok.
+   Hareket: yalnız seçim yüzeyinin rengi tek süre/eğriyle (--aile-sure, --aile-egri); reduced-motion'da admin.css geçişleri
+   kapatır, durum anında değişir. Dokunma hedefi --aile-dokunma-hedefi (44; kaba işaretçide 48). */
+
+/* Sayfa yazı ölçüleri (tek yer). Değerler tokens.json type ölçüsü, admin.css taban tipografisiyle aynı: bölüm başlığı
+   h2'dir ama h3 ölçüsünde (18/26; sayfada h1'den sonra tek başlık düzeyi, bölümler kısa), planlama ayı sayfanın tek iri
+   değeri h1 ölçüsünde (32/40), anlık sonuç duyurusu boşken de bir gövde satırı (24) yer tutar (sonuç gelince yerleşim
+   kaymaz). --aile-* yazı tokenı eklenirse bunlar ona bağlanır. */
+.aile-emeklilik {
+  --em-yazi-bolum: 18px;
+  --em-satir-bolum: 26px;
+  --em-yazi-ay: 32px;
+  --em-satir-ay: 40px;
+  --em-satir-govde: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-6);
+  max-width: var(--aile-icerik-azami);
+  min-width: 0;
+}
+
+.aile-em-telefon {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-8);
+  min-width: 0;
+}
+
+.aile-em-bolum {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-3);
+  min-width: 0;
+}
+.aile-em-bolum p { margin: 0; }
+.aile-admin .aile-em-bolum__baslik {
+  font-size: var(--em-yazi-bolum);
+  line-height: var(--em-satir-bolum);
+}
+
+/* Değerler: tutar tabular (aile-tutar bölünmez); sözcüklü değer doğal sarılır. Ton yalnız destekler (yön metinde). */
+.aile-em-deger { font-variant-numeric: tabular-nums; font-weight: 500; }
+.aile-em-deger--metin { overflow-wrap: break-word; }
+.aile-em-deger--sag { text-align: right; }
+/* Tablo yerleşiminde kısa hücre değerleri bölünmez: dar alanda sütun sıkışmaz, tablo kendi kabında yatay kayar
+   (README › akışkan tablolar). Telefon akordeonunda değerler doğal sarılır. */
+.aile-rtable[data-layout='table'] .aile-em-bolunmez { white-space: nowrap; }
+/* "Bilinmiyor" nedeni: değerin altında küçük ve sarılır; tabloda sütunu filtre paneli genişliğinden (272) öteye itmez. */
+.aile-em-hucre-not {
+  display: block;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+.aile-rtable[data-layout='table'] .aile-em-hucre-not {
+  max-width: var(--aile-filtre-genislik);
+  margin-left: auto;
+}
+.aile-em-deger[data-tone='olumlu'] { color: var(--aile-olumlu); }
+.aile-em-deger[data-tone='hata'] { color: var(--aile-hata); }
+.aile-em-deger[data-tone='uyari'] { color: var(--aile-uyari); }
+
+/* --- Öneri: bilgi yüzeyi, kenarlıksız ------------------------------------------------------------------------------------ */
+.aile-em-oneri {
+  padding: var(--aile-bosluk-4);
+  background: var(--aile-bilgi-yuzey);
+  border-radius: var(--aile-kose-kart);
+}
+.aile-em-oneri__ad { overflow-wrap: break-word; }
+.aile-em-oneri__eylem {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--aile-bosluk-2) var(--aile-bosluk-3);
+}
+
+/* --- Seçimler: yerel radyo grubu, iki parçalı seçim yüzeyi ------------------------------------------------------------- */
+.aile-em-soru {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-2);
+}
+.aile-em-soru__baslik {
+  padding: 0;
+  font-weight: 600;
+  overflow-wrap: break-word;
+}
+.aile-em-segment {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--aile-bosluk-1);
+  padding: var(--aile-bosluk-1);
+  background: var(--aile-liste-zemin);
+  border-radius: var(--aile-kose-kontrol);
+}
+.aile-em-segment__secenek {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--aile-dokunma-hedefi);
+  padding: 0 var(--aile-bosluk-3);
+  border-radius: var(--aile-kose-kontrol);
+  color: var(--aile-metin);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color var(--aile-sure) var(--aile-egri), color var(--aile-sure) var(--aile-egri);
+}
+.aile-em-segment__secenek[data-secili] {
+  background: var(--aile-eylem);
+  color: var(--aile-yuzey);
+  font-weight: 600;
+}
+@media (hover: hover) {
+  .aile-em-segment__secenek:not([data-secili]):hover { background: var(--aile-bilgi-yuzey); }
+}
+/* Yerel radyo girdisi seçeneği tümüyle kaplar: dokunma alanı görünür kutudur; seçim/klavye tarayıcının. */
+.aile-em-segment__girdi,
+.aile-em-ice-aktar__girdi {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.aile-em-duyuru {
+  min-height: var(--em-satir-govde);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Hesap hatası: ErrorState üstte, eylem "Varsayımları sıfırla" hemen altında; sunum yerinde kalır --------------------- */
+.aile-em-hata {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-3);
+  min-width: 0;
+}
+.aile-em-hata__eylem { display: flex; justify-content: flex-start; }
+
+/* --- Sonuç: yüzey ----------------------------------------------------------------------------------------------------- */
+.aile-em-sonuc {
+  padding: var(--aile-bosluk-4);
+  background: var(--aile-yuzey);
+  border-radius: var(--aile-kose-kart);
+  box-shadow: var(--aile-golge-yukseltilmis);
+}
+.aile-em-sonuc__ay {
+  font-size: var(--em-yazi-ay);
+  line-height: var(--em-satir-ay);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.aile-em-sonuc__alt { font-weight: 500; }
+.aile-em-olculer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--aile-bosluk-3);
+  margin: 0;
+}
+/* Ölçü satırı: etiket solda, değer sağda (aynı satırda); sığmazsa değer alt satıra sağa yaslı iner. */
+.aile-em-olcu {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0 var(--aile-bosluk-3);
+  min-width: 0;
+}
+.aile-em-olcu dt { flex: 1 1 auto; min-width: 0; }
+.aile-em-olcu dd {
+  flex: 0 1 auto;
+  margin: 0 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 0;
+  text-align: right;
+}
+.aile-em-olcu__not { overflow-wrap: break-word; }
+.aile-em-kalemler {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-1);
+}
+.aile-em-kalem {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0 var(--aile-bosluk-3);
+}
+
+/* --- Paylar: çizgiyle ayrılan liste ------------------------------------------------------------------------------------ */
+.aile-em-pay-listesi {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.aile-em-pay {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-1);
+  padding: var(--aile-bosluk-3) 0;
+}
+.aile-em-pay + .aile-em-pay { border-top: 1px solid var(--aile-cizgi); }
+.aile-em-pay__baslik {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--aile-bosluk-1) var(--aile-bosluk-3);
+  font-weight: 600;
+}
+
+/* --- Varsayımlar: Disclosure içinde form ------------------------------------------------------------------------------- */
+.aile-em-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-4);
+  padding: var(--aile-bosluk-3) 0 var(--aile-bosluk-4);
+  min-width: 0;
+}
+.aile-em-onay { display: flex; flex-direction: column; gap: var(--aile-bosluk-1); }
+/* Bayrağın güncel değeri (iş ücreti ve kaynağı): birincil metin rengi, tutar hizalı; açıklamadan sonra gelir. */
+.aile-em-onay__not { font-variant-numeric: tabular-nums; overflow-wrap: break-word; }
+.aile-em-onay__satir {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--aile-bosluk-3);
+  min-height: var(--aile-dokunma-hedefi);
+  font-weight: 500;
+  cursor: pointer;
+}
+.aile-em-onay__girdi,
+.aile-em-radyo__girdi {
+  flex: none;
+  width: var(--aile-bosluk-6);
+  height: var(--aile-bosluk-6);
+  margin: 0;
+  accent-color: var(--aile-eylem);
+  cursor: pointer;
+}
+/* Açıklamalı radyo grubu (aylık modeli, Bağ-Kur borcunun kaynağı): satırın tamamı etiket ve dokunma hedefi. */
+.aile-em-radyo {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-1);
+}
+.aile-em-radyo__secenek {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--aile-bosluk-3);
+  min-height: var(--aile-dokunma-hedefi);
+  padding: var(--aile-bosluk-2);
+  border-radius: var(--aile-kose-kontrol);
+  cursor: pointer;
+  transition: background-color var(--aile-sure) var(--aile-egri);
+}
+.aile-em-radyo__secenek[data-secili] { background: var(--aile-bilgi-yuzey); }
+.aile-em-radyo__metin { display: flex; flex-direction: column; min-width: 0; overflow-wrap: break-word; }
+.aile-em-radyo__ad { font-weight: 500; }
+/* Bağ-Kur borcunun kaynağı: grup ve ("Tutarı gir" seçiliyken) altındaki tutar alanı. */
+.aile-em-kaynak {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-3);
+  min-width: 0;
+}
+.aile-em-sifirla { display: flex; justify-content: flex-start; }
+
+/* --- İhya ------------------------------------------------------------------------------------------------------------------ */
+.aile-em-yollar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--aile-bosluk-3);
+  margin: 0;
+}
+.aile-em-yol dd { margin: 0; overflow-wrap: break-word; }
+.aile-em-ihya__erken { font-weight: 600; }
+
+/* --- Profil: boş durum, içe aktarma, başlık bağlamı ------------------------------------------------------------------- */
+.aile-em-bos {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-3);
+  padding: var(--aile-bosluk-4);
+  background: var(--aile-yuzey);
+  border-radius: var(--aile-kose-kart);
+}
+.aile-em-bos p { margin: 0; }
+.aile-em-ice-aktar { display: flex; flex-direction: column; gap: var(--aile-bosluk-1); min-width: 0; }
+.aile-em-ice-aktar p { margin: 0; }
+.aile-em-ice-aktar__dugme {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: flex-start;
+  max-width: 100%;
+  min-height: var(--aile-dokunma-hedefi);
+  padding: 0 var(--aile-bosluk-4);
+  border: 1px solid var(--aile-kenar-kontrol);
+  border-radius: var(--aile-kose-kontrol);
+  background: var(--aile-yuzey);
+  color: var(--aile-eylem);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color var(--aile-sure) var(--aile-egri);
+}
+@media (hover: hover) {
+  .aile-em-ice-aktar__dugme:hover { background: var(--aile-bilgi-yuzey); }
+}
+.aile-em-profil { display: flex; flex-direction: column; gap: var(--aile-bosluk-2); min-width: 0; }
+.aile-em-profil p { margin: 0; overflow-wrap: break-word; }
+.aile-em-profil__eylemler {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--aile-bosluk-2) var(--aile-bosluk-4);
+}
+
+/* ₺ tutarı taşıyan açıklama, gerekçe ve ihya yolu aylık metinleri: rakamlar hizalı (₺8.500,00, tabular-nums). */
+.aile-em-soru__aciklama,
+.aile-em-oneri__gerekce,
+.aile-em-radyo__metin,
+.aile-em-yol dd { font-variant-numeric: tabular-nums; }

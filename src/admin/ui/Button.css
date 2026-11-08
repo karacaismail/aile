@@ -1,0 +1,227 @@
+/* aile düğmesi — tasarım: components/Button/README.md, components/IconButton/README.md, bundle.css › BUTTON
+   (.ai-btn + .ai-iconbtn). Yerel <button>; antd yok, telefon/tablet/masaüstü aynı uygulama.
+
+   .aile-dugme  Button ve IconButton'ın ortak tabanı: renk durumları, odak alt çizgisi, dokunma hedefi, hover, hareket.
+   .aile-btn    Metinli düğme (iç boşluk, satır sarmama, tam genişlik, devre dışı nedeni).
+   .aile-iconbtn kare ölçüsü IconButton.css'tedir.
+
+   Değerler yalnız --aile-* tokenlarıdır (src/design/tokens.ts → .aile-admin + admin.css :root yedekleri; body'ye
+   portallanan katmanlar da görür). Sabit renk ve sabit ölçü px yok; istisnalar forced-colors odak çizgisi (2px CanvasText,
+   AGENT.md odak kuralı) ve tip ölçeğinin alt sınırları (etiket 16, neden 14 px: kök yazı boyutu küçükken rem bu
+   değerlerin altına inmez, minimum metin boyutu kuralı). Durum renkleri --dugme-* yerel değişkenleriyle bağlanır:
+   varyant, seçili, meşgul ve devre dışı kuralları yalnız değişkenleri değiştirir; boşta/hover/basılı kuralları onları
+   okur. Görsel durum aria-pressed, aria-busy ve :disabled'dan okunur; erişilebilir durum ile görünüm ayrışamaz. */
+
+.aile-dugme {
+  --dugme-zemin: transparent;
+  --dugme-metin: var(--aile-eylem);
+  --dugme-kenar: transparent;
+  --dugme-zemin-hover: var(--aile-bilgi-yuzey);
+  --dugme-metin-hover: var(--aile-eylem);
+  --dugme-kenar-hover: transparent;
+  --dugme-zemin-basili: var(--aile-secili);
+  --dugme-metin-basili: var(--aile-nav);
+  --dugme-kenar-basili: transparent;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--aile-bosluk-2);
+  box-sizing: border-box;
+  /* Dokunma hedefi (b04): 44 px, kaba işaretçi katmanında (html/.aile-admin [data-input-coarse]) 48 px. */
+  min-height: var(--aile-dokunma-hedefi);
+  min-width: var(--aile-dokunma-hedefi);
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+  border: thin solid var(--dugme-kenar);
+  border-radius: var(--aile-kose-kontrol);
+  background: var(--dugme-zemin);
+  color: var(--dugme-metin);
+  font-family: var(--aile-font-sans);
+  /* Gövde metni ölçüsü (admin.css .aile-admin 16 px); kullanıcının kök yazı boyutu büyükse onunla büyür, küçükse
+     (tarayıcıda "küçük" yazı) gövdenin altına inmez. */
+  font-size: max(16px, 1rem);
+  line-height: 1.5;
+  font-weight: 500;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  appearance: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--aile-sure) var(--aile-egri), color var(--aile-sure) var(--aile-egri), border-color var(--aile-sure) var(--aile-egri);
+}
+
+/* Hover yalnız birincil işaretçi hover destekliyorsa: dokunmatikte takılı hover tonu kalmaz. */
+@media (hover: hover) {
+  .aile-dugme:hover {
+    background: var(--dugme-zemin-hover);
+    color: var(--dugme-metin-hover);
+    border-color: var(--dugme-kenar-hover);
+  }
+}
+/* Basılı: dokunmada da çalışır; pointercancel (kaydırma başladı) :active'i bırakır, etkinleştirme olmaz. */
+.aile-dugme:active {
+  background: var(--dugme-zemin-basili);
+  color: var(--dugme-metin-basili);
+  border-color: var(--dugme-kenar-basili);
+}
+
+/* Birincil: eylem dolgu + yuzey metin; hover nav, basılı metin dolgu. */
+.aile-dugme[data-variant='primary'] {
+  --dugme-zemin: var(--aile-eylem);
+  --dugme-metin: var(--aile-yuzey);
+  --dugme-zemin-hover: var(--aile-nav);
+  --dugme-metin-hover: var(--aile-yuzey);
+  --dugme-zemin-basili: var(--aile-metin);
+  --dugme-metin-basili: var(--aile-yuzey);
+}
+
+/* İkincil: yuzey dolgu, eylem kenar ve metin; hover bilgi-yuzey, basılı secili + nav metin. */
+.aile-dugme[data-variant='secondary'] {
+  --dugme-zemin: var(--aile-yuzey);
+  --dugme-kenar: var(--aile-eylem);
+  --dugme-kenar-hover: var(--aile-eylem);
+  --dugme-kenar-basili: var(--aile-eylem);
+}
+
+/* Sessiz: kenarsız, saydam; hover bilgi-yuzey, basılı secili + nav metin (taban değerleri). */
+.aile-dugme[data-variant='quiet'] {
+  --dugme-zemin: transparent;
+}
+
+/* Tehlike: yuzey dolgu, hata kenar ve metin; hover hata-yuzey, basılı hata dolgu + yuzey metin. Anlam etikette. */
+.aile-dugme[data-variant='danger'] {
+  --dugme-zemin: var(--aile-yuzey);
+  --dugme-metin: var(--aile-hata);
+  --dugme-kenar: var(--aile-hata);
+  --dugme-zemin-hover: var(--aile-hata-yuzey);
+  --dugme-metin-hover: var(--aile-hata);
+  --dugme-kenar-hover: var(--aile-hata);
+  --dugme-zemin-basili: var(--aile-hata);
+  --dugme-metin-basili: var(--aile-yuzey);
+  --dugme-kenar-basili: var(--aile-hata);
+}
+
+/* nav üzerinde: saydam, nav-metin, acik-mavi kenar (sessizde kenarsız); hover nav-hover, basılı nav-basili. */
+.aile-dugme[data-nav] {
+  --dugme-zemin: transparent;
+  --dugme-metin: var(--aile-nav-metin);
+  --dugme-kenar: var(--aile-acik-mavi);
+  --dugme-zemin-hover: var(--aile-nav-hover);
+  --dugme-metin-hover: var(--aile-nav-metin);
+  --dugme-kenar-hover: var(--aile-acik-mavi);
+  --dugme-zemin-basili: var(--aile-nav-basili);
+  --dugme-metin-basili: var(--aile-nav-metin);
+  --dugme-kenar-basili: var(--aile-acik-mavi);
+}
+.aile-dugme[data-nav]:where([data-variant='quiet']) {
+  --dugme-kenar: transparent;
+  --dugme-kenar-hover: transparent;
+  --dugme-kenar-basili: transparent;
+}
+
+/* Seçili (aria-pressed=true): secili yüzey + nav kenar + metin, 600 ağırlık; hover/basılı seçimi bozmaz. */
+.aile-dugme[aria-pressed='true'] {
+  --dugme-zemin: var(--aile-secili);
+  --dugme-metin: var(--aile-metin);
+  --dugme-kenar: var(--aile-nav);
+  --dugme-zemin-hover: var(--aile-secili);
+  --dugme-metin-hover: var(--aile-metin);
+  --dugme-kenar-hover: var(--aile-nav);
+  --dugme-zemin-basili: var(--aile-secili);
+  --dugme-metin-basili: var(--aile-metin);
+  --dugme-kenar-basili: var(--aile-nav);
+  font-weight: 600;
+}
+
+/* Meşgul (aria-busy=true): işlem sürerken düğme basılı tonunda kalır, imleç ilerleme; etiket aynı, döner simge yok. */
+.aile-dugme[aria-busy='true'] {
+  --dugme-zemin: var(--dugme-zemin-basili);
+  --dugme-metin: var(--dugme-metin-basili);
+  --dugme-kenar: var(--dugme-kenar-basili);
+  --dugme-zemin-hover: var(--dugme-zemin-basili);
+  --dugme-metin-hover: var(--dugme-metin-basili);
+  --dugme-kenar-hover: var(--dugme-kenar-basili);
+  cursor: progress;
+}
+
+/* Devre dışı: liste-zemin dolgu, kenarsız, metin-ikincil; sessizde saydam. Nedeni yakınında yazılı olmalı. */
+.aile-dugme:disabled {
+  --dugme-zemin: var(--aile-liste-zemin);
+  --dugme-metin: var(--aile-metin-ikincil);
+  --dugme-kenar: transparent;
+  --dugme-zemin-hover: var(--aile-liste-zemin);
+  --dugme-metin-hover: var(--aile-metin-ikincil);
+  --dugme-kenar-hover: transparent;
+  --dugme-zemin-basili: var(--aile-liste-zemin);
+  --dugme-metin-basili: var(--aile-metin-ikincil);
+  --dugme-kenar-basili: transparent;
+  cursor: not-allowed;
+}
+.aile-dugme[data-variant='quiet']:disabled {
+  --dugme-zemin: transparent;
+  --dugme-zemin-hover: transparent;
+  --dugme-zemin-basili: transparent;
+}
+
+/* ODAK — çevreleyen halka yok. Tek 3 px alt çizgi, kontrolün 4 px altında, kontrol genişliğinde; yalnız klavye modunda
+   (html[data-keyboard='true']: Tab açar, pointerdown/touchstart kapatır) ve :focus-visible ile. Düğme data-focus-line
+   taşır: admin.css'in merkezi kuralı kapsamında (.aile-admin, [data-aile-katman], dialog…) aynı çizgiyi çizer ve nav
+   zemininde ([data-odak-zemin='nav'], .aile-admin-nav) rengi odak-nav yapar. Buradaki kural kapsam dışına portallanan
+   düğmede de çizgiyi garanti eder; onNav düğmede rengi odak-nav. ::after odak çizgisine ayrılmıştır. */
+.aile-dugme:focus,
+.aile-dugme:focus-visible {
+  outline: none;
+}
+html[data-keyboard='true'] .aile-dugme:focus-visible::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(-1 * (var(--aile-odak-aralik) + var(--aile-odak-kalinlik)));
+  height: var(--aile-odak-kalinlik);
+  border-radius: calc(var(--aile-odak-kalinlik) / 2);
+  background: var(--aile-odak);
+  pointer-events: none;
+}
+html[data-keyboard='true'] .aile-dugme[data-nav]:focus-visible::after {
+  background: var(--aile-odak-nav);
+}
+/* Tek dar istisna (kullanıcı kararı 2026-10-15): zorlanmış renklerde yalnız klavye modunda sistem rengiyle çizgi. */
+@media (forced-colors: active) {
+  html[data-keyboard='true'] .aile-dugme:focus-visible {
+    outline: 2px solid CanvasText;
+  }
+}
+
+/* Hareket: reduced-motion açıkken renk geçişi yok, durum anında. */
+@media (prefers-reduced-motion: reduce) {
+  .aile-dugme {
+    transition: none;
+  }
+}
+
+/* Metinli düğme: 44 px yükseklik, metin kesilmez. Dar ekranda `block` tam genişlik alır ve gerekirse sözcük arasından
+   sarar (metni küçültmek ya da kesmek yerine). */
+.aile-btn {
+  padding: var(--aile-bosluk-1) var(--aile-bosluk-4);
+  white-space: nowrap;
+}
+.aile-btn--blok {
+  width: 100%;
+  white-space: normal;
+}
+
+/* Devre dışı nedeni: düğmenin ardında görünür, küçük (14 px) ikincil metin; aria-describedby ile bağlı. */
+.aile-btn-neden {
+  display: block;
+  margin: 0;
+  font-family: var(--aile-font-sans);
+  /* 14 px alt sınır (kök küçükken rem 14'ün altına inmez); kök büyükse büyür. */
+  font-size: max(14px, 0.875rem);
+  line-height: calc(20 / 14);
+  font-weight: 400;
+  color: var(--aile-metin-ikincil);
+}

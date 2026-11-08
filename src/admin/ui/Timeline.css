@@ -1,0 +1,181 @@
+/* Timeline — tasarım › components/Timeline (bundle.css › Zaman çizelgesi), tokenlar --aile-* (src/design/tokens.ts).
+   Üç sütun: tarih (gün 18/600 + ay kısaltması 14) · çizgi ve nokta · kayıt düğmesi. Çizgi acik-mavi, nokta yuzey
+   dolgulu + eylem kenarlı; ilk kayıtta çizgi noktadan başlar, sonuncuda noktada biter. Kayıt düğmesi tek yuzey
+   kutusudur: 1 px cizgi çerçeve, tüm köşeler kose-kontrol (renkli tek kenar şeridi yok); hover bilgi-yuzey,
+   basılı/seçili secili (başlık 600). Odak: admin.css [data-focus-line] çizgisi düğmenin 4 px altında, düğme
+   genişliğinde; burada outline/halka/box-shadow yok. Hareket tek süre ve tek eğri; reduced-motion'da anlık.
+   Dar biçim ([data-narrow='true']): tarih sütunu 44 px, gövde tek sütun, tutar sola yaslı.
+   Dokunma hedefi 44 px (hedef-asgari); kaba işaretçi katmanında ([data-input-coarse], AdaptiveRoot) 48 px
+   (hedef-asgari + bosluk-1). Basılı durum :active ve Pointer Events [data-pressed] ile aynı secili yüzey; hover yalnız
+   hover destekleyen işaretçide (dokunuş sonrası takılı hover yok). */
+.aile-tl {
+  --aile-tl-hedef: var(--aile-hedef-asgari);
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-6);
+  min-width: 0;
+}
+[data-input-coarse] .aile-tl { --aile-tl-hedef: calc(var(--aile-hedef-asgari) + var(--aile-bosluk-1)); }
+.aile-tl-bos { margin: 0; }
+
+.aile-tl-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-3);
+  min-width: 0;
+}
+/* Ay başlığı h3 18/26 600 (admin.css); sayım 14/20 ikincil, tabular. Başlık kesilmez. */
+.aile-tl-group .aile-tl-gtitle {
+  display: flex;
+  align-items: baseline;
+  gap: var(--aile-bosluk-2);
+  margin: 0;
+  overflow-wrap: normal;
+  word-break: keep-all;
+}
+.aile-tl-gcount {
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  color: var(--aile-metin-ikincil);
+}
+
+.aile-tl-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+/* Satır: tarih sütunu 56 px (7 × bosluk-2), çizgi sütunu 20 px (bosluk-4 + bosluk-1), kalan gövde. */
+.aile-tl-item {
+  display: grid;
+  grid-template-columns: calc(7 * var(--aile-bosluk-2)) calc(var(--aile-bosluk-4) + var(--aile-bosluk-1)) minmax(0, 1fr);
+  align-items: stretch;
+}
+
+/* Tarih: gün 18/26 600, ay kısaltması 14/20 ikincil; sağa yaslı, tabular. */
+.aile-tl-date {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  padding: var(--aile-bosluk-3) var(--aile-bosluk-2) 0 0;
+  font-variant-numeric: tabular-nums;
+}
+.aile-tl-date strong {
+  font-size: 18px;
+  line-height: 26px;
+  font-weight: 600;
+}
+.aile-tl-date span,
+.aile-tl-date--yok { color: var(--aile-metin-ikincil); }
+
+/* Çizgi + nokta. Nokta 12 px (bosluk-3), 2 px eylem kenar; merkezi ilk metin satırının ortasında:
+   gövde üst boşluğu (bosluk-1) + iç boşluk (bosluk-3) + 24 px satırın yarısı = 28 px → nokta üstü 28 − 6. */
+.aile-tl-dot { position: relative; }
+.aile-tl-dot::before {
+  content: "";
+  position: absolute;
+  left: calc(var(--aile-bosluk-2) + 1px);
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--aile-acik-mavi);
+}
+.aile-tl-dot::after {
+  content: "";
+  position: absolute;
+  left: var(--aile-bosluk-1);
+  top: calc(var(--aile-bosluk-1) + var(--aile-bosluk-3) + 12px - var(--aile-bosluk-3) / 2);
+  width: var(--aile-bosluk-3);
+  height: var(--aile-bosluk-3);
+  border-radius: 50%;
+  background: var(--aile-yuzey);
+  border: 2px solid var(--aile-eylem);
+}
+.aile-tl-item:first-child .aile-tl-dot::before { top: calc(var(--aile-bosluk-1) + var(--aile-bosluk-3) + 12px); }
+.aile-tl-item:last-child .aile-tl-dot::before {
+  bottom: auto;
+  height: calc(var(--aile-bosluk-1) + var(--aile-bosluk-3) + 12px);
+}
+
+/* Kayıt düğmesi: ad + meta · durum etiketi · 128 px tutar (4 × bosluk-8). 44+ px hedef. Alt boşluk (bosluk-2) odak
+   çizgisine yer bırakır: admin.css çizgiyi düğmenin odak-aralik + odak-kalinlik kadar altına koyar. */
+.aile-tl-body {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto calc(4 * var(--aile-bosluk-8));
+  gap: var(--aile-bosluk-4);
+  align-items: center;
+  width: 100%;
+  min-height: var(--aile-tl-hedef);
+  margin: var(--aile-bosluk-1) 0 var(--aile-bosluk-2) var(--aile-bosluk-2);
+  padding: var(--aile-bosluk-3) var(--aile-bosluk-4);
+  background: var(--aile-yuzey);
+  border: 1px solid var(--aile-cizgi);
+  border-radius: var(--aile-kose-kontrol);
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--aile-sure) var(--aile-egri), border-color var(--aile-sure) var(--aile-egri);
+}
+@media (hover: hover) {
+  .aile-tl-body:hover { background: var(--aile-bilgi-yuzey); }
+}
+.aile-tl-body:active,
+.aile-tl-body[data-pressed='true'] { background: var(--aile-secili); }
+/* Seçili: secili yüzey + 600 (başlık zaten 600); ikincil metinler secili üzerinde metin olur. */
+.aile-tl-body[data-selected='true'] {
+  background: var(--aile-secili);
+  border-color: var(--aile-secili);
+}
+/* Eksik tutar (Money data-missing) secili üzerinde metin rengine döner; ikincil 4,0:1'de kalmaz. */
+.aile-tl-body[data-selected='true'] .aile-tl-meta,
+.aile-tl-body[data-selected='true'] .aile-tutar[data-missing='true'] { color: var(--aile-metin); }
+
+.aile-tl-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+/* Ad ve meta kesilmez; kelime arasından sarılır. */
+.aile-tl-title {
+  font-weight: 600;
+  overflow-wrap: normal;
+  word-break: keep-all;
+}
+.aile-tl-meta { color: var(--aile-metin-ikincil); }
+/* Tutar sağa yaslı (admin.css .aile-tutar: tabular-nums, 500); eksik değeri Money.css boyar. */
+.aile-tl-amount {
+  display: block;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+/* Yalnız ekran okuyucuya ("Planlanan " öneki). */
+.aile-tl-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Dar biçim: tarih sütunu 44 px, gövde tek sütun, tutar sola. */
+.aile-tl[data-narrow='true'] .aile-tl-item {
+  grid-template-columns: var(--aile-hedef-asgari) calc(var(--aile-bosluk-4) + var(--aile-bosluk-1)) minmax(0, 1fr);
+}
+.aile-tl[data-narrow='true'] .aile-tl-body {
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--aile-bosluk-2);
+  justify-items: start;
+}
+.aile-tl[data-narrow='true'] .aile-tl-amount,
+.aile-tl[data-narrow='true'] .aile-tl-amount .aile-tutar { text-align: left; }
+
+@media (prefers-reduced-motion: reduce) {
+  .aile-tl-body { transition-duration: 0s; }
+}

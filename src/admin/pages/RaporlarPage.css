@@ -1,0 +1,69 @@
+/* RaporlarPage — tasarım SayfaRaporlarDar (telefon, temel) ve SayfaRaporlar (geniş): bundle.css › .pg-report
+   (240 px rapor menüsü + gövde), .pg-col, .ai-qb-row, .ai-ov-head. Telefon önce: tek sütun, seçiciler tam genişlik,
+   tablo akordeona iner (ResponsiveTable), grafik yok. Geniş profil [data-profile] ile alan ekler (AdaptiveRoot yazar;
+   genişlik medya sorgusu türetilmez). Tek kaynak tokenlar --aile-*; sabit renk yok. Rapor menüsü yüzey üstünde
+   çerçevesiz durur (kenarlık yağmuru yok). Odak çizgisini admin.css çizer; burada outline/halka/box-shadow yok.
+   Geçiş yok: rapor ve dönem değişimi semantik güncellemedir, anında olur (reduced-motion'da da aynı). */
+
+.aile-raporlar {
+  /* Yerel yerleşim ölçüleri (tasarım bundle.css; tokens.ts karşılığı yok, --aile-* sayılmaz). */
+  --rapor-nav-genislik: 240px; /* .pg-report ilk sütun */
+  --rapor-secim-genislik: 220px; /* .ai-qb-sel */
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--aile-bosluk-6);
+  align-items: start;
+  min-width: 0;
+}
+
+/* Masaüstü: solda rapor menüsü, sağda gövde. Menü yalnız masaüstü profilinde çizilir (data-nav="menu"). */
+[data-profile='desktop'] .aile-raporlar[data-nav='menu'] {
+  grid-template-columns: var(--rapor-nav-genislik) minmax(0, 1fr);
+}
+
+.aile-raporlar__nav {
+  background: var(--aile-yuzey);
+  border-radius: var(--aile-kose-kart);
+  padding: var(--aile-bosluk-2);
+  min-width: 0;
+}
+
+.aile-raporlar__govde,
+.aile-raporlar__rapor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-6);
+  min-width: 0;
+}
+
+.aile-raporlar__rapor { gap: var(--aile-bosluk-4); }
+
+/* Seçiciler: telefonda alt alta tam genişlik (seçim alttan açılan sayfadadır); genişte yan yana 220 px. */
+.aile-raporlar__secim {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--aile-bosluk-3);
+  align-items: flex-end;
+  min-width: 0;
+}
+
+.aile-raporlar__secim > * { flex: 1 1 100%; min-width: 0; }
+
+:is([data-profile='tablet'], [data-profile='desktop']) .aile-raporlar__secim > * {
+  flex: 0 1 var(--rapor-secim-genislik);
+}
+
+/* Rapor başlığı: h2 (admin.css 24/32) + sağda kısa meta (dönem aralığı); sarar, kesilmez. */
+.aile-raporlar__baslik {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--aile-bosluk-1) var(--aile-bosluk-3);
+  min-width: 0;
+}
+
+.aile-raporlar__baslik > h2 { margin: 0; overflow-wrap: break-word; }
+
+.aile-raporlar__not { margin: 0; overflow-wrap: break-word; }
+

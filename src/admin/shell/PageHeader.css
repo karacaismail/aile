@@ -1,0 +1,104 @@
+/* PageHeader — sayfa iskeletinin 1. (başlık) ve 2. (özet) adımı. Kaynak: bundle.css › SAYFA BAŞLIĞI (.ai-ph, .ai-ph-section,
+   .ai-ph-purpose, .ai-ph-actions, .ai-ph-status, .ai-summary, .ai-ph--dar). Tek kaynak tokenlar --aile-* (admin.css :root
+   yedekleri). Sabit renk yok; px ölçüler tokens.json type ölçeğinden (h1 32/40 admin.css'te, özet değeri 24/32 = h2 ölçüsü,
+   küçük 14/20 admin.css .aile-kucuk). Kart, kenarlık, şerit yok: başlık zeminde çerçevesiz durur, özet kutusuz tek satırdır
+   ve yalnız üstteki cizgi ayırıcısıyla ayrılır. Odak çizgisini admin.css çizer; burada outline/halka/box-shadow yok.
+   Geçiş yok: başlık içeriği semantik güncellemedir, anında değişir (reduced-motion'da da aynı). */
+
+.aile-ph {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--aile-bosluk-2) var(--aile-bosluk-6);
+  align-items: start;
+  margin: 0 0 var(--aile-bosluk-6);
+  min-width: 0;
+}
+
+.aile-ph__baslik { min-width: 0; }
+
+/* Bölüm adı: kucuk-orta (14/20, 500), ikincil renk. Ölçü ve renk admin.css yardımcılarından (.aile-kucuk, .aile-ikincil). */
+.aile-ph__bolum {
+  margin: 0 0 var(--aile-bosluk-1);
+  font-weight: 500;
+}
+
+/* h1 ölçüsü admin.css .aile-admin h1 (32/40, 600). Uzun menü adı kelimeden sarar; kesilmez. */
+.aile-ph__h1 {
+  overflow-wrap: break-word;
+}
+
+/* Amaç cümlesi: gövde ölçüsü, ikincil renk, okuma genişliği 720 px (bundle.css .ai-ph-purpose). */
+.aile-ph__amac {
+  margin: var(--aile-bosluk-1) 0 0;
+  max-width: 720px;
+}
+
+/* Eylemler sağda; sarar. Düğme ölçüleri Button.css (44 px hedef). */
+.aile-ph__eylemler {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--aile-bosluk-3);
+  justify-content: flex-end;
+  align-items: center;
+  padding-bottom: var(--aile-bosluk-2);
+}
+
+/* Bağlam (tazelik satırı, özet, sayfa notları) tek tam genişlik satırdır: masaüstünde de notlar eylem sütununa düşmez.
+   İç aralık başlık ızgarasının satır aralığıyla aynıdır (bosluk-2). */
+.aile-ph__baglam {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: var(--aile-bosluk-2);
+  min-width: 0;
+}
+
+.aile-ph__baglam > * { min-width: 0; }
+
+/* Özet: liste işareti yok, kutusuz tek satır; ölçüler yan yana, dar alanda sarar. Üstte yalnız cizgi ayırıcısı. */
+.aile-ph__ozet {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--aile-bosluk-3) var(--aile-bosluk-8);
+  margin: var(--aile-bosluk-2) 0 0;
+  padding: var(--aile-bosluk-4) 0 0;
+  list-style: none;
+  border-top: 1px solid var(--aile-cizgi);
+}
+
+.aile-ph__olcu {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+}
+
+.aile-ph__olcu-etiket { display: block; }
+
+.aile-ph__olcu-deger {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--aile-bosluk-2);
+}
+
+/* Ölçü değeri h2 ölçüsünde (24/32, 600); para ve sayılar tabular-nums ile hizalanır. */
+.aile-ph__olcu-sayi {
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--aile-metin);
+}
+
+/* Dar yerleşim (telefon ve tablet): tek sütun, eylemler sola yaslı, özet aralığı daha sıkı. */
+.aile-ph--dar {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.aile-ph--dar .aile-ph__eylemler {
+  justify-content: flex-start;
+}
+
+.aile-ph--dar .aile-ph__ozet {
+  gap: var(--aile-bosluk-3) var(--aile-bosluk-6);
+}

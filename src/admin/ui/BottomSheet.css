@@ -1,0 +1,188 @@
+/* Alttan açılan sayfa (ui/BottomSheet.tsx) — yerel katman; tasarım bundle.css › .ai-sheet. Yalnız --aile tokenları.
+   Katman yönetim köküne (.aile-admin) portallanır; kök yoksa body'ye. İki durumda da kök data-aile-katman taşıdığı için
+   [data-focus-line] odak çizgisi, halka sıfırlaması ve reduced-motion kuralları merkezi admin.css'ten ulaşır; kök yazı ve
+   rengini kendisi kurar.
+   Odak için outline/box-shadow kullanılmaz; çevreleyen halka yok. Yatay telefon (568×320) telefon profilidir: yükseklik
+   sınırı görünür alana göre hesaplanır. --katman-ust / --katman-alt: visualViewport (sanal klavye) ile JS yazar. */
+
+/* Kök: görünür alanı kaplar; sanal klavye açıkken alt kenarı klavyenin üstündedir. z-index antd açılır katmanlarının
+   (1050) altında kalır ki çekmece içindeki geniş Select listesi üstte açılsın. */
+.aile-sheet {
+  position: fixed;
+  inset: 0;
+  top: var(--katman-ust, 0px);
+  bottom: var(--katman-alt, 0px);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  overflow: hidden;
+  font-family: var(--aile-font-sans);
+  font-size: 16px;
+  line-height: 24px;
+  color: var(--aile-metin);
+}
+.aile-sheet--inline { position: absolute; z-index: auto; overflow: visible; }
+.aile-sheet, .aile-sheet *, .aile-sheet *::before, .aile-sheet *::after { box-sizing: border-box; }
+
+/* Örtü: ortu; yalnız opaklık hareket eder. */
+.aile-sheet .aile-sheet-ortu {
+  position: absolute;
+  inset: 0;
+  background: var(--aile-ortu);
+  opacity: 0;
+  transition: opacity var(--aile-sure) var(--aile-egri);
+}
+.aile-sheet[data-durum='acik'] .aile-sheet-ortu { opacity: 1; }
+
+/* Sarmal: yükseklik içeriğe göre (style height auto), en çok görünür alanın %85'i; flex sütun ki yüzey sığmayınca
+   küçülsün ve gövde kendi içinde kaysın. Gölge yalnız burada (odaklanan panelde değil). Kapalıyken ekranın altında;
+   açıkken sürükleme ofseti kadar aşağıda (parmağı izler). 85vh eski tarayıcı yedeği; min() klavye açıkken küçülür. */
+.aile-sheet .aile-sheet-sarmal {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 85vh;
+  max-height: min(85dvh, 85%);
+  box-shadow: var(--aile-golge-yukseltilmis);
+  border-radius: var(--aile-kose-panel) var(--aile-kose-panel) 0 0;
+  transform: translateY(100%);
+  transition: transform var(--aile-sure) var(--aile-egri);
+}
+.aile-sheet[data-durum='acik'] .aile-sheet-sarmal { transform: translateY(var(--surukleme, 0px)); }
+.aile-sheet .aile-sheet-sarmal[data-surukleniyor] { transition: none; }
+.aile-sheet--full .aile-sheet-sarmal { max-height: none; border-radius: 0; }
+
+/* Yüzey (role=dialog): yuzey zemin, üst köşeler kose-panel, alt ve yan güvenli alan korunur. */
+.aile-sheet .aile-sheet-yuzey {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  background: var(--aile-yuzey);
+  color: var(--aile-metin);
+  border-radius: inherit;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  overflow: hidden;
+}
+.aile-sheet .aile-sheet-yuzey:focus { outline: none; }
+.aile-sheet--full .aile-sheet-yuzey { padding-top: env(safe-area-inset-top, 0px); }
+
+/* Başlık: tutamaç üstte ortada (süsleyici), altında h2 + Kapat; tek cizgi ayırıcı. Üst boşluk tutamaca yer açar.
+   Sürükleme yalnız buradan başlar: tarayıcı bu alanda kaydırma/yakınlaştırma yapmaz (touch-action none). */
+.aile-sheet .aile-sheet-ust {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--aile-bosluk-3);
+  padding: var(--aile-bosluk-4) var(--aile-bosluk-2) var(--aile-bosluk-1) var(--aile-bosluk-4);
+  border-bottom: 1px solid var(--aile-cizgi);
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.aile-sheet .aile-sheet-sarmal[data-surukleniyor] .aile-sheet-ust { cursor: grabbing; }
+/* Tutamaç: 40 × 4 px (referans .ai-sheet-grip; genişliğin tokenı yok), acik-mavi. */
+.aile-sheet .aile-sheet-tutamac {
+  position: absolute;
+  top: var(--aile-bosluk-2);
+  left: 50%;
+  width: 40px;
+  height: var(--aile-bosluk-1);
+  transform: translateX(-50%);
+  border-radius: 2px;
+  background: var(--aile-acik-mavi);
+  pointer-events: none;
+}
+/* h2 başlık h3 ölçüsünde (18/26, 600); kesilmez, kelimeler arasından sarılır. */
+.aile-sheet .aile-sheet-baslik {
+  margin: 0;
+  min-width: 0;
+  font-size: 18px;
+  line-height: 26px;
+  font-weight: 600;
+  color: inherit;
+  white-space: normal;
+  overflow-wrap: normal;
+  word-break: keep-all;
+}
+
+/* Kapat: metinli, her zaman görünür, sessiz düğme (Button quiet görünümü). Hedef merkezi --aile-dokunma-hedefi: 44, kaba
+   işaretçi katmanında (data-input-coarse) 48. Odak göstergesini merkezi admin.css çizer (data-focus-line; kök
+   data-aile-katman): tek alt çizgi, yalnız klavye modunda; burada yerel kopya yok. */
+.aile-sheet .aile-sheet-kapat {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--aile-bosluk-2);
+  min-height: var(--aile-dokunma-hedefi, var(--aile-hedef-asgari));
+  min-width: var(--aile-dokunma-hedefi, var(--aile-hedef-asgari));
+  margin: 0;
+  padding: 0 var(--aile-bosluk-3);
+  border: 0;
+  border-radius: var(--aile-kose-kontrol);
+  background: transparent;
+  color: var(--aile-eylem);
+  font: inherit;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--aile-sure) var(--aile-egri), color var(--aile-sure) var(--aile-egri);
+}
+@media (hover: hover) {
+  .aile-sheet .aile-sheet-kapat:hover { background: var(--aile-bilgi-yuzey); }
+}
+.aile-sheet .aile-sheet-kapat:active { background: var(--aile-secili); color: var(--aile-nav); }
+.aile-sheet .aile-sheet-kapat:focus { outline: none; }
+/* Gövde kendi içinde kayar; kaydırma zinciri sayfaya geçmez. İç yerleşim sütun, satırlar arası bosluk-3 (referans). */
+.aile-sheet .aile-sheet-govde {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-3);
+  padding: var(--aile-bosluk-3) var(--aile-bosluk-4);
+}
+
+/* Altlık: üstte tek cizgi; içindeki FormFooter kendi üst çizgisini ve boşluğunu bırakır (referans .ai-sheet-foot .ai-ff). */
+.aile-sheet .aile-sheet-altlik {
+  flex: none;
+  padding: var(--aile-bosluk-3) var(--aile-bosluk-4) var(--aile-bosluk-4);
+  border-top: 1px solid var(--aile-cizgi);
+  background: var(--aile-yuzey);
+}
+.aile-sheet .aile-sheet-altlik .aile-ff { border-top: 0; padding-top: 0; }
+
+/* Sanal klavye açık (data-klavye, BottomSheet.layer.ts): kök görünür alana oturur; alan kısadır (yatay telefonda ~176 px).
+   Sayfa görünür alanın tamamını alır (%85 sınırı ekranın %85'idir; klavye açıkken görünür alan zaten ondan kısa) ve sık
+   yoğunluğa geçer: süsleyici tutamaç gizlenir (sürükleme başlıktan yine çalışır), boşluklar bosluk-2. Metin, Kapat ve
+   dokunma hedefleri küçülmez. Odaklı alanı gövdenin görünür bölümüne katman kaydırır. */
+.aile-sheet[data-klavye] .aile-sheet-sarmal { max-height: 100%; }
+.aile-sheet[data-klavye] .aile-sheet-tutamac { display: none; }
+.aile-sheet[data-klavye] .aile-sheet-ust { padding-top: var(--aile-bosluk-2); }
+.aile-sheet[data-klavye] .aile-sheet-govde {
+  gap: var(--aile-bosluk-2);
+  padding: var(--aile-bosluk-2) var(--aile-bosluk-4);
+}
+.aile-sheet[data-klavye] .aile-sheet-altlik { padding: var(--aile-bosluk-2) var(--aile-bosluk-4); }
+
+/* Hareket tercihi: geçiş yok, durum anında (açılış/kapanış aynı karede; sürükleme parmağı izlemeye devam eder). */
+@media (prefers-reduced-motion: reduce) {
+  .aile-sheet .aile-sheet-ortu,
+  .aile-sheet .aile-sheet-sarmal,
+  .aile-sheet .aile-sheet-kapat {
+    transition: none;
+  }
+}

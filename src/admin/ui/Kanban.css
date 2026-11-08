@@ -1,0 +1,282 @@
+/* aile Kanban — tasarım components/Kanban/README.md + bundle.css .ai-kanban / .ai-kcol / .ai-kcard.
+   Bu dosya telefon listesini ve listeyle pano arasında ORTAK grup/kart görünümünü taşır; yatay pano yerleşimi
+   (248 px sütun, kendi içinde yatay kaydırma) yalnız geniş dosyada: wide/Kanban.wide.css.
+   Renk, boşluk, köşe ve hareket --aile-* değişkenlerinden (tek kaynak src/design/tokens.ts). Tipografi admin.css
+   ölçeği; alt sınır 14 px. Grup zemini liste-zemin, kart yuzey: yüzey tonu ayırır, kart çevresinde kenarlık yok;
+   tek cizgi yalnız tutar bloğunu üstteki kimlikten ayırır. Odak çizgisini admin.css çizer
+   ([data-focus-line]:focus-visible::after); burada outline/halka/box-shadow yok.
+   Dokunma hedefi: 44 px (hedef-asgari); kaba işaretçi katmanında ([data-input-coarse], AdaptiveRoot) 48 px
+   (hedef-asgari + bosluk-1). Basılı durum :active ve Pointer Events [data-pressed] ile aynı secili yüzey. */
+
+/* Kap: adlı bölgeyi sarar ve kaydırmaz. Genişte bölge (sekme durağı, kendi içinde yatay kayan alan) konumlanmaz:
+   bölgenin ::after odak çizgisinin içeren bloğu bu kaptır, bu yüzden kaydırma alanı çizgiyi kırpmaz ve çizgi bölgenin
+   kaydırılabilir taşmasına katılmaz. Kaba [data-focus-line] konmaz: :has(:focus-visible) içerideki karta odakta da
+   ikinci bir çizgi çizerdi; tek gösterge odaktaki öğenindir. */
+.aile-kanban-kap {
+  position: relative;
+  min-width: 0;
+}
+.aile-kanban {
+  --aile-kanban-hedef: var(--aile-hedef-asgari);
+  min-width: 0;
+}
+/* Pano bölgesinin odağı: admin.css ile aynı ölçü (3 px, 4 px altta, bölge genişliğinde), yalnız klavye modu ve
+   :focus-visible; çevreleyen halka yok. Geniş CSS yüklenemese de sekme durağı göstergesiz kalmasın diye burada. */
+html[data-keyboard='true'] .aile-kanban--pano:focus-visible::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(-1 * (var(--aile-odak-aralik) + var(--aile-odak-kalinlik)));
+  height: var(--aile-odak-kalinlik);
+  background: var(--aile-odak);
+  pointer-events: none;
+}
+[data-input-coarse] .aile-kanban,
+[data-input-coarse] .aile-kanban-durum {
+  --aile-kanban-hedef: calc(var(--aile-hedef-asgari) + var(--aile-bosluk-1));
+}
+
+/* Telefon (ve genişte pano yüklenene dek): gruplar alt alta; yatay kaydırma yok, sayfa genişliğini aşmaz. */
+.aile-kanban-liste {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-4);
+}
+
+/* Grup / sütun: liste-zemin yüzeyi, kart köşesi. */
+.aile-kanban-sutun {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-3);
+  min-width: 0;
+  padding: var(--aile-bosluk-3);
+  border-radius: var(--aile-kose-kart);
+  background: var(--aile-liste-zemin);
+}
+.aile-kanban-sutun-baslik {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-1);
+  padding: 0 var(--aile-bosluk-1) var(--aile-bosluk-1);
+}
+.aile-kanban .aile-kanban-sutun-ad {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--aile-bosluk-2);
+  margin: 0;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+}
+.aile-kanban-sutun-sayi {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--aile-metin);
+  white-space: nowrap;
+}
+.aile-kanban-sutun-toplam {
+  font-size: 14px;
+  line-height: 20px;
+  font-variant-numeric: tabular-nums;
+  color: var(--aile-metin);
+}
+.aile-kanban-bos {
+  margin: 0;
+  padding: var(--aile-bosluk-4) var(--aile-bosluk-1);
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--aile-metin);
+}
+
+.aile-kanban-kartlar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Öğe: kart ve (telefonda, verilirse) "Durumu değiştir" tek yuzey kutusunda; düğmeler iç içe değil, kardeştir. */
+.aile-kanban-oge {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-radius: var(--aile-kose-kontrol);
+  background: var(--aile-yuzey);
+}
+
+/* Kart: yerel düğme; hover bilgi-yuzey (yalnız hover destekleyen işaretçide), basılı ve seçili secili (+600). */
+.aile-kanban-kart {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-3);
+  width: 100%;
+  min-height: var(--aile-kanban-hedef);
+  padding: var(--aile-bosluk-3);
+  border: 0;
+  border-radius: var(--aile-kose-kontrol);
+  background: var(--aile-yuzey);
+  color: var(--aile-metin);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--aile-sure) var(--aile-egri);
+}
+@media (hover: hover) {
+  .aile-kanban-kart:hover { background: var(--aile-bilgi-yuzey); }
+}
+.aile-kanban-kart:active,
+.aile-kanban-kart[data-pressed='true'],
+.aile-kanban-kart[aria-current='true'] { background: var(--aile-secili); }
+.aile-kanban-kart[aria-current='true'] .aile-kanban-kart-ad { font-weight: 600; }
+.aile-kanban-kart[aria-current='true'] .aile-kanban-kart-meta,
+.aile-kanban-kart[aria-current='true'] .aile-kanban-kart-fotoyok,
+.aile-kanban-kart[aria-current='true'] .aile-kanban-tutar-etiket,
+.aile-kanban-kart[aria-current='true'] .aile-kanban-eksik,
+.aile-kanban-kart[aria-current='true'] .aile-kanban-foto--yok { color: var(--aile-metin); }
+
+.aile-kanban-kart-ust {
+  display: grid;
+  grid-template-columns: var(--aile-fotograf-liste) minmax(0, 1fr);
+  gap: var(--aile-bosluk-3);
+  align-items: start;
+}
+.aile-kanban-foto {
+  display: block;
+  width: var(--aile-fotograf-liste);
+  height: var(--aile-fotograf-liste);
+  border-radius: var(--aile-kose-kontrol);
+  object-fit: cover;
+  flex: none;
+}
+.aile-kanban-foto--yok {
+  display: grid;
+  place-items: center;
+  background: var(--aile-liste-zemin);
+  color: var(--aile-metin-ikincil);
+}
+.aile-kanban-kart-ana {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-1);
+  min-width: 0;
+}
+/* Ad kelime arasından sarılır; uzun tek sözcük kendi kutusunu taşırmaz. */
+.aile-kanban-kart-ad { font-weight: 600; overflow-wrap: break-word; }
+.aile-kanban-kart-meta,
+.aile-kanban-kart-fotoyok {
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--aile-metin-ikincil);
+}
+
+/* Planlanan ve Gerçekleşen yan yana, ayrı; tek cizgi kimlikten ayırır. Tutar tabular-nums, 500; eksik bilgi ikincil.
+   Dar kartta (≈ 260 px altı) alt alta iner; tutar kesilmez. */
+.aile-kanban-kart-tutarlar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(calc(4 * var(--aile-bosluk-8)), 1fr));
+  gap: var(--aile-bosluk-2) var(--aile-bosluk-3);
+  padding-top: var(--aile-bosluk-2);
+  border-top: 1px solid var(--aile-cizgi);
+}
+.aile-kanban-tutar { display: flex; flex-direction: column; min-width: 0; }
+.aile-kanban-tutar-etiket {
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--aile-metin-ikincil);
+}
+.aile-kanban-tutar-deger {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.aile-kanban-eksik { color: var(--aile-metin-ikincil); }
+
+.aile-kanban-kart-etiketler {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--aile-bosluk-2);
+}
+
+/* "Durumu değiştir": kartın altında, sağa yaslı sessiz düğme; 44/48 px hedef. */
+.aile-kanban-eylem {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 var(--aile-bosluk-1) var(--aile-bosluk-1);
+}
+.aile-kanban .aile-kanban-eylem .aile-kanban-degistir {
+  min-height: var(--aile-kanban-hedef);
+  min-width: var(--aile-kanban-hedef);
+}
+
+/* Alt sayfa içeriği (portallanır; .aile-kanban dışında): kayıt adı + şu anki durum, altında seçenek listesi. */
+.aile-kanban-durum {
+  --aile-kanban-hedef: var(--aile-hedef-asgari);
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-3);
+}
+[data-input-coarse] .aile-kanban-durum { --aile-kanban-hedef: calc(var(--aile-hedef-asgari) + var(--aile-bosluk-1)); }
+.aile-kanban-durum-kayit {
+  margin: 0;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--aile-metin-ikincil);
+  overflow-wrap: break-word;
+}
+.aile-kanban-durum-ad { font-weight: 600; color: var(--aile-metin); }
+.aile-kanban-durum-liste {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.aile-kanban-durum-secenek {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--aile-bosluk-2);
+  width: 100%;
+  min-height: var(--aile-kanban-hedef);
+  padding: var(--aile-bosluk-2) var(--aile-bosluk-3);
+  border: 0;
+  border-radius: var(--aile-kose-kontrol);
+  background: transparent;
+  color: var(--aile-metin);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--aile-sure) var(--aile-egri);
+}
+@media (hover: hover) {
+  .aile-kanban-durum-secenek:hover { background: var(--aile-bilgi-yuzey); }
+}
+.aile-kanban-durum-secenek:active { background: var(--aile-secili); }
+.aile-kanban-durum-secenek[aria-checked='true'] { background: var(--aile-secili); font-weight: 600; }
+.aile-kanban-durum-isaret {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: var(--aile-bosluk-6);
+  height: var(--aile-bosluk-6);
+  color: var(--aile-eylem);
+}
+.aile-kanban-durum-etiket { min-width: 0; overflow-wrap: break-word; }
+
+@media (prefers-reduced-motion: reduce) {
+  .aile-kanban-kart,
+  .aile-kanban-durum-secenek { transition-duration: 0s; }
+}

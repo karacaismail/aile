@@ -1,0 +1,3711 @@
+{
+  "schemaVersion": 1,
+  "status": "planned",
+  "database_execution": "not_run",
+  "target_postgresql_version": "not_selected",
+  "documentation_basis": "PostgreSQL 18 documentation; no database setup is implied",
+  "source_contracts": [
+    "data-platform/README.md",
+    "data-platform/core.mjs",
+    "data-platform/native.mjs",
+    "data-platform/normalize.mjs",
+    "data-platform/finance.mjs",
+    "data-platform/taxonomy.mjs",
+    "data-platform/validate.mjs",
+    "data-platform/schemas/partition.schema.json",
+    "data-platform/dictionaries/task-templates.json"
+  ],
+  "source_location": "Private generation directory selected explicitly; never public/dist/Git. Resolve partition paths from its manifest, not guessed filesystem glob traversal.",
+  "scope": "Lossless generation-scoped relational import proposal for existing collections. Live SaaS CRUD tables, authentication and accounting postings are separate future implementations.",
+  "identity": {
+    "id": "Use exported deterministic UUIDv5 unchanged. Original app identity remains source_record_id text.",
+    "tenant_id": "Use manifest tenant_id and assert each record matches; never derive a tenant by matching names.",
+    "generation_id": "Use manifest generation_id. Same entity ID in a later generation is preserved as a separate snapshot version.",
+    "primary_key": [
+      "tenant_id",
+      "generation_id",
+      "id"
+    ],
+    "future_current_state": "Do not overwrite prior snapshot records with a blind upsert. A future live (tenant_id,id) model needs its own version/conflict and authority policy."
+  },
+  "type_rules": {
+    "money": {
+      "json": {
+        "amount": "decimal string in major currency units",
+        "currency": "ISO currency code"
+      },
+      "postgres": "numeric plus char(3); preserve null and exact source decimal text in archived payload",
+      "forbidden": "Do not reinterpret amount as minor units, use binary float, infer missing currency or convert unknown to zero."
+    },
+    "decimal": "Normalized numeric source attributes are strings; cast only after decimal validation. Source number precision cannot be reconstructed.",
+    "date": "YYYY-MM-DD to date with calendar validation; null stays null.",
+    "month": "YYYY-MM stored as text with calendar-month check, no invented first-day event.",
+    "timestamp": "Validated ISO timestamp to timestamptz; source fields without timezone do not silently assume local timezone.",
+    "raw": "Native cell/source metadata/source_attributes and unmapped attributes remain JSONB; byte-for-byte native files remain in a private raw archive.",
+    "jsonb": "Do not rely on object key order. Preserve array order where semantically significant."
+  },
+  "field_groups": {
+    "identity_context": [
+      {
+        "source_path": "id",
+        "column": "id",
+        "postgres_type": "uuid",
+        "nullable": false
+      },
+      {
+        "source_path": "tenant_id",
+        "column": "tenant_id",
+        "postgres_type": "uuid",
+        "nullable": false
+      },
+      {
+        "source_path": "$manifest.generation_id",
+        "column": "generation_id",
+        "postgres_type": "text",
+        "nullable": false,
+        "check": "64 lowercase hexadecimal characters"
+      }
+    ],
+    "provenance": [
+      {
+        "source_path": "provenance",
+        "column": "provenance",
+        "postgres_type": "jsonb",
+        "nullable": true
+      },
+      {
+        "source_path": "provenance.source_id",
+        "column": "provenance_source_id",
+        "postgres_type": "uuid",
+        "nullable": true
+      },
+      {
+        "source_path": "provenance.sheet_id",
+        "column": "provenance_sheet_id",
+        "postgres_type": "integer",
+        "nullable": true
+      },
+      {
+        "source_path": "provenance.row",
+        "column": "provenance_row",
+        "postgres_type": "integer",
+        "nullable": true
+      },
+      {
+        "source_path": "provenance.column",
+        "column": "provenance_column",
+        "postgres_type": "integer",
+        "nullable": true
+      },
+      {
+        "source_path": "provenance.a1",
+        "column": "provenance_a1",
+        "postgres_type": "text",
+        "nullable": true
+      }
+    ],
+    "app_record": [
+      {
+        "source_path": "kind",
+        "column": "kind",
+        "postgres_type": "text",
+        "nullable": false
+      },
+      {
+        "source_path": "label",
+        "column": "label",
+        "postgres_type": "text",
+        "nullable": false
+      },
+      {
+        "source_path": "source_id",
+        "column": "source_id",
+        "postgres_type": "uuid",
+        "nullable": false
+      },
+      {
+        "source_path": "source_record_id",
+        "column": "source_record_id",
+        "postgres_type": "text",
+        "nullable": false
+      },
+      {
+        "source_path": "source_attributes",
+        "column": "source_attributes",
+        "postgres_type": "jsonb",
+        "nullable": false
+      },
+      {
+        "source_path": "attributes",
+        "column": "attributes",
+        "postgres_type": "jsonb",
+        "nullable": false
+      },
+      {
+        "source_path": "deleted_at",
+        "column": "deleted_at",
+        "postgres_type": "timestamptz",
+        "nullable": true
+      },
+      {
+        "source_path": "attributes.created_at",
+        "column": "attributes_created_at",
+        "postgres_type": "timestamptz",
+        "nullable": true
+      },
+      {
+        "source_path": "attributes.updated_at",
+        "column": "attributes_updated_at",
+        "postgres_type": "timestamptz",
+        "nullable": true
+      },
+      {
+        "source_path": "attributes.version",
+        "column": "attributes_version",
+        "postgres_type": "numeric",
+        "nullable": true
+      },
+      {
+        "source_path": "attributes.son_op_id",
+        "column": "attributes_son_op_id",
+        "postgres_type": "text",
+        "nullable": true
+      }
+    ],
+    "item_record": [
+      {
+        "source_path": "category_term_id",
+        "column": "category_term_id",
+        "postgres_type": "uuid",
+        "nullable": true
+      },
+      {
+        "source_path": "phase_term_id",
+        "column": "phase_term_id",
+        "postgres_type": "uuid",
+        "nullable": true
+      },
+      {
+        "source_path": "legacy_status_term_id",
+        "column": "legacy_status_term_id",
+        "postgres_type": "uuid",
+        "nullable": true
+      },
+      {
+        "source_path": "room_id",
+        "column": "room_id",
+        "postgres_type": "uuid",
+        "nullable": true
+      },
+      {
+        "source_path": "context_term_ids",
+        "column": "context_term_ids",
+        "postgres_type": "uuid[]",
+        "nullable": true
+      },
+      {
+        "source_path": "state_snapshot",
+        "column": "state_snapshot",
+        "postgres_type": "jsonb",
+        "nullable": true
+      },
+      {
+        "source_path": "state_snapshot.decision",
+        "column": "state_snapshot_decision",
+        "postgres_type": "text",
+        "nullable": true
+      },
+      {
+        "source_path": "state_snapshot.fulfillment",
+        "column": "state_snapshot_fulfillment",
+        "postgres_type": "text",
+        "nullable": true
+      },
+      {
+        "source_path": "state_snapshot.inspection",
+        "column": "state_snapshot_inspection",
+        "postgres_type": "text",
+        "nullable": true
+      },
+      {
+        "source_path": "state_snapshot.payment",
+        "column": "state_snapshot_payment",
+        "postgres_type": "text",
+        "nullable": true
+      },
+      {
+        "source_path": "amounts",
+        "column": "amounts",
+        "postgres_type": "jsonb",
+        "nullable": true
+      },
+      {
+        "source_path": "dates",
+        "column": "dates",
+        "postgres_type": "jsonb",
+        "nullable": true
+      },
+      {
+        "source_path": "dates.planned_on",
+        "column": "dates_planned_on",
+        "postgres_type": "date",
+        "nullable": true
+      },
+      {
+        "source_path": "dates.order_due_on",
+        "column": "dates_order_due_on",
+        "postgres_type": "date",
+        "nullable": true
+      },
+      {
+        "source_path": "dates.delivered_on",
+        "column": "dates_delivered_on",
+        "postgres_type": "date",
+        "nullable": true
+      },
+      {
+        "source_path": "dates.payment_on",
+        "column": "dates_payment_on",
+        "postgres_type": "date",
+        "nullable": true
+      },
+      {
+        "source_path": "dates.end_on",
+        "column": "dates_end_on",
+        "postgres_type": "date",
+        "nullable": true
+      },
+      {
+        "source_path": "amounts.estimated_min.amount",
+        "column": "amounts_estimated_min_amount",
+        "postgres_type": "numeric",
+        "nullable": true
+      },
+      {
+        "source_path": "amounts.estimated_min.currency",
+        "column": "amounts_estimated_min_currency",
+        "postgres_type": "char(3)",
+        "nullable": true
+      },
+      {
+        "source_path": "amounts.estimated_max.amount",
+        "column": "amounts_estimated_max_amount",
+        "postgres_type": "numeric",
+        "nullable": true
+      },
+      {
+        "source_path": "amounts.estimated_max.currency",
+        "column": "amounts_estimated_max_currency",
+        "postgres_type": "char(3)",
+        "nullable": true
+      },
+      {
+        "source_path": "amounts.recorded_price.amount",
+        "column": "amounts_recorded_price_amount",
+        "postgres_type": "numeric",
+        "nullable": true
+      },
+      {
+        "source_path": "amounts.recorded_price.currency",
+        "column": "amounts_recorded_price_currency",
+        "postgres_type": "char(3)",
+        "nullable": true
+      },
+      {
+        "source_path": "amounts.quote.amount",
+        "column": "amounts_quote_amount",
+        "postgres_type": "numeric",
+        "nullable": true
+      },
+      {
+        "source_path": "amounts.quote.currency",
+        "column": "amounts_quote_currency",
+        "postgres_type": "char(3)",
+        "nullable": true
+      },
+      {
+        "source_path": "state_term_ids",
+        "column": "state_term_ids",
+        "postgres_type": "jsonb",
+        "nullable": true
+      },
+      {
+        "source_path": "state_term_ids.decision",
+        "column": "decision_state_term_id",
+        "postgres_type": "uuid",
+        "nullable": true
+      },
+      {
+        "source_path": "state_term_ids.fulfillment",
+        "column": "fulfillment_state_term_id",
+        "postgres_type": "uuid",
+        "nullable": true
+      },
+      {
+        "source_path": "state_term_ids.inspection",
+        "column": "inspection_state_term_id",
+        "postgres_type": "uuid",
+        "nullable": true
+      },
+      {
+        "source_path": "state_term_ids.payment",
+        "column": "payment_state_term_id",
+        "postgres_type": "uuid",
+        "nullable": true
+      }
+    ],
+    "forecast_record": [
+      {
+        "source_path": "kind",
+        "column": "kind",
+        "postgres_type": "text",
+        "nullable": false
+      },
+      {
+        "source_path": "record_basis",
+        "column": "record_basis",
+        "postgres_type": "text",
+        "nullable": false
+      },
+      {
+        "source_path": "source_id",
+        "column": "source_id",
+        "postgres_type": "uuid",
+        "nullable": false
+      }
+    ]
+  },
+  "collections": [
+    {
+      "collection": "sources",
+      "source_partition_glob": "data/sources/**/*.json",
+      "target_table": "import_meta.sources",
+      "status": "planned",
+      "database_verification": "not_run",
+      "primary_key": [
+        "tenant_id",
+        "generation_id",
+        "id"
+      ],
+      "tenant_foreign_key": {
+        "column": "tenant_id",
+        "target": "migration_context.tenants.id"
+      },
+      "generation_foreign_key": {
+        "columns": [
+          "tenant_id",
+          "generation_id"
+        ],
+        "target": "migration_context.generations(tenant_id,generation_id)"
+      },
+      "include_field_groups": [
+        "identity_context"
+      ],
+      "fields": [
+        {
+          "source_path": "key",
+          "column": "key",
+          "postgres_type": "text",
+          "nullable": false
+        },
+        {
+          "source_path": "spreadsheet_id",
+          "column": "spreadsheet_id",
+          "postgres_type": "text",
+          "nullable": false,
+          "sensitivity": "private_source_identifier"
+        },
+        {
+          "source_path": "metadata_hash",
+          "column": "metadata_hash",
+          "postgres_type": "text",
+          "nullable": true
+        },
+        {
+          "source_path": "chunk_hashes",
+          "column": "chunk_hashes",
+          "postgres_type": "jsonb",
+          "nullable": true
+        },
+        {
+          "source_path": "capture",
+          "column": "capture",
+          "postgres_type": "jsonb",
+          "nullable": true
+        }
+      ],
+      "foreign_keys": [],
+      "checks": [
+        "Unique (tenant_id,generation_id,key).",
+        "Source captures remain private; a public schema field name does not authorize publishing its actual value."
+      ],
+      "notes": []
+    },
+    {
+      "collection": "sheets",
+      "source_partition_glob": "data/sheets/**/*.json",
+      "target_table": "source_archive.sheets",
+      "status": "planned",
+      "database_verification": "not_run",
+      "primary_key": [
+        "tenant_id",
+        "generation_id",
+        "id"
+      ],
+      "tenant_foreign_key": {
+        "column": "tenant_id",
+        "target": "migration_context.tenants.id"
+      },
+      "generation_foreign_key": {
+        "columns": [
+          "tenant_id",
+          "generation_id"
+        ],
+        "target": "migration_context.generations(tenant_id,generation_id)"
+      },
+      "include_field_groups": [
+        "identity_context"
+      ],
+      "fields": [
+        {
+          "source_path": "source_id",
+          "column": "source_id",
+          "postgres_type": "uuid",
+          "nullable": false
+        },
+        {
+          "source_path": "properties",
+          "column": "properties",
+          "postgres_type": "jsonb",
+          "nullable": false
+        },
+        {
+          "source_path": "properties.sheetId",
+          "column": "native_sheet_id",
+          "postgres_type": "integer",
+          "nullable": false
+        },
+        {
+          "source_path": "properties.title",
+          "column": "sheet_title",
+          "postgres_type": "text",
+          "nullable": false
+        },
+        {
+          "source_path": "nonempty_cell_count",
+          "column": "nonempty_cell_count",
+          "postgres_type": "integer",
+          "nullable": true
+        },
+        {
+          "source_path": "nonempty_row_count",
+          "column": "nonempty_row_count",
+          "postgres_type": "integer",
+          "nullable": true
+        }
+      ],
+      "foreign_keys": [
+        {
+          "source_path": "source_id",
+          "target_table": "import_meta.sources",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        }
+      ],
+      "checks": [
+        "Counts must be nonnegative."
+      ],
+      "notes": []
+    },
+    {
+      "collection": "source_cells",
+      "source_partition_glob": "data/source_cells/**/*.json",
+      "target_table": "source_archive.source_cells",
+      "status": "planned",
+      "database_verification": "not_run",
+      "primary_key": [
+        "tenant_id",
+        "generation_id",
+        "id"
+      ],
+      "tenant_foreign_key": {
+        "column": "tenant_id",
+        "target": "migration_context.tenants.id"
+      },
+      "generation_foreign_key": {
+        "columns": [
+          "tenant_id",
+          "generation_id"
+        ],
+        "target": "migration_context.generations(tenant_id,generation_id)"
+      },
+      "include_field_groups": [
+        "identity_context",
+        "provenance"
+      ],
+      "fields": [
+        {
+          "source_path": "cell",
+          "column": "cell",
+          "postgres_type": "jsonb",
+          "nullable": false
+        }
+      ],
+      "foreign_keys": [
+        {
+          "source_path": "provenance.source_id",
+          "target_table": "import_meta.sources",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        }
+      ],
+      "checks": [
+        "Preserve native formula, error, format, note, link and validation; do not coerce an error into zero.",
+        "Provenance row/column is 1-based and positive."
+      ],
+      "notes": []
+    },
+    {
+      "collection": "source_rows",
+      "source_partition_glob": "data/source_rows/**/*.json",
+      "target_table": "source_archive.source_rows",
+      "status": "planned",
+      "database_verification": "not_run",
+      "primary_key": [
+        "tenant_id",
+        "generation_id",
+        "id"
+      ],
+      "tenant_foreign_key": {
+        "column": "tenant_id",
+        "target": "migration_context.tenants.id"
+      },
+      "generation_foreign_key": {
+        "columns": [
+          "tenant_id",
+          "generation_id"
+        ],
+        "target": "migration_context.generations(tenant_id,generation_id)"
+      },
+      "include_field_groups": [
+        "identity_context",
+        "provenance"
+      ],
+      "fields": [
+        {
+          "source_path": "cell_ids",
+          "column": "cell_ids",
+          "postgres_type": "uuid[]",
+          "nullable": false
+        }
+      ],
+      "foreign_keys": [
+        {
+          "source_path": "provenance.source_id",
+          "target_table": "import_meta.sources",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        }
+      ],
+      "checks": [],
+      "notes": [
+        "Normalize cell_ids into source_archive.row_cells during the relational import; retain original ordering."
+      ]
+    },
+    {
+      "collection": "supplements",
+      "source_partition_glob": "data/supplements/**/*.json",
+      "target_table": "source_archive.supplements",
+      "status": "planned",
+      "database_verification": "not_run",
+      "primary_key": [
+        "tenant_id",
+        "generation_id",
+        "id"
+      ],
+      "tenant_foreign_key": {
+        "column": "tenant_id",
+        "target": "migration_context.tenants.id"
+      },
+      "generation_foreign_key": {
+        "columns": [
+          "tenant_id",
+          "generation_id"
+        ],
+        "target": "migration_context.generations(tenant_id,generation_id)"
+      },
+      "include_field_groups": [
+        "identity_context"
+      ],
+      "fields": [
+        {
+          "source_path": "key",
+          "column": "key",
+          "postgres_type": "text",
+          "nullable": false
+        },
+        {
+          "source_path": "classification",
+          "column": "classification",
+          "postgres_type": "text",
+          "nullable": false,
+          "source_value_policy": {
+            "mode": "preserve",
+            "default_when_missing": "external_catalog_or_configuration",
+            "allowed_values": null
+          }
+        },
+        {
+          "source_path": "source_url",
+          "column": "source_url",
+          "postgres_type": "text",
+          "nullable": true
+        },
+        {
+          "source_path": "payload",
+          "column": "payload",
+          "postgres_type": "jsonb",
+          "nullable": false
+        }
+      ],
+      "foreign_keys": [],
+      "checks": [
+        "Preserve the captured supplement classification exactly; it is a source-provided label, not an enum restricted to external_catalog_or_configuration. The exporter defaults to external_catalog_or_configuration only when no classification is supplied."
+      ],
+      "notes": [
+        "Supplement payloads can retain Google Sheets comments, historical engine configuration, external catalog data or other explicitly classified source context. Preserve classification and provenance; a label alone does not prove a new financial event or authorize merging payloads into actual household records."
+      ]
+    },
+    {
+      "collection": "settings",
+      "source_partition_glob": "data/settings/**/*.json",
+      "target_table": "domain.settings",
+      "status": "planned",
+      "database_verification": "not_run",
+      "primary_key": [
+        "tenant_id",
+        "generation_id",
+        "id"
+      ],
+      "tenant_foreign_key": {
+        "column": "tenant_id",
+        "target": "migration_context.tenants.id"
+      },
+      "generation_foreign_key": {
+        "columns": [
+          "tenant_id",
+          "generation_id"
+        ],
+        "target": "migration_context.generations(tenant_id,generation_id)"
+      },
+      "include_field_groups": [
+        "identity_context",
+        "app_record",
+        "provenance"
+      ],
+      "fields": [],
+      "foreign_keys": [
+        {
+          "source_path": "source_id",
+          "target_table": "import_meta.sources",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "provenance.source_id",
+          "target_table": "import_meta.sources",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        }
+      ],
+      "checks": [
+        "Source setting type remains in attributes.tip."
+      ],
+      "notes": []
+    },
+    {
+      "collection": "rooms",
+      "source_partition_glob": "data/rooms/**/*.json",
+      "target_table": "domain.rooms",
+      "status": "planned",
+      "database_verification": "not_run",
+      "primary_key": [
+        "tenant_id",
+        "generation_id",
+        "id"
+      ],
+      "tenant_foreign_key": {
+        "column": "tenant_id",
+        "target": "migration_context.tenants.id"
+      },
+      "generation_foreign_key": {
+        "columns": [
+          "tenant_id",
+          "generation_id"
+        ],
+        "target": "migration_context.generations(tenant_id,generation_id)"
+      },
+      "include_field_groups": [
+        "identity_context",
+        "app_record",
+        "provenance"
+      ],
+      "fields": [
+        {
+          "source_path": "setting_id",
+          "column": "setting_id",
+          "postgres_type": "uuid",
+          "nullable": false
+        },
+        {
+          "source_path": "code",
+          "column": "code",
+          "postgres_type": "text",
+          "nullable": false
+        }
+      ],
+      "foreign_keys": [
+        {
+          "source_path": "source_id",
+          "target_table": "import_meta.sources",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "provenance.source_id",
+          "target_table": "import_meta.sources",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "setting_id",
+          "target_table": "domain.settings",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        }
+      ],
+      "checks": [],
+      "notes": [
+        "These are explicit source room settings. No property_id, measurements or room assignment history is inferred."
+      ]
+    },
+    {
+      "collection": "purchase_needs",
+      "source_partition_glob": "data/purchase_needs/**/*.json",
+      "target_table": "domain.purchase_needs",
+      "status": "planned",
+      "database_verification": "not_run",
+      "primary_key": [
+        "tenant_id",
+        "generation_id",
+        "id"
+      ],
+      "tenant_foreign_key": {
+        "column": "tenant_id",
+        "target": "migration_context.tenants.id"
+      },
+      "generation_foreign_key": {
+        "columns": [
+          "tenant_id",
+          "generation_id"
+        ],
+        "target": "migration_context.generations(tenant_id,generation_id)"
+      },
+      "include_field_groups": [
+        "identity_context",
+        "app_record",
+        "item_record",
+        "provenance"
+      ],
+      "fields": [],
+      "foreign_keys": [
+        {
+          "source_path": "source_id",
+          "target_table": "import_meta.sources",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "provenance.source_id",
+          "target_table": "import_meta.sources",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "category_term_id",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "phase_term_id",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "legacy_status_term_id",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "room_id",
+          "target_table": "domain.rooms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "state_term_ids.decision",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "state_term_ids.fulfillment",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "state_term_ids.inspection",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "state_term_ids.payment",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        }
+      ],
+      "checks": [
+        "kind = 'purchase_need'.",
+        "Category, phase, context and legacy status references must belong to their expected vocabulary.",
+        "Unknown source fields stay in source_attributes; type-specific attributes are retained as JSONB until a versioned mapping explicitly promotes them.",
+        "Each state_term_ids axis must resolve to the same code and expected state vocabulary as state_snapshot; a source end_on date is not actual completion evidence."
+      ],
+      "notes": [
+        "No new payment, loan, order, provider selection or accounting posting is inferred from a status or price."
+      ]
+    },
+    {
+      "collection": "lighting_specs",
+      "source_partition_glob": "data/lighting_specs/**/*.json",
+      "target_table": "domain.lighting_specs",
+      "status": "planned",
+      "database_verification": "not_run",
+      "primary_key": [
+        "tenant_id",
+        "generation_id",
+        "id"
+      ],
+      "tenant_foreign_key": {
+        "column": "tenant_id",
+        "target": "migration_context.tenants.id"
+      },
+      "generation_foreign_key": {
+        "columns": [
+          "tenant_id",
+          "generation_id"
+        ],
+        "target": "migration_context.generations(tenant_id,generation_id)"
+      },
+      "include_field_groups": [
+        "identity_context",
+        "app_record",
+        "item_record",
+        "provenance"
+      ],
+      "fields": [],
+      "foreign_keys": [
+        {
+          "source_path": "source_id",
+          "target_table": "import_meta.sources",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "provenance.source_id",
+          "target_table": "import_meta.sources",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "category_term_id",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "phase_term_id",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "legacy_status_term_id",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "room_id",
+          "target_table": "domain.rooms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "state_term_ids.decision",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "state_term_ids.fulfillment",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "state_term_ids.inspection",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "state_term_ids.payment",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        }
+      ],
+      "checks": [
+        "kind = 'lighting_spec'.",
+        "Category, phase, context and legacy status references must belong to their expected vocabulary.",
+        "Unknown source fields stay in source_attributes; type-specific attributes are retained as JSONB until a versioned mapping explicitly promotes them.",
+        "Each state_term_ids axis must resolve to the same code and expected state vocabulary as state_snapshot; a source end_on date is not actual completion evidence."
+      ],
+      "notes": [
+        "No new payment, loan, order, provider selection or accounting posting is inferred from a status or price."
+      ]
+    },
+    {
+      "collection": "work_orders",
+      "source_partition_glob": "data/work_orders/**/*.json",
+      "target_table": "domain.work_orders",
+      "status": "planned",
+      "database_verification": "not_run",
+      "primary_key": [
+        "tenant_id",
+        "generation_id",
+        "id"
+      ],
+      "tenant_foreign_key": {
+        "column": "tenant_id",
+        "target": "migration_context.tenants.id"
+      },
+      "generation_foreign_key": {
+        "columns": [
+          "tenant_id",
+          "generation_id"
+        ],
+        "target": "migration_context.generations(tenant_id,generation_id)"
+      },
+      "include_field_groups": [
+        "identity_context",
+        "app_record",
+        "item_record",
+        "provenance"
+      ],
+      "fields": [],
+      "foreign_keys": [
+        {
+          "source_path": "source_id",
+          "target_table": "import_meta.sources",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "provenance.source_id",
+          "target_table": "import_meta.sources",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "category_term_id",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "phase_term_id",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "legacy_status_term_id",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "room_id",
+          "target_table": "domain.rooms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "state_term_ids.decision",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "state_term_ids.fulfillment",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "state_term_ids.inspection",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "state_term_ids.payment",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        }
+      ],
+      "checks": [
+        "kind = 'work_order'.",
+        "Category, phase, context and legacy status references must belong to their expected vocabulary.",
+        "Unknown source fields stay in source_attributes; type-specific attributes are retained as JSONB until a versioned mapping explicitly promotes them.",
+        "Each state_term_ids axis must resolve to the same code and expected state vocabulary as state_snapshot; a source end_on date is not actual completion evidence."
+      ],
+      "notes": [
+        "No new payment, loan, order, provider selection or accounting posting is inferred from a status or price."
+      ]
+    },
+    {
+      "collection": "layout_items",
+      "source_partition_glob": "data/layout_items/**/*.json",
+      "target_table": "domain.layout_items",
+      "status": "planned",
+      "database_verification": "not_run",
+      "primary_key": [
+        "tenant_id",
+        "generation_id",
+        "id"
+      ],
+      "tenant_foreign_key": {
+        "column": "tenant_id",
+        "target": "migration_context.tenants.id"
+      },
+      "generation_foreign_key": {
+        "columns": [
+          "tenant_id",
+          "generation_id"
+        ],
+        "target": "migration_context.generations(tenant_id,generation_id)"
+      },
+      "include_field_groups": [
+        "identity_context",
+        "app_record",
+        "item_record",
+        "provenance"
+      ],
+      "fields": [],
+      "foreign_keys": [
+        {
+          "source_path": "source_id",
+          "target_table": "import_meta.sources",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "provenance.source_id",
+          "target_table": "import_meta.sources",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "category_term_id",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "phase_term_id",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "legacy_status_term_id",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "room_id",
+          "target_table": "domain.rooms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "state_term_ids.decision",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "state_term_ids.fulfillment",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "state_term_ids.inspection",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "state_term_ids.payment",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        }
+      ],
+      "checks": [
+        "kind = 'layout_item'.",
+        "Category, phase, context and legacy status references must belong to their expected vocabulary.",
+        "Unknown source fields stay in source_attributes; type-specific attributes are retained as JSONB until a versioned mapping explicitly promotes them.",
+        "Each state_term_ids axis must resolve to the same code and expected state vocabulary as state_snapshot; a source end_on date is not actual completion evidence."
+      ],
+      "notes": [
+        "No new payment, loan, order, provider selection or accounting posting is inferred from a status or price."
+      ]
+    },
+    {
+      "collection": "providers",
+      "source_partition_glob": "data/providers/**/*.json",
+      "target_table": "domain.providers",
+      "status": "planned",
+      "database_verification": "not_run",
+      "primary_key": [
+        "tenant_id",
+        "generation_id",
+        "id"
+      ],
+      "tenant_foreign_key": {
+        "column": "tenant_id",
+        "target": "migration_context.tenants.id"
+      },
+      "generation_foreign_key": {
+        "columns": [
+          "tenant_id",
+          "generation_id"
+        ],
+        "target": "migration_context.generations(tenant_id,generation_id)"
+      },
+      "include_field_groups": [
+        "identity_context",
+        "app_record",
+        "item_record",
+        "provenance"
+      ],
+      "fields": [],
+      "foreign_keys": [
+        {
+          "source_path": "source_id",
+          "target_table": "import_meta.sources",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "provenance.source_id",
+          "target_table": "import_meta.sources",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "category_term_id",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "phase_term_id",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "legacy_status_term_id",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "room_id",
+          "target_table": "domain.rooms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "state_term_ids.decision",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "state_term_ids.fulfillment",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "state_term_ids.inspection",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "state_term_ids.payment",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        }
+      ],
+      "checks": [
+        "kind = 'provider'.",
+        "Category, phase, context and legacy status references must belong to their expected vocabulary.",
+        "Unknown source fields stay in source_attributes; type-specific attributes are retained as JSONB until a versioned mapping explicitly promotes them.",
+        "Each state_term_ids axis must resolve to the same code and expected state vocabulary as state_snapshot; a source end_on date is not actual completion evidence."
+      ],
+      "notes": [
+        "No new payment, loan, order, provider selection or accounting posting is inferred from a status or price."
+      ]
+    },
+    {
+      "collection": "inspections",
+      "source_partition_glob": "data/inspections/**/*.json",
+      "target_table": "domain.inspections",
+      "status": "planned",
+      "database_verification": "not_run",
+      "primary_key": [
+        "tenant_id",
+        "generation_id",
+        "id"
+      ],
+      "tenant_foreign_key": {
+        "column": "tenant_id",
+        "target": "migration_context.tenants.id"
+      },
+      "generation_foreign_key": {
+        "columns": [
+          "tenant_id",
+          "generation_id"
+        ],
+        "target": "migration_context.generations(tenant_id,generation_id)"
+      },
+      "include_field_groups": [
+        "identity_context",
+        "app_record",
+        "item_record",
+        "provenance"
+      ],
+      "fields": [],
+      "foreign_keys": [
+        {
+          "source_path": "source_id",
+          "target_table": "import_meta.sources",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "provenance.source_id",
+          "target_table": "import_meta.sources",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "category_term_id",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "phase_term_id",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "legacy_status_term_id",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "room_id",
+          "target_table": "domain.rooms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "state_term_ids.decision",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "state_term_ids.fulfillment",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "state_term_ids.inspection",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "state_term_ids.payment",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        }
+      ],
+      "checks": [
+        "kind = 'inspection'.",
+        "Category, phase, context and legacy status references must belong to their expected vocabulary.",
+        "Unknown source fields stay in source_attributes; type-specific attributes are retained as JSONB until a versioned mapping explicitly promotes them.",
+        "Each state_term_ids axis must resolve to the same code and expected state vocabulary as state_snapshot; a source end_on date is not actual completion evidence."
+      ],
+      "notes": [
+        "No new payment, loan, order, provider selection or accounting posting is inferred from a status or price."
+      ]
+    },
+    {
+      "collection": "automation_scenes",
+      "source_partition_glob": "data/automation_scenes/**/*.json",
+      "target_table": "domain.automation_scenes",
+      "status": "planned",
+      "database_verification": "not_run",
+      "primary_key": [
+        "tenant_id",
+        "generation_id",
+        "id"
+      ],
+      "tenant_foreign_key": {
+        "column": "tenant_id",
+        "target": "migration_context.tenants.id"
+      },
+      "generation_foreign_key": {
+        "columns": [
+          "tenant_id",
+          "generation_id"
+        ],
+        "target": "migration_context.generations(tenant_id,generation_id)"
+      },
+      "include_field_groups": [
+        "identity_context",
+        "app_record",
+        "item_record",
+        "provenance"
+      ],
+      "fields": [],
+      "foreign_keys": [
+        {
+          "source_path": "source_id",
+          "target_table": "import_meta.sources",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "provenance.source_id",
+          "target_table": "import_meta.sources",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "category_term_id",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "phase_term_id",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "legacy_status_term_id",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "room_id",
+          "target_table": "domain.rooms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "state_term_ids.decision",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "state_term_ids.fulfillment",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "state_term_ids.inspection",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "state_term_ids.payment",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        }
+      ],
+      "checks": [
+        "kind = 'automation_scene'.",
+        "Category, phase, context and legacy status references must belong to their expected vocabulary.",
+        "Unknown source fields stay in source_attributes; type-specific attributes are retained as JSONB until a versioned mapping explicitly promotes them.",
+        "Each state_term_ids axis must resolve to the same code and expected state vocabulary as state_snapshot; a source end_on date is not actual completion evidence."
+      ],
+      "notes": [
+        "No new payment, loan, order, provider selection or accounting posting is inferred from a status or price."
+      ]
+    },
+    {
+      "collection": "milestones",
+      "source_partition_glob": "data/milestones/**/*.json",
+      "target_table": "domain.milestones",
+      "status": "planned",
+      "database_verification": "not_run",
+      "primary_key": [
+        "tenant_id",
+        "generation_id",
+        "id"
+      ],
+      "tenant_foreign_key": {
+        "column": "tenant_id",
+        "target": "migration_context.tenants.id"
+      },
+      "generation_foreign_key": {
+        "columns": [
+          "tenant_id",
+          "generation_id"
+        ],
+        "target": "migration_context.generations(tenant_id,generation_id)"
+      },
+      "include_field_groups": [
+        "identity_context",
+        "app_record",
+        "item_record",
+        "provenance"
+      ],
+      "fields": [],
+      "foreign_keys": [
+        {
+          "source_path": "source_id",
+          "target_table": "import_meta.sources",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "provenance.source_id",
+          "target_table": "import_meta.sources",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "category_term_id",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "phase_term_id",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "legacy_status_term_id",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "room_id",
+          "target_table": "domain.rooms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "state_term_ids.decision",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "state_term_ids.fulfillment",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "state_term_ids.inspection",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "state_term_ids.payment",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        }
+      ],
+      "checks": [
+        "kind = 'milestone'.",
+        "Category, phase, context and legacy status references must belong to their expected vocabulary.",
+        "Unknown source fields stay in source_attributes; type-specific attributes are retained as JSONB until a versioned mapping explicitly promotes them.",
+        "Each state_term_ids axis must resolve to the same code and expected state vocabulary as state_snapshot; a source end_on date is not actual completion evidence."
+      ],
+      "notes": [
+        "No new payment, loan, order, provider selection or accounting posting is inferred from a status or price."
+      ]
+    },
+    {
+      "collection": "unclassified_items",
+      "source_partition_glob": "data/unclassified_items/**/*.json",
+      "target_table": "domain.unclassified_items",
+      "status": "planned",
+      "database_verification": "not_run",
+      "primary_key": [
+        "tenant_id",
+        "generation_id",
+        "id"
+      ],
+      "tenant_foreign_key": {
+        "column": "tenant_id",
+        "target": "migration_context.tenants.id"
+      },
+      "generation_foreign_key": {
+        "columns": [
+          "tenant_id",
+          "generation_id"
+        ],
+        "target": "migration_context.generations(tenant_id,generation_id)"
+      },
+      "include_field_groups": [
+        "identity_context",
+        "app_record",
+        "item_record",
+        "provenance"
+      ],
+      "fields": [],
+      "foreign_keys": [
+        {
+          "source_path": "source_id",
+          "target_table": "import_meta.sources",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "provenance.source_id",
+          "target_table": "import_meta.sources",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "category_term_id",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "phase_term_id",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "legacy_status_term_id",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "room_id",
+          "target_table": "domain.rooms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "state_term_ids.decision",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "state_term_ids.fulfillment",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "state_term_ids.inspection",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "state_term_ids.payment",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        }
+      ],
+      "checks": [
+        "kind = 'unclassified_item'.",
+        "Category, phase, context and legacy status references must belong to their expected vocabulary.",
+        "Unknown source fields stay in source_attributes; type-specific attributes are retained as JSONB until a versioned mapping explicitly promotes them.",
+        "Each state_term_ids axis must resolve to the same code and expected state vocabulary as state_snapshot; a source end_on date is not actual completion evidence."
+      ],
+      "notes": [
+        "No new payment, loan, order, provider selection or accounting posting is inferred from a status or price."
+      ]
+    },
+    {
+      "collection": "payments",
+      "source_partition_glob": "data/payments/**/*.json",
+      "target_table": "domain.payments",
+      "status": "planned",
+      "database_verification": "not_run",
+      "primary_key": [
+        "tenant_id",
+        "generation_id",
+        "id"
+      ],
+      "tenant_foreign_key": {
+        "column": "tenant_id",
+        "target": "migration_context.tenants.id"
+      },
+      "generation_foreign_key": {
+        "columns": [
+          "tenant_id",
+          "generation_id"
+        ],
+        "target": "migration_context.generations(tenant_id,generation_id)"
+      },
+      "include_field_groups": [
+        "identity_context",
+        "app_record",
+        "provenance"
+      ],
+      "fields": [
+        {
+          "source_path": "occurred_on",
+          "column": "occurred_on",
+          "postgres_type": "date",
+          "nullable": true
+        },
+        {
+          "source_path": "amount.amount",
+          "column": "amount",
+          "postgres_type": "numeric",
+          "nullable": true
+        },
+        {
+          "source_path": "amount.currency",
+          "column": "currency",
+          "postgres_type": "char(3)",
+          "nullable": true
+        },
+        {
+          "source_path": "record_basis",
+          "column": "record_basis",
+          "postgres_type": "text",
+          "nullable": false
+        },
+        {
+          "source_path": "payment_method_term_id",
+          "column": "payment_method_term_id",
+          "postgres_type": "uuid",
+          "nullable": true
+        },
+        {
+          "source_path": "funding_source_id",
+          "column": "funding_source_id",
+          "postgres_type": "uuid",
+          "nullable": true
+        },
+        {
+          "source_path": "account_id",
+          "column": "account_id",
+          "postgres_type": "uuid",
+          "nullable": true
+        },
+        {
+          "source_path": "evidence_status",
+          "column": "evidence_status",
+          "postgres_type": "text",
+          "nullable": false
+        }
+      ],
+      "foreign_keys": [
+        {
+          "source_path": "source_id",
+          "target_table": "import_meta.sources",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "provenance.source_id",
+          "target_table": "import_meta.sources",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "payment_method_term_id",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        }
+      ],
+      "checks": [
+        "record_basis = 'user_recorded_payment'.",
+        "evidence_status = 'not_supplied' for the current exporter.",
+        "funding_source_id and account_id must remain null until explicit account/funding collections and a versioned FK mapping exist.",
+        "Payment amount null is unknown, not zero; no positivity rule is invented for imported historical adjustments."
+      ],
+      "notes": [
+        "These are user-recorded payment entries, not bank-confirmed postings."
+      ]
+    },
+    {
+      "collection": "relations",
+      "source_partition_glob": "data/relations/**/*.json",
+      "target_table": "domain.relations",
+      "status": "planned",
+      "database_verification": "not_run",
+      "primary_key": [
+        "tenant_id",
+        "generation_id",
+        "id"
+      ],
+      "tenant_foreign_key": {
+        "column": "tenant_id",
+        "target": "migration_context.tenants.id"
+      },
+      "generation_foreign_key": {
+        "columns": [
+          "tenant_id",
+          "generation_id"
+        ],
+        "target": "migration_context.generations(tenant_id,generation_id)"
+      },
+      "include_field_groups": [
+        "identity_context",
+        "provenance"
+      ],
+      "fields": [
+        {
+          "source_path": "kind",
+          "column": "kind",
+          "postgres_type": "text",
+          "nullable": false
+        },
+        {
+          "source_path": "source_id",
+          "column": "source_entity_id",
+          "postgres_type": "uuid",
+          "nullable": false
+        },
+        {
+          "source_path": "target_id",
+          "column": "target_entity_id",
+          "postgres_type": "uuid",
+          "nullable": false
+        }
+      ],
+      "foreign_keys": [
+        {
+          "source_path": "provenance.source_id",
+          "target_table": "import_meta.sources",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "source_id",
+          "target_table": "migration_context.entities",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "target_id",
+          "target_table": "migration_context.entities",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        }
+      ],
+      "checks": [
+        "Use typed_relation_rules; source_id here is an entity ID, not a workbook source ID.",
+        "Both endpoints must share tenant and generation.",
+        "No silent relation inference from labels."
+      ],
+      "notes": []
+    },
+    {
+      "collection": "media_references",
+      "source_partition_glob": "data/media_references/**/*.json",
+      "target_table": "domain.media_references",
+      "status": "planned",
+      "database_verification": "not_run",
+      "primary_key": [
+        "tenant_id",
+        "generation_id",
+        "id"
+      ],
+      "tenant_foreign_key": {
+        "column": "tenant_id",
+        "target": "migration_context.tenants.id"
+      },
+      "generation_foreign_key": {
+        "columns": [
+          "tenant_id",
+          "generation_id"
+        ],
+        "target": "migration_context.generations(tenant_id,generation_id)"
+      },
+      "include_field_groups": [
+        "identity_context",
+        "provenance"
+      ],
+      "fields": [
+        {
+          "source_path": "entity_id",
+          "column": "entity_id",
+          "postgres_type": "uuid",
+          "nullable": false
+        },
+        {
+          "source_path": "url",
+          "column": "url",
+          "postgres_type": "text",
+          "nullable": false,
+          "sensitivity": "may_contain_private_reference"
+        },
+        {
+          "source_path": "kind",
+          "column": "kind",
+          "postgres_type": "text",
+          "nullable": false
+        },
+        {
+          "source_path": "verification",
+          "column": "verification",
+          "postgres_type": "text",
+          "nullable": false
+        },
+        {
+          "source_path": "rights_status",
+          "column": "rights_status",
+          "postgres_type": "text",
+          "nullable": false
+        }
+      ],
+      "foreign_keys": [
+        {
+          "source_path": "provenance.source_id",
+          "target_table": "import_meta.sources",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "entity_id",
+          "target_table": "migration_context.entities",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        }
+      ],
+      "checks": [
+        "kind is image_candidate or web_reference; verification remains not_verified and rights_status unknown for this exporter.",
+        "Allow only http/https references; importing URL does not download or license the image."
+      ],
+      "notes": []
+    },
+    {
+      "collection": "budget_observations",
+      "source_partition_glob": "data/budget_observations/**/*.json",
+      "target_table": "observations.budget_observations",
+      "status": "planned",
+      "database_verification": "not_run",
+      "primary_key": [
+        "tenant_id",
+        "generation_id",
+        "id"
+      ],
+      "tenant_foreign_key": {
+        "column": "tenant_id",
+        "target": "migration_context.tenants.id"
+      },
+      "generation_foreign_key": {
+        "columns": [
+          "tenant_id",
+          "generation_id"
+        ],
+        "target": "migration_context.generations(tenant_id,generation_id)"
+      },
+      "include_field_groups": [
+        "identity_context",
+        "provenance"
+      ],
+      "fields": [
+        {
+          "source_path": "kind",
+          "column": "kind",
+          "postgres_type": "text",
+          "nullable": false
+        },
+        {
+          "source_path": "label",
+          "column": "label",
+          "postgres_type": "text",
+          "nullable": false
+        },
+        {
+          "source_path": "period",
+          "column": "period",
+          "postgres_type": "text",
+          "nullable": false
+        },
+        {
+          "source_path": "value.decimal",
+          "column": "observed_value",
+          "postgres_type": "numeric",
+          "nullable": false
+        },
+        {
+          "source_path": "value.currency",
+          "column": "currency",
+          "postgres_type": "char(3)",
+          "nullable": true
+        },
+        {
+          "source_path": "basis",
+          "column": "basis",
+          "postgres_type": "text",
+          "nullable": false
+        },
+        {
+          "source_path": "payment_evidence",
+          "column": "payment_evidence",
+          "postgres_type": "boolean",
+          "nullable": false
+        }
+      ],
+      "foreign_keys": [
+        {
+          "source_path": "provenance.source_id",
+          "target_table": "import_meta.sources",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        }
+      ],
+      "checks": [
+        "period matches YYYY-MM with month 01..12; do not invent a day.",
+        "payment_evidence = false.",
+        "No sum until explicit leaf-row ownership mapping excludes subtotal/derived duplication."
+      ],
+      "notes": [
+        "An observation is neither a payment nor a double-entry journal line. Coordinate identity may change when rows move."
+      ]
+    },
+    {
+      "collection": "forecasts",
+      "source_partition_glob": "data/forecasts/**/*.json",
+      "target_table": "projections.forecasts",
+      "status": "planned",
+      "database_verification": "not_run",
+      "primary_key": [
+        "tenant_id",
+        "generation_id",
+        "id"
+      ],
+      "tenant_foreign_key": {
+        "column": "tenant_id",
+        "target": "migration_context.tenants.id"
+      },
+      "generation_foreign_key": {
+        "columns": [
+          "tenant_id",
+          "generation_id"
+        ],
+        "target": "migration_context.generations(tenant_id,generation_id)"
+      },
+      "include_field_groups": [
+        "identity_context",
+        "forecast_record",
+        "provenance"
+      ],
+      "fields": [
+        {
+          "source_path": "fingerprint",
+          "column": "fingerprint",
+          "postgres_type": "text",
+          "nullable": false
+        },
+        {
+          "source_path": "payload_hash",
+          "column": "payload_hash",
+          "postgres_type": "text",
+          "nullable": false
+        },
+        {
+          "source_path": "status",
+          "column": "status",
+          "postgres_type": "text",
+          "nullable": true
+        },
+        {
+          "source_path": "notes",
+          "column": "notes",
+          "postgres_type": "jsonb",
+          "nullable": true
+        }
+      ],
+      "foreign_keys": [
+        {
+          "source_path": "source_id",
+          "target_table": "import_meta.sources",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "provenance.source_id",
+          "target_table": "import_meta.sources",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        }
+      ],
+      "checks": [
+        "record_basis = 'forecast'."
+      ],
+      "notes": [
+        "Derived financial plan, not actual bank/account agreement."
+      ]
+    },
+    {
+      "collection": "forecast_events",
+      "source_partition_glob": "data/forecast_events/**/*.json",
+      "target_table": "projections.forecast_events",
+      "status": "planned",
+      "database_verification": "not_run",
+      "primary_key": [
+        "tenant_id",
+        "generation_id",
+        "id"
+      ],
+      "tenant_foreign_key": {
+        "column": "tenant_id",
+        "target": "migration_context.tenants.id"
+      },
+      "generation_foreign_key": {
+        "columns": [
+          "tenant_id",
+          "generation_id"
+        ],
+        "target": "migration_context.generations(tenant_id,generation_id)"
+      },
+      "include_field_groups": [
+        "identity_context",
+        "forecast_record",
+        "provenance"
+      ],
+      "fields": [
+        {
+          "source_path": "forecast_id",
+          "column": "forecast_id",
+          "postgres_type": "uuid",
+          "nullable": false
+        },
+        {
+          "source_path": "source_record_id",
+          "column": "source_record_id",
+          "postgres_type": "text",
+          "nullable": false
+        },
+        {
+          "source_path": "label",
+          "column": "label",
+          "postgres_type": "text",
+          "nullable": false
+        },
+        {
+          "source_path": "occurred_on",
+          "column": "occurred_on",
+          "postgres_type": "date",
+          "nullable": false
+        },
+        {
+          "source_path": "event_type",
+          "column": "event_type",
+          "postgres_type": "text",
+          "nullable": true
+        },
+        {
+          "source_path": "certainty",
+          "column": "certainty",
+          "postgres_type": "text",
+          "nullable": true
+        },
+        {
+          "source_path": "source_note",
+          "column": "source_note",
+          "postgres_type": "text",
+          "nullable": true
+        },
+        {
+          "source_path": "cash_change.amount",
+          "column": "cash_change_amount",
+          "postgres_type": "numeric",
+          "nullable": true
+        },
+        {
+          "source_path": "cash_change.currency",
+          "column": "cash_change_currency",
+          "postgres_type": "char(3)",
+          "nullable": true
+        },
+        {
+          "source_path": "measures",
+          "column": "measures",
+          "postgres_type": "jsonb",
+          "nullable": true
+        }
+      ],
+      "foreign_keys": [
+        {
+          "source_path": "source_id",
+          "target_table": "import_meta.sources",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "provenance.source_id",
+          "target_table": "import_meta.sources",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "forecast_id",
+          "target_table": "projections.forecasts",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        }
+      ],
+      "checks": [
+        "record_basis = 'forecast'.",
+        "Every measure has a decimal-string amount and currency; migrate to typed child rows or explicit known measure columns.",
+        "A forecast event date is not evidence a payment occurred."
+      ],
+      "notes": []
+    },
+    {
+      "collection": "forecast_months",
+      "source_partition_glob": "data/forecast_months/**/*.json",
+      "target_table": "projections.forecast_months",
+      "status": "planned",
+      "database_verification": "not_run",
+      "primary_key": [
+        "tenant_id",
+        "generation_id",
+        "id"
+      ],
+      "tenant_foreign_key": {
+        "column": "tenant_id",
+        "target": "migration_context.tenants.id"
+      },
+      "generation_foreign_key": {
+        "columns": [
+          "tenant_id",
+          "generation_id"
+        ],
+        "target": "migration_context.generations(tenant_id,generation_id)"
+      },
+      "include_field_groups": [
+        "identity_context",
+        "forecast_record",
+        "provenance"
+      ],
+      "fields": [
+        {
+          "source_path": "forecast_id",
+          "column": "forecast_id",
+          "postgres_type": "uuid",
+          "nullable": false
+        },
+        {
+          "source_path": "period",
+          "column": "period",
+          "postgres_type": "text",
+          "nullable": false
+        },
+        {
+          "source_path": "measures",
+          "column": "measures",
+          "postgres_type": "jsonb",
+          "nullable": true
+        }
+      ],
+      "foreign_keys": [
+        {
+          "source_path": "source_id",
+          "target_table": "import_meta.sources",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "provenance.source_id",
+          "target_table": "import_meta.sources",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "forecast_id",
+          "target_table": "projections.forecasts",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        }
+      ],
+      "checks": [
+        "record_basis = 'forecast'.",
+        "Period has month precision; balances are not additive sums across periods."
+      ],
+      "notes": []
+    },
+    {
+      "collection": "vocabularies",
+      "source_partition_glob": "data/vocabularies/**/*.json",
+      "target_table": "reference_data.vocabularies",
+      "status": "planned",
+      "database_verification": "not_run",
+      "primary_key": [
+        "tenant_id",
+        "generation_id",
+        "id"
+      ],
+      "tenant_foreign_key": {
+        "column": "tenant_id",
+        "target": "migration_context.tenants.id"
+      },
+      "generation_foreign_key": {
+        "columns": [
+          "tenant_id",
+          "generation_id"
+        ],
+        "target": "migration_context.generations(tenant_id,generation_id)"
+      },
+      "include_field_groups": [
+        "identity_context"
+      ],
+      "fields": [
+        {
+          "source_path": "key",
+          "column": "key",
+          "postgres_type": "text",
+          "nullable": false
+        },
+        {
+          "source_path": "managed",
+          "column": "managed",
+          "postgres_type": "boolean",
+          "nullable": false
+        }
+      ],
+      "foreign_keys": [],
+      "checks": [
+        "Unique key per tenant/generation."
+      ],
+      "notes": []
+    },
+    {
+      "collection": "terms",
+      "source_partition_glob": "data/terms/**/*.json",
+      "target_table": "reference_data.terms",
+      "status": "planned",
+      "database_verification": "not_run",
+      "primary_key": [
+        "tenant_id",
+        "generation_id",
+        "id"
+      ],
+      "tenant_foreign_key": {
+        "column": "tenant_id",
+        "target": "migration_context.tenants.id"
+      },
+      "generation_foreign_key": {
+        "columns": [
+          "tenant_id",
+          "generation_id"
+        ],
+        "target": "migration_context.generations(tenant_id,generation_id)"
+      },
+      "include_field_groups": [
+        "identity_context"
+      ],
+      "fields": [
+        {
+          "source_path": "vocabulary_id",
+          "column": "vocabulary_id",
+          "postgres_type": "uuid",
+          "nullable": false
+        },
+        {
+          "source_path": "code",
+          "column": "code",
+          "postgres_type": "text",
+          "nullable": false
+        },
+        {
+          "source_path": "label",
+          "column": "label",
+          "postgres_type": "text",
+          "nullable": false
+        },
+        {
+          "source_path": "parent_id",
+          "column": "parent_id",
+          "postgres_type": "uuid",
+          "nullable": true
+        },
+        {
+          "source_path": "legacy",
+          "column": "legacy",
+          "postgres_type": "boolean",
+          "nullable": false
+        }
+      ],
+      "foreign_keys": [
+        {
+          "source_path": "vocabulary_id",
+          "target_table": "reference_data.vocabularies",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        },
+        {
+          "source_path": "parent_id",
+          "target_table": "reference_data.terms",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        }
+      ],
+      "checks": [
+        "Unique (tenant_id,generation_id,vocabulary_id,code).",
+        "Parent term belongs to the same vocabulary and has no ancestry cycle."
+      ],
+      "notes": []
+    },
+    {
+      "collection": "workflows",
+      "source_partition_glob": "data/workflows/**/*.json",
+      "target_table": "reference_data.workflows",
+      "status": "planned",
+      "database_verification": "not_run",
+      "primary_key": [
+        "tenant_id",
+        "generation_id",
+        "id"
+      ],
+      "tenant_foreign_key": {
+        "column": "tenant_id",
+        "target": "migration_context.tenants.id"
+      },
+      "generation_foreign_key": {
+        "columns": [
+          "tenant_id",
+          "generation_id"
+        ],
+        "target": "migration_context.generations(tenant_id,generation_id)"
+      },
+      "include_field_groups": [
+        "identity_context"
+      ],
+      "fields": [
+        {
+          "source_path": "key",
+          "column": "key",
+          "postgres_type": "text",
+          "nullable": false
+        },
+        {
+          "source_path": "version",
+          "column": "version",
+          "postgres_type": "integer",
+          "nullable": false
+        },
+        {
+          "source_path": "status",
+          "column": "status",
+          "postgres_type": "text",
+          "nullable": false
+        },
+        {
+          "source_path": "vocabulary_id",
+          "column": "vocabulary_id",
+          "postgres_type": "uuid",
+          "nullable": false
+        },
+        {
+          "source_path": "transitions",
+          "column": "transitions",
+          "postgres_type": "jsonb",
+          "nullable": false
+        }
+      ],
+      "foreign_keys": [
+        {
+          "source_path": "vocabulary_id",
+          "target_table": "reference_data.vocabularies",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        }
+      ],
+      "checks": [
+        "status = 'proposed_template' for this export.",
+        "Transition term IDs belong to the workflow vocabulary."
+      ],
+      "notes": [
+        "Transitions become workflow_transitions child rows; these definitions are not workflow event history or an executable state engine."
+      ]
+    },
+    {
+      "collection": "view_definitions",
+      "source_partition_glob": "data/view_definitions/**/*.json",
+      "target_table": "reference_data.view_definitions",
+      "status": "planned",
+      "database_verification": "not_run",
+      "primary_key": [
+        "tenant_id",
+        "generation_id",
+        "id"
+      ],
+      "tenant_foreign_key": {
+        "column": "tenant_id",
+        "target": "migration_context.tenants.id"
+      },
+      "generation_foreign_key": {
+        "columns": [
+          "tenant_id",
+          "generation_id"
+        ],
+        "target": "migration_context.generations(tenant_id,generation_id)"
+      },
+      "include_field_groups": [
+        "identity_context"
+      ],
+      "fields": [
+        {
+          "source_path": "key",
+          "column": "key",
+          "postgres_type": "text",
+          "nullable": false
+        },
+        {
+          "source_path": "label",
+          "column": "label",
+          "postgres_type": "text",
+          "nullable": false
+        },
+        {
+          "source_path": "version",
+          "column": "version",
+          "postgres_type": "integer",
+          "nullable": false
+        },
+        {
+          "source_path": "status",
+          "column": "status",
+          "postgres_type": "text",
+          "nullable": false
+        },
+        {
+          "source_path": "supported_kinds",
+          "column": "supported_kinds",
+          "postgres_type": "jsonb",
+          "nullable": true
+        },
+        {
+          "source_path": "required_fields",
+          "column": "required_fields",
+          "postgres_type": "jsonb",
+          "nullable": true
+        },
+        {
+          "source_path": "sort_fields",
+          "column": "sort_fields",
+          "postgres_type": "jsonb",
+          "nullable": true
+        },
+        {
+          "source_path": "aggregation",
+          "column": "aggregation",
+          "postgres_type": "jsonb",
+          "nullable": true
+        },
+        {
+          "source_path": "capabilities",
+          "column": "capabilities",
+          "postgres_type": "jsonb",
+          "nullable": true
+        },
+        {
+          "source_path": "state_axes",
+          "column": "state_axes",
+          "postgres_type": "jsonb",
+          "nullable": true
+        },
+        {
+          "source_path": "date_field_by_kind",
+          "column": "date_field_by_kind",
+          "postgres_type": "jsonb",
+          "nullable": true
+        },
+        {
+          "source_path": "missing_data_policy",
+          "column": "missing_data_policy",
+          "postgres_type": "text",
+          "nullable": true
+        },
+        {
+          "source_path": "primary_field_by_kind",
+          "column": "primary_field_by_kind",
+          "postgres_type": "jsonb",
+          "nullable": true
+        },
+        {
+          "source_path": "date_basis_by_kind",
+          "column": "date_basis_by_kind",
+          "postgres_type": "jsonb",
+          "nullable": true
+        }
+      ],
+      "foreign_keys": [],
+      "checks": [
+        "key in listing,gantt_chart,table,pivot,kanban,timeline.",
+        "status = 'proposed_template'; record presence does not imply a built UI view.",
+        "forecast_event supports listing/table/timeline with forecast date basis; forecast_month supports only table with period primary field; neither is an additive pivot measure."
+      ],
+      "notes": []
+    },
+    {
+      "collection": "issues",
+      "source_partition_glob": "data/issues/**/*.json",
+      "target_table": "import_meta.issues",
+      "status": "planned",
+      "database_verification": "not_run",
+      "primary_key": [
+        "tenant_id",
+        "generation_id",
+        "id"
+      ],
+      "tenant_foreign_key": {
+        "column": "tenant_id",
+        "target": "migration_context.tenants.id"
+      },
+      "generation_foreign_key": {
+        "columns": [
+          "tenant_id",
+          "generation_id"
+        ],
+        "target": "migration_context.generations(tenant_id,generation_id)"
+      },
+      "include_field_groups": [
+        "identity_context",
+        "provenance"
+      ],
+      "fields": [
+        {
+          "source_path": "code",
+          "column": "code",
+          "postgres_type": "text",
+          "nullable": false
+        },
+        {
+          "source_path": "severity",
+          "column": "severity",
+          "postgres_type": "text",
+          "nullable": false
+        },
+        {
+          "source_path": "detail",
+          "column": "detail",
+          "postgres_type": "jsonb",
+          "nullable": false
+        }
+      ],
+      "foreign_keys": [
+        {
+          "source_path": "provenance.source_id",
+          "target_table": "import_meta.sources",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": true
+        }
+      ],
+      "checks": [],
+      "notes": [
+        "provenance may be null for dictionary/global issues; imported issue is not silently marked resolved."
+      ]
+    },
+    {
+      "collection": "task_templates",
+      "source_partition_glob": "data/task_templates/**/*.json",
+      "target_table": "reference_data.task_templates",
+      "status": "planned",
+      "database_verification": "not_run",
+      "primary_key": [
+        "tenant_id",
+        "generation_id",
+        "id"
+      ],
+      "tenant_foreign_key": {
+        "column": "tenant_id",
+        "target": "migration_context.tenants.id"
+      },
+      "generation_foreign_key": {
+        "columns": [
+          "tenant_id",
+          "generation_id"
+        ],
+        "target": "migration_context.generations(tenant_id,generation_id)"
+      },
+      "include_field_groups": [
+        "identity_context"
+      ],
+      "fields": [
+        {
+          "source_path": "key",
+          "column": "key",
+          "postgres_type": "text",
+          "nullable": false
+        },
+        {
+          "source_path": "kind",
+          "column": "kind",
+          "postgres_type": "text",
+          "nullable": false
+        },
+        {
+          "source_path": "version",
+          "column": "version",
+          "postgres_type": "integer",
+          "nullable": false
+        },
+        {
+          "source_path": "status",
+          "column": "status",
+          "postgres_type": "text",
+          "nullable": false
+        },
+        {
+          "source_path": "title",
+          "column": "title",
+          "postgres_type": "text",
+          "nullable": false
+        },
+        {
+          "source_path": "workflow_key",
+          "column": "workflow_key",
+          "postgres_type": "text",
+          "nullable": false
+        },
+        {
+          "source_path": "workflow_id",
+          "column": "workflow_id",
+          "postgres_type": "uuid",
+          "nullable": false
+        },
+        {
+          "source_path": "applies_when",
+          "column": "applies_when",
+          "postgres_type": "text",
+          "nullable": false
+        },
+        {
+          "source_path": "dependencies",
+          "column": "dependencies",
+          "postgres_type": "jsonb",
+          "nullable": false
+        },
+        {
+          "source_path": "dependency_template_ids",
+          "column": "dependency_template_ids",
+          "postgres_type": "uuid[]",
+          "nullable": false
+        },
+        {
+          "source_path": "required_data",
+          "column": "required_data",
+          "postgres_type": "jsonb",
+          "nullable": false
+        },
+        {
+          "source_path": "guards",
+          "column": "guards",
+          "postgres_type": "jsonb",
+          "nullable": false
+        },
+        {
+          "source_path": "acceptance_criteria",
+          "column": "acceptance_criteria",
+          "postgres_type": "jsonb",
+          "nullable": false
+        },
+        {
+          "source_path": "instantiation_policy",
+          "column": "instantiation_policy",
+          "postgres_type": "text",
+          "nullable": false
+        },
+        {
+          "source_path": "dependency_policy",
+          "column": "dependency_policy",
+          "postgres_type": "text",
+          "nullable": false
+        },
+        {
+          "source_path": "guard_policy",
+          "column": "guard_policy",
+          "postgres_type": "text",
+          "nullable": false
+        }
+      ],
+      "foreign_keys": [
+        {
+          "source_path": "workflow_id",
+          "target_table": "reference_data.workflows",
+          "scope": [
+            "tenant_id",
+            "generation_id"
+          ],
+          "target_column": "id",
+          "on_delete": "RESTRICT",
+          "nullable": false
+        }
+      ],
+      "checks": [
+        "status = 'proposed_template' and kind = 'task_template'.",
+        "Unique key per tenant/generation; preserve original dictionary template ID in key.",
+        "dependency_template_ids resolve only to task_templates within the same tenant/generation; dependencies keys and UUID references agree.",
+        "Template dependency graph must be acyclic; workflow_id resolves to workflow_key."
+      ],
+      "notes": [
+        "Guard names and dependencies are declarative template requirements, not executed transitions or instantiated work.",
+        "No owner, deadline, provider, actual purchase or actual payment is created."
+      ]
+    }
+  ],
+  "typed_relation_rules": {
+    "payment_for": {
+      "from": [
+        "payments"
+      ],
+      "to": [
+        "purchase_needs",
+        "lighting_specs",
+        "work_orders",
+        "layout_items",
+        "providers",
+        "inspections",
+        "automation_scenes",
+        "milestones",
+        "unclassified_items"
+      ]
+    },
+    "located_in": {
+      "from": [
+        "purchase_needs",
+        "lighting_specs",
+        "work_orders",
+        "layout_items",
+        "providers",
+        "inspections",
+        "automation_scenes",
+        "milestones",
+        "unclassified_items"
+      ],
+      "to": [
+        "rooms"
+      ]
+    },
+    "associated_with": {
+      "from": [
+        "purchase_needs",
+        "lighting_specs",
+        "work_orders",
+        "layout_items",
+        "providers",
+        "inspections",
+        "automation_scenes",
+        "milestones",
+        "unclassified_items"
+      ],
+      "to": [
+        "purchase_needs",
+        "lighting_specs",
+        "work_orders",
+        "layout_items",
+        "providers",
+        "inspections",
+        "automation_scenes",
+        "milestones",
+        "unclassified_items"
+      ]
+    },
+    "depends_on": {
+      "from": [
+        "purchase_needs",
+        "lighting_specs",
+        "work_orders",
+        "layout_items",
+        "providers",
+        "inspections",
+        "automation_scenes",
+        "milestones",
+        "unclassified_items"
+      ],
+      "to": [
+        "purchase_needs",
+        "lighting_specs",
+        "work_orders",
+        "layout_items",
+        "providers",
+        "inspections",
+        "automation_scenes",
+        "milestones",
+        "unclassified_items"
+      ],
+      "additional_planned_check": "Detect task dependency cycles before enabling Gantt planning; current generic relations do not prove a scheduling DAG."
+    }
+  },
+  "migration_created_tables": [
+    {
+      "table": "migration_context.tenants",
+      "origin": "Private manifest tenant_id only",
+      "primary_key": [
+        "id"
+      ],
+      "note": "No membership, user identity or role is invented."
+    },
+    {
+      "table": "migration_context.generations",
+      "origin": "Validated manifest",
+      "primary_key": [
+        "tenant_id",
+        "generation_id"
+      ],
+      "columns": [
+        "manifest_hash",
+        "manifest_json",
+        "validation_status",
+        "imported_at"
+      ],
+      "note": "imported_at is migration time, not source record creation time."
+    },
+    {
+      "table": "migration_context.entities",
+      "origin": "Registry projected from domain app records and rooms",
+      "primary_key": [
+        "tenant_id",
+        "generation_id",
+        "id"
+      ],
+      "columns": [
+        "collection",
+        "kind"
+      ],
+      "note": "Registry validates polymorphic endpoints; do not create missing target entities."
+    },
+    {
+      "table": "source_archive.row_cells",
+      "origin": "source_rows.cell_ids array",
+      "primary_key": [
+        "tenant_id",
+        "generation_id",
+        "row_id",
+        "ordinal"
+      ],
+      "foreign_keys": [
+        "row_id -> source_archive.source_rows",
+        "cell_id -> source_archive.source_cells"
+      ],
+      "note": "Preserve ordinal, no duplicate cell inflation."
+    },
+    {
+      "table": "reference_data.term_assignments",
+      "origin": "Explicit category_term_id, phase_term_id, legacy_status_term_id and context_term_ids",
+      "primary_key": [
+        "tenant_id",
+        "generation_id",
+        "entity_id",
+        "axis",
+        "term_id"
+      ],
+      "note": "Preserve vocabulary axes; no label-based matching."
+    },
+    {
+      "table": "reference_data.workflow_transitions",
+      "origin": "workflows.transitions array",
+      "primary_key": [
+        "tenant_id",
+        "generation_id",
+        "workflow_id",
+        "ordinal"
+      ],
+      "columns": [
+        "from_term_id",
+        "to_term_id",
+        "requires_evidence"
+      ],
+      "note": "Definition rows, not performed transitions; validate term vocabulary."
+    },
+    {
+      "table": "projections.forecast_measures",
+      "origin": "forecast_events.measures and forecast_months.measures",
+      "primary_key": [
+        "tenant_id",
+        "generation_id",
+        "record_id",
+        "measure_key"
+      ],
+      "columns": [
+        "record_collection",
+        "amount numeric",
+        "currency char(3)"
+      ],
+      "note": "Keep original JSONB as import evidence; meaning/additivity comes from the financial contract, not generic SUM."
+    },
+    {
+      "table": "reference_data.task_template_dependencies",
+      "origin": "task_templates.dependency_template_ids",
+      "primary_key": [
+        "tenant_id",
+        "generation_id",
+        "template_id",
+        "dependency_template_id"
+      ],
+      "foreign_keys": [
+        "template_id -> reference_data.task_templates",
+        "dependency_template_id -> reference_data.task_templates"
+      ],
+      "note": "Both references are tenant/generation scoped. Readable dependency keys remain preserved; validate DAG and exact key-to-ID correspondence."
+    }
+  ],
+  "archive_separation": {
+    "schemas": [
+      "source_archive",
+      "import_meta"
+    ],
+    "rules": [
+      "Raw files and source cells are lineage/archive, never payment/ledger postings.",
+      "Preserve each supplement classification from its source; apply the exporter default only when no classification was supplied. Do not promote supplement payloads to household actuals without an explicit validated mapping.",
+      "observations are separate from domain.payments and projections.",
+      "Do not add raw files, manifests or populated tables to public repository artefacts."
+    ]
+  },
+  "execution_plan": [
+    {
+      "step": "validate_generation",
+      "status": "planned",
+      "checks": [
+        "Validate manifest hash/bytes/counts, file boundaries and normalized generation first.",
+        "No new data import when the source generation is invalid."
+      ]
+    },
+    {
+      "step": "stage",
+      "status": "planned",
+      "checks": [
+        "Load one generation into isolated staging using parameterized input/COPY appropriate to the selected PostgreSQL version.",
+        "Preserve source collection, source id and record payload; reject duplicate primary keys and unexpected collections."
+      ]
+    },
+    {
+      "step": "normalize_relations",
+      "status": "planned",
+      "checks": [
+        "Create tenant/generation context, taxonomy, source lineage and domain entities in dependency order.",
+        "Normalize declared child arrays; validate typed targets, vocabulary ownership and missing references."
+      ]
+    },
+    {
+      "step": "reconcile",
+      "status": "planned",
+      "checks": [
+        "Compare collection counts and IDs with manifest; hash retained raw payloads.",
+        "Compare exact payment amounts/currencies and forecast measures independently.",
+        "Do not reconcile by summing subtotals, balances, plans and actual payments together."
+      ]
+    },
+    {
+      "step": "transactional_publish",
+      "status": "planned",
+      "checks": [
+        "Use one transaction for validated generation promotion; rollback all writes on failure.",
+        "Same tenant+generation repeat verifies the existing content and performs no duplicate insert.",
+        "Conflicting same-generation content is an error, never an overwrite."
+      ]
+    },
+    {
+      "step": "authorization_and_restore",
+      "status": "planned",
+      "checks": [
+        "RLS and role policy must be designed and tested before SaaS data access; JSON tenant fields are not authorization.",
+        "Test a restore and idempotent re-import in a disposable database.",
+        "No live DB change or schedule is installed by this mapping."
+      ]
+    }
+  ],
+  "unsupported_in_current_export": [
+    "Actual bank accounts and financing agreements",
+    "Verified payment method/funding allocations",
+    "Double-entry journal entries",
+    "Workflow event audit history",
+    "Automatically instantiated task templates",
+    "Authenticated multi-tenant API",
+    "UI renderers for declared view modes"
+  ],
+  "verification": {
+    "json_syntax": "pass",
+    "collection_coverage": "pass: 29/29 allowlisted collections at time of mapping",
+    "sql_execution": "not_run",
+    "transaction_rollback": "not_run",
+    "row_security": "not_run",
+    "restore": "not_run"
+  },
+  "sources": [
+    "https://www.postgresql.org/docs/18/datatype-json.html",
+    "https://www.postgresql.org/docs/18/ddl-constraints.html",
+    "https://www.postgresql.org/docs/18/functions-json.html",
+    "https://www.postgresql.org/docs/18/ddl-rowsecurity.html",
+    "https://www.postgresql.org/docs/18/backup.html"
+  ]
+}

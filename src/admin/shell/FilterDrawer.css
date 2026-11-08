@@ -1,0 +1,40 @@
+/* FilterDrawer — dar düzen filtre yüzeyinin altlığı (alt sayfa ya da sağ çekmece içinde). Tokenlar --aile-*
+   (src/design/tokens.ts; admin.css :root yedekleri portal katmanında da çözer). Kutu/kart yok: altlığın üst çizgisini
+   ve dolgusunu BottomSheet/Drawer verir. Sonuç sayısı 14/20 ikincil, tabular; altında iki eşit sütun: Temizle, Uygula
+   (başparmak erişimi için tam genişlik ve yan yana; kısa yükseklikte gövdeye yer kalır). Hedef merkezi
+   --aile-dokunma-hedefi (admin.css: 44 px, kaba girişte 48 px). Odak çizgisini admin.css çizer; burada halka yok. Hareket yok. */
+.aile-filtre-cekmece-icerik { min-width: 0; }
+
+.aile-filtre-altlik {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-2);
+  min-width: 0;
+}
+
+.aile-filtre-altlik-sonuc {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.aile-filtre-altlik-eylemler {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--aile-bosluk-3);
+}
+/* Üç sınıf (0,3,0): düğmenin kendi tabanını (ui/Button.css, 0,2,1, sabit 44) aşar; kaba girişte hedef 48 olur. */
+.aile-filtre-altlik .aile-filtre-altlik-eylemler > .aile-filtre-altlik-dugme {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--aile-dokunma-hedefi);
+}
+
+/* Kısa yükseklik (yatay telefon; profil sözleşmesindeki kısa kenar sınırı 480 CSS piksel = 30em, varsayılan yazı
+   boyutunda): sonuç sayısı ve iki eylem tek satırda. Altlık bir satır kısalır, kendi içinde kayan gövdede en az bir
+   seçenek ilk bakışta görünür (568×320'de ölçüldü: iki satırlı altlıkta gövde 98 piksel, ilk seçenek görünür alanın
+   dışındaydı). em: kullanıcı yazı boyutunu büyütünce eşik de büyür (daha büyük metne yer açılır); token dışı piksel yok. */
+@media (max-height: 29.99em) {
+  .aile-filtre-altlik { flex-direction: row; align-items: center; gap: var(--aile-bosluk-3); }
+  .aile-filtre-altlik-sonuc { flex: none; }
+  .aile-filtre-altlik-eylemler { flex: 1 1 auto; }
+}

@@ -1,0 +1,137 @@
+/* Projeler ve görevler — yalnız --aile tokenları (src/design/tokens.ts). Mobil önce: 320 px telefon yolculuğu (proje
+   listesi → proje ayrıntısı → görevler) temel sunumdur; geniş çalışma alanının (Gantt dahil) stilleri yalnız geniş
+   parçada (projeler/wide/Gantt.css). Kart/kenarlık yağmuru yok: proje listesi tek yüzey, satırlar yalnız cizgi ile
+   ayrılır (AccordionList ile aynı yüzey). Renkli kenar şeridi yok. Odak: tek 3 px alt çizgi, yalnız klavye modunda;
+   satırda satırın alt kenarında. Hareket tek süre/eğri, reduced-motion'da anlık. Genişlik medya sorgusu türetilmez. */
+
+.aile-projeler { display: flex; flex-direction: column; gap: var(--aile-bosluk-6); min-width: 0; }
+
+.aile-projeler-gizli {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden;
+  clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0;
+}
+
+.aile-projeler-not { margin: 0; font-size: 14px; line-height: 20px; }
+
+/* Bölümler (projeler, kontroller, şablonlar) */
+.aile-projeler-bolum { display: flex; flex-direction: column; gap: var(--aile-bosluk-4); min-width: 0; }
+.aile-projeler-bolum__bas { display: flex; flex-direction: column; gap: var(--aile-bosluk-1); }
+.aile-projeler-bolum__lead { margin: 0; font-size: 16px; line-height: 24px; max-width: 72ch; }
+.aile-projeler-sayim-satiri { margin: 0; font-variant-numeric: tabular-nums; }
+
+/* Kontrol sonuç sayımları: kutusuz tek satır */
+.aile-projeler-sayimlar { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--aile-bosluk-3) var(--aile-bosluk-6); }
+.aile-projeler-sayim { display: flex; flex-direction: column; min-width: 0; }
+.aile-projeler-sayim__deger { font-size: 24px; line-height: 32px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--aile-metin); }
+
+/* Tutar: tabular-nums; eksik bilgi ("Fiyat yok", "Henüz yok") ikincil renkle, sözcükle. */
+.aile-projeler-tutar { font-variant-numeric: tabular-nums; font-weight: 500; color: var(--aile-metin); white-space: nowrap; }
+.aile-projeler-tutar[data-eksik='true'] { font-weight: 400; color: var(--aile-metin-ikincil); }
+.aile-projeler-tarih { font-variant-numeric: tabular-nums; }
+
+/* --- Proje listesi (telefon temel sunumu) ------------------------------------------------------------ */
+.aile-projeler-liste {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: var(--aile-yuzey);
+  border: 1px solid var(--aile-cizgi);
+  border-radius: var(--aile-kose-kart);
+  overflow: hidden;
+}
+.aile-projeler-liste__oge + .aile-projeler-liste__oge { border-top: 1px solid var(--aile-cizgi); }
+
+/* Satır düğmesi: tarayıcı görünümü sıfırlanır; içerik solda, ok sağda; asgari hedef --aile-dokunma-hedefi (44 px,
+   kaba işaretçi katmanında 48 px; admin.css). */
+.aile-projeler-proje {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--aile-bosluk-3);
+  width: 100%;
+  min-height: var(--aile-dokunma-hedefi);
+  margin: 0;
+  padding: var(--aile-bosluk-3) var(--aile-bosluk-4);
+  border: 0;
+  border-radius: 0;
+  background: var(--aile-yuzey);
+  color: var(--aile-metin);
+  font: inherit;
+  font-size: 16px;
+  line-height: 24px;
+  text-align: left;
+  cursor: pointer;
+  appearance: none;
+  transition: background-color var(--aile-sure) var(--aile-egri);
+}
+/* Hover yalnız hover destekleyen birincil işaretçide (dokunmatikte takılı kalmaz); basılı yüzey her girişte. */
+@media (hover: hover) {
+  .aile-projeler-proje:hover { background: var(--aile-bilgi-yuzey); }
+}
+.aile-projeler-proje:active { background: var(--aile-secili); }
+/* Odak çizgisi: klavye modunda, satırın alt kenarında, satır genişliğinde (admin.css tr/[role=row] kuralıyla aynı). */
+html[data-keyboard='true'] .aile-projeler-proje:focus-visible::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--aile-odak-kalinlik);
+  background: var(--aile-odak);
+  pointer-events: none;
+}
+/* Son satırda çizgi listenin radiuslu alt kenarındadır: yalnız çizgi görünürken listenin değdiği iki alt köşesi
+   radiussuz (kavisli vurgu kenarı yok); üst köşeler ve işaretçi görünümü korunur, geçiş yok. */
+html[data-keyboard='true'] .aile-projeler-liste:has(> .aile-projeler-liste__oge:last-child :focus-visible) {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.aile-projeler-proje__ana { display: flex; flex-direction: column; gap: var(--aile-bosluk-1); min-width: 0; }
+.aile-projeler-proje__ad { font-weight: 600; overflow-wrap: break-word; }
+.aile-projeler-proje__meta { display: block; }
+.aile-projeler-proje__tutarlar { display: flex; flex-wrap: wrap; gap: var(--aile-bosluk-2) var(--aile-bosluk-6); padding-top: var(--aile-bosluk-1); }
+.aile-projeler-olcu { display: flex; flex-direction: column; min-width: 0; }
+.aile-projeler-proje__ok { color: var(--aile-metin-ikincil); flex: none; }
+
+/* --- Proje ayrıntısı (telefonda tam sayfa) ------------------------------------------------------------ */
+.aile-projeler-ayrinti { display: flex; flex-direction: column; gap: var(--aile-bosluk-4); min-width: 0; }
+.aile-projeler-ayrinti__geri { display: flex; }
+.aile-projeler-ayrinti__kimlik { display: flex; flex-direction: column; gap: var(--aile-bosluk-1); min-width: 0; }
+.aile-projeler-ayrinti__ust, .aile-projeler-ayrinti__meta { margin: 0; }
+.aile-projeler-ayrinti__baslik { overflow-wrap: break-word; }
+.aile-projeler-ayrinti__baslik:focus { outline: none; }
+
+/* Plan | Gerçek: iki ayrı sütun, tek sayıya birleşmez. */
+.aile-projeler-tutarlar {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--aile-bosluk-4);
+  margin: 0;
+}
+.aile-projeler-tutarlar__sutun { display: flex; flex-direction: column; gap: var(--aile-bosluk-1); min-width: 0; }
+.aile-projeler-tutarlar dd { display: flex; flex-direction: column; margin: 0; }
+.aile-projeler-tutarlar dd > .aile-projeler-tutar { font-size: 18px; line-height: 26px; white-space: normal; overflow-wrap: break-word; }
+
+.aile-projeler-ayrinti__gorevler { display: flex; flex-direction: column; gap: var(--aile-bosluk-3); min-width: 0; }
+.aile-projeler-ayrinti__gorev-bas { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--aile-bosluk-3); }
+.aile-projeler-ayrinti__h3 { margin: 0; }
+.aile-projeler-goster { flex: 1 1 200px; max-width: 320px; min-width: 0; }
+
+/* Şablon ayrıntısı: madde listeleri ve teknik anahtar (eş aralıklı, 14 px; uzun anahtar satırı taşırmadan kırılır). */
+.aile-projeler-madde { margin: 0; padding-left: var(--aile-bosluk-4); }
+.aile-projeler-madde > li + li { margin-top: var(--aile-bosluk-1); }
+.aile-projeler-anahtar {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--aile-metin);
+  overflow-wrap: anywhere;
+}
+
+/* --- Geniş çalışma alanı kabı (içerik geniş parçadan gelir) ------------------------------------------- */
+.aile-projeler-genis { display: flex; flex-direction: column; gap: var(--aile-bosluk-4); min-width: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .aile-projeler-proje { transition: none; }
+}

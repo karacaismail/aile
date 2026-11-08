@@ -1,0 +1,97 @@
+/* Hesaplar ve borçlar: başlık (PageHeader) + bölümler, kutusuz; ayrım boşlukla (README: kart/kenarlık yağmuru yok).
+   Bakiye tahmini düz liste satırıdır (kart değil): satırlar arasında yalnız `cizgi` ayırıcı, köşe ve gölge yok.
+   Yalnız --aile tokenları; okunur metin ≥ 14 px (aile-kucuk 14/20). Satır en az hedef-asgari yüksekliğinde.
+   Telefon temel sunumudur; geniş profil yalnız alan ekler (Projeksiyon.wide.tsx aynı sınıfları kullanır). */
+.aile-hesaplar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-8);
+  min-width: 0;
+}
+.aile-hesaplar--dar { gap: var(--aile-bosluk-6); }
+
+.aile-hesaplar__blok {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-3);
+  min-width: 0;
+}
+.aile-hesaplar__bas {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--aile-bosluk-3);
+  flex-wrap: wrap;
+}
+/* Bölüm başlığı h2, h3 ölçüsünde (Overview ile aynı karar; sayfanın h1'i PageHeader'da). */
+.aile-admin .aile-hesaplar__baslik {
+  font-size: 18px;
+  line-height: 26px;
+}
+
+.aile-hesaplar__not,
+.aile-hesaplar__yok,
+.aile-hesaplar__neden,
+.aile-hesaplar__eski,
+.aile-hesaplar__donem,
+.aile-hesaplar__bos p { margin: 0; }
+.aile-hesaplar__neden + .aile-hesaplar__neden { margin-top: var(--aile-bosluk-2); }
+/* Eski veri: renk yalnız destekler, durum sözcükle yazılır (şerit/kutu yok). */
+.aile-hesaplar__eski { color: var(--aile-uyari); }
+/* Hata iletisi dosya yolu gibi boşluksuz uzun parça taşıyabilir ("…/forecast_months/budget/00000.json"); 320 px'te
+   sayfa yana kaymasın diye gerektiğinde parça içinden sarılır (tablo değil; metin küçültülmez). */
+.aile-hesaplar__hata { min-width: 0; overflow-wrap: anywhere; }
+.aile-hesaplar__bos { display: flex; flex-direction: column; gap: var(--aile-bosluk-1); }
+.aile-hesaplar__bos-baslik { font-weight: 600; }
+
+/* Dönem seçici ve liste okunur genişlikte durur; telefonda tam genişlik. */
+.aile-hesaplar__secici,
+.aile-hesaplar__bakiyeler {
+  inline-size: 100%;
+  max-inline-size: var(--aile-ayrinti-genislik);
+  min-width: 0;
+}
+.aile-hesaplar__bakiyeler { display: flex; flex-direction: column; gap: var(--aile-bosluk-2); }
+.aile-hesaplar__donem {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.aile-hesaplar__grup { display: flex; flex-direction: column; gap: var(--aile-bosluk-1); }
+/* Tahmin adı (h3) gövde ölçüsünde kalır: ölçü kalıtılır, yalnız ağırlık ayırır (sabit yazı ölçüsü yazılmaz). */
+.aile-admin .aile-hesaplar__grup-adi {
+  margin: 0;
+  font-size: inherit;
+  line-height: inherit;
+  font-weight: 600;
+}
+
+/* Liste tek yuzey alanıdır (README › Liste satırı ve tablo); satırlar kart değil, yalnız cizgi ayırıcıyla ayrılır.
+   Çerçeve ve renkli kenar yok; köşe kose-kart. */
+.aile-hesaplar__liste {
+  list-style: none;
+  margin: 0;
+  padding: 0 var(--aile-bosluk-4);
+  background: var(--aile-yuzey);
+  border-radius: var(--aile-kose-kart);
+}
+.aile-hesaplar__satir {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--aile-bosluk-3);
+  min-block-size: var(--aile-hedef-asgari);
+  padding-block: var(--aile-bosluk-2);
+  border-block-end: 1px solid var(--aile-cizgi);
+}
+.aile-hesaplar__satir:last-child { border-block-end: 0; }
+.aile-hesaplar__satir-ad {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.aile-hesaplar__olcu { font-weight: 500; }
+.aile-hesaplar__tutar {
+  flex: none;
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}

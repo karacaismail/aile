@@ -1,0 +1,57 @@
+/* EmeklilikGenis (geniş sunum; yalnız lazyWide modülüyle iner, telefon indirmez). Tek ızgara, bölümler doğrudan çocuk;
+   belge sırası dar sıradır (öneri → seçimler → sonuç → paylar → varsayımlar → ihya). Izgara alanları:
+   - Dar kapsayıcı (< 760 px; ör. 768 px tablet dikeyde içerik alanı 704–736 px): tek sütun, sonuç seçimlerin hemen altında.
+   - Geniş kapsayıcı (≥ 760 = 384 sonuç + 24 boşluk + 352 okunur sol sütun; CSS değişkeni @container koşulunda
+     kullanılamadığından sayı yazılıdır): sol sütun öneri, seçimler, paylar, varsayımlar, ihya; sağda ayrıntı paneli
+     genişliğinde (--aile-ayrinti-genislik, 384) yapışkan sonuç. Son satır 1fr: sonuç sol sütundan uzunsa fazlası son
+     satıra gider, sol bölümler aralanmaz.
+   Dikey boşluk ızgara aralığıyla değil komşu kenar boşluğuyla verilir: hesap hatasında olmayan bölümün alanı boş satır
+   aralığı bırakmaz. Bileşim tablosu altta tam genişlikte. Değerler yalnız --aile-*. */
+.aile-em-genis {
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-8);
+  min-width: 0;
+}
+.aile-em-genis__izgara {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    'oneri'
+    'secimler'
+    'sonuc'
+    'paylar'
+    'varsayimlar'
+    'ihya';
+  min-width: 0;
+}
+.aile-em-genis__izgara > * { min-width: 0; }
+.aile-em-genis__izgara > * + * { margin-top: var(--aile-bosluk-8); }
+.aile-em-genis__izgara > .aile-em-oneri { grid-area: oneri; }
+.aile-em-genis__izgara > .aile-em-secimler { grid-area: secimler; }
+.aile-em-genis__izgara > .aile-em-genis__sag { grid-area: sonuc; }
+.aile-em-genis__izgara > .aile-em-paylar { grid-area: paylar; }
+.aile-em-genis__izgara > .aile-em-varsayimlar { grid-area: varsayimlar; }
+.aile-em-genis__izgara > .aile-em-ihya { grid-area: ihya; }
+
+@container (min-width: 760px) {
+  .aile-em-genis__izgara {
+    grid-template-columns: minmax(0, 1fr) var(--aile-ayrinti-genislik);
+    grid-template-rows: auto auto auto auto 1fr;
+    grid-template-areas:
+      'oneri sonuc'
+      'secimler sonuc'
+      'paylar sonuc'
+      'varsayimlar sonuc'
+      'ihya sonuc';
+    column-gap: var(--aile-bosluk-6);
+    align-items: start;
+  }
+  .aile-em-genis__izgara > .aile-em-genis__sag {
+    margin-top: 0;
+    position: sticky;
+    top: var(--aile-bosluk-4);
+  }
+  .aile-em-genis .aile-em-sonuc { padding: var(--aile-bosluk-6); }
+}

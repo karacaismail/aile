@@ -1,0 +1,174 @@
+/* ListRow — tasarım components/ListRow/README.md + bundle.css .ai-row*; yalnız --aile tokenları (admin.css / aileCssVars).
+   Liste tek yuzey alanıdır: kenar yalnız satırlar arası cizgi ayırıcı; kart/kenarlık yağmuru yok. Tipografi admin.css
+   ölçeğinde: başlık 16/24 600 (govde-kalin), ikincil ve etiket 14/20 (alt sınır 14 px). Hover bilgi-yuzey, basılı ve
+   seçili secili (+600). Odak: satırın alt kenarında tek 3 px çizgi, admin.css'teki tr/[role=row] kuralının aynısı;
+   outline/halka/box-shadow yok. Hareket tek süre ve tek eğri; reduced-motion'da anlık.
+   Sütun ölçüleri tasarımın tek yerel kararı (128 px tutar sütunu, 20 px ok = simge boyu); burada tanımlanır. */
+
+.aile-listrow,
+.aile-listrow-ust {
+  --aile-listrow-tutar-genislik: 128px;
+  --aile-listrow-ok-genislik: 20px;
+  display: block;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-bottom: 1px solid var(--aile-cizgi);
+}
+.aile-listrow:last-child { border-bottom: 0; }
+
+/* Geniş ızgara: foto | ad | planlanan | gerçekleşen | ok. */
+.aile-listrow-dugme,
+.aile-listrow-ust {
+  display: grid;
+  grid-template-columns:
+    var(--aile-fotograf-liste) minmax(0, 1fr) var(--aile-listrow-tutar-genislik) var(--aile-listrow-tutar-genislik) var(--aile-listrow-ok-genislik);
+  gap: var(--aile-bosluk-4);
+  align-items: center;
+  width: 100%;
+  padding: var(--aile-bosluk-3) var(--aile-bosluk-4);
+}
+
+.aile-listrow-ust {
+  padding-top: var(--aile-bosluk-2);
+  padding-bottom: var(--aile-bosluk-2);
+  background: var(--aile-zemin);
+  color: var(--aile-metin);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+}
+
+/* Satır düğmesi: tarayıcı düğme görünümü sıfırlanır; metin sola. Hedef tek merkezi tokenla (b04 --aile-dokunma-hedefi:
+   44 px, kaba işaretçi katmanında 48 px); satır fotoğrafla zaten daha yüksektir, kural fotoğrafsız satırda da alt sınırı
+   korur. */
+.aile-listrow-dugme {
+  position: relative;
+  min-height: var(--aile-dokunma-hedefi);
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--aile-yuzey);
+  color: var(--aile-metin);
+  font: inherit;
+  font-size: 16px;
+  line-height: 24px;
+  text-align: left;
+  cursor: pointer;
+  appearance: none;
+  transition: background-color var(--aile-sure) var(--aile-egri);
+}
+/* Hover yalnız hover katmanında ([data-input-hover], AdaptiveRoot): dokunmada yapışkan hover yüzeyi kalmaz. :where
+   özgüllüğü artırmaz; basılı ve seçili (secili yüzey tonu, aria-current, odaktan ayrı) hover'ın üstünde kalır. */
+:where([data-input-hover]) .aile-listrow-dugme:hover { background: var(--aile-bilgi-yuzey); }
+.aile-listrow-dugme:active,
+.aile-listrow-dugme[aria-current='true'] { background: var(--aile-secili); }
+
+/* Odak çizgisi: klavye modunda, satırın alt kenarında, satır genişliğinde. */
+html[data-keyboard='true'] .aile-listrow-dugme:focus-visible::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--aile-odak-kalinlik);
+  background: var(--aile-odak);
+  pointer-events: none;
+}
+
+/* Ana sütun: ad, kod · oda, etiketler. Sözcük ortasından kesme yok; uzun ad sözcük sınırından sarar. */
+.aile-listrow-ana {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  overflow-wrap: normal;
+  word-break: keep-all;
+}
+.aile-listrow-ad { font-weight: 600; }
+.aile-listrow-meta,
+.aile-listrow-etiket,
+.aile-listrow-fotoyok {
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--aile-metin-ikincil);
+}
+.aile-listrow-etiketler {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--aile-bosluk-2);
+  margin-top: var(--aile-bosluk-1);
+}
+.aile-listrow-fotoyok { display: inline-flex; align-items: center; }
+
+/* Tutar hücreleri: sağa, tabular (.aile-tutar admin.css); eksik sözcük ikincil renkte, 400. */
+.aile-listrow-hucre { text-align: right; white-space: nowrap; }
+.aile-listrow-eksik { color: var(--aile-metin-ikincil); font-weight: 400; }
+.aile-listrow-ok { color: var(--aile-metin-ikincil); }
+
+/* Seçili satırda ikincil metinler ana renge döner; tutarlar 600. */
+.aile-listrow-dugme[aria-current='true'] :is(.aile-listrow-meta, .aile-listrow-etiket, .aile-listrow-fotoyok, .aile-listrow-eksik, .aile-listrow-ok) {
+  color: var(--aile-metin);
+}
+.aile-listrow-dugme[aria-current='true'] .aile-listrow-hucre .aile-tutar,
+.aile-listrow-dugme[aria-current='true'] .aile-listrow-tutarlar .aile-tutar { font-weight: 600; }
+
+/* Fotoğraf yuvası: 56 px, kontrol köşesi; boş yuva liste-zemin üzerinde ikincil simge. */
+.aile-listrow-foto {
+  display: block;
+  width: var(--aile-fotograf-liste);
+  height: var(--aile-fotograf-liste);
+  border-radius: var(--aile-kose-kontrol);
+  object-fit: cover;
+  flex: none;
+}
+.aile-listrow-foto--yok {
+  display: grid;
+  place-items: center;
+  background: var(--aile-liste-zemin);
+  color: var(--aile-metin-ikincil);
+}
+
+/* Dar biçim: foto | ana; tutarlar etiketli iki sütun hâlinde altta, sola, 500. */
+.aile-listrow-dugme[data-bicim='dar'] {
+  grid-template-columns: var(--aile-fotograf-liste) minmax(0, 1fr);
+  gap: var(--aile-bosluk-3);
+  align-items: start;
+}
+.aile-listrow-tutarlar {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--aile-bosluk-3);
+  padding-top: var(--aile-bosluk-2);
+  border-top: 1px solid var(--aile-cizgi);
+}
+.aile-listrow-tutarlar > span { display: flex; flex-direction: column; min-width: 0; }
+.aile-listrow-dugme .aile-listrow-tutarlar .aile-tutar { text-align: left; font-weight: 500; }
+
+/* Görsel gizli sütun adı (geniş biçimde "Planlanan " / "Gerçekleşen "). */
+.aile-listrow-gizli {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aile-listrow-dugme { transition-duration: 0s; }
+}
+
+/* Zorunlu renkler (Windows yüksek karşıtlık): zemin renkleri sistemce ezilir; seçili satır sistem vurgu rengiyle
+   (Highlight/HighlightText) görünür kalır. Odak göstergesi admin.css'teki forced-colors istisnasıyla çizilir. */
+@media (forced-colors: active) {
+  .aile-listrow-dugme[aria-current='true'] { forced-color-adjust: none; background: Highlight; color: HighlightText; }
+  .aile-listrow-dugme[aria-current='true'] :is(.aile-listrow-meta, .aile-listrow-etiket, .aile-listrow-fotoyok, .aile-listrow-eksik, .aile-listrow-ok) {
+    color: HighlightText;
+  }
+}

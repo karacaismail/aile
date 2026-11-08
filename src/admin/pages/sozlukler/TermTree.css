@@ -1,0 +1,154 @@
+/* Sözlük terim ağacı (telefon / temel sunum). Kaynak: bundle.css › Akordeon liste (AccordionList ile aynı görsel dil).
+   Yalnız --aile tokenları; sabit renk yok. Dış liste tek yuzey alanıdır (kose-kart, 1 px cizgi): satırlar yalnız
+   cizgi ayırıcıyla ayrılır. Açık düğüm bilgi-yuzey tonu + eylem dolgulu ok kutusuyla anlatılır; renkli kenar şeridi
+   yok. İç liste (alt terimler) açık panelin üstünde yuzey düzlemidir: çerçeve yok, yüzey tonu ayırır (kart içinde kart
+   yok). Odak: admin.css [data-focus-line] başlık düğmesinin 4 px altına tek 3 px çizgi çizer; çizgi .aile-sz-dugum-ust
+   alt boşluğuna (bosluk-2) düşer, komşu satıra taşmaz; kapalı son düğümde listenin radiuslu alt kenarına 1 px kala
+   oturur (aşağıda: o listenin alt köşeleri çizgi görünürken radiussuz). 14 px ikincil metin admin.css .aile-kucuk
+   sınıfıyla. Hareket tek süre/eğri; reduced-motion'da anlık. */
+
+.aile-sz-agac { min-width: 0; }
+
+.aile-sz-agac-liste {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  background: var(--aile-yuzey);
+  border: 1px solid var(--aile-cizgi);
+  border-radius: var(--aile-kose-kart);
+  overflow: hidden;
+}
+.aile-sz-agac-liste--ic {
+  border: 0;
+  border-radius: var(--aile-kose-kontrol);
+}
+/* Kapalı son düğümün başlık çizgisi listenin alt kenarına 1 px kala oturur; liste radiuslu ve taşmayı kırpar, çizginin
+   uçları köşe eğrisinde kesilirdi (kavisli vurgu kenarı). Yalnız çizgi görünürken (klavye modu + :focus-visible) o
+   listenin (dış ya da iç) değdiği iki alt köşesi radiussuz; açık düğümde çizgi gövdenin üstünde kalır, köşeler değişmez.
+   Üst köşeler ve işaretçi modu korunur; geçiş yok (anında). */
+html[data-keyboard='true'] .aile-sz-agac-liste:has(> .aile-sz-dugum:last-child[data-open='false'] > .aile-sz-dugum-ust :focus-visible) {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.aile-sz-dugum { min-width: 0; }
+.aile-sz-dugum + .aile-sz-dugum { border-top: 1px solid var(--aile-cizgi); }
+
+/* Başlık yuvası: düğmenin altında odak çizgisine yer (bosluk-2 ≥ odak-aralik + odak-kalinlik). Zemin bu yuvada. */
+.aile-sz-dugum-ust {
+  padding: var(--aile-bosluk-1) 0 var(--aile-bosluk-2);
+  transition: background-color var(--aile-sure) var(--aile-egri);
+}
+
+/* Düğüm başlığı: tam genişlik düğme; 3 sütun: ad + meta · (Eski) · 32 px ok kutusu. Yükseklik --aile-dokunma-hedefi:
+   44 px, kaba işaretçi katmanında (data-input-coarse) admin.css'te 48 px. */
+.aile-sz-dugum-bas {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto var(--aile-bosluk-8);
+  align-items: center;
+  gap: var(--aile-bosluk-3);
+  width: 100%;
+  min-height: var(--aile-dokunma-hedefi);
+  margin: 0;
+  padding: var(--aile-bosluk-1) var(--aile-bosluk-4);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+[data-input-hover] .aile-sz-dugum-ust:has(> .aile-sz-dugum-bas:hover) { background: var(--aile-bilgi-yuzey); }
+.aile-sz-dugum-ust:has(> .aile-sz-dugum-bas:active) { background: var(--aile-secili); }
+
+.aile-sz-dugum-ana {
+  grid-column: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-1);
+  min-width: 0;
+}
+.aile-sz-dugum-ad { font-weight: 600; }
+.aile-sz-dugum-meta {
+  color: var(--aile-metin-ikincil);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Ok kutusu: 32 px (bosluk-8), kenar-kontrol çerçeve, eylem renkli ok. Süsleyicidir; durum aria-expanded'dadır. */
+.aile-sz-dugum-ok {
+  grid-column: 3;
+  display: grid;
+  place-items: center;
+  width: var(--aile-bosluk-8);
+  height: var(--aile-bosluk-8);
+  border: 1px solid var(--aile-kenar-kontrol);
+  border-radius: var(--aile-kose-kontrol);
+  background: var(--aile-yuzey);
+  color: var(--aile-eylem);
+  transition:
+    background-color var(--aile-sure) var(--aile-egri),
+    border-color var(--aile-sure) var(--aile-egri),
+    color var(--aile-sure) var(--aile-egri);
+}
+.aile-sz-dugum-ok svg { transition: transform var(--aile-sure) var(--aile-egri); }
+
+/* Açık düğüm: başlık ve gövde bilgi-yuzey, ok kutusu eylem dolgu + yuzey ok, ok 180° döner. Durum anında değişir;
+   geçiş yalnız görseldir. */
+.aile-sz-dugum[data-open='true'] > .aile-sz-dugum-ust,
+.aile-sz-dugum[data-open='true'] > .aile-sz-dugum-govde { background: var(--aile-bilgi-yuzey); }
+.aile-sz-dugum[data-open='true'] > .aile-sz-dugum-ust .aile-sz-dugum-ok {
+  background: var(--aile-eylem);
+  border-color: var(--aile-eylem);
+  color: var(--aile-yuzey);
+}
+.aile-sz-dugum[data-open='true'] > .aile-sz-dugum-ust .aile-sz-dugum-ok svg { transform: rotate(180deg); }
+
+/* Gövde: etiket–değer listesi, eylem, alt terimler. Kapalıyken hidden (+ inert). */
+.aile-sz-dugum-govde {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--aile-bosluk-3);
+  padding: 0 var(--aile-bosluk-4) var(--aile-bosluk-4);
+  min-width: 0;
+}
+.aile-sz-dugum-govde[hidden] { display: none; }
+
+/* Etiket–değer çiftleri: etiket 96 px (3 × bosluk-8), değer en az 160 px (5 × bosluk-8). Alan yetmezse (320 px'te iç
+   düzeyler) değer etiketin altına sarar; değer daralıp kod kelime ortasından bölünmez. Medya sorgusu yok. */
+.aile-sz-dugum-dl {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aile-bosluk-2);
+  margin: 0;
+  padding-top: var(--aile-bosluk-3);
+  border-top: 1px solid var(--aile-acik-mavi);
+}
+.aile-sz-dugum-dl > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--aile-bosluk-4);
+  min-width: 0;
+}
+.aile-sz-dugum-dl dt {
+  flex: 0 0 calc(3 * var(--aile-bosluk-8));
+  color: var(--aile-metin-ikincil);
+}
+.aile-sz-dugum-dl dd {
+  flex: 1 1 calc(5 * var(--aile-bosluk-8));
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+.aile-sz-sayi { font-variant-numeric: tabular-nums; }
+.aile-sz-dugum-eylem {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--aile-bosluk-2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aile-sz-dugum-ust, .aile-sz-dugum-ok, .aile-sz-dugum-ok svg { transition-duration: 0s; }
+}
