@@ -476,7 +476,7 @@ test.describe('telefon odak çizgisi sınırları', () => {
       const hedef = liste.locator(durum.hedef);
       await expect(hedef).toHaveCount(1);
       const once = await liste.evaluate(odakCizgisi);
-      expect(once.altRadius, 'liste radiuslu (kose-kart)').toEqual(['12px', '12px']);
+      expect(once.altRadius, 'liste radiuslu (kose-kart)').toEqual(['5px', '5px']);
 
       await enterKeyboardMode(page, browserName);
       await hedef.focus();
@@ -487,7 +487,7 @@ test.describe('telefon odak çizgisi sınırları', () => {
       expect(klavye.cizgi!.alt, JSON.stringify(klavye)).toBeGreaterThan(klavye.icAlt - 12);
       expect(klavye.cizgi!.alt, JSON.stringify(klavye)).toBeLessThanOrEqual(klavye.icAlt + 0.5);
       expect(klavye.altRadius, 'değdiği alt köşeler radiussuz').toEqual(['0px', '0px']);
-      expect(klavye.ustRadius, 'üst köşeler korunur').toEqual(['12px', '12px']);
+      expect(klavye.ustRadius, 'üst köşeler korunur').toEqual(['5px', '5px']);
       expect(await focusRing(page, { keyboard: true })).toEqual([]);
 
       // İşaretçi kipinde (gösterge yok) köşeler yerinde; odak programatik olarak satırda kalsa da.
@@ -497,7 +497,7 @@ test.describe('telefon odak çizgisi sınırları', () => {
       await hedef.focus();
       const isaretci = await liste.evaluate(odakCizgisi);
       expect(isaretci.cizgi).toBeNull();
-      expect(isaretci.altRadius).toEqual(['12px', '12px']);
+      expect(isaretci.altRadius).toEqual(['5px', '5px']);
     });
   }
 });
