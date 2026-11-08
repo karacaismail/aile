@@ -65,10 +65,10 @@ describe('aileTema (Ant Design 6 eşlemesi)', () => {
     expect(t.controlHeight).toBe(44);
     expect(t.controlHeightSM).toBe(44);
     expect(t.controlHeightLG).toBe(48);
-    expect(t.borderRadius).toBe(8);
-    expect(t.borderRadiusSM).toBe(8);
-    expect(t.borderRadiusLG).toBe(12);
-    expect(t.borderRadiusOuter).toBe(8);
+    expect(t.borderRadius).toBe(5);
+    expect(t.borderRadiusSM).toBe(5);
+    expect(t.borderRadiusLG).toBe(5);
+    expect(t.borderRadiusOuter).toBe(5);
     expect([t.paddingXXS, t.paddingXS, t.paddingSM, t.padding, t.paddingLG, t.paddingXL]).toEqual([4, 8, 12, 16, 24, 32]);
     expect(t.boxShadow).toBe('none');
     expect(t.boxShadowSecondary).toBe(designTokens.golgeYukseltilmis);
@@ -117,7 +117,7 @@ describe('aileTema (Ant Design 6 eşlemesi)', () => {
     expect(hex(menu.darkItemSelectedBg)).toBe('#c9dbe7');
     expect(hex(menu.darkItemSelectedColor)).toBe('#203a51');
     expect(menu.itemHeight).toBe(44);
-    expect(menu.itemBorderRadius).toBe(8);
+    expect(menu.itemBorderRadius).toBe(5);
     expect(hex(menu.itemSelectedBg)).toBe('#c9dbe7');
     expect(hex(menu.itemSelectedColor)).toBe('#203a51');
     expect(hex(menu.itemHoverBg)).toBe('#eaf1f6');
