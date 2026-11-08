@@ -8,13 +8,13 @@
 html[data-keyboard='true'] .timeline-month-arrow:focus-visible::after { content: ''; position: absolute; width: var(--budget-timelineIconSize); height: var(--budget-focusThickness); background: var(--budget-blue); bottom: var(--budget-spaceDense); }
 .timeline-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--budget-timelineMetricWidth)), 1fr)); gap: var(--budget-spaceTight); margin-top: var(--budget-spaceDense); }
 .timeline-summary > div { min-width: 0; padding: var(--budget-spaceSmall); }
-.timeline-summary-cash { background: var(--budget-timelineHeroSurface); color: var(--budget-ink); border-radius: var(--budget-timelineSummaryRadius); }
-.timeline-summary-debt { background: var(--budget-timelineSurface); color: var(--budget-ink); border-radius: var(--budget-timelineSummaryRadius); }
+.timeline-summary-cash { background: var(--budget-timelineHeroSurface); color: var(--budget-ink); border-radius: var(--budget-radius); }
+.timeline-summary-debt { background: var(--budget-timelineSurface); color: var(--budget-ink); border-radius: var(--budget-radius); }
 .timeline-summary span { display: block; color: var(--budget-muted); }
 .timeline-summary strong { display: block; font-size: var(--budget-fontMetric); font-variant-numeric: tabular-nums; line-height: var(--budget-lineCompact); margin-top: var(--budget-spaceDense); letter-spacing: var(--budget-metricTracking); }
 .timeline-summary-cash strong:not(.negative) { color: var(--budget-green); }
 /* Period details: light panel after the steps at every width; on wide screens it stays within reading width in the flow column. */
-.timeline-details-panel { min-width: 0; max-width: var(--budget-timelineReadingWidth); padding: var(--budget-spaceSmall); border-radius: var(--budget-timelineSummaryRadius); background: var(--budget-timelineSurface); }
+.timeline-details-panel { min-width: 0; max-width: var(--budget-timelineReadingWidth); padding: var(--budget-spaceSmall); border-radius: var(--budget-radius); background: var(--budget-timelineSurface); }
 .timeline-details-panel h2 { margin: 0 0 var(--budget-spaceTight); font-size: var(--budget-fontSection); }
 .timeline-details-panel dl { display: grid; gap: var(--budget-spaceTight); margin: 0; }
 .timeline-details-panel dl > div { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 0 var(--budget-spaceSmall); }
@@ -40,7 +40,7 @@ html[data-keyboard='true'] .timeline-page .timeline-details-panel[tabindex]:focu
 .timeline-flow-scope { color: var(--budget-ink); font-weight: var(--budget-labelWeight); }
 .timeline-step-count { color: var(--budget-muted); white-space: nowrap; }
 .timeline-views { min-width: 0; }
-.timeline-view-switch, .timeline-filters { display: inline-flex; max-width: 100%; gap: var(--budget-spaceDense); padding: var(--budget-spaceDense); border-radius: var(--budget-timelineSummaryRadius); background: var(--budget-blueSurface); }
+.timeline-view-switch, .timeline-filters { display: inline-flex; max-width: 100%; gap: var(--budget-spaceDense); padding: var(--budget-spaceDense); border-radius: var(--budget-radius); background: var(--budget-blueSurface); }
 .timeline-view-switch [role='tab'], .timeline-filters button { min-height: var(--budget-targetMin); min-width: 0; border: 0; border-radius: var(--budget-radius); padding: var(--budget-spaceTight); background: transparent; color: var(--budget-ink); font-weight: var(--budget-headingWeight); transition: background-color var(--budget-duration) var(--budget-ease); }
 .timeline-view-switch [role='tab'] { width: var(--budget-timelineViewTabWidth); }
 .timeline-view-switch [role='tab']:hover, .timeline-filters button:hover { background: var(--budget-paper); }
@@ -73,7 +73,7 @@ html[data-keyboard='true'] .budget-app .timeline-table-scroll:focus-visible { te
 .timeline-pagination { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--budget-spaceSmall); margin-block: var(--budget-spacing); }
 /* One outer inset frames both dates and cards. Keep the narrow vertical budget;
    the compact fixed date column preserves one reading rail across months. */
-.timeline-journey { margin-top: var(--budget-spaceTight); padding: var(--budget-spaceTight) var(--budget-timelineCanvasInset); border-radius: var(--budget-timelinePanelRadius); background: var(--budget-timelineFlowCanvas); }
+.timeline-journey { margin-top: var(--budget-spaceTight); padding: var(--budget-spaceTight) var(--budget-timelineCanvasInset); border-radius: var(--budget-radius); background: var(--budget-timelineFlowCanvas); }
 .timeline-day { min-width: 0; position: relative; }
 /* A filter with no matching steps shows its empty message, not an empty canvas bar. */
 .timeline-journey:empty { display: none; }
@@ -86,10 +86,10 @@ html[data-keyboard='true'] .budget-app .timeline-table-scroll:focus-visible { te
 .timeline-date-month { font-size: var(--budget-fontSection); font-weight: var(--budget-headingWeight); }
 .timeline-weekday, .timeline-day-count { color: var(--budget-muted); font-size: var(--budget-fontSmall); font-weight: var(--budget-labelWeight); }
 .timeline-day-count { flex-shrink: 0; }
-.timeline-step { position: relative; padding: 0; border-radius: var(--budget-timelineStepRadius); background: var(--budget-paper); box-shadow: var(--budget-timelineStepShadow); }
+.timeline-step { position: relative; padding: 0; border-radius: var(--budget-radius); background: var(--budget-paper); box-shadow: var(--budget-timelineStepShadow); }
 /* A pause and a single rule mark the end of one transaction and the start of the next. */
 .timeline-step + .timeline-step::before { content: ''; position: absolute; inset-inline: var(--budget-spacing); top: calc(var(--budget-timelineStepGap) / -2); height: var(--budget-ruleWidth); background: var(--budget-timelineDivider); pointer-events: none; }
-.timeline-step article { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; --step-tone-surface: var(--budget-timelineSurface); --step-tone-ink: var(--budget-ink); border-radius: var(--budget-timelineStepRadius); scroll-margin-top: var(--budget-spaceSmall); transition: box-shadow var(--budget-duration) var(--budget-ease); }
+.timeline-step article { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; --step-tone-surface: var(--budget-timelineSurface); --step-tone-ink: var(--budget-ink); border-radius: var(--budget-radius); scroll-margin-top: var(--budget-spaceSmall); transition: box-shadow var(--budget-duration) var(--budget-ease); }
 .timeline-step-context { min-width: 0; padding: var(--budget-spaceSmall) var(--budget-spacing); }
 .timeline-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--budget-spaceDense) var(--budget-spaceTight); color: var(--budget-muted); }
 .timeline-kind { font-weight: var(--budget-labelWeight); color: var(--budget-ink); }
@@ -134,9 +134,10 @@ html[data-keyboard='true'] .budget-app .timeline-table-scroll:focus-visible { te
   .timeline-day-heading time { display: grid; gap: var(--budget-spaceDense); }
   .timeline-day-count { display: block; margin-top: var(--budget-spaceSmall); }
   .timeline-day ol { border-left: var(--budget-ruleWidth) solid var(--budget-lightBlue); padding-left: var(--budget-timelineRailInset); position: relative; }
-  .timeline-day ol::before { content: ''; position: absolute; width: var(--budget-timelineDotSize); height: var(--budget-timelineDotSize); background: var(--budget-blue); left: calc(var(--budget-timelineDotSize) / -2); top: var(--budget-spacing); border-radius: 50%; }
+  .timeline-day ol::before { content: ''; position: absolute; width: var(--budget-timelineDotSize); height: var(--budget-timelineDotSize); background: var(--budget-blue); left: calc(var(--budget-timelineDotSize) / -2); top: var(--budget-spacing); border-radius: var(--budget-radiusSmall); }
 }
 .timeline-model-note { margin-block: var(--budget-spaceSmall); color: var(--budget-muted); }
+.timeline-model-note a { display: inline-flex; align-items: center; min-height: var(--budget-targetMin); }
 .timeline-model-notes { display: grid; gap: var(--budget-spaceDense); padding: var(--budget-spaceSmall); margin-block: var(--budget-spaceSmall); background: var(--budget-blueSurface); border-radius: var(--budget-radius); color: var(--budget-muted); }
 .timeline-model-notes strong { color: var(--budget-ink); }
 .timeline-caveat p + p { margin-top: var(--budget-spaceSmall); }
@@ -192,7 +193,7 @@ html[data-keyboard='true'] .budget-app .timeline-table-scroll:focus-visible { te
 .timeline-step article[data-tone='card'] { --step-tone-surface: var(--budget-blueSurface); --step-tone-ink: var(--budget-blue); }
 .timeline-step article[data-tone='transfer'] { --step-tone-surface: var(--budget-amberSurface); --step-tone-ink: var(--budget-amber); }
 .timeline-step article[data-selected='true'] { box-shadow: var(--budget-timelineSelectedShadow); }
-.timeline-step-identity { margin: calc(-1 * var(--budget-spaceSmall)) calc(-1 * var(--budget-spacing)) 0; padding: var(--budget-spaceSmall) var(--budget-spacing); background: var(--step-tone-surface); border-radius: var(--budget-timelineStepRadius) var(--budget-timelineStepRadius) 0 0; }
+.timeline-step-identity { margin: calc(-1 * var(--budget-spaceSmall)) calc(-1 * var(--budget-spacing)) 0; padding: var(--budget-spaceSmall) var(--budget-spacing); background: var(--step-tone-surface); border-radius: var(--budget-radius) var(--budget-radius) 0 0; }
 .timeline-step .timeline-meta { justify-content: space-between; }
 .timeline-step .timeline-kind { display: inline-flex; padding: 0 var(--budget-spaceTight); background: var(--budget-paper); color: var(--step-tone-ink); border-radius: var(--budget-radius); }
 .timeline-step-number { color: var(--budget-muted); font-weight: var(--budget-labelWeight); font-variant-numeric: tabular-nums; }
@@ -210,7 +211,7 @@ html[data-keyboard='true'] .budget-app .timeline-table-scroll:focus-visible { te
 .timeline-bank-group dl > div { min-width: 0; display: grid; align-content: start; }
 .timeline-bank-group .timeline-balance-change { color: var(--budget-blue); }
 /* Step end: destination-named links to the neighbouring visible steps on the step's own tone. */
-.timeline-step-links { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--budget-timelinePurchaseFactWidth)), 1fr)); gap: var(--budget-spaceTight); padding: var(--budget-spaceSmall) var(--budget-spacing); border-top: var(--budget-ruleWidth) solid var(--budget-timelineDivider); background: var(--step-tone-surface); border-radius: 0 0 var(--budget-timelineStepRadius) var(--budget-timelineStepRadius); }
+.timeline-step-links { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--budget-timelinePurchaseFactWidth)), 1fr)); gap: var(--budget-spaceTight); padding: var(--budget-spaceSmall) var(--budget-spacing); border-top: var(--budget-ruleWidth) solid var(--budget-timelineDivider); background: var(--step-tone-surface); border-radius: 0 0 var(--budget-radius) var(--budget-radius); }
 .timeline-step-link { display: grid; align-content: center; gap: var(--budget-spaceDense); min-height: var(--budget-targetMin); min-width: 0; padding: var(--budget-spaceTight) var(--budget-spaceSmall); border: 0; border-radius: var(--budget-radius); background: var(--budget-paper); color: var(--budget-ink); font: inherit; text-align: start; cursor: pointer; transition: background-color var(--budget-duration) var(--budget-ease); }
 .timeline-step-link[data-direction='next'] { text-align: end; }
 .timeline-step-link:hover { background: var(--budget-canvas); }
@@ -225,7 +226,7 @@ html[data-keyboard='true'] .budget-app .timeline-table-scroll:focus-visible { te
 }
 @container (min-width: 48em) {
   /* Wide identity reads as one line: kind, title, then the step number; DOM order stays kind → number → title. */
-  .timeline-step-identity { display: flex; flex-wrap: wrap; align-items: center; gap: var(--budget-spaceDense) var(--budget-spaceSmall); padding-block: var(--budget-spaceDense); }
+  .timeline-step-identity { display: flex; flex-wrap: wrap; align-items: center; gap: var(--budget-spaceDense) var(--budget-spaceSmall); padding-block: var(--budget-clearControl); }
   .timeline-step-identity .timeline-meta { display: contents; }
   .timeline-step-identity h3 { order: 1; flex: 1 1 0; min-width: 0; margin: 0; }
   .timeline-step-identity .timeline-step-number { order: 2; }

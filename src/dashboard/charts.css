@@ -1,6 +1,6 @@
 .chart-context { margin: 0; color: var(--budget-muted); }
 .chart-grid > .chart-section { padding: var(--budget-spaceSmall); container-type: inline-size; }
-.chart-selected { background: var(--budget-blueSurface); border-radius: var(--budget-radius); padding: var(--budget-spaceTight) var(--budget-spaceDense); margin-top: var(--budget-spaceSmall); }
+.chart-selected { background: var(--budget-blueSurface); border-radius: var(--budget-radius); padding: var(--budget-clearField) var(--budget-clearControl); margin-top: var(--budget-spaceSmall); }
 .chart-selected .chart-selected-month { margin: 0 0 var(--budget-spaceTight); font-weight: var(--budget-headingWeight); }
 .chart-selected dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--budget-chartValueWidth)), 1fr)); gap: var(--budget-spaceSmall); margin: 0; }
 .chart-selected dt { color: var(--budget-muted); }

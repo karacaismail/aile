@@ -10,7 +10,7 @@ it('announces loading, last read time and an unknown source as one polite status
   expect(status).toHaveAttribute('aria-live', 'polite');
   expect(status).toHaveTextContent('Kaynak kontrol ediliyor…');
   view.rerender(<DataStatus loading={false} updatedAt={new Date('2098-11-01T09:05:00Z')} />);
-  expect(screen.getByRole('status')).toHaveTextContent(/^Son okuma \d{2}:\d{2} · Açıkken her dakika yenilenir$/);
+  expect(screen.getByRole('status')).toHaveTextContent(/^Güncellendi \d{2}:\d{2}$/);
   view.rerender(<DataStatus loading={false} updatedAt={null} idle="Kaynak doğrulaması tamamlanmadı." />);
   expect(screen.getByRole('status')).toHaveTextContent('Kaynak doğrulaması tamamlanmadı.');
 });

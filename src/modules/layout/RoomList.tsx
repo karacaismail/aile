@@ -24,7 +24,7 @@ function RoomCard({ oda, dims, items }: { oda: Oda; dims: RoomDims; items: Item[
   return (
     <Card component={Link} href={`~/yerlesim/${oda}`} radius="md" p="md" className={classes.card} data-testid="room-card">
       <Group justify="space-between" wrap="nowrap" gap="xs">
-        <Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
+        <Stack gap="xs" style={{ flex: 1, minWidth: 0 }}>
           <Text component="h2" fw={700} className={classes.title}>{label('oda', oda)}</Text>
           <FactList label={`${label('oda', oda)} oda özeti`} items={[
             { label: 'Oda ölçüsü', value: size || 'ölçü gir' },
@@ -60,7 +60,7 @@ export function RoomList() {
     );
   }
   return (
-    <Box pb={24}>
+    <Box pb="lg">
       <Text size="sm" c="dimmed" px="sm" pt="sm">Duvar başına yerleşim, priz ve kanal ihtiyacı. Oda kartına dokunun.</Text>
       <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="xs" p="sm" data-testid="room-list">
         {rooms.map((r) => <RoomCard key={r.oda} oda={r.oda} dims={r.dims} items={r.items} />)}

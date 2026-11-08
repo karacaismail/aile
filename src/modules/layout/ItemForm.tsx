@@ -47,7 +47,7 @@ function PurchasePicker({ oda, value, onChange }: { oda: Oda; value: string[]; o
       .sort((a, b) => Number(value.includes(b.id)) - Number(value.includes(a.id)) || Number(b.oda === oda) - Number(a.oda === oda) || coll.compare(a.ad, b.ad));
   }, [purchases, q, oda, value]);
   return (
-    <Stack gap={6}>
+    <Stack gap="sm">
       <Group justify="space-between" wrap="nowrap">
         <Text size="sm" fw={500}>Bağlı satınalma kalemleri</Text>
         {value.length > 0 && <Text size="xs" c="dimmed">{value.length} seçili</Text>}
@@ -61,9 +61,9 @@ function PurchasePicker({ oda, value, onChange }: { oda: Oda; value: string[]; o
           )}
           <Checkbox.Group value={value} onChange={onChange}>
             <ScrollArea.Autosize mah={220} type="auto" offsetScrollbars>
-              <Stack gap={4}>
+              <Stack gap="xs">
                 {list.map((p) => (
-                  <Checkbox.Card key={p.id} value={p.id} withBorder radius="md" px="xs" py={4} className={classes.pick} aria-label={p.ad}>
+                  <Checkbox.Card key={p.id} value={p.id} withBorder radius="md" px="xs" py="xs" className={classes.pick} aria-label={p.ad}>
                     <Group wrap="nowrap" gap="xs" align="center" style={{ width: '100%' }}>
                       <Checkbox.Indicator />
                       <Text size="sm" lineClamp={1} data-allow-clamp style={{ flex: 1, minWidth: 0 }}>{p.ad}</Text>
@@ -156,7 +156,7 @@ function ItemFormBody({ oda, item, onClose }: { oda: Oda; item?: Item; onClose: 
 
   return (
     <Modal opened onClose={unlessConfirming(onClose)} title={isNew ? `Yeni kalem · ${label('oda', oda)}` : label('oda', oda)} fullScreen={isMobile} size="lg"
-      closeButtonProps={modalCloseProps} styles={{ body: { paddingBottom: 96 } }}>
+      closeButtonProps={modalCloseProps} styles={{ body: { paddingBottom: 'var(--aile-fab-clearance)' } }}>
       <form ref={formRef} onSubmit={form.onSubmit(save, (errors) => focusFirstError(formRef.current, errors))} noValidate data-testid="layout-item-form">
         <Stack gap="sm">
           <Stack component="section" aria-label="Eşya ve konum" className="record-form-section" gap="sm"><SectionHeading title="Eşya ve konum" level={3} />
@@ -165,7 +165,7 @@ function ItemFormBody({ oda, item, onClose }: { oda: Oda; item?: Item; onClose: 
             {/* Yeni kalemde zorunlu ilk alan odaklanır (Mantine FocusTrap `data-autofocus`); düzenlemede odak modal başlığında kalır. */}
             <TextInput label="Ad" required data-autofocus={isNew || undefined} {...form.getInputProps('ad')} key={form.key('ad')} />
             <div>
-              <Text size="sm" fw={500} mb={4} id="duvar-label">Duvar</Text>
+              <Text size="sm" fw={500} mb="xs" id="duvar-label">Duvar</Text>
               <SegmentedControl fullWidth aria-labelledby="duvar-label" data={WALL_OPTIONS} value={form.getValues().duvar} onChange={(v) => form.setFieldValue('duvar', v as WallKey)} />
             </div>
           </Stack><Stack component="section" aria-label="Ölçüler ve ihtiyaçlar" className="record-form-section" gap="sm"><SectionHeading title="Ölçüler ve ihtiyaçlar" level={3} />

@@ -65,7 +65,7 @@ export function PurchaseFilterSections({ items, filters, onChange, now = new Dat
       </FilterSection>
       <FilterSection title="Hızlı" selectedCount={quickActive}
         onClear={() => onChange({ ...filters, hideDone: false, fiyatsiz: false, kararBekliyor: false, siparisYakin: false, durum: filters.durum.filter((d) => d !== 'siparis') })}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--budget-clearControl)' }}>
           <QuickChips items={items} filters={filters} onChange={onChange} now={now} testIdPrefix="sheet-chip" />
         </div>
       </FilterSection>

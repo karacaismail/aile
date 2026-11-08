@@ -1,7 +1,7 @@
 .home-plan-page { display: grid; gap: var(--budget-spaceSection); min-width: 0; }
 .home-plan-page > * { min-width: 0; }
 .home-plan-page .page-header { margin-bottom: 0; }
-.home-plan-overview { display: grid; gap: var(--budget-spacing); padding: var(--budget-spacing); background: var(--budget-blueSurface); border-radius: var(--budget-timelinePanelRadius); }
+.home-plan-overview { display: grid; gap: var(--budget-spacing); padding: var(--budget-spacing); background: var(--budget-blueSurface); border-radius: var(--budget-radius); }
 .home-plan-overview > div:first-child { display: grid; gap: var(--budget-spaceSmall); align-content: start; }
 .home-plan-overview > div:first-child > p { color: var(--budget-muted); }
 .home-plan-overview .info-facts { background: var(--budget-paper); border-radius: var(--budget-radius); padding: var(--budget-spacing); }

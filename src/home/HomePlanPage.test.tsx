@@ -25,7 +25,7 @@ it('finds missing prices within the source category without treating zero as mis
   expect(within(table).queryByText('Örnek mobilya')).not.toBeInTheDocument();
   expect(within(table).getByText('Fiyatı beklenen ürün')).toBeInTheDocument();
   expect(screen.getByRole('navigation', { name: 'Alımdan sonraki adım' })).toHaveTextContent('Hazırlık listesine git');
-  expect(screen.getByText(/Plan tutarı ödeme yapıldığı anlamına gelmez/)).toBeInTheDocument();
+  expect(screen.getByText(/Eksik tutar sıfır değildir/)).toBeInTheDocument();
 });
 
 it('answers what and how much before when and category, so narrow screens show the amount first', () => {

@@ -29,7 +29,7 @@ test('Odalar sekmesi: oda kartları, rozetler, taşma yok, hedefler ≥44px', as
   expect(box!.y + box!.height).toBeLessThanOrEqual(page.viewportSize()!.height);
   expect(await horizontalOverflow(page)).toEqual([]);
   expect(await smallTargets(page)).toEqual([]);
-  expect(await smallText(page), 'metin < 1rem').toEqual([]);
+  expect(await smallText(page), 'metin < 14px').toEqual([]);
 });
 
 test('Oda sayfası: başlık, köpek rozeti, katman kartları ve uyarılar', async ({ page }) => {
@@ -44,7 +44,7 @@ test('Oda sayfası: başlık, köpek rozeti, katman kartları ve uyarılar', asy
   await expect(page.getByText('2 ürün bağlı')).toBeVisible();
   expect(await horizontalOverflow(page)).toEqual([]);
   expect(await smallTargets(page)).toEqual([]);
-  expect(await smallText(page), 'metin < 1rem').toEqual([]);
+  expect(await smallText(page), 'metin < 14px').toEqual([]);
   await page.getByRole('button', { name: 'Geri' }).click();
   await expect(page.getByTestId('lighting-tabs')).toBeVisible();
 });
@@ -57,7 +57,7 @@ test('Katman formu: taşma yok, görev CRI doğrulaması, kayıt sonrası kart',
   await expect(page.getByTestId('cct-value')).toContainText('2700–4000 K');
   expect(await horizontalOverflow(page)).toEqual([]);
   expect(await smallTargets(page)).toEqual([]);
-  expect(await smallText(page), 'metin < 1rem').toEqual([]);
+  expect(await smallText(page), 'metin < 14px').toEqual([]);
   await page.getByRole('button', { name: 'Kaydet' }).click();
   await expect(page.getByText('Katman türü gerekli')).toBeVisible();
   await page.getByRole('combobox', { name: 'Katman türü' }).click();
@@ -86,7 +86,7 @@ test('Katman formu: köpek kuralı ve uzun şerit uyarısı', async ({ page }) =
   await expect(page.getByText('Köpek erişebilen odada 90 cm altında açıkta şerit/kablo olamaz')).toBeVisible();
   expect(await horizontalOverflow(page)).toEqual([]);
   expect(await smallTargets(page)).toEqual([]);
-  expect(await smallText(page), 'metin < 1rem').toEqual([]);
+  expect(await smallText(page), 'metin < 14px').toEqual([]);
 });
 
 test('Sahneler sekmesi: sahne kartı ve seviyeler; sahne formu', async ({ page }) => {
@@ -99,13 +99,13 @@ test('Sahneler sekmesi: sahne kartı ve seviyeler; sahne formu', async ({ page }
   await expect(card.getByRole('group', { name: 'Salon seviyeleri' }).getByTestId('scene-level').first()).toHaveText('Tavan çizgiselParlaklık %20 · 2700 K');
   expect(await horizontalOverflow(page)).toEqual([]);
   expect(await smallTargets(page)).toEqual([]);
-  expect(await smallText(page), 'metin < 1rem').toEqual([]);
+  expect(await smallText(page), 'metin < 14px').toEqual([]);
   await card.click();
   await expect(page.getByTestId('scene-form')).toBeVisible();
   await expect(page.getByTestId('scene-level-row')).toHaveCount(2);
   expect(await horizontalOverflow(page)).toEqual([]);
   expect(await smallTargets(page)).toEqual([]);
-  expect(await smallText(page), 'metin < 1rem').toEqual([]);
+  expect(await smallText(page), 'metin < 14px').toEqual([]);
   await page.getByRole('button', { name: 'Seviye ekle' }).click();
   await expect(page.getByTestId('scene-level-row')).toHaveCount(3);
   await page.getByRole('combobox', { name: 'Katman 3' }).click();
@@ -126,7 +126,7 @@ test('Yol haritası: toplam tahmini, adımlar ve bağlı kalemler', async ({ pag
   await expect(page.getByTestId('step-ampul')).toContainText('Çocuk odası · Ders masası');
   expect(await horizontalOverflow(page)).toEqual([]);
   expect(await smallTargets(page)).toEqual([]);
-  expect(await smallText(page), 'metin < 1rem').toEqual([]);
+  expect(await smallText(page), 'metin < 14px').toEqual([]);
 });
 
 test('emoji yok (aydınlatma ekranları)', async ({ page }) => {

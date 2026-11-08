@@ -9,7 +9,7 @@ for (const route of ROUTES) {
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
     expect(await horizontalOverflow(page)).toEqual([]);
     expect(await smallTargets(page)).toEqual([]);
-    expect(await smallText(page), 'metin < 1rem').toEqual([]);
+    expect(await smallText(page), 'metin < 14px').toEqual([]);
   });
 }
 
@@ -31,7 +31,7 @@ test('detay modalında taşma yok ve kaydet erişilebilir', async ({ page }) => 
   await expect(page.getByTestId('item-detail')).toBeVisible();
   expect(await horizontalOverflow(page)).toEqual([]);
   expect(await smallTargets(page)).toEqual([]);
-  expect(await smallText(page), 'modal metin < 1rem').toEqual([]);
+  expect(await smallText(page), 'modal metin < 14px').toEqual([]);
   await expect(page.getByRole('button', { name: 'Kaydet' })).toBeVisible();
 });
 

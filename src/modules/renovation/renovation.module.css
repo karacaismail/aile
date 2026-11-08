@@ -45,7 +45,7 @@
   justify-content: center;
   inline-size: calc(var(--budget-timelineIconSize) + var(--budget-spaceTight));
   block-size: calc(var(--budget-timelineIconSize) + var(--budget-spaceTight));
-  border-radius: 50%;
+  border-radius: var(--budget-radius);
   background: var(--budget-blueSurface);
   color: var(--budget-ink);
 }
@@ -78,7 +78,7 @@
 .telLink {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--budget-clearText);
   min-height: 44px;
   min-width: 44px;
   white-space: nowrap;

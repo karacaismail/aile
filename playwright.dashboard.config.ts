@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
-  testDir:'./e2e',testMatch:/(visualization-dashboard|financial-journey-dashboard|finance-dashboard|finansman-dashboard|budget-dashboard|timeline-dashboard|timeline-separation-dashboard|family-dashboard|family-navigation-dashboard)\.spec\.ts/,fullyParallel:true,workers:3,retries:process.env.CI?1:0,
+  testDir:'./e2e',testMatch:/(visualization-dashboard|financial-journey-dashboard|finance-dashboard|finansman-dashboard|budget-dashboard|timeline-dashboard|timeline-separation-dashboard|family-dashboard|family-navigation-dashboard|clearspace-dashboard)\.spec\.ts/,fullyParallel:true,workers:3,retries:process.env.CI?1:0,
   reporter:[['list'],['html',{outputFolder:'playwright-report/dashboard',open:'never'}]],
   use:{baseURL:'http://127.0.0.1:5174/aile/',trace:'retain-on-failure',locale:'tr-TR',timezoneId:'Europe/Istanbul'},
   // Chrome/Safari family only (user decision 2026-10-31): narrow Chromium, desktop Chromium, touch WebKit.

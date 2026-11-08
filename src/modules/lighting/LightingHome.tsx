@@ -21,8 +21,8 @@ export function LightingHome({ forceTab, sceneId }: { forceTab?: LightingTab; sc
   // A scene route (also a cold link) shows Sahneler; it becomes the remembered tab, so closing the scene stays there.
   useEffect(() => { if (forceTab) setTab(forceTab); }, [forceTab, setTab]);
   return (
-    <Box pb={96}>
-      <Paper className={classes.sticky} px="sm" py={6} radius={0}>
+    <Box pb="var(--aile-fab-clearance)">
+      <Paper className={classes.sticky} px="sm" py="sm" radius={0}>
         <SegmentedControl fullWidth size="sm" value={current} data={TABS} aria-label="Aydınlatma bölümü" data-testid="lighting-tabs"
           classNames={{ root: classes.tabs, label: classes.tabsLabel }}
           onChange={(v) => { setTab(v as LightingTab); if (forceTab) navigate('~/aydinlatma'); }} />

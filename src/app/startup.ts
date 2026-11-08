@@ -9,7 +9,7 @@ const criticalTokens = {
   paper: tokens.paper, ink: tokens.ink, muted: tokens.muted, navy: tokens.navy,
   line: tokens.line, blue: tokens.blue, canvas: tokens.canvas,
   timelineOverviewMuted: tokens.timelineOverviewMuted,
-  timelineStepRadius: tokens.timelineStepRadius, familySidebarWidth: tokens.familySidebarWidth,
+  familySidebarWidth: tokens.familySidebarWidth,
   spacing: tokens.spacing, spaceSmall: tokens.spaceSmall, spaceSection: tokens.spaceSection,
   spaceWide: tokens.spaceWide, spaceTight: tokens.spaceTight,
   radius: tokens.radius, targetMin: tokens.targetMin, ruleWidth: tokens.ruleWidth,
@@ -59,7 +59,7 @@ body{margin:0}
 .app-startup-activity::after{content:'';display:block;height:100%;width:var(--budget-loadingSegmentWidth);background:var(--budget-blue);animation:app-startup-travel var(--budget-loadingDuration) var(--budget-ease) infinite alternate}
 @keyframes app-startup-travel{from{transform:translateX(0)}to{transform:translateX(var(--budget-loadingTravel))}}
 .app-startup-placeholders{display:grid;gap:var(--budget-spaceSmall)}
-.app-startup-placeholders>div{display:grid;gap:var(--budget-spacing);padding:var(--budget-spaceSection);background:var(--budget-canvas);border-radius:var(--budget-timelineStepRadius)}
+.app-startup-placeholders>div{display:grid;gap:var(--budget-spacing);padding:var(--budget-spaceSection);background:var(--budget-canvas);border-radius:var(--budget-radius)}
 .app-startup i{display:block;width:var(--budget-loadingTextWidth);height:var(--budget-loadingTextHeight);border-radius:var(--budget-radius);background:var(--budget-line)}
 .app-startup-placeholders i:nth-child(2){width:var(--budget-loadingTitleWidth)}
 .app-startup-placeholders i:nth-child(3){width:var(--budget-loadingValueWidth)}

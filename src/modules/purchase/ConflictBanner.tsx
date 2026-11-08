@@ -19,7 +19,7 @@ export function ConflictBanner({ id }: { id: string }) {
   const fmt = fieldValue;
   return (
     <Alert color="orange" variant="light" icon={<WarningCircleIcon size={20} aria-hidden />} title="Bu kalem bu arada başka yerde değişti" data-testid="conflict-banner">
-      <Stack gap={6}>
+      <Stack gap="sm">
         <Text size="sm">{conflict.updatedBy ? `${conflict.updatedBy} değiştirdi.` : 'Sheets\'te değişti.'} Hangi değer kalsın?</Text>
         {conflict.keys.map((k) => (
           <Text key={k} size="sm"><b>{FIELD_LABELS[k] ?? k}</b>: benimki <i>{fmt(k, conflict.myValues[k])}</i> · Sheets'teki <i>{fmt(k, conflict.serverValues[k])}</i></Text>

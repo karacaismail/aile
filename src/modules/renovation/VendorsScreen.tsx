@@ -25,13 +25,13 @@ export function VendorsScreen() {
   const list = useMemo(() => vendors.filter((u) => meslek === 'hepsi' || u.meslek === meslek).sort((a, b) => (b.teklif_tl != null ? 1 : 0) - (a.teklif_tl != null ? 1 : 0) || coll.compare(a.ad, b.ad)), [vendors, meslek]);
   const stats = useMemo(() => vendorStats(vendors, meslek), [vendors, meslek]);
   return (
-    <Box pb={96}>
-      <Paper px="sm" py={6} radius={0} className={classes.tabs}>
+    <Box pb="var(--aile-fab-clearance)">
+      <Paper px="sm" py="sm" radius={0} className={classes.tabs}>
         <div className={classes.scroller}>
           <SegmentedControl size="sm" value={meslek} onChange={setMeslek} aria-label="Meslek"
             data={[{ value: 'hepsi', label: 'Hepsi' }, ...MESLEK.map((m) => ({ value: m, label: label('meslek', m) }))]} />
         </div>
-        <Text size="sm" mt={4} className="tabular" data-testid="vendor-stats">
+        <Text size="sm" mt="xs" className="tabular" data-testid="vendor-stats">
           <Text span fw={700}>{stats.aday} aday</Text> · <Text span fw={700}>{stats.teklif} teklif</Text>
           <Text span c="dimmed"> (hedef: {VENDOR_TARGET.aday} aday → {VENDOR_TARGET.teklif} teklif)</Text>
         </Text>

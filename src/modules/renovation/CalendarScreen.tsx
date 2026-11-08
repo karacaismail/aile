@@ -120,17 +120,17 @@ export function CalendarScreen({ now }: { now?: Date } = {}) {
   ] : [];
 
   return (
-    <Box pb={96}>
-      <Paper className={`${classes.strip} record-support`} px="md" py="sm" radius={0} data-testid="countdown">
+    <Box pb="var(--aile-fab-clearance)">
+      <Paper className={`${classes.strip} record-support`} px="md" py="md" radius={0} data-testid="countdown">
         <Group justify="space-between" wrap={days == null ? 'wrap' : 'nowrap'} gap="xs" align="center">
           {days == null ? (
-            <Group gap={4} wrap="nowrap" style={{ flex: '1 1 100%', minWidth: 0 }}>
+            <Group gap="xs" wrap="nowrap" style={{ flex: '1 1 100%', minWidth: 0 }}>
               <Text size="sm" c="dimmed">Taşınma tarihi ayarlanmadı</Text>
               <Button component={Link} href="~/ayarlar" variant="subtle" size="xs" leftSection={<GearSixIcon size={16} aria-hidden />} style={{ flexShrink: 0 }}>Ayarlar</Button>
             </Group>
           ) : (
             <div style={{ flex: 1, minWidth: 0 }}>
-              <Group gap={4} wrap="nowrap" align="baseline">
+              <Group gap="xs" wrap="nowrap" align="baseline">
                 <Text className={classes.bigNumber} data-testid="countdown-days">{dayCount.format(Math.abs(days))}</Text>
                 <Text size="sm" fw={600}>{days < 0 ? 'gün önce' : days === 0 ? 'gün — bugün' : 'gün'}</Text>
               </Group>
@@ -139,7 +139,7 @@ export function CalendarScreen({ now }: { now?: Date } = {}) {
           )}
           <SegmentedControl size="sm" value={scenario} onChange={setScenario} data={SCENARIOS} aria-label="Senaryo" aria-describedby={scenarioHelp} ml="auto" styles={{ label: { minWidth: 44 } }} />
         </Group>
-        <Text id={scenarioHelp} size="sm" mt={4} className={classes.scenarioHelp}>
+        <Text id={scenarioHelp} size="sm" mt="xs" className={classes.scenarioHelp}>
           {scenario
             ? <><b>Senaryo {label('senaryo', scenario)}.</b> Takvim bu senaryonun ve tüm senaryolara ortak taşları gösterir.</>
             : 'Senaryo seçilmedi: bütün senaryoların taşları gösterilir.'}

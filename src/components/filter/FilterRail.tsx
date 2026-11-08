@@ -11,14 +11,14 @@ export function FilterRail({ children, 'aria-label': ariaLabel = 'Hızlı filtre
   const wide = useMediaQuery('(min-width: 48em)', false, { getInitialValueInEffect: false });
   if (wide) {
     return (
-      <Group gap={6} wrap="wrap" role="group" aria-label={ariaLabel} data-testid="filter-rail" className={classes.railWide}>
+      <Group gap="sm" wrap="wrap" role="group" aria-label={ariaLabel} data-testid="filter-rail" className={classes.railWide}>
         {children}
       </Group>
     );
   }
   return (
     <div className={classes.rail} role="group" aria-label={ariaLabel} data-testid="filter-rail">
-      <Group gap={6} wrap="nowrap" className={classes.railInner}>{children}</Group>
+      <Group gap="sm" wrap="nowrap" className={classes.railInner}>{children}</Group>
     </div>
   );
 }

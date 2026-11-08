@@ -114,10 +114,10 @@ function ExpenseForm({ target }: { target: ExpenseTarget }) {
           error={error === 'Tutar girin' ? error : undefined}
         />
         {chips.length > 0 && (
-          <Stack gap={4}>
+          <Stack gap="xs">
             <Text fw={500} id="kalem-chips">Kalem</Text>
             <Chip.Group value={kalem} onChange={(v) => { setKalem(String(v)); setError(null); }}>
-              <Group gap={8} aria-labelledby="kalem-chips" role="radiogroup">
+              <Group gap="sm" aria-labelledby="kalem-chips" role="radiogroup">
                 {chips.map((k) => <Chip key={k} value={k} data-testid={`kalem-chip-${k}`} classNames={{ label: classes.chipLabel }}>{k}</Chip>)}
               </Group>
             </Chip.Group>

@@ -216,7 +216,7 @@ test.describe('progressive chart enhancement', () => {
     try {
       await page.goto('/aile/#/arac');
       const start = page.waitForRequest(/\/assets\/Charts-.*\.js$/);
-      await page.getByRole('button', { name: 'Ödeme grafiğini göster', exact: true }).click();
+      await page.getByRole('button', { name: 'Grafiği göster', exact: true }).click();
       await start;
       await page.evaluate(() => { window.location.hash = '/finansman'; });
       await page.getByRole('tab', { name: 'Aylık özet', exact: true }).click();
@@ -235,11 +235,11 @@ test.describe('progressive chart enhancement', () => {
     await page.goto('/aile/#/arac');
     const summary = page.getByTestId('finance-result');
     const before = await summary.innerText();
-    await page.getByRole('button', { name: 'Ödeme grafiğini göster', exact: true }).click();
-    await expect(page.getByRole('status').filter({ hasText: 'Ödeme grafiği yüklenemedi' })).toBeVisible();
+    await page.getByRole('button', { name: 'Grafiği göster', exact: true }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Grafik yüklenemedi' })).toBeVisible();
     await expect(summary).toHaveText(before, { useInnerText: true });
-    await expect(page.getByRole('img', { name: 'Toyota Corolla · Ön görünüm' })).toBeVisible();
-    await expect(page.getByRole('table', { name: 'İki kredinin birleşik ödeme planı' })).toBeVisible();
+    await expect(page.getByRole('img', { name: 'Toyota Corolla · Ön' })).toBeVisible();
+    await expect(page.getByRole('table', { name: 'Taksitler' })).toBeVisible();
     await page.screenshot({ path: info.outputPath('vehicle-chart-fallback-320.png'), fullPage: true });
     await page.getByRole('button', { name: 'Ayarları düzenle' }).click();
     await expect(page.getByRole('combobox', { name: 'Model', exact: true })).toBeVisible();
@@ -257,15 +257,15 @@ test.describe('progressive chart enhancement', () => {
     const requests: string[] = [];
     page.on('request', request => { const path = new URL(request.url()).pathname; if (/\/(Charts|PaymentChart)-/.test(path)) requests.push(path); });
     await page.goto('/aile/#/arac');
-    const table = page.getByRole('table', { name: 'İki kredinin birleşik ödeme planı' });
+    const table = page.getByRole('table', { name: 'Taksitler' });
     await expect(table).toBeVisible();
     const before = await table.innerText();
     expect(requests).toEqual([]);
-    await page.getByRole('button', { name: 'Ödeme grafiğini göster', exact: true }).click();
+    await page.getByRole('button', { name: 'Grafiği göster', exact: true }).click();
     await expect(page.getByRole('img', { name: 'Birleşik kredi ödeme grafiği' }).locator('svg')).toHaveCount(1);
     expect(requests.filter(path => /\/Charts-.*\.js$/.test(path))).toHaveLength(1);
     await expect(table).toHaveText(before, { useInnerText: true });
-    await page.getByRole('button', { name: 'Grafiği kapat', exact: true }).click();
+    await page.getByRole('button', { name: 'Grafiği gizle', exact: true }).click();
     await expect(page.getByRole('img', { name: 'Birleşik kredi ödeme grafiği' })).toHaveCount(0);
     await expect(table).toBeVisible();
     await writeFile(info.outputPath('vehicle-chart-on-demand-requests.json'), JSON.stringify(requests));
@@ -284,13 +284,13 @@ test.describe('progressive chart enhancement', () => {
     try {
       await page.goto(`/aile/#/${surface === 'Pano' ? 'pano' : 'arac'}`);
       if (surface === 'Pano') await page.locator('.charts-host').scrollIntoViewIfNeeded();
-      else await page.getByRole('button', { name: 'Ödeme grafiğini göster', exact: true }).click();
+      else await page.getByRole('button', { name: 'Grafiği göster', exact: true }).click();
       const status = page.getByRole('status').filter({ hasText: surface === 'Pano' ? 'Grafikler hazırlanıyor' : 'Grafik yükleniyor' });
       await expect(status).toBeVisible();
       const original = (await status.elementHandle())!;
       const before = await focusState();
       release();
-      const failureText = surface === 'Pano' ? 'Grafikler yüklenemedi' : 'Ödeme grafiği yüklenemedi';
+      const failureText = surface === 'Pano' ? 'Grafikler yüklenemedi' : 'Grafik yüklenemedi';
       await expect(page.getByRole('status').filter({ hasText: failureText })).toBeVisible();
       await writeFile(info.outputPath('chart-fallback-focus.json'), JSON.stringify({ before, after: await focusState() }, null, 2));
       expect(await original.evaluate(element => element.isConnected)).toBe(true);
@@ -307,9 +307,9 @@ test.describe('progressive chart enhancement', () => {
     await page.route(/\/assets\/PaymentChart-.*\.js$/, async route => { await pending; await route.continue(); });
     try {
       await page.goto('/aile/#/arac');
-      await expect(page.getByRole('table', { name: 'İki kredinin birleşik ödeme planı' })).toBeVisible();
+      await expect(page.getByRole('table', { name: 'Taksitler' })).toBeVisible();
       expect(requests).toEqual([]);
-      await page.getByRole('button', { name: 'Ödeme grafiğini göster', exact: true }).click();
+      await page.getByRole('button', { name: 'Grafiği göster', exact: true }).click();
       await expect.poll(() => requests.filter(path => /\/Charts-/.test(path)).length).toBe(1);
       await writeFile(info.outputPath('parallel-chart-requests.json'), JSON.stringify(requests));
       release();

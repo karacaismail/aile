@@ -136,7 +136,7 @@ function TimelineJourney({ data }: { data: FinanceLedger }) {
     <div className="timeline-filters" role="group" aria-label="Adımları filtrele">{journeyFilters.map(item => <button key={item.id} type="button" aria-pressed={filter === item.id} onClick={() => { setFilter(item.id); setPageSelection({ scope: `${selected}:${item.id}:${purchaseGroup}`, page: 0 }); }}>{item.label}</button>)}</div>
     {filter === 'purchase' && <>
       <div className="timeline-filters timeline-purchase-filters" role="group" aria-label="Alım grubu">{purchaseGroups.map(item => <button key={item.id} type="button" aria-pressed={purchaseGroup === item.id} onClick={() => { setPurchaseGroup(item.id); setPageSelection({ scope: `${selected}:${filter}:${item.id}`, page: 0 }); }}>{item.label}</button>)}</div>
-      <p className="timeline-filter-note">Eşya ve taşınma giderleri, e-tablodaki kategorilerine göre ayrılır. Sıra planlanan alım tarihidir; teslimat tarihi değildir.</p>
+      <p className="timeline-filter-note">Sıra planlanan alım tarihidir. Teslimat tarihi değildir.</p>
       {selected !== 'all' && <button className="quiet-button" onClick={() => changeSelection('all')}>Tüm dönemde göster</button>}
     </>}
     {filter !== 'all' && <p className="timeline-filter-note" role="status">{filteredEvents.length} / {events.length} adım gösteriliyor. Bakiyeler tüm işlemleri içerir.</p>}
@@ -166,14 +166,14 @@ function TimelineJourney({ data }: { data: FinanceLedger }) {
 export default function TimelinePage() {
   const state = useFinance();
   return <div className="timeline-page">
-    <PageHeader location="/timeline" lead="Nakit ve borç takvimi." actions={<button className="quiet-button" disabled={state.loading} onClick={state.refresh}>Yenile</button>}>
+    <PageHeader location="/timeline" actions={<button className="quiet-button" disabled={state.loading} onClick={state.refresh}>Yenile</button>}>
       <p className="timeline-plan-label"><span>Plan</span> Gerçekleşmiş ödeme değildir.</p>
     </PageHeader>
     {state.error && !state.loading && <p className="error-message" role="alert">{state.error} E-tabloyu kontrol edip yeniden deneyin.</p>}
-    {state.data ? <TimelineJourney data={state.data} /> : state.loading ? <TimelineLoading /> : <p className="loading-message">Doğrulanmış Timeline verisi şu anda alınamıyor.</p>}
-    <p className="timeline-model-note">Nakit, kartlar ve KMH aynı finansman hesabından gelir. <a href="#/finansman">Aylık özet ve ayrıntılı tablo</a></p>
+    {state.data ? <TimelineJourney data={state.data} /> : state.loading ? <TimelineLoading /> : <p className="loading-message">Takvim şu anda okunamıyor.</p>}
+    <p className="timeline-model-note"><a href="#/finansman">Aylık özet ve ayrıntılı tablo</a></p>
     {state.data && <div className="timeline-model-notes"><p><strong>Kaynak durumu</strong> {state.data.status}</p>{state.data.notes.map((note, index) => <p key={index}>{note}</p>)}</div>}
-    <aside className="timeline-caveat" aria-label="Hesap kapsamı"><p>Harcanabilir nakit, ayrılan bütçeler sonrasıdır. Net nakit konumu KMH kullanımını da içerir; negatif tutar harcanabilir para değildir.</p><p>Gelecek taksitler kart borcuna dahildir. Tarih ve maliyet koşulları her adımın kaynağında görünür.</p></aside>
-    <footer className="timeline-data-note"><DataStatus loading={state.loading} updatedAt={state.updatedAt} /><a className="timeline-sheet-link" href={financeSheetUrl} target="_blank" rel="noreferrer">E-tabloda aç <span aria-hidden="true">↗</span></a><p>Aynı gün içindeki sıra e-tablodaki hesap sırasıdır; banka hareketinin gerçekleştiğini göstermez.</p></footer>
+    <aside className="timeline-caveat" aria-label="Hesap kapsamı"><p>Net nakit KMH kullanımını içerir.</p><p>Tarih ve maliyet koşulları adım kaynağında.</p></aside>
+    <footer className="timeline-data-note"><DataStatus loading={state.loading} updatedAt={state.updatedAt} /><a className="timeline-sheet-link" href={financeSheetUrl} target="_blank" rel="noreferrer">E-tabloda aç <span aria-hidden="true">↗</span></a><p>Aynı günde sıra e-tablodaki sıradır.</p></footer>
   </div>;
 }

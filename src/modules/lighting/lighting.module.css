@@ -1,6 +1,6 @@
 .card { cursor: pointer; min-height: var(--budget-targetMin); background: var(--budget-paper); }
 .title { margin: 0; font-size: var(--budget-fontSection); line-height: var(--budget-lineCompact); overflow-wrap: break-word; }
-.miniStrip { display: inline-block; width: 40px; height: 4px; border-radius: 2px; vertical-align: middle; margin-inline-start: 6px; }
+.miniStrip { display: inline-block; width: 40px; height: 4px; border-radius: var(--budget-radiusSmall); vertical-align: middle; margin-inline-start: var(--budget-clearControl); }
 .sticky {
   position: sticky;
   top: var(--app-shell-header-offset, 0px);
@@ -21,7 +21,7 @@
 }
 .grow { flex: 1; min-width: 0; }
 .tabs { min-height: 44px; }
-.tabs .tabsLabel { min-height: 44px; padding-inline: 6px; }
+.tabs .tabsLabel { min-height: 44px; padding-inline: var(--budget-clearControl); }
 .stepLine { display: block; }
 
 /* Record identity row: icon or back control, then the name; the name takes the remaining width and wraps. */
@@ -54,4 +54,4 @@
 }
 
 /* Attention icons keep their size when the sentence wraps (the li is a flex row). */
-.card :global(.record-attention) svg, .roomHeader :global(.record-attention) svg { flex-shrink: 0; align-self: flex-start; margin-top: 0.15em; }
+.card :global(.record-attention) svg, .roomHeader :global(.record-attention) svg { flex-shrink: 0; align-self: flex-start; margin-top: var(--budget-clearText); }

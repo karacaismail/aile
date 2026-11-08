@@ -63,7 +63,7 @@ describe('designTokens (tokens.json eşlemesi)', () => {
     // olmayan sistemde yığın system-ui'ye düşer.
     expect(designTokens.fontSans).toBe("Outfit, 'Outfit Yedek', system-ui, sans-serif");
     expect([designTokens.bosluk1, designTokens.bosluk2, designTokens.bosluk3, designTokens.bosluk4, designTokens.bosluk6, designTokens.bosluk8]).toEqual([4, 8, 12, 16, 24, 32]);
-    expect([designTokens.koseKontrol, designTokens.koseKart, designTokens.kosePanel]).toEqual([8, 12, 16]);
+    expect([designTokens.koseKontrol, designTokens.koseKart, designTokens.kosePanel]).toEqual([5, 5, 5]);
     expect(designTokens.golgeYukseltilmis).toBe('0 2px 4px rgba(27, 62, 85, 0.18), 0 8px 20px rgba(27, 62, 85, 0.14)');
     expect(designTokens.navGenislik).toBe(272);
     expect(designTokens.filtreGenislik).toBe(272);
@@ -90,7 +90,7 @@ describe('aileCssVars', () => {
     expect(aileCssVars['--aile-font-sans']).toBe(designTokens.fontSans);
     expect(aileCssVars['--aile-bosluk-1']).toBe('4px');
     expect(aileCssVars['--aile-bosluk-8']).toBe('32px');
-    expect(aileCssVars['--aile-kose-panel']).toBe('16px');
+    expect(aileCssVars['--aile-kose-panel']).toBe('5px');
     expect(aileCssVars['--aile-golge-yukseltilmis']).toBe(designTokens.golgeYukseltilmis);
     expect(aileCssVars['--aile-nav-genislik']).toBe('272px');
     expect(aileCssVars['--aile-kirilim-tablet']).toBe('600px');
