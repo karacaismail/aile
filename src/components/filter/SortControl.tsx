@@ -18,7 +18,7 @@ export interface SortControlProps<K extends string> {
 function SortOptions<K extends string>({ value, options, onPick, hint }: { value: K; options: ReadonlyArray<SortOption<K>>; onPick: (v: K) => void; hint?: string }) {
   return (
     <Radio.Group value={value} onChange={(v) => onPick(v as K)} aria-label="Sıralama">
-      <Stack gap={6} data-testid="sort-sheet">
+      <Stack gap="sm" data-testid="sort-sheet">
         {options.map((o) => (
           <Radio.Card key={o.value} value={o.value} radius="md" className={classes.radioRow} aria-label={o.label}>
             <Group wrap="nowrap" gap="sm" align="center">

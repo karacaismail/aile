@@ -20,7 +20,7 @@ export function DraftConflict({ fields, label, mine, theirs, onResolve, children
   if (!fields.length) return null;
   return (
     <Alert color="orange" variant="light" role="alert" data-testid="draft-conflict">
-      <Stack gap={6}>
+      <Stack gap="sm">
         <Text component="h4" ref={heading} tabIndex={-1} fw={600} m={0}>Bu alanları siz düzenlerken Sheets'te de değişti</Text>
         {children}
         {fields.map((field) => {

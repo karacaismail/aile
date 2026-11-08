@@ -305,7 +305,7 @@ function LayerFormBody({ oda, item, onClose }: { oda: string; item?: Item; onClo
 
   return (
     <Modal opened onClose={unlessConfirming(onClose)} title={isNew ? `${roomLabel} · yeni katman` : `${roomLabel} · katman`} fullScreen={isMobile} size="lg"
-      closeButtonProps={modalCloseProps} styles={{ body: { paddingBottom: 96 } }}>
+      closeButtonProps={modalCloseProps} styles={{ body: { paddingBottom: 'var(--aile-fab-clearance)' } }}>
       <form ref={formRef} onSubmit={form.onSubmit(save, (errors) => focusFirstError(formRef.current, errors))} noValidate data-testid="layer-form">
         <Stack gap="sm">
           <Stack component="section" aria-label="Katman ve amaç" className="record-form-section" gap="sm">
@@ -313,7 +313,7 @@ function LayerFormBody({ oda, item, onClose }: { oda: string; item?: Item; onClo
             {item && <DraftConflict fields={conflicts} label={(field) => FIELD_LABELS[field] ?? field} onResolve={resolve}
               mine={(field) => shown(field, form.getValues())} theirs={(field) => shown(field, latestLayerForm(item))} />}
             {item && merged.length > 0 && <Alert color="red" variant="light" role="alert" data-testid="merged-invalid" title="Kaydedilmedi: değişikliğiniz Sheets'teki son kayıtla birlikte geçersiz olur">
-              <Stack gap={4}>
+              <Stack gap="xs">
                 {merged.map((p) => <Text key={p.field} size="sm"><b>{FIELD_LABELS[p.field] ?? p.field}</b>: {p.message}. Sheets'teki son değerler: {p.related.map((f) => `${FIELD_LABELS[f] ?? f} ${shown(f, latestLayerForm(item)).value}`).join(', ')}.</Text>)}
                 <Text size="sm">Değerinizi düzeltip yeniden kaydedin; Sheets'teki değerler değiştirilmedi.</Text>
               </Stack>
@@ -368,9 +368,9 @@ function LayerFormBody({ oda, item, onClose }: { oda: string; item?: Item; onClo
             <SectionHeading title="Plan ve ürün bağlantıları" level={3} />
             <EnumSelect label="Adım" field="adim" options={ADIM} value={values.adim} onChange={(v) => form.setFieldValue('adim', v)} />
             <div>
-              <Text size="sm" fw={500} mb={4}>Kim</Text>
+              <Text size="sm" fw={500} mb="xs">Kim</Text>
               <Chip.Group multiple value={values.kim} onChange={(v) => form.setFieldValue('kim', v)}>
-                <Group gap={6}>
+                <Group gap="sm">
                   {KIM.map((k) => <Chip key={k} value={k} variant="outline">{label('kim', k)}</Chip>)}
                 </Group>
               </Chip.Group>
@@ -392,7 +392,7 @@ function LayerFormBody({ oda, item, onClose }: { oda: string; item?: Item; onClo
                   <TextInput placeholder="Ürün ara" aria-label="Ürün ara" type="search" value={q} onChange={(e) => setQ(e.currentTarget.value)} />
                 )}
                 <Chip.Group multiple value={values.bagli_idler} onChange={(v) => form.setFieldValue('bagli_idler', v)}>
-                  <Group gap={6}>
+                  <Group gap="sm">
                     {visiblePurchases.map((p) => <Chip key={p.id} value={p.id} variant="outline">{p.ad}</Chip>)}
                   </Group>
                 </Chip.Group>

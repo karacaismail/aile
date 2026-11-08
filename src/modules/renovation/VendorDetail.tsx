@@ -129,7 +129,7 @@ function VendorDetailBody({ item, onClose }: { item?: Item; onClose: () => void 
   });
   return (
     <Modal opened onClose={unlessConfirming(onClose)} title={isNew ? 'Yeni usta' : 'Usta'} fullScreen={isMobile} size="lg"
-      closeButtonProps={modalCloseProps} styles={{ body: { paddingBottom: 96 } }}>
+      closeButtonProps={modalCloseProps} styles={{ body: { paddingBottom: 'var(--aile-fab-clearance)' } }}>
       <form ref={formRef} onSubmit={form.onSubmit(save, (errors) => focusFirstError(formRef.current, errors))} noValidate data-testid="vendor-detail">
         <Stack gap="sm">
           <Stack component="section" aria-label="Usta ve iletişim" className="record-form-section" gap="sm">

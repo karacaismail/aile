@@ -33,7 +33,7 @@ export function TimelineLoading() {
 
 export function TimelineRouteLoading() {
   return <div className="timeline-page">
-    <PageHeader location="/timeline" lead="Nakit ve borç takvimi." actions={<button className="quiet-button" disabled>Yenile</button>}>
+    <PageHeader location="/timeline" actions={<button className="quiet-button" disabled>Yenile</button>}>
       <p className="timeline-plan-label"><span>Plan</span> Gerçekleşmiş ödeme değildir.</p>
     </PageHeader>
     <TimelineLoading />

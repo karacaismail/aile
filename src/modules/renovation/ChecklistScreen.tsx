@@ -40,10 +40,10 @@ function CheckRow({ item }: { item: Item }) {
     setConflict(undefined); setDraft(null);
   };
   return (
-    <Stack gap={4}>
+    <Stack gap="xs">
       <Checkbox.Card className={classes.checkRow} checked={!!item.tamam} onChange={(c) => upsert('kalemler', item.id, { tamam: c })} radius="md" p="sm" data-testid="kontrol-row">
         <Group wrap="nowrap" align="flex-start" gap="xs">
-          <Checkbox.Indicator size="md" mt={2} />
+          <Checkbox.Indicator size="md" mt="xs" />
           <div style={{ flex: 1, minWidth: 0 }}>
             <Text size="sm" fw={500} td={item.tamam ? 'line-through' : undefined} c={item.tamam ? 'dimmed' : undefined}>{item.ad}</Text>
             {(item.esik || item.olcum_birim) && <Text size="xs" c="dimmed">eşik: {item.esik ?? ''}{item.olcum_birim ? ` ${item.olcum_birim}` : ''}</Text>}
@@ -76,18 +76,18 @@ export function ChecklistScreen() {
   // Kaynak okunmadan "Madde yok" ve 0 / 0 doğrulanmış boş liste gibi görünmesin.
   if (loading) {
     return (
-      <Box pb={96} px={6} pt="xs" className={classes.checklist} aria-busy="true">
+      <Box pb="var(--aile-fab-clearance)" px="sm" pt="xs" className={classes.checklist} aria-busy="true">
         <Text role="status" size="sm" c="dimmed" data-testid="checklist-loading">Kontrol listesi yükleniyor…</Text>
         <Stack gap="xs" mt="sm" aria-hidden><Skeleton h={56} radius="md" /><Skeleton h={56} radius="md" /><Skeleton h={56} radius="md" /></Stack>
       </Box>
     );
   }
   return (
-    <Box pb={96} px={6} pt="xs" className={classes.checklist}>
+    <Box pb="var(--aile-fab-clearance)" px="sm" pt="xs" className={classes.checklist}>
       <FactList label="Kontrol özeti" tone="subtle" items={[{ label: 'Tamamlanan kontroller', value: `${progress.done} / ${progress.total}` }]} />
       <SectionHeading title="Kontrol başlıkları" description="Her başlıkta şartları, ölçümleri ve tamamlanma durumunu izleyin." />
       <Accordion multiple defaultValue={['sartname']} keepMounted={false} chevronPosition="right" variant="filled" radius="md"
-        styles={{ content: { paddingInline: 6, paddingBottom: 8 }, label: { paddingBlock: 10 } }}>
+        styles={{ content: { paddingInline: 'var(--budget-clearControl)', paddingBottom: 'var(--budget-clearControl)' }, label: { paddingBlock: 'var(--budget-clearControl)' } }}>
         {KONTROL_TUR_ORDER.map((tur) => {
           const sub = groups.get(tur) ?? new Map<string, Item[]>();
           const all = [...sub.values()].flat();
@@ -100,13 +100,13 @@ export function ChecklistScreen() {
                   <Text fw={600} size="sm">{label('kontrol_tur', tur)}</Text>
                   <Text size="xs" c="dimmed" className="tabular" data-testid={`progress-${tur}`}>{prog.done}/{prog.total}</Text>
                 </Group>
-                <Progress value={pct} size="xs" mt={6} color={pct === 100 ? 'teal.8' : 'ember.7'} aria-label={`${label('kontrol_tur', tur)} ilerleme %${pct}`} />
+                <Progress value={pct} size="xs" mt="sm" color={pct === 100 ? 'teal.8' : 'ember.7'} aria-label={`${label('kontrol_tur', tur)} ilerleme %${pct}`} />
               </Accordion.Control>
               <Accordion.Panel>
                 <Stack gap="sm" data-testid={`group-${tur}`}>
                   {all.length === 0 && <Text size="sm" c="dimmed">Madde yok.</Text>}
                   {[...sub.entries()].map(([meslek, items]) => (
-                    <Stack key={meslek} gap={6}>
+                    <Stack key={meslek} gap="sm">
                       <Group justify="space-between" wrap="nowrap" gap="xs">
                         <Text size="sm" fw={600}>{meslek === 'genel' ? 'Genel' : label('meslek', meslek)}</Text>
                         <CopyButton value={checklistText(items)} timeout={1500}>

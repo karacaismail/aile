@@ -54,9 +54,9 @@ export default function Charts({ data, selected }: { data: Budget; selected: num
   const savingPlan = cumulative('plan'), savingCurrent = cumulative('current');
   const marked = (values: number[]) => values.map((value, index) => ({ value, ...(index === selected ? { symbol: 'diamond', symbolSize: 12, itemStyle: { borderColor: tokens.ink, borderWidth: 2 } } : {}) }));
   return <div className="chart-grid">
-    <p className="chart-context chart-wide">{month.label} · Kaynak: {month.source}. Güncel tutarlar planı izliyor olabilir; gerçekleşmiş ödeme değildir. Zaman grafiklerinde elmas işareti ve sütunların koyu konturu seçili ayı gösterir.</p>
+    <p className="chart-context chart-wide">{month.label} · Kaynak: {month.source}. Güncel tutar plandan gelebilir. Elmas ve koyu kontur seçili ayı gösterir.</p>
     <ChartSection title="Nakit nasıl ilerliyor?" wide>
-      <p className="muted">Ay sonu harcanabilir nakit. Kart ve KMH borcu ile fon eksiğini Finansman’da ayrı izleyin; nakdin sıfır olması borcun veya açığın olmadığı anlamına gelmez.</p>
+      <p className="muted">Ay sonu harcanabilir nakit. Borçlar Finansman’da.</p>
       <SelectedValues month={month.label} values={[['Plan', month.balance.plan], ['Güncel', month.balance.current]]} />
       <div className="chart-legend"><span className="legend-dashed">Plan</span><span className="legend-solid">Güncel</span></div>
       <Chart label="Ay sonu nakit bakiyesi: plan ve güncel. Bütün sayısal değerler Aylık tablo bölümünde." option={{ ...base, series: [{ ...planLine, data: marked(data.months.map(m => m.balance.plan)) }, { ...currentLine, data: marked(data.months.map(m => m.balance.current)) }] }} />
@@ -68,13 +68,13 @@ export default function Charts({ data, selected }: { data: Budget; selected: num
       <Chart label="Aylık güncel gelir ve ödemeler" option={{ ...base, series: [{ name: 'Gelir', type: 'bar', data: marked(data.months.map(m => m.income.current)), itemStyle: { color: tokens.blue } }, { name: 'Ödemeler', type: 'bar', data: marked(data.months.map(m => m.expense.current)), itemStyle: { color: tokens.red } }] }} />
     </ChartSection>
     <ChartSection title="Birikimin seyri">
-      <p className="muted">{data.schema === 'cashflow' ? 'Birikim alımlarına ayrılan kümülatif TL. Güncel piyasa değeri veya kasadaki nakit değildir.' : 'Dönem başından itibaren net ayrılan toplam.'} Aşağıdaki tutarlar seçili ayın sonuna kadardır.</p>
+      <p className="muted">{data.schema === 'cashflow' ? 'Birikime ayrılan toplam TL. Piyasa değeri değildir.' : 'Dönem başından beri ayrılan toplam.'}</p>
       <SelectedValues month={month.label} values={[['Plan', savingPlan[selected]], ['Güncel', savingCurrent[selected]]]} />
       <div className="chart-legend"><span className="legend-dashed">Plan</span><span className="legend-solid">Güncel</span></div>
       <Chart label={data.schema === 'cashflow' ? 'Birikim alımlarına ayrılan kümülatif TL: plan ve güncel' : 'Kümülatif net birikim: plan ve güncel'} option={{ ...base, series: [{ ...planLine, data: marked(savingPlan) }, { ...currentLine, data: marked(savingCurrent) }] }} />
     </ChartSection>
     <ChartSection title={`${month.label} ${data.schema === 'cashflow' ? 'harcama kalemleri' : 'ödemeleri'}`} wide>
-      <p className="muted">{data.schema === 'cashflow' ? 'Harcamanın ait olduğu aya göre kategoriler. Kart ödeme takvimi aylık nakit özetinde ve Timeline’dadır.' : 'Kategori bazında plan ve güncel tutar karşılaştırması.'}</p>
+      <p className="muted">{data.schema === 'cashflow' ? 'Harcamanın ait olduğu aya göre.' : 'Plan ve güncel tutarlar.'}</p>
       <div className="chart-legend"><span className="legend-outline">Plan · kontur</span><span className="legend-solid">Güncel · dolgu</span></div>
       <Chart label="Seçili ay kategorileri: konturlu plan ve dolu güncel sütunlar. Kaynak tutarları hemen altındaki tabloda." option={{ ...base, xAxis: { ...base.yAxis as object }, yAxis: { type: 'category', inverse: true, data: groups.map(g => g.label), axisLabel: { fontSize: 14, color: tokens.ink, width: 100, overflow: 'break' }, axisTick: { show: false }, axisLine: { show: false } }, series: [{ name: 'Plan', type: 'bar', data: groups.map(g => g.plan[selected]), itemStyle: { color: tokens.paper, borderColor: tokens.muted, borderWidth: 2 } }, { name: 'Güncel', type: 'bar', data: groups.map(g => g.current[selected]), itemStyle: { color: tokens.blue } }] }} />
       <p className="muted">Her kategorinin Plan ve Güncel kaynak tutarları.</p>

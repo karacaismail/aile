@@ -85,5 +85,5 @@ it('explains an invalid calculation without suggesting a sharing change', () => 
   mount();
   expect(screen.getByRole('alert')).toHaveTextContent('E-tablodaki finans hesabı yeniden hesaplanmalı');
   expect(screen.getByRole('alert')).not.toHaveTextContent('erişimini kontrol');
-  expect(screen.getByRole('alert')).toHaveTextContent('Yenile düğmesi yalnızca sonucu tekrar okur');
+  expect(screen.getByRole('alert')).toHaveTextContent('Yenile yalnız sonucu okur');
 });

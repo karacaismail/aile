@@ -10,11 +10,11 @@ it('keeps the vehicle calculator, photo and exact payment table after an optiona
   vi.spyOn(console, 'error').mockImplementation(() => {});
   render(<MantineProvider><VehiclePage budget={null} /></MantineProvider>);
   const before = screen.getByTestId('finance-result').textContent;
-  fireEvent.click(screen.getByRole('button', { name: 'Ödeme grafiğini göster' }));
-  expect(await screen.findByText(/Ödeme grafiği yüklenemedi/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Grafiği göster' }));
+  expect(await screen.findByText(/Grafik yüklenemedi/)).toBeInTheDocument();
   expect(screen.getByTestId('finance-result').textContent).toBe(before);
-  expect(screen.getByRole('img', { name: 'Toyota Corolla · Ön görünüm' })).toBeInTheDocument();
-  expect(screen.getByRole('table', { name: 'İki kredinin birleşik ödeme planı' })).toBeInTheDocument();
+  expect(screen.getByRole('img', { name: 'Toyota Corolla · Ön' })).toBeInTheDocument();
+  expect(screen.getByRole('table', { name: 'Taksitler' })).toBeInTheDocument();
   fireEvent.click(screen.getByRole('tab', { name: 'Kurallar' }));
   expect(screen.getByRole('tab', { name: 'Kurallar' })).toHaveAttribute('aria-selected', 'true');
 });

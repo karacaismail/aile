@@ -28,8 +28,8 @@ export function BudgetHome() {
   const over = summary.actual > summary.plan && summary.plan > 0;
 
   return (
-    <Box data-testid="budget" pb={96}>
-      <Paper className={classes.monthBar} px="sm" py={4} radius={0}>
+    <Box data-testid="budget" pb="var(--aile-fab-clearance)">
+      <Paper className={classes.monthBar} px="sm" py="xs" radius={0}>
         <Group justify="space-between" wrap="nowrap" gap="xs">
           <ActionIcon variant="subtle" color="gray" aria-label="Önceki ay" onClick={() => setMonth((m) => shiftMonth(m, -1))} data-testid="month-prev">
             <CaretLeftIcon size={22} aria-hidden />
@@ -47,19 +47,19 @@ export function BudgetHome() {
             <FactList label="Ayın harcama özeti" tone="strong" items={[{ label: 'Bu ay kaydedilen', value: <span data-testid="month-actual">{formatTl(summary.actual)}</span>, emphasis: true }]} />
             {summary.hasPlan && summary.plan > 0 ? (
               <>
-                <Progress value={pct(summary.actual, summary.plan)} color={over ? 'red' : 'ember'} mt={6} aria-label="Plana göre harcama" />
-                <Text mt={4} data-testid="month-plan">
+                <Progress value={pct(summary.actual, summary.plan)} color={over ? 'red' : 'ember'} mt="sm" aria-label="Plana göre harcama" />
+                <Text mt="xs" data-testid="month-plan">
                   Plan {formatTl(summary.plan)} · {over ? `${formatTl(summary.actual - summary.plan)} aşıldı` : `${formatTl(summary.plan - summary.actual)} kaldı`}
                 </Text>
               </>
             ) : (
-              <Text mt={4} c="dimmed" data-testid="month-plan">{plan ? 'Bu ay için plan yok' : 'Plan sekmesi okunamadı'}</Text>
+              <Text mt="xs" c="dimmed" data-testid="month-plan">{plan ? 'Bu ay için plan yok' : 'Plan sekmesi okunamadı'}</Text>
             )}
             <SourceNote label="Harcama günlüğü">Yalnız kaydettiğiniz ödemeler. Hazırlık listesindeki teslim işareti buraya ödeme eklemez.</SourceNote>
           </Paper>
 
           {summary.groups.map((g) => (
-            <Stack key={g.name} gap={6} data-testid={`group-${g.name}`}>
+            <Stack key={g.name} gap="sm" data-testid={`group-${g.name}`}>
               <Group justify="space-between" wrap="nowrap" gap="xs">
                 <Text fw={700}>{g.name}</Text>
                 <Text c="dimmed">{formatTl(g.actual)} / {formatTl(g.plan)}</Text>
@@ -78,7 +78,7 @@ export function BudgetHome() {
               description={supported === false ? 'Harcama günlüğü sekmesi kurulunca kayıtlar burada görünür.' : 'Bir ödeme yaptığınızda + ile ekleyin; Pano gerçekleşeni buradan okur.'}
             />
           ) : (
-            <Stack gap={6} data-testid="entries">
+            <Stack gap="sm" data-testid="entries">
               {summary.entries.map((e) => (
                 <UnstyledButton key={e.id} className={classes.entry} onClick={() => openExpense({ id: e.id })} data-testid={`entry-${e.id}`}>
                   <Box component="span" miw={0} className={classes.entryIdentity}>

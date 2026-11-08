@@ -143,7 +143,7 @@ function TaskDetailBody({ item, onClose, onDeleted }: { item?: Item; onClose: ()
   const depsInput = form.getInputProps('bagimlilik');
   return (
     <Modal opened onClose={unlessConfirming(onClose)} title={isNew ? 'Yeni iş' : 'İş'} fullScreen={isMobile} size="lg"
-      closeButtonProps={modalCloseProps} styles={{ body: { paddingBottom: 96 } }}>
+      closeButtonProps={modalCloseProps} styles={{ body: { paddingBottom: 'var(--aile-fab-clearance)' } }}>
       <form ref={formRef} onSubmit={form.onSubmit(save, (errors) => focusFirstError(formRef.current, errors))} noValidate data-testid="task-detail">
         <Stack gap="sm">
           <Stack component="section" aria-label="İş ve sorumlular" className="record-form-section" gap="sm">
@@ -157,9 +157,9 @@ function TaskDetailBody({ item, onClose, onDeleted }: { item?: Item; onClose: ()
               <TextInput label="Ad" required data-autofocus={isNew || undefined} style={{ flex: 1 }} {...form.getInputProps('ad')} key={form.key('ad')} />
             </Group>
             <div>
-              <Text size="sm" fw={500} mb={4}>İşi yapan</Text>
+              <Text size="sm" fw={500} mb="xs">İşi yapan</Text>
               <Chip.Group multiple value={v.is_kim} onChange={(val) => form.setFieldValue('is_kim', val)}>
-                <Group gap={6}>
+                <Group gap="sm">
                   {IS_KIM.map((k) => <Chip key={k} value={k} size="sm" variant="light">{label('is_kim', k)}</Chip>)}
                 </Group>
               </Chip.Group>

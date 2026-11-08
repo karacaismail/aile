@@ -815,7 +815,7 @@ test('period details stay reachable from the top of a 28-step month by keyboard 
     const panel = getComputedStyle(el), heading = getComputedStyle(el.querySelector('h2')!);
     return { outline: panel.outlineStyle, shadow: panel.boxShadow, radius: panel.borderTopLeftRadius, panelDecoration: panel.textDecorationLine, heading: heading.textDecorationLine, headingThickness: heading.textDecorationThickness };
   });
-  expect(focus).toEqual({ outline: 'none', shadow: 'none', radius: tokens.timelineSummaryRadius, panelDecoration: 'none', heading: 'underline', headingThickness: tokens.focusThickness });
+  expect(focus).toEqual({ outline: 'none', shadow: 'none', radius: tokens.radius, panelDecoration: 'none', heading: 'underline', headingThickness: tokens.focusThickness });
   expect(page.url()).toMatch(/#\/timeline$/);
   await expect(page.getByRole('button', { name: 'Ödemeler', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByRole('combobox', { name: 'Gösterilen dönem' })).toHaveValue('Kasım 2098');

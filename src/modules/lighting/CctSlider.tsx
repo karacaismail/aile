@@ -11,12 +11,12 @@ const GRADIENT = cctGradient(CCT_RANGE.min, CCT_RANGE.max);
 export function CctSlider({ value, onChange, error }: { value: [number, number]; onChange: (v: [number, number]) => void; error?: ReactNode }) {
   const errorId = useId();
   return (
-    <Stack gap={4} style={{ '--cct-gradient': GRADIENT } as CSSProperties}>
+    <Stack gap="xs" style={{ '--cct-gradient': GRADIENT } as CSSProperties}>
       <Group justify="space-between" wrap="nowrap">
         <Text size="sm" fw={500}>Renk sıcaklığı (K)</Text>
         <Text size="sm" fw={600} className="tabular" data-testid="cct-value">{value[0]}–{value[1]} K</Text>
       </Group>
-      <Box px={16} pt={12} pb={20}>
+      <Box px="md" pt="var(--budget-clearField)" pb="lg">
       <RangeSlider
         min={CCT_RANGE.min} max={CCT_RANGE.max} step={CCT_RANGE.step} minRange={0}
         value={value} onChange={onChange} marks={MARKS} label={(v) => `${v} K`}

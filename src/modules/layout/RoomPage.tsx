@@ -174,7 +174,7 @@ function WallGroup({ oda, wall, dims, items }: { oda: Oda; wall: WallKey; dims: 
           <li data-tone="danger"><WarningIcon size={18} aria-hidden /><span>{-rem} cm taşıyor</span></li>
         </ul>
       )}
-      <Stack gap={4}>
+      <Stack gap="xs">
         {list.length ? list.map((i) => <LayoutItemCard key={i.id} oda={oda} item={i} />) : <Text size="sm" c="dimmed">Kalem yok</Text>}
       </Stack>
     </section>
@@ -189,14 +189,14 @@ function NeedsCard({ map, onSuggest }: { map: NeedsMap; onSuggest: () => void })
   return (
     <Card radius="md" p="md" className="record-support" data-testid="needs-map">
       <Stack gap="xs">
-        <Group gap={6} wrap="nowrap">
+        <Group gap="sm" wrap="nowrap">
           <PlugIcon size={18} aria-hidden />
           <Text component="h3" fw={700}>İhtiyaç haritası</Text>
         </Group>
         {empty ? (
           <Text size="sm" c="dimmed">Kalemlerde priz, ışık ya da kanal ihtiyacı girilmemiş.</Text>
         ) : (
-          <Table fz="sm" verticalSpacing={4} horizontalSpacing={6} className="tabular">
+          <Table fz="sm" verticalSpacing="xs" horizontalSpacing="sm" className="tabular">
             <Table.Thead>
               <Table.Tr><Table.Th>Duvar</Table.Th><Table.Th ta="right">Priz</Table.Th><Table.Th ta="right">Kanal (m)</Table.Th></Table.Tr>
             </Table.Thead>
@@ -217,8 +217,8 @@ function NeedsCard({ map, onSuggest }: { map: NeedsMap; onSuggest: () => void })
           </Table>
         )}
         {total.isik.length > 0 && (
-          <Stack gap={2}>
-            <Group gap={6} wrap="nowrap"><LightbulbIcon size={14} aria-hidden /><Text size="sm" fw={600}>Işık notları</Text></Group>
+          <Stack gap="xs">
+            <Group gap="sm" wrap="nowrap"><LightbulbIcon size={14} aria-hidden /><Text size="sm" fw={600}>Işık notları</Text></Group>
             {WALL_KEYS.flatMap((w) => map[w].isik.map((s, i) => (
               <Text key={`${w}-${i}`} size="sm" ><Text component="span" c="dimmed">{wallLabel(w)}: </Text>{s}</Text>
             )))}
@@ -271,7 +271,7 @@ export function RoomPage({ oda }: { oda: string }) {
 
   return (
     <Box className={classes.page}>
-      <Paper className={classes.bar} px="sm" py={4} radius={0}>
+      <Paper className={classes.bar} px="sm" py="xs" radius={0}>
         <Group wrap="nowrap" gap="xs">
           <ActionIcon component={Link} href="~/yerlesim" aria-label="Odalara dön" color="gray">
             <ArrowLeftIcon size={22} aria-hidden />

@@ -28,7 +28,7 @@ it('gives the purchase plan page the same refresh control and freshness line as 
   await screen.findByRole('textbox', { name: 'Alım planında ara' });
   const header = screen.getByRole('heading', { level: 1, name: 'Alım planı' }).closest('header')!;
   expect(within(header).getByRole('button', { name: 'Yenile' })).toBeInTheDocument();
-  expect(screen.getAllByRole('status').filter(node => /Son okuma/.test(node.textContent ?? ''))).toHaveLength(1);
+  expect(screen.getAllByRole('status').filter(node => /Güncellendi/.test(node.textContent ?? ''))).toHaveLength(1);
   expect(screen.queryByText(/Yukarıdaki Yenile/)).not.toBeInTheDocument();
 });
 
@@ -70,7 +70,7 @@ it('keeps the refresh control in the page heading and announces freshness once a
   render(<MantineProvider><Dashboard /></MantineProvider>);
   const header = screen.getByRole('heading', { level: 1 }).closest('header')!;
   expect(within(header).getByRole('button', { name: 'Yenile' })).toBeInTheDocument();
-  const statuses = screen.getAllByRole('status').filter(node => /Son okuma/.test(node.textContent ?? ''));
+  const statuses = screen.getAllByRole('status').filter(node => /Güncellendi/.test(node.textContent ?? ''));
   expect(statuses).toHaveLength(1);
   expect(document.querySelector('.sync-strip')).toBeNull();
   // Decision order: monthly net cash is the first metric, month-end balances follow, then income/payments/savings.

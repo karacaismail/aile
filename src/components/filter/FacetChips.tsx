@@ -24,7 +24,7 @@ export function FacetChips({ field, options, value, onChange, labelOf, dotOf, te
   for (const v of value) if (!options.has(v)) entries.push([v, 0]);
   const toggle = (v: string, on: boolean) => onChange(on ? [...value.filter((x) => x !== v), v] : value.filter((x) => x !== v));
   return (
-    <Group gap={6} wrap="wrap">
+    <Group gap="sm" wrap="wrap">
       {entries.map(([v, n]) => (
         <FilterChip
           key={v || '__unset'} label={(labelOf ?? ((x) => facetLabel(field, x)))(v)} count={n} checked={value.includes(v)}

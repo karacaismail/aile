@@ -20,7 +20,7 @@ export function TasksScreen() {
   const [, navigate] = useLocation();
   const list = useMemo(() => sortTasks(tasks), [tasks]);
   return (
-    <Box pb={96}>
+    <Box pb="var(--aile-fab-clearance)">
       <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="xs" p="sm" data-testid="task-list">
         {!hydrated && status !== 'unconfigured' ? (
           <><Skeleton h={88} radius="md" /><Skeleton h={88} radius="md" /><Skeleton h={88} radius="md" /></>

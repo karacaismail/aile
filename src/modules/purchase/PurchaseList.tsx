@@ -232,7 +232,7 @@ export function PurchaseList() {
   const emptyByFaz = hasAny && list.length === 0 && nActive === 0 && !dq && f.faz !== 'hepsi';
 
   return (
-    <Box pb={96} ref={workspaceRef} data-testid="purchase-workspace" onFocusCapture={event => {
+    <Box pb="var(--aile-fab-clearance)" ref={workspaceRef} data-testid="purchase-workspace" onFocusCapture={event => {
       const target = event.target as HTMLElement;
       filterFocus.current = target.closest('[data-purchase-filters]')
         ? (target.dataset.filterKey ?? target.closest<HTMLElement>('[data-testid]')?.dataset.testid ?? null) : null;
@@ -265,8 +265,8 @@ export function PurchaseList() {
         </aside>}
         <div className={classes.results}>
       {hasAny && (
-        <Paper className={`${classes.toolbar} ${completion ? classes.toolbarWithCompletion : ''}`} px="sm" pt={4} pb={6} radius={0} data-testid="filter-toolbar">
-          <Group gap={6} wrap="nowrap">
+        <Paper className={`${classes.toolbar} ${completion ? classes.toolbarWithCompletion : ''}`} px="sm" pt="xs" pb="sm" radius={0} data-testid="filter-toolbar">
+          <Group gap="sm" wrap="nowrap">
             <TextInput
               style={{ flex: 1, minWidth: 0 }} placeholder="Ara" value={q} onChange={(e) => setQ(e.currentTarget.value)} aria-label="Kalem ara"
               leftSection={<MagnifyingGlassIcon size={18} aria-hidden />} type="search" enterKeyHint="search"
@@ -280,7 +280,7 @@ export function PurchaseList() {
               </ActionIcon>
             </Indicator>}
           </Group>
-          {nActive > 0 && <Box mt={6}>
+          {nActive > 0 && <Box mt="sm">
             <FilterRail>
               {activeFacets.map((a) => (
                 <FilterChip key={`${a.field}:${a.value}`} label={facetLabel(a.field, a.value, true)} count={a.count} checked icon="x"

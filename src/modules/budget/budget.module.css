@@ -4,7 +4,7 @@
   flex-direction: column;
   gap: var(--budget-spaceTight);
   min-height: 44px;
-  padding: 8px var(--mantine-spacing-sm);
+  padding: var(--budget-clearControl) var(--budget-clearField);
   border-radius: var(--mantine-radius-md);
   background: var(--budget-paper);
 }

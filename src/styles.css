@@ -5,6 +5,8 @@
   --aile-fab-right: var(--budget-spacing);
   /* The floating add button's ActionIcon size (`Fab.tsx`); pages that end under it reserve this much. */
   --aile-fab-size: 56px;
+  /* Page end under the floating button: button + page end + one control step (clearspace). */
+  --aile-fab-clearance: calc(var(--aile-fab-size) + var(--budget-clearPageEnd) + var(--budget-clearControl));
 }
 .tabular { font-variant-numeric: tabular-nums; }
 .aile-planner { min-width: 0; color: var(--budget-ink); }
@@ -14,7 +16,7 @@
 @media (min-width: 48em) { .family-expense span { display: inline; } }
 .aile-planner .mantine-Paper-root { color: var(--budget-ink); }
 .aile-planner .mantine-Paper-root[data-with-border] { border-color: transparent; background: var(--budget-timelineStepSurface); }
-.mantine-SegmentedControl-root { background: var(--budget-blueSurface); border-radius: var(--budget-timelineSummaryRadius); max-width: 100%; }
+.mantine-SegmentedControl-root { background: var(--budget-blueSurface); border-radius: var(--budget-radius); max-width: 100%; }
 .mantine-SegmentedControl-indicator { background: var(--budget-timelineViewSelectedSurface); box-shadow: none; }
 .mantine-SegmentedControl-label { color: var(--budget-ink); font-weight: var(--budget-headingWeight); border-radius: var(--budget-radius); }
 .mantine-SegmentedControl-control::before { display: none; }

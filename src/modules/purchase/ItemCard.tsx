@@ -31,7 +31,7 @@ export function ItemCard({ item, onToggleDone }: { item: Item; onToggleDone: (it
   const attention = item.mevcut || item.karar_bekliyor || dueSoon;
   const open = () => navigate(`~/satinalma/${item.id}`);
   return (
-    <Card radius="md" p="sm" className={classes.card} data-testid="item-card" data-item-id={item.id} data-done={done || undefined} data-cancelled={item.durum === 'iptal' || undefined}>
+    <Card radius="md" p="md" className={classes.card} data-testid="item-card" data-item-id={item.id} data-done={done || undefined} data-cancelled={item.durum === 'iptal' || undefined}>
       <div className={classes.identity}>
         {/* Completion keeps its place beside the name, with a visible caption instead of an unnamed circle. */}
         <label className={classes.complete} onClick={(e) => e.stopPropagation()}>

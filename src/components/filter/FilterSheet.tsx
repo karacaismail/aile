@@ -52,8 +52,8 @@ export function FilterSheet({ opened, onClose, title = 'Filtrele', resultCount, 
         <Drawer.Body>
           <Stack gap="md" px="sm" py="sm" data-testid="filter-drawer">{children}</Stack>
         </Drawer.Body>
-        <Paper component="footer" radius={0} px="sm" py={6} className={classes.sheetFooter}>
-          <Group gap={6} wrap="nowrap">
+        <Paper component="footer" radius={0} px="sm" py="sm" className={classes.sheetFooter}>
+          <Group gap="sm" wrap="nowrap">
             <Button variant={none && activeCount > 0 ? 'filled' : 'default'} disabled={activeCount === 0} onClick={onClear} data-testid="filter-clear" data-filter-key="clear:all" style={{ flexShrink: 0 }}>
               Temizle{activeCount > 0 ? ` (${activeCount})` : ''}
             </Button>

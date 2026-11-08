@@ -13,10 +13,10 @@ export function LinksField({ value, onChange, label = 'Linkler' }: { value: stri
     setDraft('');
   };
   return (
-    <Stack gap={6}>
+    <Stack gap="sm">
       <Text size="sm" fw={500}>{label}</Text>
       {value.map((u) => (
-        <Group key={u} gap={4} wrap="nowrap">
+        <Group key={u} gap="xs" wrap="nowrap">
           <Anchor href={u} target="_blank" rel="noreferrer" size="sm" lineClamp={1} style={{ flex: 1 }} data-inline-link>
             {u.replace(/^https?:\/\//, '')}
           </Anchor>
@@ -28,7 +28,7 @@ export function LinksField({ value, onChange, label = 'Linkler' }: { value: stri
           </ActionIcon>
         </Group>
       ))}
-      <Group gap={4} wrap="nowrap">
+      <Group gap="xs" wrap="nowrap">
         <TextInput
           style={{ flex: 1 }}
           placeholder="https://…"

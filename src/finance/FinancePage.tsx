@@ -103,19 +103,20 @@ function FinanceContent({ data, recoveryMonth }: { data: FinanceLedger; recovery
       </div>
     </section>
     {selected.fundingGap > 0 && <p className="error-message" role="note">Ay sonunda <strong>{money(selected.fundingGap)}</strong> fon eksiği var. Bu tutar kullanılabilir para değildir.</p>}
-    <JourneyLinks label="Bu aydan sonraki adım" items={[{ href: '#/timeline', label: `${monthLabel(selected.month)} ödeme adımları`, detail: 'Bu ay sonuna götüren nakit, kart ve KMH adımları', onSelect: () => setSelection(selected.month) }]} />
-    <p className="finance-explanation">Gelecek taksit taahhüdü kart borcuna dahildir; tekrar eklenmez. Net nakit ve borç, kalan TL birikimini içerir; döviz, altın ve eşyaların değerini içermez.</p>
+    <JourneyLinks label="Bu aydan sonraki adım" items={[{ href: '#/timeline', label: `${monthLabel(selected.month)} ödeme adımları`, detail: 'Nakit, kart ve KMH adımları', onSelect: () => setSelection(selected.month) }]} />
+    <p className="finance-explanation">Gelecek taksit kart borcuna dahildir.</p>
+    <p className="finance-explanation">Birikimden yalnız TL dahildir. Döviz ve altın hariç.</p>
     <Tabs value={view} onChange={setView} unstyled keepMounted={false} className="finance-views">
       <Tabs.List aria-label="Finansman görünümleri" className="finance-view-selector"><Tabs.Tab value="daily">Günlük adımlar</Tabs.Tab><Tabs.Tab value="monthly">Aylık özet</Tabs.Tab></Tabs.List>
       <Tabs.Panel value="daily">
-        <SectionHeading title={`${monthLabel(selected.month)} · ${events.length} adım`} description="Soldan sağa: işlem → nakit sonucu → banka borçları → kaynak. Diğer sütunlar için tabloyu yatay kaydırın." />
+        <SectionHeading title={`${monthLabel(selected.month)} · ${events.length} adım`} />
         <DailyTable steps={events.slice(activePage * pageSize, (activePage + 1) * pageSize)} />
         {events.length > pageSize && <nav className="finance-pagination" aria-label="Finansman adım sayfaları"><p aria-live="polite">{activePage * pageSize + 1}–{Math.min((activePage + 1) * pageSize, events.length)} / {events.length} adım</p><div className="button-row"><button className="quiet-button" disabled={activePage === 0} onClick={() => setPage(activePage - 1)}>Önceki adımlar</button><button className="quiet-button" disabled={(activePage + 1) * pageSize >= events.length} onClick={() => setPage(activePage + 1)}>Sonraki adımlar</button></div></nav>}
-        <p className="finance-explanation">Gerekli bakiye KMH kullanımını da içeren net nakit konumudur. Negatif değer harcanabilir para değildir. Nakit etkisi, adımlar arasındaki bu bakiye değişimidir.</p>
+        <p className="finance-explanation">Gerekli bakiye KMH kullanımını içerir.</p>
       </Tabs.Panel>
       <Tabs.Panel value="monthly">
         <FinanceTrends months={data.months} selected={selected.month} tableId="finance-monthly-table" />
-        <SectionHeading title="Aydan aya finansman" description="Google Sheets’teki ay sonu sonuçları. Seçili dönem tabloda vurgulanır." />
+        <SectionHeading title="Aydan aya finansman" description="Ay sonu sonuçları" />
         <ScrollTable id="finance-monthly-table" label="Aylık finansman tablosu; yatay kaydırılabilir"><table className="finance-table" aria-label="Aylık finansman özeti"><thead><tr><th scope="col">Ay</th>{['Harcanabilir nakit', 'KMH anapara', 'KMH faiz + vergi', 'Kart borcu', 'Gelecek taksit', 'Birikimde kalan', 'Net nakit ve borç', 'Fon eksiği'].map(label => <th scope="col" key={label}>{label}</th>)}</tr></thead><tbody>{data.months.map(month => <tr key={month.month} data-selected={month.month === selected.month}><th scope="row">{monthLabel(month.month)}</th>{(['cash', 'kmhPrincipal', 'kmhCost', 'cardDebt', 'futureInstalments', 'reserve', 'knownNetAssets', 'fundingGap'] as const).map(key => <td className="numeric" key={key}><Amount value={month[key]} /></td>)}</tr>)}</tbody></table></ScrollTable>
       </Tabs.Panel>
     </Tabs>
@@ -137,12 +138,12 @@ export default function FinancePage() {
   // The first validated ledger consumes the in-memory request; later source errors cannot replay it.
   useEffect(() => { if (state.data) setRecoveryMonth(''); }, [state.data]);
   return <div className="finance-page">
-    <PageHeader location="/finansman" lead="Nakit, kredi kartları, KMH ve finansman maliyetleri." actions={<button className="quiet-button" disabled={state.loading} onClick={state.refresh}>Yenile</button>}>
-      <p className="finance-plan-note"><strong>Hesap</strong> · Gerçekleşmiş ödeme değildir. Banka ekstresi yerine geçmez.</p>
+    <PageHeader location="/finansman" lead="Nakit, kart, KMH ve maliyetler." actions={<button className="quiet-button" disabled={state.loading} onClick={state.refresh}>Yenile</button>}>
+      <p className="finance-plan-note"><strong>Hesap</strong> · Gerçekleşmiş ödeme değildir.</p>
       <DataStatus loading={state.loading} updatedAt={state.updatedAt} idle="Kaynak doğrulaması tamamlanmadı." />
     </PageHeader>
     {state.error && <p role="alert" className="error-message">{state.error}</p>}
-    {state.data ? <><FinanceContent data={state.data} recoveryMonth={recoveryMonth} /><SourceNote label="Kaynak durumu"><p>{state.data.status}</p>{state.data.notes.map((note, index) => <p key={index}>{note}</p>)}</SourceNote></> : state.loading ? <FinanceSkeleton /> : <p>Güncel hesap doğrulandığında ay sonu özeti ve bütün ödeme adımları burada görünür.</p>}
-    <footer className="finance-footer"><a href={financeSheetUrl} target="_blank" rel="noreferrer">Finansman e-tablosunu aç</a><a href="#/timeline">Ödeme takvimine git</a><p>Tutarlar Finansman sayfasından okunur; bu görünüm e-tabloyu değiştirmez. Ödeme takvimi de aynı doğrulanmış hesabı kullanır.</p></footer>
+    {state.data ? <><FinanceContent data={state.data} recoveryMonth={recoveryMonth} /><SourceNote label="Kaynak durumu"><p>{state.data.status}</p>{state.data.notes.map((note, index) => <p key={index}>{note}</p>)}</SourceNote></> : state.loading ? <FinanceSkeleton /> : <p>Hesap şu anda okunamıyor.</p>}
+    <footer className="finance-footer"><a href={financeSheetUrl} target="_blank" rel="noreferrer">Finansman e-tablosunu aç</a><a href="#/timeline">Ödeme takvimine git</a></footer>
   </div>;
 }

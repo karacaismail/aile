@@ -154,7 +154,7 @@ function SceneFormBody({ item, onClose }: { item?: Item; onClose: () => void }) 
 
   return (
     <Modal opened onClose={unlessConfirming(onClose)} title={isNew ? 'Yeni sahne' : 'Sahne'} fullScreen={isMobile} size="lg"
-      closeButtonProps={modalCloseProps} styles={{ body: { paddingBottom: 96 } }}>
+      closeButtonProps={modalCloseProps} styles={{ body: { paddingBottom: 'var(--aile-fab-clearance)' } }}>
       <form ref={formRef} onSubmit={form.onSubmit(save, (errors) => focusFirstError(formRef.current, errors))} noValidate data-testid="scene-form">
         <Stack gap="sm">
           <Stack component="section" aria-label="Sahne bilgileri" className="record-form-section" gap="sm"><SectionHeading title="Sahne bilgileri" level={3} />
@@ -169,16 +169,16 @@ function SceneFormBody({ item, onClose }: { item?: Item; onClose: () => void }) 
           <Stack component="section" aria-label="Işık seviyeleri" className="record-form-section" gap="sm"><SectionHeading title="Işık seviyeleri" level={3} description={<span data-testid="scene-level-scope">{scope}</span>} />
               <Stack gap="xs">
                 {values.seviyeler.map((row, i) => (
-                  <Paper key={i} p="sm" radius="md" data-testid="scene-level-row">
-                    <Stack gap={6}>
+                  <Paper key={i} p="var(--budget-clearField)" radius="md" data-testid="scene-level-row">
+                    <Stack gap="sm">
                       <FormSelect label={`Katman ${i + 1}`} allowDeselect={false} data={rowOptions(row.layerId)} value={row.layerId} data-path={`seviyeler.${i}.layerId`}
                         onChange={(value) => form.setFieldValue(`seviyeler.${i}.layerId`, value ?? '')} error={form.errors[`seviyeler.${i}.layerId`]} />
-                      <Group gap={6} wrap="nowrap" align="flex-start">
+                      <Group gap="sm" wrap="nowrap" align="flex-start">
                         <NumberInput label="Parlaklık %" hideControls inputMode="numeric" min={0} max={100} className={classes.grow} data-path={`seviyeler.${i}.pct`}
                           value={row.pct ?? ''} onChange={(v) => form.setFieldValue(`seviyeler.${i}.pct`, v === '' ? null : Number(v))} error={form.errors[`seviyeler.${i}.pct`]} />
                         <NumberInput label="CCT (K)" hideControls inputMode="numeric" min={0} className={classes.grow}
                           value={row.cct ?? ''} onChange={(v) => form.setFieldValue(`seviyeler.${i}.cct`, v === '' ? null : Number(v))} />
-                        <ActionIcon aria-label={`Seviye ${i + 1} sil`} color="red" mt={26} onClick={() => form.removeListItem('seviyeler', i)}>
+                        <ActionIcon aria-label={`Seviye ${i + 1} sil`} color="red" mt="lg" onClick={() => form.removeListItem('seviyeler', i)}>
                           <TrashIcon size={20} aria-hidden />
                         </ActionIcon>
                       </Group>

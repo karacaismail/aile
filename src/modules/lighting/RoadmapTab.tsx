@@ -18,7 +18,7 @@ function StepBody({ step, purchases, now }: { step: StepGroup; purchases: readon
       {step.layers.map((l) => {
         const linked = linkedPurchases(l, purchases);
         return (
-          <Box component="span" key={l.id} className={classes.stepLine} mb={4}>
+          <Box component="span" key={l.id} className={classes.stepLine} mb="xs">
             <Text component="span" size="sm" className={classes.stepLine}>{label('oda', l.oda)} · {layerTitle(l)}</Text>
             {linked.map((p) => {
               const soon = isDueSoon(p.siparis_son_tarih, now);

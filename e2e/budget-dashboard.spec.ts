@@ -130,7 +130,7 @@ test('narrow budget summary answers the spending decision first and puts long ex
   const header = page.locator('header.page-header');
   await expect(header.getByRole('button', { name: 'Yenile', exact: true })).toBeVisible();
   await expect(page.locator('.sync-strip')).toHaveCount(0);
-  const freshness = page.getByRole('status').filter({ hasText: 'Son okuma' });
+  const freshness = page.getByRole('status').filter({ hasText: 'Güncellendi' });
   await expect(freshness).toHaveCount(1);
   expect((await box(freshness)).y, 'freshness sits below the heading, not above it').toBeGreaterThan((await box(page.getByRole('heading', { level: 1 }))).y);
   const metrics = await box(summary), views = await box(page.getByRole('navigation', { name: 'Bütçe görünümleri' }));
@@ -226,7 +226,7 @@ test('stale native bridge removes previously displayed amounts instead of retain
   source.invalidate();
   await page.getByRole('button', { name: 'Yenile', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('Plan veya Güncel kaynağı değişti');
-  await expect(page.getByRole('alert')).toContainText('Yenile düğmesi yalnızca sonucu tekrar okur');
+  await expect(page.getByRole('alert')).toContainText('Yenile yalnız sonucu okur');
   await expect(page.getByRole('alert')).not.toContainText('erişimini kontrol');
   await expect(page.getByRole('region', { name: 'Seçili ay özeti' })).toHaveCount(0);
   await expect(page.locator('.budget-app')).not.toContainText('₺');

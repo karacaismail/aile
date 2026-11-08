@@ -18,7 +18,7 @@ export function SectionHeading({ title, description, actions, level = 2, focusTa
   const Heading = `h${level}` as const;
   return <div className="info-heading"><div><Heading {...(focusTarget ? { tabIndex: -1, 'data-autofocus': true } : {})}>{title}</Heading>{description && <p>{description}</p>}</div>{actions && <div className="info-actions">{actions}</div>}</div>;
 }
-export function SourceNote({ label = 'Kaynak ve kapsam', children }: { label?: string; children: ReactNode }) {
+export function SourceNote({ label = 'Kaynak', children }: { label?: string; children: ReactNode }) {
   return <div className="info-source">{label && <strong>{label}</strong>}<div>{children}</div></div>;
 }
 /** Page links are navigation, not tabs or local filters. No record matching is inferred; `onSelect` may only set shared navigation context such as the period. */

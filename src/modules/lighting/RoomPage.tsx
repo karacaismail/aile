@@ -37,7 +37,7 @@ export function RoomPage({ oda, layerId }: { oda: string; layerId?: string }) {
   const name = label('oda', oda);
   const addLayer = () => navigate(`~/aydinlatma/${oda}/yeni`);
   return (
-    <Box pb={96}>
+    <Box pb="var(--aile-fab-clearance)">
       {/* Room identity: back control, the room name as the heading, dog access as the one status with its rule as text. */}
       <header className={classes.roomHeader} data-testid="room-header">
         <div className={classes.identity}>

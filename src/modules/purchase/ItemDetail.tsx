@@ -159,7 +159,7 @@ function ItemForm({ id, item, isNew, section, defaults, onSaved, close, isMobile
 
   return (
     <Modal opened onClose={unlessConfirming(close)} title={isNew ? 'Yeni kalem' : item!.ad} fullScreen={isMobile} size="lg" closeButtonProps={{ size: 'xl', 'aria-label': 'Kapat' }}
-      styles={{ body: { paddingBottom: 96 } }}>
+      styles={{ body: { paddingBottom: 'var(--aile-fab-clearance)' } }}>
       <form ref={formRef} onSubmit={form.onSubmit(save, (errors) => focusFirstError(formRef.current, errors))} noValidate data-testid="item-detail">
         <Stack gap="sm">
           <Stack component="section" aria-label="Kalem bilgileri" className="record-form-section" gap="sm">
@@ -208,7 +208,7 @@ function ItemForm({ id, item, isNew, section, defaults, onSaved, close, isMobile
             <NumberInput label="Teslim süresi (gün)" min={0} inputMode="numeric" hideControls value={form.getValues().teslim_suresi_gun ?? ''} onChange={(v) => form.setFieldValue('teslim_suresi_gun', v === '' ? null : Number(v))} />
             <LinksField value={form.getValues().linkler} onChange={(v) => form.setFieldValue('linkler', v)} />
             <Textarea label="Not" autosize minRows={2} {...form.getInputProps('not')} key={form.key('not')} />
-            <Stack gap={6}>
+            <Stack gap="sm">
               <Switch label="Karar bekliyor" {...form.getInputProps('karar_bekliyor', { type: 'checkbox' })} key={form.key('karar_bekliyor')} />
               <Switch label="Elimizde var (satın alınmayacak)" {...form.getInputProps('mevcut', { type: 'checkbox' })} key={form.key('mevcut')} />
             </Stack>

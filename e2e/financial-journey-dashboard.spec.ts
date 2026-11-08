@@ -39,7 +39,7 @@ test('purchase plan narrows source categories and missing prices without treatin
   await expect(page.getByText('Bu filtrelerle eşleşen kayıt yok.')).toBeVisible();
   const journey = page.getByRole('navigation', { name: 'Alımdan sonraki adım', exact: true });
   await expect(journey.getByRole('link', { name: 'Hazırlık listesine git' })).toHaveAttribute('href', '#/satinalma');
-  await expect(page.getByText(/Plan tutarı ödeme yapıldığı anlamına gelmez/)).toBeVisible();
+  await expect(page.getByText(/Eksik tutar sıfır değildir/)).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
 });
 
