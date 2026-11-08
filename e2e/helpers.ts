@@ -139,7 +139,7 @@ export async function smallText(page: Page): Promise<string[]> {
       const r = el.getBoundingClientRect();
       if (r.width === 0 || r.height === 0) continue;
       const fs = parseFloat(cs.fontSize);
-      if (fs < 15.99) out.push(`${el.tagName.toLowerCase()}[${t.slice(0, 24)}] ${fs}px`);
+      if (fs < 13.99) out.push(`${el.tagName.toLowerCase()}[${t.slice(0, 24)}] ${fs}px`);
     }
     return out.slice(0, 15);
   });

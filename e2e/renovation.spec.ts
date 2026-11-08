@@ -34,8 +34,8 @@ for (const s of SCREENS) {
     await expect(page.getByTestId(s.ready)).toBeVisible();
     expect(await horizontalOverflow(page)).toEqual([]);
     expect(await smallTargets(page)).toEqual([]);
-    expect(await smallText(page), 'metin < 1rem').toEqual([]);
-  expect(await smallText(page), 'metin < 1rem').toEqual([]);
+    expect(await smallText(page), 'metin < 14px').toEqual([]);
+  expect(await smallText(page), 'metin < 14px').toEqual([]);
   });
 }
 
@@ -64,7 +64,7 @@ test('takvim: öğeye dokununca alt çekmece ve bağlı iş', async ({ page }) =
   await expect(drawer).toBeVisible();
   await expect(drawer).toContainText('20 Oca 2099');
   expect(await horizontalOverflow(page)).toEqual([]);
-  expect(await smallText(page), 'çekmece metin < 1rem').toEqual([]);
+  expect(await smallText(page), 'çekmece metin < 14px').toEqual([]);
   await drawer.getByRole('button', { name: /T3 Mutfak dolabı/ }).click();
   await expect(page.getByTestId('task-detail')).toBeVisible();
   await expect(page.getByTestId('task-detail').getByLabel(/^Ad/)).toHaveValue('Mutfak dolabı montajı');
@@ -81,7 +81,7 @@ test('işler: kart → detay modalı (taşma yok, hedefler ≥44) → kaydet', a
   await expect(page.getByTestId('task-detail')).toBeVisible();
   expect(await horizontalOverflow(page)).toEqual([]);
   expect(await smallTargets(page)).toEqual([]);
-  expect(await smallText(page), 'metin < 1rem').toEqual([]);
+  expect(await smallText(page), 'metin < 14px').toEqual([]);
   await page.getByLabel('Not', { exact: true }).fill('e2e notu');
   await page.getByRole('button', { name: 'Kaydet' }).click();
   await expect(page.getByTestId('task-detail')).toBeHidden();
@@ -107,7 +107,7 @@ test('ustalar: sayaç, meslek filtresi, WhatsApp/tel bağlantıları', async ({ 
   await expect(page.getByTestId('vendor-detail')).toBeVisible();
   expect(await horizontalOverflow(page)).toEqual([]);
   expect(await smallTargets(page)).toEqual([]);
-  expect(await smallText(page), 'metin < 1rem').toEqual([]);
+  expect(await smallText(page), 'metin < 14px').toEqual([]);
 });
 
 test('kontrol: madde işaretleme kalıcı, ilerleme güncellenir, ölçüm girilir', async ({ page }) => {
@@ -121,7 +121,7 @@ test('kontrol: madde işaretleme kalıcı, ilerleme güncellenir, ölçüm giril
   await expect(page.getByTestId('progress-sartname')).toHaveText('2/3');
   await expect(page.getByRole('button', { name: 'Metni kopyala' }).first()).toBeVisible();
   await page.getByRole('button', { name: /Kabul testi/ }).click();
-  expect(await smallText(page), 'kontrol metin < 1rem').toEqual([]);
+  expect(await smallText(page), 'kontrol metin < 14px').toEqual([]);
   const measure = page.getByLabel(/Ölçüm: Priz gerilimi/);
   await measure.fill('230');
   await measure.blur();

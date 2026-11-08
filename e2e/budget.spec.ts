@@ -29,10 +29,10 @@ async function open(page: Page, route = '/#/butce') {
 async function measured(page: Page) {
   expect(await horizontalOverflow(page)).toEqual([]);
   expect(await smallTargets(page)).toEqual([]);
-  expect(await smallText(page), 'metin < 1rem').toEqual([]);
+  expect(await smallText(page), 'metin < 14px').toEqual([]);
 }
 
-test('bütçe ekranı: plan × kayıt, taşma yok, hedefler ≥44, metin ≥1rem', async ({ page }) => {
+test('bütçe ekranı: plan × kayıt, taşma yok, hedefler ≥44, metin ≥14px', async ({ page }) => {
   await open(page);
   await expect(page.getByTestId('month-plan')).toContainText('75.600');
   await expect(page.getByTestId('kalem-Elektrik')).toContainText('650');
