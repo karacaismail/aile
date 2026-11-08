@@ -1,6 +1,8 @@
 /** Private native Sheet patch builder; never writes a remote workbook. */
 import {value,column} from '../finance-engine/cells.mjs';
 import {purchaseGroupTypes} from './purchase-groups.mjs';
+/** Reader notes sit under the last table; the top of the sheet stays for working. */
+export const bottomNoteRows=({costsStart,costCount,notes})=>['Notlar',...notes].map((text,i)=>({row:costsStart+costCount+2+i,text}));
 export const MONTH_HEADERS=['Ay','Nakit','KMH anapara','KMH faiz + vergi','Kart borcu','Gelecek taksit','Birikimde kalan','Net nakit ve borç','Fon eksiği'];
 export const DAY_HEADERS=['Tarih','Adım','Tür','Nakit değişimi','Gerekli bakiye','Harcanabilir nakit','KMH anapara','KMH faiz + vergi','Denizbank anapara','Denizbank faiz + vergi','İşbank anapara','İşbank faiz + vergi','Gelecek taksit taahhüdü','Toplam kart borcu','Fon eksiği','Kesinlik','Kaynak','ID'];
 const STALE='Sheet verisi değişti; hesap yenilenmeli';
@@ -84,8 +86,8 @@ export function buildFinance({source,result,ledger,facts,sourceHash,engineHash,t
  const output=(row,col,v)=>{if(typeof v==='number')finite(v);const f=sheetFormula(`=IF('_Finans kontrol'!$B$2,${literal(v)},"")`);formula(view,row,col,f);manifest.outputs.push({sheetId:view,row,column:col,formula:f,value:v});};
  text(view,0,0,'Finansman · ödeme kapasitesi');formula(view,1,0,`=IF('_Finans kontrol'!$B$2,"Koşullu finansman hesabı · gerçekleşmiş ödeme değildir",${quoted(STALE)})`);formula(view,2,0,`=IF('_Finans kontrol'!$B$2,"TRUE","FALSE")`);
  text(view,3,0,String(ledger.ledger.length));text(view,4,0,String(result.candidate.monthEnds.length));text(view,5,0,'finance-v1');text(view,6,0,sourceHash);
- text(view,7,0,'Harcanabilir nakit ayrılmış bütçeler düşüldükten sonradır; banka bakiyesi veya gerçekleşmiş ödeme değildir. Birikimden aktarım gelir değildir.');
- text(view,8,0,'Gelecek faiz, valör ve eski KMH tahakkuku bilinmiyor. Net nakit ve borç döviz/altın, eşya değeri ve bilinmeyen eski tahakkuku içermez.'+(result.planningFx?` Birikim TL planı ${result.planningFx.asOfDate} sabit kuruyla: EUR ${result.planningFx.eurTry} / USD ${result.planningFx.usdTry}; gelecek alım kuru değildir. Canlı kur hareketi bu tarihli planı değiştirmez.`:'')+currentIssueNote(result.currentIssues));
+ const readerNotes=['Harcanabilir nakit ayrılmış bütçeler düşüldükten sonradır; banka bakiyesi veya gerçekleşmiş ödeme değildir. Birikimden aktarım gelir değildir.','Gelecek faiz, valör ve eski KMH tahakkuku bilinmiyor. Net nakit ve borç döviz/altın, eşya değeri ve bilinmeyen eski tahakkuku içermez.'+(result.planningFx?` Birikim TL planı ${result.planningFx.asOfDate} sabit kuruyla: EUR ${result.planningFx.eurTry} / USD ${result.planningFx.usdTry}; gelecek alım kuru değildir. Canlı kur hareketi bu tarihli planı değiştirmez.`:'')+currentIssueNote(result.currentIssues)];
+ readerNotes.forEach((note,i)=>text(view,7+i,0,note));
  MONTH_HEADERS.forEach((v,c)=>text(view,10,c,v));
  result.candidate.monthEnds.forEach((m,i)=>[m.month,m.cash,m.kmh,m.kmhAccrued,m.cardDebt,m.futureInstallments??0,m.reserveBalance??0,m.knownNetAssets??ROUND(m.cash-m.kmh-m.kmhAccrued-m.cardDebt),m.unfundedCash??0].forEach((v,c)=>output(i+11,c,c?finite(v):v)));
  DAY_HEADERS.forEach((v,c)=>text(view,42,c,v));
@@ -111,6 +113,7 @@ export function buildFinance({source,result,ledger,facts,sourceHash,engineHash,t
  formula(control,1,1,`=IFERROR(AND(COUNTIF(G${guardStart+1}:G${gRow},TRUE)=${gRow-guardStart},COUNTA(G${guardStart+1}:G${gRow})=${gRow-guardStart}),FALSE)`);
  manifest.guardRange=`'_Finans kontrol'!G${guardStart+1}:G${gRow}`;
  const costsStart=45+ledger.ledger.length;manifest.ranges.costs=`Finansman!A${costsStart+1}:F${costsStart+1+result.financeCosts.length}`;['Tarih','Banka','Maliyet türü','Faiz','Vergi','Toplam'].forEach((v,c)=>text(view,costsStart,c,v));result.financeCosts.forEach((r,i)=>[r.date,r.bank,r.kind,r.interest,r.tax,r.total].forEach((v,c)=>output(costsStart+1+i,c,v==null?'Bilinmiyor':v)));
+ bottomNoteRows({costsStart,costCount:result.financeCosts.length,notes:readerNotes}).forEach(({row,text:note})=>text(view,row,0,note));
  const requests=sheets.map(s=>({addSheet:{properties:{...s,hidden:s.sheetId===control,gridProperties:{rowCount:Math.max(100,pages.get(s.sheetId).length+5),columnCount:18,frozenRowCount:s.sheetId===view?7:1}}}}));
  for(const s of sheets){const page=pages.get(s.sheetId);const columns=s.sheetId===view?18:7,chunk=Math.floor(500/columns);for(let start=0;start<page.length;start+=chunk){const slice=Array.from({length:Math.min(chunk,page.length-start)},(_,index)=>({values:Array.from({length:columns},(_,c)=>page[start+index]?.[c]??{})}));requests.push({updateCells:{range:{sheetId:s.sheetId,startRowIndex:start,endRowIndex:start+slice.length,startColumnIndex:0,endColumnIndex:columns},rows:slice,fields:'userEnteredValue'}});}requests.push({repeatCell:{range:{sheetId:s.sheetId,startRowIndex:0,endRowIndex:page.length,startColumnIndex:0,endColumnIndex:18},cell:{userEnteredFormat:{textFormat:{fontFamily:'Outfit',fontSize:14,foregroundColor:{red:.11,green:.23,blue:.30}},verticalAlignment:'TOP',wrapStrategy:'WRAP'}},fields:'userEnteredFormat'}});}
  const header={backgroundColor:{red:.11,green:.23,blue:.30},textFormat:{fontFamily:'Outfit',fontSize:14,bold:true,foregroundColor:{red:1,green:1,blue:1}}};for(const [row,end]of[[0,18],[10,9],[42,18],[costsStart,6]])requests.push({repeatCell:{range:{sheetId:view,startRowIndex:row,endRowIndex:row+1,startColumnIndex:0,endColumnIndex:end},cell:{userEnteredFormat:header},fields:'userEnteredFormat'}});

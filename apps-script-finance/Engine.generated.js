@@ -1021,6 +1021,7 @@ var __finance = (() => {
   }
 
   // finance-sync/native-finance.mjs
+  var bottomNoteRows = ({ costsStart, costCount, notes }) => ["Notlar", ...notes].map((text, i) => ({ row: costsStart + costCount + 2 + i, text }));
   var MONTH_HEADERS = ["Ay", "Nakit", "KMH anapara", "KMH faiz + vergi", "Kart borcu", "Gelecek taksit", "Birikimde kalan", "Net nakit ve bor\xE7", "Fon eksi\u011Fi"];
   var DAY_HEADERS = ["Tarih", "Ad\u0131m", "T\xFCr", "Nakit de\u011Fi\u015Fimi", "Gerekli bakiye", "Harcanabilir nakit", "KMH anapara", "KMH faiz + vergi", "Denizbank anapara", "Denizbank faiz + vergi", "\u0130\u015Fbank anapara", "\u0130\u015Fbank faiz + vergi", "Gelecek taksit taahh\xFCd\xFC", "Toplam kart borcu", "Fon eksi\u011Fi", "Kesinlik", "Kaynak", "ID"];
   var STALE = "Sheet verisi de\u011Fi\u015Fti; hesap yenilenmeli";
@@ -1226,8 +1227,8 @@ var __finance = (() => {
     text(view, 4, 0, String(result.candidate.monthEnds.length));
     text(view, 5, 0, "finance-v1");
     text(view, 6, 0, sourceHash);
-    text(view, 7, 0, "Harcanabilir nakit ayr\u0131lm\u0131\u015F b\xFCt\xE7eler d\xFC\u015F\xFCld\xFCkten sonrad\u0131r; banka bakiyesi veya ger\xE7ekle\u015Fmi\u015F \xF6deme de\u011Fildir. Birikimden aktar\u0131m gelir de\u011Fildir.");
-    text(view, 8, 0, "Gelecek faiz, val\xF6r ve eski KMH tahakkuku bilinmiyor. Net nakit ve bor\xE7 d\xF6viz/alt\u0131n, e\u015Fya de\u011Feri ve bilinmeyen eski tahakkuku i\xE7ermez." + (result.planningFx ? ` Birikim TL plan\u0131 ${result.planningFx.asOfDate} sabit kuruyla: EUR ${result.planningFx.eurTry} / USD ${result.planningFx.usdTry}; gelecek al\u0131m kuru de\u011Fildir. Canl\u0131 kur hareketi bu tarihli plan\u0131 de\u011Fi\u015Ftirmez.` : "") + currentIssueNote(result.currentIssues));
+    const readerNotes = ["Harcanabilir nakit ayr\u0131lm\u0131\u015F b\xFCt\xE7eler d\xFC\u015F\xFCld\xFCkten sonrad\u0131r; banka bakiyesi veya ger\xE7ekle\u015Fmi\u015F \xF6deme de\u011Fildir. Birikimden aktar\u0131m gelir de\u011Fildir.", "Gelecek faiz, val\xF6r ve eski KMH tahakkuku bilinmiyor. Net nakit ve bor\xE7 d\xF6viz/alt\u0131n, e\u015Fya de\u011Feri ve bilinmeyen eski tahakkuku i\xE7ermez." + (result.planningFx ? ` Birikim TL plan\u0131 ${result.planningFx.asOfDate} sabit kuruyla: EUR ${result.planningFx.eurTry} / USD ${result.planningFx.usdTry}; gelecek al\u0131m kuru de\u011Fildir. Canl\u0131 kur hareketi bu tarihli plan\u0131 de\u011Fi\u015Ftirmez.` : "") + currentIssueNote(result.currentIssues)];
+    readerNotes.forEach((note, i) => text(view, 7 + i, 0, note));
     MONTH_HEADERS.forEach((v, c) => text(view, 10, c, v));
     result.candidate.monthEnds.forEach((m, i) => [m.month, m.cash, m.kmh, m.kmhAccrued, m.cardDebt, m.futureInstallments ?? 0, m.reserveBalance ?? 0, m.knownNetAssets ?? ROUND(m.cash - m.kmh - m.kmhAccrued - m.cardDebt), m.unfundedCash ?? 0].forEach((v, c) => output(i + 11, c, c ? finite2(v) : v)));
     DAY_HEADERS.forEach((v, c) => text(view, 42, c, v));
@@ -1329,6 +1330,7 @@ var __finance = (() => {
     manifest.ranges.costs = `Finansman!A${costsStart + 1}:F${costsStart + 1 + result.financeCosts.length}`;
     ["Tarih", "Banka", "Maliyet t\xFCr\xFC", "Faiz", "Vergi", "Toplam"].forEach((v, c) => text(view, costsStart, c, v));
     result.financeCosts.forEach((r, i) => [r.date, r.bank, r.kind, r.interest, r.tax, r.total].forEach((v, c) => output(costsStart + 1 + i, c, v == null ? "Bilinmiyor" : v)));
+    bottomNoteRows({ costsStart, costCount: result.financeCosts.length, notes: readerNotes }).forEach(({ row, text: note }) => text(view, row, 0, note));
     const requests = sheets.map((s) => ({ addSheet: { properties: { ...s, hidden: s.sheetId === control, gridProperties: { rowCount: Math.max(100, pages.get(s.sheetId).length + 5), columnCount: 18, frozenRowCount: s.sheetId === view ? 7 : 1 } } } }));
     for (const s of sheets) {
       const page = pages.get(s.sheetId);
@@ -2314,7 +2316,7 @@ var __finance = (() => {
   }
 
   // gas/finance/main.mjs
-  var ENGINE_REV = true ? "9e1715ce67d9615a5e2ca450e6ea78972604b19af97cb2805c8f4ddf97f669a6" : "development";
+  var ENGINE_REV = true ? "395681cf008ea1f4b6389af66c83566ded7f8592484f65292b476ab5d835e18f" : "development";
   var properties = () => PropertiesService.getScriptProperties();
   var stateStore = () => new DurableStateStore({ properties: properties(), utilities: Utilities });
   var sheetRepository = () => new FinanceSheetRepository({
