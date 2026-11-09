@@ -70,7 +70,8 @@ jobs:
           path: delivery-evidence
           retention-days: 14
   admin:
-    runs-on: ubuntu-latest
+    # Safari sözleşmesi: yazı motoru ve dokunma macOS'taki WebKit ve Chromium ile ölçülür.
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6

@@ -121,7 +121,7 @@ describe('yönetim paneli CI ve yayın kapısı', () => {
     });
     it(`${workflow} yönetim E2E'sini ayrı işte, önce telefon projeleriyle koşar`, () => {
       const source = read(workflow);
-      expect(source).toMatch(/^ {2}admin:\n {4}runs-on: ubuntu-latest$/m);
+      expect(source).toMatch(/^ {2}admin:\n(?: {4}#.*\n)? {4}runs-on: macos-latest$/m);
       const runs = adminRuns(source);
       expect(runs.length).toBeGreaterThanOrEqual(1);
       expect(runs[0]).toContain('--project=chromium --project=webkit');

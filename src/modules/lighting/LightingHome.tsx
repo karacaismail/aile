@@ -22,7 +22,7 @@ export function LightingHome({ forceTab, sceneId }: { forceTab?: LightingTab; sc
   useEffect(() => { if (forceTab) setTab(forceTab); }, [forceTab, setTab]);
   return (
     <Box pb="var(--aile-fab-clearance)">
-      <Paper className={classes.sticky} px="sm" py="sm" radius={0}>
+      <Paper className={classes.sticky} px="sm" py="xs" radius={0}>
         <SegmentedControl fullWidth size="sm" value={current} data={TABS} aria-label="Aydınlatma bölümü" data-testid="lighting-tabs"
           classNames={{ root: classes.tabs, label: classes.tabsLabel }}
           onChange={(v) => { setTab(v as LightingTab); if (forceTab) navigate('~/aydinlatma'); }} />
