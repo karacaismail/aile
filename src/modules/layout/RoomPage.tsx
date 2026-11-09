@@ -131,7 +131,6 @@ function RoomDimsSection({ oda, setting }: { oda: Oda; setting?: Setting }) {
           ]} />
         </div>
       ) : <Text role="status">Ölçüler okunuyor…</Text>}
-      <Text size="sm" c="dimmed">{WALL_HINT}</Text>
     </section>
   );
 }

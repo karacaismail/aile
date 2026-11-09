@@ -30,6 +30,11 @@
 .dimsSummary p { margin: 0; }
 /* Dört değer 2×2 olgu ızgarasında (etiket üstte, değer altta); özet zaten yüzeydir, iç kutu yok. 320'de ilk eşya ilk ekranda kalır. */
 .dimsFacts :global(.info-facts) > dl { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--budget-spaceTight) var(--budget-spacing); }
+/* Dar telefonda etiket ve değer aynı satırda durur, ilk eşya ilk ekrana sığar. */
+@media (max-width: 30em) {
+  .dimsFacts :global(.info-facts) > dl > div { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0 var(--budget-spaceTight); }
+  .dimsFacts :global(.info-facts) dd { margin-top: 0; }
+}
 
 /* Kalem kartında ölçü kaydın olgusudur. */
 .fact { margin: 0; color: var(--budget-ink); font-weight: var(--budget-headingWeight); }
