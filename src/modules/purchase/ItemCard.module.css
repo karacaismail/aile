@@ -1,5 +1,5 @@
 /* Record card: identity → status and scope → attention → amount group → completion. Spacing groups; only the amount group has a surface. */
-.card { display: flex; flex-direction: column; gap: var(--budget-spaceTight); }
+.card.card { display: flex; flex-direction: column; gap: var(--budget-spaceTight); padding: var(--mantine-spacing-md); }
 .card[data-done] .title { color: var(--budget-muted); }
 .card[data-cancelled] .title { text-decoration: line-through; }
 .title { margin: 0; font-size: var(--budget-fontSection); font-weight: var(--budget-headingWeight); line-height: var(--budget-lineCompact); overflow-wrap: break-word; }
@@ -20,3 +20,25 @@
 .complete { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; flex-shrink: 0; min-width: var(--budget-targetMin); min-height: var(--budget-targetMin); cursor: pointer; color: var(--budget-muted); }
 /* Status/scope and attention share one wrapping row but stay two labelled groups. */
 .meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--budget-spaceDense) var(--budget-spaceSmall); }
+
+/* Telefonda kartın bütün parçaları korunur; satırlar sıkışır, tek kart ilk ekrana sığar. */
+@media (max-width: 30em) {
+  .card.card { display: grid; grid-template-columns: var(--budget-targetMin) minmax(0, 1fr); gap: var(--budget-spaceDense); padding: var(--budget-spaceTight) var(--budget-spaceDense); }
+  .identity { display: contents; }
+  .complete { grid-column: 1; grid-row: 1 / span 2; align-self: start; justify-content: flex-start; }
+  .linkArea { grid-column: 2; grid-row: 1; }
+  .meta { grid-column: 2; grid-row: 2; }
+  .status { gap: var(--budget-spaceDense); font-size: var(--budget-fontCaption); }
+  /* Tema rozet yazısını satır içi verir; telefonda yalnız bu kartta 14 px'e iner. */
+  .meta :global(.mantine-Badge-root) { font-size: var(--budget-fontCaption) !important; }
+  .title { font-size: var(--budget-fontSmall); }
+  .facts { grid-column: 1 / -1; gap: 0; padding: var(--budget-spaceTight); line-height: var(--budget-lineCompact); }
+  .facts :global(.info-facts) > dl { gap: 0; }
+  .facts :global(.info-facts) dt, .payment, .facts dl > div[data-emphasis] :global(.info-fact-detail) { font-size: var(--budget-fontCaption); line-height: var(--budget-lineCompact); }
+  .facts :global(.info-facts) dd { font-size: var(--budget-fontSmall); line-height: var(--budget-lineCompact); }
+  /* Değerler etiketin yanında durur; sağ alttaki artı düğmesi onları örtmez. */
+  .facts dl > div:not([data-emphasis]) { justify-content: flex-start; }
+  .facts dl > div[data-emphasis] { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: flex-start; gap: 0 var(--budget-spaceTight); }
+  .facts dl > div[data-emphasis] > dd { display: contents; }
+  .facts dl > div[data-emphasis] :global(.info-fact-detail) { flex-basis: 100%; margin-top: 0; }
+}

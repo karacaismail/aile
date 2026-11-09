@@ -24,6 +24,46 @@ test('ilk ekranda gerçek içerik görünür (Satınalma)', async ({ page }) => 
   await expect(page.getByTestId('totals-sum')).toContainText('₺');
 });
 
+test('ilk kartın tutar ve tarihleri artı düğmesinin altında kalmaz', async ({ page }) => {
+  await mockApi(page);
+  await page.goto('/#/satinalma');
+  const card = page.getByTestId('item-card').first();
+  await expect(card).toBeVisible();
+  const fab = (await page.getByTestId('fab').boundingBox())!;
+  // Satır kutusu değil, görünen yazı ölçülür.
+  const covered = await card.locator('dd').evaluateAll((els, f) => els.filter((el) => {
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      if ([...range.getClientRects()].some((r) => r.right > f.x && r.left < f.x + f.width && r.bottom > f.y && r.top < f.y + f.height)) return true;
+    }
+    return false;
+  }).map((el) => el.textContent), fab);
+  expect(covered).toEqual([]);
+});
+
+test('telefonda dönem seçicisine klavyeyle ulaşılır ve seçili dönem özette görünür', async ({ page, browserName }) => {
+  test.skip(page.viewportSize()!.width > 480, 'yalnız telefon düzeni');
+  await mockApi(page);
+  await page.goto('/#/satinalma');
+  await expect(page.getByTestId('item-card').first()).toBeVisible();
+  const all = page.getByRole('radio', { name: 'Hepsi' });
+  const tab = browserName === 'webkit' ? 'Alt+Tab' : 'Tab';
+  for (let i = 0; i < 40 && !(await all.evaluate((el) => el === document.activeElement)); i++) await page.keyboard.press(tab);
+  await expect(all).toBeFocused();
+  for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowRight');
+  const baby = page.getByRole('radio', { name: 'Bebek' });
+  await expect(baby).toBeChecked();
+  await expect(baby).toBeFocused();
+  const inView = await baby.evaluate((el) => { const r = el.nextElementSibling!.getBoundingClientRect(); return r.left >= 0 && r.right <= window.innerWidth; });
+  expect(inView, 'seçili dönem etiketi ekranda').toBe(true);
+  const phase = page.getByTestId('totals-phase');
+  await expect(phase).toBeVisible();
+  await expect(phase).toContainText('Bebek');
+  await expect(phase).toBeInViewport();
+});
+
 test('detay modalında taşma yok ve kaydet erişilebilir', async ({ page }) => {
   await mockApi(page);
   await page.goto('/#/satinalma');

@@ -236,6 +236,7 @@ describe('Oda ölçüleri: özet, kaynak okuması ve alan sahipliği (Tur 5)', (
     expect(within(summary).getByText('450 cm')).toBeInTheDocument();
     expect(within(summary).getByText('270 cm')).toBeInTheDocument();
     expect(within(summary).getByText('Gece kapalı')).toBeInTheDocument();
+    expect(within(summary).getByText('Kuzey/Güney duvarı = en, Doğu/Batı duvarı = boy.')).toBeInTheDocument();
     expect(screen.queryByTestId('room-dims-form')).not.toBeInTheDocument();
     await userEvent.click(within(summary).getByRole('button', { name: 'Ölçüleri düzenle' }));
     expect(within(screen.getByTestId('room-dims-form')).getByLabelText('En (cm)')).toHaveValue('320');

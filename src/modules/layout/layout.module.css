@@ -34,6 +34,8 @@
 @media (max-width: 30em) {
   .dimsFacts :global(.info-facts) > dl > div { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0 var(--budget-spaceTight); }
   .dimsFacts :global(.info-facts) dd { margin-top: 0; }
+  /* Duvar başlıkları uzunluğu zaten gösterir; ipucu ölçü formunda kalır. */
+  .dimsHint { display: none; }
 }
 
 /* Kalem kartında ölçü kaydın olgusudur. */

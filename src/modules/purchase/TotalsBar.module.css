@@ -1,2 +1,20 @@
-.bar { display: grid; gap: var(--budget-spaceSmall); background: transparent; }
-.summary { padding: var(--budget-spaceSmall) var(--budget-spacing); border-radius: var(--budget-radius); background: var(--budget-blueSurface); }
+.bar { display: grid; gap: var(--budget-spaceSmall); padding-bottom: var(--mantine-spacing-xs); background: transparent; }
+.phase { display: none; }
+.faz { padding: var(--mantine-spacing-xs) var(--mantine-spacing-sm) 0; }
+.summary { margin-inline: var(--mantine-spacing-sm); padding: var(--budget-spaceSmall) var(--budget-spacing); border-radius: var(--budget-radius); background: var(--budget-blueSurface); }
+
+/* Telefonda iki seçici tek kaydırılabilir satırda durur, ilk kayıt ilk ekranda kalır. */
+@media (max-width: 30em) {
+  .bar { gap: var(--budget-spaceDense); padding-bottom: 0; }
+  .selectors { display: flex; gap: var(--budget-spaceTight); overflow: auto hidden; overscroll-behavior-x: contain; scroll-padding-inline: var(--budget-clearSection); padding-inline-end: var(--budget-clearSection); scrollbar-width: none; mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent); -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent); }
+  .selectors::-webkit-scrollbar { display: none; }
+  .selectors > * { flex: none; }
+  .selectors :global(.mantine-SegmentedControl-root) { display: inline-flex; width: max-content; padding: 0; }
+  .faz { padding: 0; }
+  .summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--budget-spaceTight); margin-inline: 0; padding: 0 var(--budget-spaceTight); background: transparent; }
+  .summary, .summary :global(.mantine-Text-root) { line-height: var(--budget-lineCompact); }
+  .phase { display: inline; font-size: var(--budget-fontCaption); }
+  .summary p { margin: 0; font-size: var(--budget-fontCaption); }
+  .summary :global(.mantine-Group-root) { flex-basis: 100%; }
+  .summary [data-testid='totals-sum'] { font-size: var(--budget-fontSmall); }
+}

@@ -237,10 +237,11 @@ export function PurchaseList() {
       filterFocus.current = target.closest('[data-purchase-filters]')
         ? (target.dataset.filterKey ?? target.closest<HTMLElement>('[data-testid]')?.dataset.testid ?? null) : null;
     }}>
-      {hasAny && <div ref={viewRef} className={classes.views}>
-        <SegmentedControl fullWidth value={view} onChange={value => chooseView(value as PurchaseView)} aria-label="Alım listesi"
-          data={PURCHASE_VIEWS.map(({ value, label }) => ({ value, label: <span className={classes.viewLabel}><span>{label}</span> <span className="tabular">{viewCounts[value]}</span></span> }))} />
-      </div>}
+      <TotalsBar faz={f.faz} onFaz={(faz) => setFilters({ ...f, faz })} totals={totals} count={list.length} total={baseCount} filtered={filtered}
+        views={hasAny ? <div ref={viewRef} className={classes.views}>
+          <SegmentedControl fullWidth value={view} onChange={value => chooseView(value as PurchaseView)} aria-label="Alım listesi"
+            data={PURCHASE_VIEWS.map(({ value, label }) => ({ value, label: <span className={classes.viewLabel}><span>{label}</span> <span className="tabular">{viewCounts[value]}</span></span> }))} />
+        </div> : undefined} />
       {completion && <div ref={completionPanelRef} role="region" aria-label="Son alım işlemi" className={classes.completion}>
         <strong>Son alım işlemi</strong>
         <CloseButton size="xl" aria-label="Kapat" onClick={() => closeCompletion(completion)} />
@@ -251,7 +252,6 @@ export function PurchaseList() {
         <Button ref={undoButtonRef} size="sm" h={tokens.targetMin} variant="subtle" color="ember" aria-disabled={!completion.valid}
           className={classes.undoButton} leftSection={<ArrowCounterClockwiseIcon size={16} aria-hidden />} onClick={() => undoCompletion(completion)}>Geri al</Button>
       </div>}
-      <TotalsBar faz={f.faz} onFaz={(faz) => setFilters({ ...f, faz })} totals={totals} count={list.length} total={baseCount} filtered={filtered} />
       <div className={classes.workspace} data-wide={wide && hasAny || undefined}>
         {hasAny && wide && <aside aria-label="Hazırlık listesi filtreleri" data-purchase-filters className={classes.sidebar}>
           <div className={classes.sidebarHeading}><h2>Filtreler</h2><p>Kategori seçin, alt kategoriyle daraltın.</p></div>
@@ -265,7 +265,7 @@ export function PurchaseList() {
         </aside>}
         <div className={classes.results}>
       {hasAny && (
-        <Paper className={`${classes.toolbar} ${completion ? classes.toolbarWithCompletion : ''}`} px="sm" pt="xs" pb="sm" radius={0} data-testid="filter-toolbar">
+        <Paper className={`${classes.toolbar} ${completion ? classes.toolbarWithCompletion : ''}`} radius={0} data-testid="filter-toolbar">
           <Group gap="sm" wrap="nowrap">
             <TextInput
               style={{ flex: 1, minWidth: 0 }} placeholder="Ara" value={q} onChange={(e) => setQ(e.currentTarget.value)} aria-label="Kalem ara"
@@ -301,7 +301,7 @@ export function PurchaseList() {
           </Box>}
         </Paper>
       )}
-      <SimpleGrid ref={listRef} minColWidth={`min(100%, ${tokens.purchaseCardWidth})`} spacing="sm" p="sm" data-testid="item-list">
+      <SimpleGrid ref={listRef} minColWidth={`min(100%, ${tokens.purchaseCardWidth})`} spacing="sm" className={classes.list} data-testid="item-list">
         {loading ? (
           <>
             <Skeleton h={72} radius="md" /><Skeleton h={72} radius="md" /><Skeleton h={72} radius="md" />

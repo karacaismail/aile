@@ -4,6 +4,7 @@
   top: var(--app-shell-header-offset, 0px);
   z-index: 10;
   border-bottom: 1px solid var(--mantine-color-default-border);
+  padding: var(--mantine-spacing-xs) var(--mantine-spacing-sm) var(--mantine-spacing-sm);
   background: var(--mantine-color-body);
 }
 .divider { grid-column: 1 / -1; }
@@ -19,6 +20,7 @@
 /* One sticky surface at a time: the latest Undo stays in view without covering the filters. */
 .toolbarWithCompletion { position: static; }
 
+.list { padding: var(--mantine-spacing-sm); }
 .workspace { display: grid; gap: var(--budget-spacing); padding: var(--budget-spaceTight); align-items: start; }
 .workspace[data-wide] { grid-template-columns: var(--budget-purchaseFilterWidth) minmax(0, 1fr); }
 .results { min-width: 0; }
@@ -28,3 +30,13 @@
 .sidebarHeading p { margin: var(--budget-spaceDense) 0 0; color: var(--budget-muted); }
 .filterSections { display: grid; gap: var(--budget-spaceSection); padding: var(--budget-spaceSmall); }
 .sidebarFooter { position: sticky; bottom: 0; display: flex; justify-content: space-between; align-items: center; gap: var(--budget-spaceTight); padding: var(--budget-spaceTight); background: var(--budget-blueSurface); }
+
+/* Telefonda seçici ve araç çubuğu tek satır kalır, ilk kayıt ilk ekranda görünür. */
+@media (max-width: 30em) {
+  .views { padding: 0; background: transparent; }
+  .views :global(.mantine-SegmentedControl-label) { padding-inline: var(--budget-spaceTight); }
+  .viewLabel { flex-direction: row; gap: var(--budget-spaceDense); white-space: nowrap; }
+  .toolbar { padding: 0 0 var(--budget-spaceDense); }
+  .workspace { padding: 0; }
+  .list { padding: var(--budget-spaceDense) 0 0; }
+}
