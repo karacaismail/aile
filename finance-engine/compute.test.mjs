@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { computeFinance } from './compute.mjs';
 import { projectPlan } from './integrated-projection.mjs';
+import { moveDateOverrides } from './move-date.mjs';
 
 const cell = value => ({effectiveValue: {[typeof value === 'number' ? 'numberValue' : typeof value === 'boolean' ? 'boolValue' : 'stringValue']: value}});
 function fixture() {
@@ -258,4 +259,19 @@ test('keeps bill principal and priced costs separate from the editable principal
  assert.equal(payment.amount,Math.round((600+payment.billCostReserved)*100)/100);
  assert.equal(payment.required,payment.amount);
  assert.equal(payment.unappliedPrincipal,0);
+});
+
+test('a move date in Parametreler replaces the installed move policy', () => {
+  const source = {sheets: [{properties: {title: 'Parametreler'}, data: [{rowData: [{}, {}, {}, {}, {values: [{}, {}, cell(46558)]}]}]}]};
+  assert.deepEqual(moveDateOverrides(source, {day: 15}), {protectUntil: '2027-06-20', firstDate: '2027-07-15'});
+});
+
+test('keeps the installed move policy while the Parametreler sheet does not exist', () => {
+  assert.equal(moveDateOverrides({sheets: []}, {day: 15}), null);
+});
+
+test('stops instead of guessing when the move date in Parametreler is not a date', () => {
+  const input = fixture();
+  input.source.sheets.push({properties: {title: 'Parametreler'}, data: [{rowData: [{}, {}, {}, {}, {values: [{}, {}, cell('yaz')]}]}]});
+  assert.throws(() => computeFinance(input), /Parametreler taşınma tarihi/);
 });

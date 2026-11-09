@@ -861,6 +861,18 @@ var __finance = (() => {
     return targets;
   }
 
+  // finance-engine/move-date.mjs
+  var TITLE = "Parametreler";
+  var MOVE_ROW = 4;
+  var VALUE_COLUMN = 2;
+  function moveDateOverrides(source, { day: day2 }) {
+    if (!source.sheets.some((sheet) => sheet.properties.title === TITLE)) return null;
+    const serial = value(grid(source, TITLE)[MOVE_ROW]?.[VALUE_COLUMN]);
+    if (typeof serial !== "number" || !Number.isFinite(serial)) throw new Error("Source preflight: Parametreler ta\u015F\u0131nma tarihi ge\xE7ersiz");
+    const moved = dateFromSerial(serial);
+    return { protectUntil: iso(moved), firstDate: iso(new Date(Date.UTC(moved.getUTCFullYear(), moved.getUTCMonth() + 1, day2))) };
+  }
+
   // finance-engine/compute.mjs
   var REGULAR_ROWS = [5, 6, 7, 8, 12, 13, 16, 17, 21, 22, 23, 24, 25, 26, 27, 28, 32, 33, 37, 38, 39, 43, 44, 45, 46, 47];
   var ACTUAL_ROWS = [5, 6, 7, 8, 12, 13, 14, 15, 16, 17, 21, 22, 23, 24, 25, 26, 27, 28, 32, 33, 37, 38, 39, 43, 44, 45, 46, 47];
@@ -873,6 +885,8 @@ var __finance = (() => {
     const policy = clone(config.modelPolicy), facts = config.facts;
     if (!policy || !facts || !validDate(config.scheduling?.firstSalaryDate)) throw new Error("Complete private financial configuration required");
     const sourceHash = suppliedSourceHash ?? hash2(JSON.stringify(source));
+    const moveDate = moveDateOverrides(source, config.scheduling);
+    if (moveDate) policy.protectUntil = moveDate.protectUntil;
     const rows = sourceEvents(source);
     const flow = grid(source, "_Ta\u015F\u0131nma ak\u0131\u015F\u0131").slice(100, 196).map((r) => r?.map(value)).filter((r) => r?.[0]);
     let sourceChecks = 0;
@@ -945,7 +959,7 @@ var __finance = (() => {
     const accepted = [], proposed = [], rejected = [];
     let cursor = 0;
     const viable = (x) => x.unpriced.length === 0 && x.limitViolations.length === 0 && x.unfunded.length === 0;
-    const { firstDate, lastDate, day: purchaseDay } = config.scheduling;
+    const { lastDate, day: purchaseDay } = config.scheduling, firstDate = moveDate?.firstDate ?? config.scheduling.firstDate;
     if (!validDate(firstDate) || !validDate(lastDate) || firstDate > lastDate || !Number.isInteger(purchaseDay) || purchaseDay < 1 || purchaseDay > 28) throw new Error("Explicit scheduling range required");
     for (let at = /* @__PURE__ */ new Date(firstDate + "T00:00:00Z"); iso(at) <= lastDate; at = new Date(Date.UTC(at.getUTCFullYear(), at.getUTCMonth() + 1, purchaseDay))) {
       const date2 = iso(at);
@@ -2316,7 +2330,7 @@ var __finance = (() => {
   }
 
   // gas/finance/main.mjs
-  var ENGINE_REV = true ? "395681cf008ea1f4b6389af66c83566ded7f8592484f65292b476ab5d835e18f" : "development";
+  var ENGINE_REV = true ? "b69f2214ac62d5650eb8d0c5e16f2c8c74be07453ab1ef5da4c3fbc18a0d0114" : "development";
   var properties = () => PropertiesService.getScriptProperties();
   var stateStore = () => new DurableStateStore({ properties: properties(), utilities: Utilities });
   var sheetRepository = () => new FinanceSheetRepository({

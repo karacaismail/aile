@@ -6,6 +6,7 @@ import { openingCashRequirement } from './opening-requirement.mjs';
 import { currentInput, extractIrregularOverrides } from './current-input.mjs';
 import { monthlyOutput } from './monthly-output.mjs';
 import { cardPaymentTargets } from './card-payment-targets.mjs';
+import { moveDateOverrides } from './move-date.mjs';
 
 const REGULAR_ROWS = [5,6,7,8,12,13,16,17,21,22,23,24,25,26,27,28,32,33,37,38,39,43,44,45,46,47];
 const ACTUAL_ROWS = [5,6,7,8,12,13,14,15,16,17,21,22,23,24,25,26,27,28,32,33,37,38,39,43,44,45,46,47];
@@ -23,6 +24,8 @@ export function computeFinance({ source, config, hash, now, sourceHash: supplied
   const policy = clone(config.modelPolicy), facts = config.facts;
   if (!policy || !facts || !validDate(config.scheduling?.firstSalaryDate)) throw new Error('Complete private financial configuration required');
   const sourceHash = suppliedSourceHash ?? hash(JSON.stringify(source));
+  const moveDate = moveDateOverrides(source, config.scheduling);
+  if (moveDate) policy.protectUntil = moveDate.protectUntil;
   const rows = sourceEvents(source);
   const flow = grid(source, '_Taşınma akışı').slice(100,196).map(r => r?.map(value)).filter(r => r?.[0]);
   let sourceChecks = 0;
@@ -95,7 +98,7 @@ export function computeFinance({ source, config, hash, now, sourceHash: supplied
   const accepted = [], proposed = [], rejected = [];
   let cursor = 0;
   const viable = x => x.unpriced.length === 0 && x.limitViolations.length === 0 && x.unfunded.length === 0;
-  const {firstDate,lastDate,day:purchaseDay} = config.scheduling;
+  const {lastDate,day:purchaseDay} = config.scheduling, firstDate = moveDate?.firstDate ?? config.scheduling.firstDate;
   if (!validDate(firstDate) || !validDate(lastDate) || firstDate > lastDate || !Number.isInteger(purchaseDay) || purchaseDay < 1 || purchaseDay > 28) throw new Error('Explicit scheduling range required');
   for (let at = new Date(firstDate + 'T00:00:00Z'); iso(at) <= lastDate; at = new Date(Date.UTC(at.getUTCFullYear(),at.getUTCMonth()+1,purchaseDay))) {
     const date = iso(at);
