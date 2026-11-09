@@ -41,6 +41,16 @@ async function audit(page: Page): Promise<Audit> {
       }
       return 'rgb(255, 255, 255)';
     };
+    // Text behind a filled sticky footer or header of the same surface is not painted, so it has no visible edge.
+    const covered = (r: DOMRect, owner: Element, surface: Element) => {
+      const x = r.left + r.width / 2, y = r.top + r.height / 2;
+      return [...surface.querySelectorAll('*')].some(el => {
+        if (el.contains(owner) || owner.contains(el)) return false;
+        const style = getComputedStyle(el), box = el.getBoundingClientRect();
+        return ['sticky', 'fixed'].includes(style.position) && !/rgba\(.*,\s*0\)$/.test(style.backgroundColor) && style.backgroundColor !== 'transparent'
+          && x >= box.left && x <= box.right && y >= box.top && y <= box.bottom;
+      });
+    };
     const skip = 'button, a, input, textarea, select, label, img, svg, canvas, table, thead, tbody, tr, th, td, [role="tab"], [role="option"], [role="switch"], .mantine-Input-input, .mantine-Chip-label, .mantine-Badge-root, .mantine-SegmentedControl-root, .mantine-Checkbox-input, .mantine-Switch-track';
     for (const surface of elements) {
       if (surface.matches(skip) || surface.closest('button, a, label')) continue;
@@ -59,7 +69,7 @@ async function audit(page: Page): Promise<Audit> {
           // Content scrolled past the edge belongs to its scroll container, not to the surface inset.
           if (r.left < box.left - 1 || r.right > box.right + 1 || r.top < box.top - 1 || r.bottom > box.bottom + 1) continue;
           const gap = Math.min(r.left - box.left, box.right - r.right, r.top - box.top, box.bottom - r.bottom);
-          if (gap < 7.5) { inset.push(`${label(surface)} ↔ "${(node.textContent ?? '').trim().slice(0, 24) || label(node as Element)}" ${gap.toFixed(1)}px`); break; }
+          if (gap < 7.5 && !covered(r, node.nodeType === Node.TEXT_NODE ? node.parentElement! : node as Element, surface)) { inset.push(`${label(surface)} ↔ "${(node.textContent ?? '').trim().slice(0, 24) || label(node as Element)}" ${gap.toFixed(1)}px`); break; }
         }
         if (inset.at(-1)?.startsWith(label(surface))) break;
       }
