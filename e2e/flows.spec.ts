@@ -75,7 +75,8 @@ test('etkin faz yeni kaleme ön değer olur ve kayıt görünümde kalır; filtr
   // Klavye: Tab ile Göster'e (WebKit düğmelere yalnız Alt+Tab ile gider), Enter; bildirim kaybolunca odak gövdeye düşmez, görünür hale gelen kayda geçer
   const show = toast.getByRole('button', { name: 'Göster' });
   expect(await show.locator('.mantine-Button-label').evaluate((el) => el.scrollWidth > el.clientWidth), 'Göster etiketi kırpılmaz').toBe(false);
-  for (let i = 0; i < 40 && !(await show.evaluate((el) => el === document.activeElement)); i++) await page.keyboard.press(browserName === 'webkit' ? 'Alt+Tab' : 'Tab');
+  // Geniş ekranda yan paneldeki filtreler de sekme sırasındadır, 40 durak bildirime yetmez.
+  for (let i = 0; i < 160 && !(await show.evaluate((el) => el === document.activeElement)); i++) await page.keyboard.press(browserName === 'webkit' ? 'Alt+Tab' : 'Tab');
   await expect(show).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(toast).toBeHidden();

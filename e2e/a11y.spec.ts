@@ -25,12 +25,15 @@ test.describe('koyu tema', () => {
     await check('şerit');
     // Çekmece/açılır kutu geçiş animasyonu bitmeden axe koşmasın (yarı saydam katman kontrastı bozar)
     const settled = () => page.waitForFunction(() => [...document.querySelectorAll<HTMLElement>('.mantine-Drawer-content, .mantine-Popover-dropdown')].every((el) => getComputedStyle(el).opacity === '1'));
-    await page.getByTestId('filter-button').click();
-    await expect(page.getByTestId('filter-drawer')).toBeVisible();
-    await settled();
-    await check('sayfa');
-    await page.getByTestId('filter-apply').click();
-    await expect(page.getByTestId('filter-drawer')).toBeHidden();
+    // Geniş ekranda filtreler yan panelde sürekli açıktır, çekmece yalnız dar ekranda vardır.
+    if (await page.getByTestId('filter-button').isVisible()) {
+      await page.getByTestId('filter-button').click();
+      await expect(page.getByTestId('filter-drawer')).toBeVisible();
+      await settled();
+      await check('sayfa');
+      await page.getByTestId('filter-apply').click();
+      await expect(page.getByTestId('filter-drawer')).toBeHidden();
+    }
     await page.getByTestId('sort-button').click();
     await expect(page.getByTestId('sort-sheet')).toBeVisible();
     await settled();

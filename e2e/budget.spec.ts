@@ -140,7 +140,10 @@ test('Bütçe sayfası açık değilken Geri al: odak kabuktaki Harcama ekle dü
   await page.keyboard.press('Enter');
   const target = page.getByTestId('topbar-expense');
   await expect(target).toBeFocused();
-  expect(await target.evaluate((el) => { const a = getComputedStyle(el, '::after'); return { content: a.content, height: a.height, outline: getComputedStyle(el).outlineStyle, labelHidden: getComputedStyle(el.querySelector('span')!).display === 'none' }; })).toEqual({ content: '""', height: '3px', outline: 'none', labelHidden: true });
+  expect(await target.evaluate((el) => { const a = getComputedStyle(el, '::after'); return { content: a.content, height: a.height, outline: getComputedStyle(el).outlineStyle, labelHidden: getComputedStyle(el.querySelector('span')!).display === 'none' }; })).toEqual(page.viewportSize()!.width < 768
+    ? { content: '""', height: '3px', outline: 'none', labelHidden: true }
+    // Geniş ekranda düğmenin yazısı görünür, simge göstergesi gerekmez.
+    : { content: 'none', height: '3px', outline: 'none', labelHidden: false });
   await page.goto('/#/butce');
   await expect(page.getByTestId('entry-E2ECASH03')).toBeVisible();
 });
