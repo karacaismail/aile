@@ -253,6 +253,8 @@ async function genisYerlesimDenetle(page: Page, main: Locator, yerlesim: GenisYe
 }
 
 test('geniş sunum kırılımı kapsayıcı genişliğinde: kapsayıcı 759/760/761 (N−1/N/N+1) tablet ve masaüstü bandında; ≥ 760 tam iki sütun, altında tek sütun', { tag: '@matrix' }, async ({ page }) => {
+  // Sayfa kırılım başına yeniden açılır; macOS CI'da bu açılışların toplamı varsayılan süreyi aşar.
+  test.slow();
   await googleKapisi(page);
   await sentetikProfil(page);
   // Ölçüm başlangıcı: tablet bandı (yan gezinme yok) ve masaüstü bandı (yan gezinme var); kapsayıcı görünümle birlikte büyür.
@@ -276,6 +278,8 @@ const GORUNUM_KIRILIMLARI = [
 ] as const;
 
 test('geniş sunum tablet dikey (768×1024) ve masaüstü kırılımı (1024×768) çevresinde N−1/N/N+1: sütun sayısı kapsayıcı kuralına uyar; sonuç sayfanın sonuna düşmez', { tag: '@matrix' }, async ({ page }) => {
+  // Sayfa kırılım başına yeniden açılır; macOS CI'da bu açılışların toplamı varsayılan süreyi aşar.
+  test.slow();
   await googleKapisi(page);
   await sentetikProfil(page);
   for (const boyut of GORUNUM_KIRILIMLARI) {

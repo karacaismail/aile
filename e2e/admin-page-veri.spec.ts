@@ -380,6 +380,8 @@ test.describe('Veri › klasörden içe aktar', () => {
   });
 
   test('klasörde nesil yoksa "Hata:" ile neden ve çözüm yazılır; mevcut nesil korunur', async ({ page }, testInfo) => {
+    // macOS CI'da WebKit'in klasör seçimi tek başına yaklaşık 29 sn sürdü.
+    test.slow();
     await seciciYok(page);
     await serve(page, FIXTURE);
     await openAdmin(page, '/veri');
