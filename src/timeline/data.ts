@@ -76,7 +76,7 @@ export async function fetchTimeline(signal: AbortSignal): Promise<Timeline> {
   };
   // The editable Timeline may hide rows through filters. Its unfiltered formula
   // mirror also follows row insertions/deletions above the visible header.
-  return buildTimeline(await read('_Timeline web', 'A1:Q1600', '1'));
+  return buildTimeline(await read('_Web verisi', 'V1:AL1600', '1'));
 }
 
 const dateFormatter = new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });

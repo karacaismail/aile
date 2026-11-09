@@ -3,6 +3,7 @@ import { syntheticBridgeResponse } from '../src/dashboard/bridgeFixtures';
 import { syntheticCurrentSheets } from '../src/dashboard/currentFixtures';
 import { gviz } from '../src/dashboard/fixtures';
 import { ADMIN_MAIN, openAdmin } from './admin-helpers';
+import { feedName } from './webFeed';
 
 // Duman testi: 12 rotanın her biri açılır ve yerleşir. Görev koşusunda chromium (320×568) ve webkit (390×844);
 // @matrix etiketiyle entegrasyonda 360, 375, 320×480, 568×320, tablet ve masaüstünde de koşar.
@@ -103,7 +104,7 @@ const PIXEL_PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC
 function syntheticGviz(url: URL): string | undefined {
   const bridge = syntheticBridgeResponse(url.href);
   if (bridge) return bridge;
-  const key = GVIZ_SHEETS[url.searchParams.get('sheet') as keyof typeof GVIZ_SHEETS];
+  const key = GVIZ_SHEETS[feedName(url) as keyof typeof GVIZ_SHEETS];
   if (!key) return undefined;
   const raw = syntheticCurrentSheets();
   if (key !== 'irregular') return gviz(raw[key]);
@@ -176,7 +177,7 @@ test.describe('izleyici öz-denetimi', () => {
       await quiet('/aile/__f06-oz-denetim/404');
       await quiet('/aile/__f06-oz-denetim/kesik');
       await quiet('https://example.org/dis.json');
-      await quiet(`https://docs.google.com/spreadsheets/d/${sheet}/gviz/tq?sheet=${encodeURIComponent('_Finans aylık')}&range=A1%3AA7&headers=0&tqx=out%3Ajson`, { credentials: 'omit' });
+      await quiet(`https://docs.google.com/spreadsheets/d/${sheet}/gviz/tq?sheet=${encodeURIComponent('_Web verisi')}&range=AN1%3AAN7&headers=0&tqx=out%3Ajson`, { credentials: 'omit' });
       setTimeout(() => { throw new Error('öz denetim: enjekte istisna'); });
     }, SYNTHETIC_SHEET_ID);
     await pageError;

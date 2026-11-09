@@ -119,7 +119,7 @@ remain missing; pivot summation requires a separate explicit leaf-row ownership 
 
 ## Verified forecast adapter
 
-`finance.mjs` reads only the budget workbook's `_Finans web` export. The generated offline
+`finance.mjs` reads only columns A:T of the budget workbook's `_Web verisi` tab (older exports used `_Finans web`). The generated offline
 adapter reuses the existing wire checksum and ledger consistency validators. Forecasts,
 forecast events and forecast months are separate collections with `record_basis: forecast`.
 They never create payment rows, bank accounts or approved financing agreements. Counts

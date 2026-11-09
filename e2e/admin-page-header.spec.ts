@@ -4,6 +4,7 @@ import { syntheticCurrentSheets } from '../src/dashboard/currentFixtures';
 import { gviz } from '../src/dashboard/fixtures';
 import { ADMIN_MAIN, openAdmin } from './admin-helpers';
 import { overflow, selfCheckDetectors } from './admin-detectors';
+import { feedName } from './webFeed';
 
 // Sayfa başlığı sözleşmesi (tasarim-sistemi/README.md › "Sayfa iskeleti (sıra sabit)" 1–2, components/PageHeader/README.md,
 // components/DataStatus/README.md, bundle.js Page → PageHeader). Her rotada ve her genişlikte:
@@ -154,7 +155,7 @@ const PIXEL_PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC
 function syntheticGviz(url: URL): string | undefined {
   const bridge = syntheticBridgeResponse(url.href);
   if (bridge) return bridge;
-  const key = GVIZ_SHEETS[url.searchParams.get('sheet') as keyof typeof GVIZ_SHEETS];
+  const key = GVIZ_SHEETS[feedName(url) as keyof typeof GVIZ_SHEETS];
   if (!key) return undefined;
   const raw = syntheticCurrentSheets();
   if (key !== 'irregular') return gviz(raw[key]);
@@ -308,7 +309,7 @@ test.describe('dedektör öz-denetimi', () => {
     const unexpected = await isolateNetwork(page, new URL(baseURL!).origin);
     await page.goto('icon.svg');
     const results = await page.evaluate(async (sheet) => {
-      const gvizUrl = (id: string) => `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?sheet=${encodeURIComponent('_Finans aylık')}&range=A1%3AA7&headers=0&tqx=out%3Ajson`;
+      const gvizUrl = (id: string) => `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?sheet=${encodeURIComponent('_Web verisi')}&range=AN1%3AAN7&headers=0&tqx=out%3Ajson`;
       const read = (url: string) => fetch(url, { cache: 'no-store', credentials: 'omit' }).then(response => `${response.status} ${response.headers.get('content-type')}`, () => 'kesildi');
       return {
         gviz: await read(gvizUrl(sheet)),

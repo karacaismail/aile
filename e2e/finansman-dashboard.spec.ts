@@ -3,6 +3,7 @@ import { readdir } from 'node:fs/promises';
 import { test, expect, type Page } from '@playwright/test';
 import { gviz, syntheticSheets } from '../src/dashboard/fixtures';
 import { syntheticFinance, financeWireResponseTable } from '../src/finance/fixtures';
+import { feedName } from './webFeed';
 
 async function financeSource(page: Page, waitForPayload?: Promise<void>) {
   const source = syntheticFinance();
@@ -10,7 +11,7 @@ async function financeSource(page: Page, waitForPayload?: Promise<void>) {
   const raw = syntheticSheets();
   const map = { Pano: 'summary', Plan: 'plan', 'Gerçekleşen': 'actual', 'Düzensiz giderler': 'irregular' } as const;
   await page.context().route('**/gviz/tq?*', async route => {
-    const url = new URL(route.request().url()); const sheet = url.searchParams.get('sheet')!;
+    const url = new URL(route.request().url()); const sheet = feedName(url)!;
     requests.push(sheet);
     if (sheet === '_Finans web') {
       if (url.searchParams.get('range') === 'A1:T6000' && waitForPayload) await waitForPayload;

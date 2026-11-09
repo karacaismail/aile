@@ -3,6 +3,7 @@ import { test, expect, errors, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { syntheticSheets, gviz } from '../src/dashboard/fixtures';
 import { horizontalOverflow } from './helpers';
+import { feedName } from './webFeed';
 async function mockSheet(page: Page) {
   let fail=false; let fresh=true; let reads=0;
   const raw=syntheticSheets();
@@ -10,7 +11,7 @@ async function mockSheet(page: Page) {
   await page.route('**/gviz/tq?*',async route=>{
     reads += 1;
     if(fail)return route.fulfill({status:503,body:'Unavailable'});
-    const sheet=new URL(route.request().url()).searchParams.get('sheet') as keyof typeof map;
+    const sheet=feedName(new URL(route.request().url())) as keyof typeof map;
     const bridge = syntheticBridgeResponse(route.request().url(), fresh);
     if (bridge) return route.fulfill({ contentType: 'application/json', body: bridge });
     const key=map[sheet];

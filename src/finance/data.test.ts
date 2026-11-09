@@ -52,7 +52,7 @@ describe('two-phase coherent transport', () => {
     const full = syntheticFinanceWire();
     const fetcher = vi.fn(async (input: URL, options: RequestInit) => {
       expect(options.cache).toBe('no-store'); expect(options.credentials).toBe('omit');
-      expect(input.searchParams.get('sheet')).toBe('_Finans web');
+      expect(input.searchParams.get('sheet')).toBe('_Web verisi');
       expect(input.searchParams.get('headers')).toBe('1');
       const range = input.searchParams.get('range');
       expect(['A1:T6000', 'A1:T11']).toContain(range);

@@ -101,3 +101,31 @@ describe('cell-level finance publication', () => {
     }
   });
 });
+
+describe('merged workbook layout', () => {
+  const anchored = (rows: number, text: string) => Array.from({length: rows + 1}, (_, i) => ({values: i === rows ? [{}, {effectiveValue: {stringValue: text}}] : []}));
+  const properties = (sheetId: number, title: string, rowCount: number) => ({sheetId, title, gridProperties: {rowCount, columnCount: 80}});
+  const workbook = {
+    'Arızi Giderler': {properties: properties(7302602, 'Arızi Giderler', 560), data: [{rowData: anchored(346, 'Haziran taşınması · gelir ve fiyatlara bağlı ödeme hesabı')}]},
+    '_Finans ham': {properties: properties(7302702, '_Finans ham', 420), data: [{rowData: anchored(150, 'Öncelik planı')}]},
+    '_Web verisi': {properties: properties(9000001, '_Web verisi', 1600), data: [{rowData: []}]},
+  } as const;
+  const api = () => ({
+    get: vi.fn((_: string, options: {ranges?: string[]}) => options.ranges
+      ? {sheets: options.ranges.map(range => workbook[range.split('!')[0].slice(1, -1) as keyof typeof workbook])}
+      : {spreadsheetId: 'synthetic', properties: {}, sheets: Object.values(workbook).map(({properties}) => ({properties}))}),
+    batchUpdate: vi.fn(),
+    maxRangesPerRequest: 1,
+  });
+  const state = {targetId: 'synthetic', config: {readBounds: {'_Taşınma akışı': [200, 80], 'Öncelik planı': [250, 18], '_Finans web': [10, 20], '_Finans aylık': [10, 28], 'Arızi Giderler': [344, 24], '_Finans ham': [100, 16]}}};
+
+  it('reads each host once and writes through it', () => {
+    const spreadsheets = api();
+    const repository = new FinanceSheetRepository({spreadsheets, flush: () => {}, log: () => {}});
+    const source = repository.capture(state as never);
+    expect(spreadsheets.get.mock.calls.filter(([, o]) => (o as {ranges?: string[]}).ranges).map(([, o]) => (o as {ranges: string[]}).ranges[0].split('!')[0]).sort()).toEqual(["'Arızi Giderler'", "'_Finans ham'", "'_Web verisi'"]);
+    expect(source.sheets.map((s: {properties: {title: string}}) => s.properties.title)).toContain('_Taşınma akışı');
+    repository.apply({cells: {}, requests: [{updateCells: {range: {sheetId: 7302605, startRowIndex: 110, endRowIndex: 111, startColumnIndex: 10, endColumnIndex: 11}, rows: [], fields: 'userEnteredValue'}}]} as never, state as never);
+    expect(spreadsheets.batchUpdate.mock.calls[0][0].requests[0].updateCells.range).toEqual({sheetId: 7302702, startRowIndex: 260, endRowIndex: 261, startColumnIndex: 10, endColumnIndex: 11});
+  });
+});

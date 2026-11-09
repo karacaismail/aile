@@ -3,15 +3,16 @@ import { syntheticSheets, gviz } from '../src/dashboard/fixtures';
 import { syntheticBridgeResponse } from '../src/dashboard/bridgeFixtures';
 import { syntheticTimeline, timelineResponse } from './timelineFinanceFixture';
 import { visualizationSource } from './visualizationFixture';
+import { feedName } from './webFeed';
 
 async function source(page: Page) {
   const raw = syntheticSheets();
   const sheets = { Pano: 'summary', Plan: 'plan', 'Gerçekleşen': 'actual', 'Düzensiz giderler': 'irregular' } as const;
   await page.route('**/gviz/tq?*', route => {
-    if (new URL(route.request().url()).searchParams.get('sheet') === '_Finans web') return route.fulfill({ contentType: 'application/json', body: timelineResponse(route.request().url(), syntheticTimeline()) });
+    if (feedName(new URL(route.request().url())) === '_Finans web') return route.fulfill({ contentType: 'application/json', body: timelineResponse(route.request().url(), syntheticTimeline()) });
     const bridge = syntheticBridgeResponse(route.request().url());
     if (bridge) return route.fulfill({ contentType: 'application/json', body: bridge });
-    const sheet = new URL(route.request().url()).searchParams.get('sheet') as keyof typeof sheets;
+    const sheet = feedName(new URL(route.request().url())) as keyof typeof sheets;
     const key = sheets[sheet];
     if (!key) return route.fulfill({ status: 404 });
     const monthly = key === 'plan' || key === 'actual';

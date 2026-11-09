@@ -1,7 +1,7 @@
 import type { Budget, Cell } from './data';
 import { BudgetIntegrityError } from './integrity';
 
-export const budgetBridge = { sheet: '_Finans aylık', metadata: 'A1:A7', inflows: 'A10:C36' } as const;
+export const budgetBridge = { sheet: '_Web verisi', metadata: 'AN1:AN7', inflows: 'AN10:AP36' } as const;
 type Table = { labels: string[]; rows: Cell[][] };
 const reject = (reason: string): never => { throw new BudgetIntegrityError(`Bütçe hesabı doğrulanamadı: ${reason}. Hesap yenilenene kadar tutarlar gösterilmiyor.`); };
 const empty = (row: Cell[]) => row.every(value => value === null || value === '');

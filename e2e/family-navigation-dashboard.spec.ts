@@ -3,6 +3,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { gviz, syntheticSheets } from '../src/dashboard/fixtures';
 import { financeWireResponseTable } from '../src/finance/fixtures';
 import { mockApi } from './helpers';
+import { feedName } from './webFeed';
 
 const destinations = [
   ['/pano', 'Genel bütçe'], ['/timeline', 'Ödeme takvimi'], ['/finansman', 'Finansman'], ['/butce', 'Harcama kayıtları'],
@@ -16,7 +17,7 @@ async function mockNavigation(page: Page) {
   const raw = syntheticSheets();
   const map = { Pano: 'summary', Plan: 'plan', 'Gerçekleşen': 'actual', 'Düzensiz giderler': 'irregular' } as const;
   await page.route('**/gviz/tq?*', route => {
-    const sheet = new URL(route.request().url()).searchParams.get('sheet')!;
+    const sheet = feedName(new URL(route.request().url()))!;
     if (sheet === '_Finans web') {
       const wire = financeWireResponseTable(route.request().url());
       return route.fulfill({ contentType: 'application/json', body: gviz(wire.rows, wire.labels) });

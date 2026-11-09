@@ -1,4 +1,5 @@
 import {measurePhase} from './timing.mjs';
+import {physicalTitles, resolveLayout, toLogical, toPhysical} from '../../finance-sync/sheet-layout.mjs';
 
 const column = index => {
   let result = '';
@@ -29,12 +30,14 @@ export class FinanceSheetRepository {
       }
       const metadata = this.spreadsheets.get(state.targetId, {fields: 'spreadsheetId,properties(locale,timeZone),sheets(properties)'});
       // Observe allocated tails too: added user rows/columns are never assumed empty.
-      const ranges = [...bounds].map(([title, b]) => {
+      // Merged blocks are read through the tab that physically holds them.
+      const titles = physicalTitles([...bounds.keys()], new Set(metadata.sheets.map(s => s.properties.title)));
+      const ranges = titles.map(title => {
         const sheet = metadata.sheets.find(s => s.properties.title === title);
         if (!sheet) throw Error('Kaynak sekme eksik: ' + title);
         const g = sheet.properties.gridProperties;
         if (!g) throw Error('Kaynak sekme ızgarası eksik: ' + title);
-        return `'${title.replaceAll("'", "''")}'!A1:${column(g.columnCount)}${title === '_Kasa hesap' ? Math.max(1, b.rows) : g.rowCount}`;
+        return `'${title.replaceAll("'", "''")}'!A1:${column(g.columnCount)}${title === '_Kasa hesap' ? Math.max(1, bounds.get(title)?.rows ?? 1) : g.rowCount}`;
       });
       const source = {spreadsheetId: metadata.spreadsheetId, properties: metadata.properties, sheets: []};
       // Bounded JSON groups keep response memory and per-minute read quotas manageable.
@@ -47,7 +50,9 @@ export class FinanceSheetRepository {
         source.sheets.push(...part.sheets);
         this.log({phase: 'capture-part', sheets: source.sheets.length});
       }
-      return {...source, targetId: source.spreadsheetId};
+      const physical = {...source, targetId: source.spreadsheetId};
+      this.layout = resolveLayout(physical);
+      return toLogical(physical);
     }, this.clock, this.log);
   }
 
@@ -65,7 +70,7 @@ export class FinanceSheetRepository {
     return measurePhase('apply', () => {
       this.log({phase: 'cell-write', ...candidate.cells, requests: candidate.requests.length});
       if (!candidate.requests.length) return;
-      this.spreadsheets.batchUpdate({requests: candidate.requests}, state.targetId);
+      this.spreadsheets.batchUpdate({requests: this.layout ? toPhysical(candidate.requests, this.layout) : candidate.requests}, state.targetId);
       this.flush();
     }, this.clock, this.log);
   }

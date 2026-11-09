@@ -2,6 +2,7 @@ import { syntheticBridgeResponse } from '../src/dashboard/bridgeFixtures';
 import AxeBuilder from '@axe-core/playwright';
 import { test, expect, type Page } from '@playwright/test';
 import { syntheticSheets, gviz } from '../src/dashboard/fixtures';
+import { feedName } from './webFeed';
 
 async function openSettings(page: Page) {
   // The route shell shows the same heading while the vehicle module loads; wait for the module itself.
@@ -65,7 +66,7 @@ async function mockLayoutSheets(page:Page,unavailable=()=>false) {
   const map={Pano:'summary',Plan:'plan','Gerçekleşen':'actual','Düzensiz giderler':'irregular'} as const;
   await page.route('**/gviz/tq?*',async route=>{
     if(unavailable())return route.fulfill({status:503,body:'Unavailable'});
-    const sheet=new URL(route.request().url()).searchParams.get('sheet') as keyof typeof map;
+    const sheet=feedName(new URL(route.request().url())) as keyof typeof map;
     const bridge = syntheticBridgeResponse(route.request().url());
     if (bridge) return route.fulfill({ contentType: 'application/json', body: bridge });
     const key=map[sheet];

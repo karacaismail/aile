@@ -5,6 +5,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { syntheticSheets, gviz } from '../src/dashboard/fixtures';
 import { syntheticTimeline, timelineResponse } from './timelineFinanceFixture';
 import { mockApi } from './helpers';
+import { feedName } from './webFeed';
 
 async function mockFamily(page: Page) {
   await mockApi(page);
@@ -13,7 +14,7 @@ async function mockFamily(page: Page) {
   const map = { Pano: 'summary', Plan: 'plan', 'Gerçekleşen': 'actual', 'Düzensiz giderler': 'irregular' } as const;
   const feeds: string[] = [];
   await page.route('**/gviz/tq?*', route => {
-    const sheet = new URL(route.request().url()).searchParams.get('sheet')!;
+    const sheet = feedName(new URL(route.request().url()))!;
     feeds.push(sheet);
     if (sheet === '_Finans web') return route.fulfill({ contentType: 'application/json', body: timelineResponse(route.request().url(), timeline) });
     const bridge = syntheticBridgeResponse(route.request().url());

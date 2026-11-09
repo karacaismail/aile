@@ -52,7 +52,7 @@ export function syntheticFinanceWire(source = syntheticFinance()) {
 /** The same two-range helper is shared by every browser mock. */
 export function financeWireResponseTable(url: string, source = syntheticFinance()) {
   const params = new URL(url).searchParams;
-  if (params.get('sheet') !== '_Finans web' || params.get('headers') !== '1') throw new Error('Unexpected finance transport');
+  if (params.get('sheet') !== '_Web verisi' || params.get('headers') !== '1') throw new Error('Unexpected finance transport');
   const table = syntheticFinanceWire(source);
   if (params.get('range') === 'A1:T6000') return table;
   if (params.get('range') === 'A1:T11') return { ...table, rows: table.rows.slice(0, 10) };

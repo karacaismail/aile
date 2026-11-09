@@ -4,7 +4,7 @@ Pano, Plan ve Gerçekleşen tutarlarını native aylık hesapla birlikte doğrul
 
 ## Kaynak güncelliği
 
-`_Finans aylık!A1:A7`, `headers=0` ile yedi string olarak okunur:
+`_Web verisi!AN1:AN7`, `headers=0` ile yedi string olarak okunur:
 
 1. `finance-bridge-v1`
 2. Plan kaynak kontrolü: `TRUE` / `FALSE`
@@ -26,7 +26,7 @@ Pano B50:M63: ay, kaynak, plan/güncel gelir, brüt ödeme, birikim alımı, ayl
 
 ## Araç ödeme kapasitesi
 
-`_Finans aylık!A10:C36`, `headers=1`: `Ay`, `Plan finansman ve iç aktarım`, `Güncel finansman ve iç aktarım`. Aylar `YYYY-MM`, tutarlar sonlu ve negatif olmayan sayıdır. Metadata satır sayısı, sıralama, tekillik ve bütçedeki her ayın varlığı doğrulanır.
+`_Web verisi!AN10:AP36`, `headers=1`: `Ay`, `Plan finansman ve iç aktarım`, `Güncel finansman ve iç aktarım`. Aylar `YYYY-MM`, tutarlar sonlu ve negatif olmayan sayıdır. Metadata satır sayısı, sıralama, tekillik ve bütçedeki her ayın varlığı doğrulanır.
 
 Native finansman/iç aktarım toplamı dış kredi + KMH kullanımı + rezerv aktarımı + kullanıcı birikim çekişidir. Bunlar gelir sayılmaz. Web yalnız `selfFundedCashFlow = free − finansman/iç aktarım` farkını alır. KMH anapara kapaması ve ödenen maliyetler giderde kalır. Araç taksiti, işletme gideri ve ilgili peşin tutar bu akıştan düşülür. Ayrım bulunmuyorsa kapasite bilinmiyor olarak kalır; eski `free` değerine veya sıfıra dönülmez. Pozitif aylık fark kredi onayı veya vade boyunca sürdürülebilirlik garantisi değildir.
 

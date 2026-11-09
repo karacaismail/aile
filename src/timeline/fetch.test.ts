@@ -17,8 +17,8 @@ describe('Unfiltered Timeline feed', () => {
       expect(options.signal).toBe(signal);
       expect(options.cache).toBe('no-store');
       expect(options.credentials).toBe('omit');
-      expect(input.searchParams.get('sheet')).toBe('_Timeline web');
-      expect(input.searchParams.get('range')).toBe('A1:Q1600');
+      expect(input.searchParams.get('sheet')).toBe('_Web verisi');
+      expect(input.searchParams.get('range')).toBe('V1:AL1600');
       expect(input.searchParams.get('headers')).toBe('1');
       return new Response(gviz(table.rows, table.labels));
     });

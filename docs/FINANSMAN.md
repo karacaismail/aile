@@ -4,7 +4,7 @@
 
 ## Okuma ve doğrulama
 
-Kaynak model `finance-v1` olarak kalır. Web, gizli `_Finans web` aktarımını `finance-wire-v1` sözleşmesiyle iki istekte ve iki ardışık ağ fazında okur: önce `A1:T6000`, sonra `A1:T11`; iki istekte de `headers=1`, `cache: no-store`, `credentials: omit` kullanılır. İlk yanıt bütün tutarları ve üretim metadata'sını taşır. SHA-256 ve defter kontrolleri tamamlanmadan son metadata isteği başlamaz; son kontrol de geçmeden hiçbir tutar yayınlanmaz. Kaynak/gövde uyuşmazlığı, eski kaynak veya desteklenmeyen güvenli hash ortamında fallback yoktur.
+Kaynak model `finance-v1` olarak kalır. Web, `_Web verisi` sekmesinin `A:T` bölgesindeki aktarımı `finance-wire-v1` sözleşmesiyle iki istekte ve iki ardışık ağ fazında okur: önce `A1:T6000`, sonra `A1:T11`; iki istekte de `headers=1`, `cache: no-store`, `credentials: omit` kullanılır. İlk yanıt bütün tutarları ve üretim metadata'sını taşır. SHA-256 ve defter kontrolleri tamamlanmadan son metadata isteği başlamaz; son kontrol de geçmeden hiçbir tutar yayınlanmaz. Kaynak/gövde uyuşmazlığı, eski kaynak veya desteklenmeyen güvenli hash ortamında fallback yoktur.
 
 ### Tipli aktarım
 

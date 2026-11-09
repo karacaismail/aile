@@ -13,6 +13,7 @@ import {sheetsApi} from './sheets-api.mjs';
 import {planCellWrites} from './cell-writes.mjs';
 
 export {DurableStateStore, FinanceSheetRepository};
+export {toPhysical} from '../../finance-sync/sheet-layout.mjs';
 const ENGINE_REV = typeof __FINANCE_ENGINE_REV__ === 'string' ? __FINANCE_ENGINE_REV__ : 'development';
 const properties = () => PropertiesService.getScriptProperties();
 const stateStore = () => new DurableStateStore({properties: properties(), utilities: Utilities});
@@ -66,6 +67,17 @@ export function financeTimer() {
   const result = runFinanceRefresh(ports());
   console.log(JSON.stringify({result}));
   return result;
+}
+/** Full refresh against a Drive copy. State stays in memory, the live record is untouched. */
+export function rehearseFinance(copyId, prepare = state => state) {
+  const live = load();
+  let state = prepare(JSON.parse(JSON.stringify(live).split(live.targetId).join(copyId)));
+  const result = runFinanceRefresh({...ports(),
+    load: () => ({...state, config: {...state.config, engineHash: ENGINE_REV}}),
+    save: next => { state = next; },
+  });
+  console.log(JSON.stringify({rehearsal: result}));
+  return {result, state};
 }
 export function financeEdited(event) {
   if (event?.source?.getId() !== load().targetId) return 'ignored';

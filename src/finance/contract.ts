@@ -5,6 +5,6 @@ export const dailyHeaders = ['Tarih', 'Adım', 'Tür', 'Nakit değişimi', 'Gere
 
 /** Transport version is independent of the finance-v1 model and source hash. */
 export const financeWire = {
-  version: 'finance-wire-v1', sheet: '_Finans web', fullRange: 'A1:T6000', metadataRange: 'A1:T11',
+  version: 'finance-wire-v1', sheet: '_Web verisi', fullRange: 'A1:T6000', metadataRange: 'A1:T11',
   headers: ['kind', 'index', ...Array.from({ length: 18 }, (_, index) => `c${index + 1}`)],
 } as const;

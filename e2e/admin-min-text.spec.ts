@@ -3,6 +3,7 @@ import { syntheticBridgeResponse } from '../src/dashboard/bridgeFixtures';
 import { gviz, syntheticSheets } from '../src/dashboard/fixtures';
 import { selfCheckDetectors, smallText } from './admin-detectors';
 import { adminNotReadyReasons, openAdmin } from './admin-helpers';
+import { feedName } from './webFeed';
 
 // Kalıcı kural (CLAUDE.md › Minimum metin boyutu): web arayüzündeki tüm okunabilir metin en az 14 CSS px; gövde, tablo,
 // etiket, rozet, yardımcı metin, form kontrolü/değeri/yer tutucusu, hata iletisi, çekmece, alt sayfa, menü, açılır liste
@@ -58,7 +59,7 @@ async function isolateNetwork(page: Page) {
     if (!GVIZ.test(url)) return route.abort('blockedbyclient');
     const bridge = syntheticBridgeResponse(url);
     if (bridge) return route.fulfill({ contentType: 'application/json', body: bridge });
-    const key = LEGACY_FEEDS[new URL(url).searchParams.get('sheet') as keyof typeof LEGACY_FEEDS];
+    const key = LEGACY_FEEDS[feedName(new URL(url)) as keyof typeof LEGACY_FEEDS];
     if (!key) return route.fulfill({ status: 404, body: 'Sentetik kaynakta yok' });
     const labels = key === 'plan' || key === 'actual' ? ['Kalem', ...raw.summary.map((row) => String(row[0]))] : undefined;
     const rows: unknown[][] = key === 'plan' || key === 'actual' ? raw[key].map((row) => row.slice(0, 4)) : raw[key];

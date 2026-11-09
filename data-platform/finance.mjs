@@ -5,7 +5,7 @@ import { provenance } from './native.mjs';
 /** Verified plan projections: never turn a forecast into a payment or a financing agreement. */
 export async function financeCollections(native, tenantId) {
  const collections = new Map();
- const tables = native.sheets.filter(t => t.source_key === 'budget' && t.properties.title === '_Finans web');
+ const tables = native.sheets.filter(t => t.source_key === 'budget' && ['_Web verisi', '_Finans web'].includes(t.properties.title));
  if (tables.length > 1) throw new Error('More than one finance wire source');
  if (!tables.length) return collections;
  const table = tables[0];

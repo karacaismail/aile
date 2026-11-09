@@ -3,6 +3,7 @@ import { readdir, writeFile } from 'node:fs/promises';
 import { test, expect, type Page } from '@playwright/test';
 import { syntheticSheets, gviz } from '../src/dashboard/fixtures';
 import { syntheticTimeline, timelineResponse } from './timelineFinanceFixture';
+import { feedName } from './webFeed';
 
 async function selectPage(page: Page, name: string) {
   const trigger = page.getByRole('button', { name: 'Sayfalar', exact: true });
@@ -30,7 +31,7 @@ test('a clean production budget visit does not fetch Tabs until Timeline needs i
   const raw = syntheticSheets();
   const budgetMap = { Pano: 'summary', Plan: 'plan', 'Gerçekleşen': 'actual', 'Düzensiz giderler': 'irregular' } as const;
   await context.route('**/gviz/tq?*', route => {
-    const sheet = new URL(route.request().url()).searchParams.get('sheet') ?? '';
+    const sheet = feedName(new URL(route.request().url())) ?? '';
     if (sheet === '_Finans web') {
       timelineReads += 1;
       const timeline = syntheticTimeline();
@@ -71,7 +72,7 @@ test('selected Timeline fetches before its UI arrives and revisits reuse verifie
   let timelineReads = 0;
   let feedRequestedAt = 0;
   await context.route('**/gviz/tq?*', route => {
-    const sheet = new URL(route.request().url()).searchParams.get('sheet') ?? '';
+    const sheet = feedName(new URL(route.request().url())) ?? '';
     if (sheet === '_Finans web') {
       timelineReads += 1;
       if (timelineReads === 1) feedRequestedAt = performance.now();

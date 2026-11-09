@@ -17,8 +17,8 @@ function mockSource(change?: (rows: string[][]) => void, staleFirst = false) {
   const fetcher = vi.fn(async (input: URL, options: RequestInit) => {
     expect(options.cache).toBe('no-store'); expect(options.credentials).toBe('omit');
     const sheet = input.searchParams.get('sheet')!;
-    if (sheet === '_Finans aylık') {
-      if (input.searchParams.get('range') === 'A10:C36') {
+    if (sheet === '_Web verisi') {
+      if (input.searchParams.get('range') === 'AN10:AP36') {
         const inflows = syntheticBridgeInflows();
         return new Response(gviz(inflows.rows, inflows.labels));
       }
@@ -39,8 +39,8 @@ it('requires unchanged native generation and both guards around all budget reads
   const result = await fetchBudget(new AbortController().signal);
   expect(result.months).toHaveLength(3);
   const sheets = fetcher.mock.calls.map(([url]) => url.searchParams.get('sheet'));
-  expect(sheets[0]).toBe('_Finans aylık');
-  expect(sheets.at(-1)).toBe('_Finans aylık');
+  expect(sheets[0]).toBe('_Web verisi');
+  expect(sheets.at(-1)).toBe('_Web verisi');
 });
 
 it('waits for the first guard, then starts all six data reads in one parallel phase', async () => {
@@ -52,20 +52,20 @@ it('waits for the first guard, then starts all six data reads in one parallel ph
   const fetcher = vi.fn(async (url: URL, options: RequestInit) => {
     const key = `${url.searchParams.get('sheet')}!${url.searchParams.get('range')}`;
     seen.push(key);
-    if (key === '_Finans aylık!A1:A7' && seen.length === 1) await metadataReady;
+    if (key === '_Web verisi!AN1:AN7' && seen.length === 1) await metadataReady;
     if (url.searchParams.get('sheet') === 'Plan') await planReady;
     return immediate(url, options);
   });
   vi.stubGlobal('fetch', fetcher);
   const result = fetchBudget(new AbortController().signal);
-  await vi.waitFor(() => expect(seen).toEqual(['_Finans aylık!A1:A7']));
+  await vi.waitFor(() => expect(seen).toEqual(['_Web verisi!AN1:AN7']));
   releaseMetadata();
   await vi.waitFor(() => expect(seen).toHaveLength(7));
-  expect(seen.slice(1).map(key => key.split('!')[0]).sort()).toEqual(['Arızi Giderler', 'Gerçekleşen', 'Kasa', 'Pano', 'Plan', '_Finans aylık'].sort());
+  expect(seen.slice(1).map(key => key.split('!')[0]).sort()).toEqual(['Arızi Giderler', 'Gerçekleşen', 'Kasa', 'Pano', 'Plan', '_Web verisi'].sort());
   releasePlan();
   await result;
   expect(seen).toHaveLength(8);
-  expect(seen.at(-1)).toBe('_Finans aylık!A1:A7');
+  expect(seen.at(-1)).toBe('_Web verisi!AN1:AN7');
 });
 
 it('excludes debt and reserve transfers from vehicle capacity without altering monthly cash movement', async () => {

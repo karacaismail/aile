@@ -2,6 +2,7 @@ import type { Page } from '@playwright/test';
 import { syntheticSheets, gviz } from '../src/dashboard/fixtures';
 import { syntheticBridgeResponse, syntheticBridgeMetadata, syntheticBridgeInflows } from '../src/dashboard/bridgeFixtures';
 import { syntheticFinance, financeWireResponseTable } from '../src/finance/fixtures';
+import { feedName } from './webFeed';
 
 export async function visualizationSource(page: Page, large = false, longPeriod = false) {
   const source = syntheticFinance(), raw = syntheticSheets();
@@ -25,11 +26,11 @@ export async function visualizationSource(page: Page, large = false, longPeriod 
   if (large) raw.summary.forEach(row => { row[10] = 1234567.89; row[11] = 1234567.89; });
   await page.context().route('**/gviz/tq?*', async route => {
     const url = new URL(route.request().url());
-    if (url.searchParams.get('sheet') === '_Finans web') {
+    if (feedName(url) === '_Finans web') {
       const wire = financeWireResponseTable(url.href, source);
       return route.fulfill({ contentType: 'application/json', body: gviz(wire.rows, wire.labels) });
     }
-    if (longPeriod && url.searchParams.get('sheet') === '_Finans aylık') {
+    if (longPeriod && feedName(url) === '_Finans aylık') {
       const rows = raw.summary.map((_, index) => [new Date(Date.UTC(2098, 10 + index, 1)).toISOString().slice(0, 7), ...(syntheticBridgeInflows().rows[index]?.slice(1) ?? [0, 0])]);
       const metadata = syntheticBridgeMetadata(); metadata[6] = [String(rows.length)];
       return route.fulfill({ contentType: 'application/json', body: url.searchParams.get('range') === 'A10:C36' ? gviz(rows, syntheticBridgeInflows().labels) : gviz(metadata) });
@@ -37,7 +38,7 @@ export async function visualizationSource(page: Page, large = false, longPeriod 
     const bridge = syntheticBridgeResponse(url.href);
     if (bridge) return route.fulfill({ contentType: 'application/json', body: bridge });
     const map = { Pano: 'summary', Plan: 'plan', Gerçekleşen: 'actual', 'Düzensiz giderler': 'irregular' } as const;
-    const key = map[url.searchParams.get('sheet') as keyof typeof map];
+    const key = map[feedName(url) as keyof typeof map];
     if (!key) return route.fulfill({ status: 404 });
     const rows = key === 'plan' || key === 'actual' ? raw[key].map(row => row.slice(0, raw.summary.length + 1)) : raw[key];
     return route.fulfill({ contentType: 'application/json', body: gviz(rows, key === 'plan' || key === 'actual' ? ['Kalem', ...raw.summary.map(row => String(row[0]))] : undefined) });

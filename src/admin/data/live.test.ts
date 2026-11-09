@@ -60,8 +60,8 @@ function mockBudgetSource(mutate?: (source: ReturnType<typeof syntheticCurrentSh
   const map = { Pano: 'summary', Plan: 'plan', 'Gerçekleşen': 'actual', Kasa: 'cash', 'Arızi Giderler': 'irregular' } as const;
   const fetcher = vi.fn(async (input: URL) => {
     const sheet = input.searchParams.get('sheet')!;
-    if (sheet === '_Finans aylık') {
-      if (input.searchParams.get('range') === 'A10:C36') { const inflows = syntheticBridgeInflows(); return new Response(gviz(inflows.rows, inflows.labels)); }
+    if (sheet === '_Web verisi' && input.searchParams.get('range')?.startsWith('AN')) {
+      if (input.searchParams.get('range') === 'AN10:AP36') { const inflows = syntheticBridgeInflows(); return new Response(gviz(inflows.rows, inflows.labels)); }
       return new Response(gviz(syntheticBridgeMetadata()));
     }
     const key = map[sheet as keyof typeof map];

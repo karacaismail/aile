@@ -3,6 +3,7 @@ import { writeFile } from 'node:fs/promises';
 import AxeBuilder from '@axe-core/playwright';
 import { syntheticLongTimeline, syntheticTimeline, timelineResponse } from './timelineFinanceFixture';
 import { tokens } from '../src/dashboard/tokens';
+import { feedName } from './webFeed';
 async function mockTimeline(page: Page, largeAmounts = false) {
   const table = syntheticTimeline();
   if (largeAmounts) table.rows.forEach(row => {
@@ -16,7 +17,7 @@ async function mockTimeline(page: Page, largeAmounts = false) {
   const feeds: string[] = [], requests: string[] = [];
   page.on('request', request => requests.push(request.url()));
   await page.route('**/gviz/tq?*', route => {
-    const sheet = new URL(route.request().url()).searchParams.get('sheet') ?? '';
+    const sheet = feedName(new URL(route.request().url())) ?? '';
     feeds.push(sheet);
     if (sheet !== '_Finans web') return route.fulfill({ status: 503, body: 'Unexpected feed' });
     const rows = table.rows.map(row => [...row]);
@@ -642,7 +643,7 @@ test('purchase groups keep Sheet categories, chronological dates and balances in
   table.rows[6][3] = 'Alışveriş · Taşınma öncesi'; table.rows[6][4] = 'İleri tarihe planlanan perde';
   const feeds: string[] = [];
   await page.route('**/gviz/tq?*', route => {
-    feeds.push(new URL(route.request().url()).searchParams.get('sheet')!);
+    feeds.push(feedName(new URL(route.request().url()))!);
     return route.fulfill({contentType:'application/json',body:timelineResponse(route.request().url(),table)});
   });
   await page.setViewportSize({width:320,height:740});

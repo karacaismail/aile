@@ -10,8 +10,8 @@ export const syntheticBridgeInflows = () => ({
 });
 export function syntheticBridgeResponse(url: string, fresh = true): string | undefined {
   const params = new URL(url).searchParams;
-  if (params.get('sheet') !== '_Finans aylık') return;
-  if (params.get('range') === 'A10:C36') {
+  if (params.get('sheet') !== '_Web verisi' || !params.get('range')?.startsWith('AN')) return;
+  if (params.get('range') === 'AN10:AP36') {
     const table = syntheticBridgeInflows();
     return gviz(table.rows, table.labels);
   }

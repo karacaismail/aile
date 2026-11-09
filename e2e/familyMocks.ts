@@ -3,6 +3,7 @@ import { syntheticBridgeResponse } from '../src/dashboard/bridgeFixtures';
 import { gviz, syntheticSheets } from '../src/dashboard/fixtures';
 import { financeWireResponseTable } from '../src/finance/fixtures';
 import { mockApi } from './helpers';
+import { feedName } from './webFeed';
 
 /** Every family route on synthetic data: Apps Script API, budget sheets and the finance wire. */
 export const familyRoutes = [
@@ -15,7 +16,7 @@ export async function mockFamilyRoutes(page: Page) {
   const raw = syntheticSheets();
   const map = { Pano: 'summary', Plan: 'plan', 'Gerçekleşen': 'actual', 'Düzensiz giderler': 'irregular' } as const;
   await page.route('**/gviz/tq?*', route => {
-    const sheet = new URL(route.request().url()).searchParams.get('sheet')!;
+    const sheet = feedName(new URL(route.request().url()))!;
     if (sheet === '_Finans web') {
       const wire = financeWireResponseTable(route.request().url());
       return route.fulfill({ contentType: 'application/json', body: gviz(wire.rows, wire.labels) });

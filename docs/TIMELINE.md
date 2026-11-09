@@ -4,7 +4,7 @@
 
 ## Veri ve doğrulama
 
-`_Finans web` tipli aktarımı, kaynak/gövde SHA-256 bağı ve ikinci metadata kontrolü `FINANSMAN.md` içinde tanımlıdır. `src/finance/data.ts` bütün defteri yayınlamadan önce doğrular. Aktarım değişse de kaynak `finance-v1` modeli ve parasal kontroller korunur. Eksik tutar sıfır değildir; bir kuruş sapma reddedilir. Harcanabilir nakit, işaretli net nakit konumu, KMH anaparası/maliyeti ve kart anaparası/maliyeti ayrı anlamlardır. Gelecek taksit kart borcuna dahildir. Eski Timeline değişim/nakit çiftine bu alanlardan sahte bir dönüştürme yapılmaz.
+`_Web verisi` sekmesinin `A:T` bölgesindeki tipli aktarım, kaynak/gövde SHA-256 bağı ve ikinci metadata kontrolü `FINANSMAN.md` içinde tanımlıdır. `src/finance/data.ts` bütün defteri yayınlamadan önce doğrular. Aktarım değişse de kaynak `finance-v1` modeli ve parasal kontroller korunur. Eksik tutar sıfır değildir; bir kuruş sapma reddedilir. Harcanabilir nakit, işaretli net nakit konumu, KMH anaparası/maliyeti ve kart anaparası/maliyeti ayrı anlamlardır. Gelecek taksit kart borcuna dahildir. Eski Timeline değişim/nakit çiftine bu alanlardan sahte bir dönüştürme yapılmaz.
 
 Eski native Timeline ve `_Timeline web` ile parser testleri finans motorunun eski girdi sözleşmesini korumak için kalır; ana web görünümü bunlara geri dönmez. Eski sözleşme `TIMELINE-LEGACY.md` belgesindedir.
 

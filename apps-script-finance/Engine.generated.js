@@ -33,7 +33,9 @@ var __finance = (() => {
     hash: () => hash,
     installFinance: () => installFinance,
     load: () => load,
-    save: () => save
+    rehearseFinance: () => rehearseFinance,
+    save: () => save,
+    toPhysical: () => toPhysical
   });
 
   // gas/src/finance-runner.ts
@@ -451,8 +453,8 @@ var __finance = (() => {
   function compareBillCosts({ bill, cardSettings, tariffs, taxes }) {
     const options = Object.entries(cardSettings).map(([bank, settings]) => {
       const cycle = cardCycle({ postedDate: bill.date, ...settings, cutoffPosting: "same" });
-      const quote2 = autoBillCost({ bank, amount: bill.amount, chargeDate: bill.date, endDate: cycle.dueDate, repayments: [{ date: cycle.dueDate, principal: bill.amount }], dueDate: cycle.dueDate, tariffs, taxes, minimumInterestDays: 1, allocationBasis: "scenario" });
-      return { bank, dueDate: cycle.dueDate, statementDate: cycle.statementDate, interest: quote2.interest, tax: quote2.kkdf == null ? null : round3(quote2.kkdf + quote2.bsmv), totalCost: quote2.totalCost, flags: quote2.flags };
+      const quote3 = autoBillCost({ bank, amount: bill.amount, chargeDate: bill.date, endDate: cycle.dueDate, repayments: [{ date: cycle.dueDate, principal: bill.amount }], dueDate: cycle.dueDate, tariffs, taxes, minimumInterestDays: 1, allocationBasis: "scenario" });
+      return { bank, dueDate: cycle.dueDate, statementDate: cycle.statementDate, interest: quote3.interest, tax: quote3.kkdf == null ? null : round3(quote3.kkdf + quote3.bsmv), totalCost: quote3.totalCost, flags: quote3.flags };
     });
     const priced = options.filter((x) => x.totalCost != null).sort((a, b) => a.totalCost - b.totalCost || b.dueDate.localeCompare(a.dueDate));
     return { billId: bill.id, options, preferredBank: priced[0]?.bank ?? null, selectionStatus: "cost-only; liquidity and account eligibility must be checked in integrated run" };
@@ -615,9 +617,9 @@ var __finance = (() => {
         if (e.type === "purchase") {
           const b = state2[e.bank];
           if (e.kind === "automatic_bill") {
-            const cycle = e.schedule.installments[0], quote2 = autoBillCost({ bank: e.bank, amount: e.amount, chargeDate: e.date, endDate: cycle.dueDate, repayments: [{ date: cycle.dueDate, principal: e.amount }], dueDate: cycle.dueDate, tariffs, taxes, minimumInterestDays: 1, allocationBasis: "scenario" });
-            b.bills.push({ id: e.id, amount: e.amount, statementDate: cycle.statementDate, dueDate: cycle.dueDate, cost: quote2.totalCost, interest: quote2.interest, tax: quote2.kkdf == null ? null : round3(quote2.kkdf + quote2.bsmv) });
-            if (quote2.totalCost == null) unpriced.push({ id: e.id, bank: e.bank, flags: quote2.flags });
+            const cycle = e.schedule.installments[0], quote3 = autoBillCost({ bank: e.bank, amount: e.amount, chargeDate: e.date, endDate: cycle.dueDate, repayments: [{ date: cycle.dueDate, principal: e.amount }], dueDate: cycle.dueDate, tariffs, taxes, minimumInterestDays: 1, allocationBasis: "scenario" });
+            b.bills.push({ id: e.id, amount: e.amount, statementDate: cycle.statementDate, dueDate: cycle.dueDate, cost: quote3.totalCost, interest: quote3.interest, tax: quote3.kkdf == null ? null : round3(quote3.kkdf + quote3.bsmv) });
+            if (quote3.totalCost == null) unpriced.push({ id: e.id, bank: e.bank, flags: quote3.flags });
           } else b.future = round3(b.future + e.amount);
           record(e);
         }
@@ -651,11 +653,11 @@ var __finance = (() => {
           if (prev) {
             if (!prev.paid && prev.dueDate < at) throw new Error("Unprocessed prior due");
             if (prev.statementDate >= startDate && prev.purchasePrincipal > 0) {
-              const quote2 = revolvingCost({ bank: e.bank, statementDate: prev.statementDate, dueDate: prev.dueDate, nextStatementDate: at, statementPrincipal: prev.purchasePrincipal, rateBandPrincipal: minimumFor(prev).statementTotal, minimumPayment: Math.min(prev.purchasePrincipal, prev.purchaseMinimum ?? round3(prev.purchasePrincipal * minimumPaymentRate)), repayments: prev.payments, tariffs, taxes, allocationBasis: "scenario" });
-              if (quote2.totalCost == null) unpriced.push({ bank: e.bank, date: at, flags: quote2.flags });
+              const quote3 = revolvingCost({ bank: e.bank, statementDate: prev.statementDate, dueDate: prev.dueDate, nextStatementDate: at, statementPrincipal: prev.purchasePrincipal, rateBandPrincipal: minimumFor(prev).statementTotal, minimumPayment: Math.min(prev.purchasePrincipal, prev.purchaseMinimum ?? round3(prev.purchasePrincipal * minimumPaymentRate)), repayments: prev.payments, tariffs, taxes, allocationBasis: "scenario" });
+              if (quote3.totalCost == null) unpriced.push({ bank: e.bank, date: at, flags: quote3.flags });
               else {
-                b.charges = round3(b.charges + quote2.totalCost);
-                financeCosts.push({ date: at, bank: e.bank, kind: "purchase", interest: quote2.interest, tax: round3(quote2.kkdf + quote2.bsmv), total: quote2.totalCost });
+                b.charges = round3(b.charges + quote3.totalCost);
+                financeCosts.push({ date: at, bank: e.bank, kind: "purchase", interest: quote3.interest, tax: round3(quote3.kkdf + quote3.bsmv), total: quote3.totalCost });
               }
             }
           }
@@ -2150,6 +2152,138 @@ var __finance = (() => {
     }
   }
 
+  // finance-sync/sheet-layout.mjs
+  var WEB_TITLE = "_Web verisi";
+  var FLOW_ANCHOR = "Haziran ta\u015F\u0131nmas\u0131 \xB7 gelir ve fiyatlara ba\u011Fl\u0131 \xF6deme hesab\u0131";
+  var PRIORITY_ANCHOR = "\xD6ncelik plan\u0131";
+  var ARIZI = "Ar\u0131zi Giderler";
+  var RAW = "_Finans ham";
+  var ZONES = [
+    { logical: "_Ta\u015F\u0131nma ak\u0131\u015F\u0131", sheetId: 7302612, host: ARIZI, anchor: FLOW_ANCHOR, rows: 200, columns: 80 },
+    { logical: "\xD6ncelik plan\u0131", sheetId: 7302605, host: RAW, anchor: PRIORITY_ANCHOR, rows: 250, columns: 18 },
+    { logical: "_Finans web", sheetId: 7302704, host: WEB_TITLE, firstColumn: 0, columns: 20 },
+    { logical: "_Finans ayl\u0131k", sheetId: 7302703, host: WEB_TITLE, firstColumn: 39, columns: 28, rows: 110 }
+  ];
+  var ANCHOR_COLUMN = 1;
+  function physicalTitles(logicalTitles, existing) {
+    const out = /* @__PURE__ */ new Set();
+    for (const title of logicalTitles) {
+      const zone = ZONES.find((z) => z.logical === title);
+      out.add(zone && !existing.has(title) ? zone.host : title);
+    }
+    return [...out];
+  }
+  function resolveLayout(source) {
+    const byTitle = new Map(source.sheets.map((s) => [s.properties.title, s]));
+    const zones = ZONES.filter((z) => !byTitle.has(z.logical) && byTitle.has(z.host)).map((z) => {
+      const host = byTitle.get(z.host);
+      let firstRow = 0;
+      if (z.anchor) {
+        firstRow = grid(source, z.host).findIndex((row) => value(row?.[ANCHOR_COLUMN]) === z.anchor);
+        if (firstRow < 0) throw Error("Merged block anchor missing: " + z.logical);
+      }
+      return { ...z, hostId: host.properties.sheetId, firstRow, firstColumn: z.firstColumn ?? 0, rows: z.rows ?? host.properties.gridProperties.rowCount };
+    });
+    return { zones, byId: new Map(zones.map((z) => [z.sheetId, z])) };
+  }
+  var letters = (c) => {
+    let n = 0;
+    for (const ch of c) n = n * 26 + ch.charCodeAt(0) - 64;
+    return n - 1;
+  };
+  var REF = String.raw`(\$?)([A-Z]{1,3})(\$?)(\d+)(?::(\$?)([A-Z]{1,3})(\$?)(\d*))?(?![A-Za-z0-9_(])`;
+  var quote2 = (title) => `'${title.replaceAll("'", "''")}'`;
+  var escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  var pattern = (titles) => new RegExp(`'(${titles.map((t) => escape(t.replaceAll("'", "''"))).join("|")})'!${REF}`, "g");
+  var format = (title, a1, c1, a2, r1, end) => `${quote2(title)}!${a1}${column(c1)}${a2}${r1}${end ?? ""}`;
+  function physicalToLogical(formula, layout) {
+    if (!layout.hostPattern) return formula;
+    return formula.replace(layout.hostPattern, (all, host, a1, col, a2, row, b1, col2, b2, row2) => {
+      const c = letters(col), r = Number(row) - 1;
+      const zone = layout.zones.find((z) => z.host === host && r >= z.firstRow && r < z.firstRow + z.rows && c >= z.firstColumn && c < z.firstColumn + z.columns);
+      if (!zone) {
+        const edge = layout.zones.find((z) => z.host === host && z.anchor);
+        return col2 && edge && Number(row2) === edge.firstRow ? `${quote2(host)}!${a1}${col}${a2}${row}:${b1}${col2}` : all;
+      }
+      const shiftColumn = (x) => column(letters(x) - zone.firstColumn);
+      const start = format(zone.logical, a1, c - zone.firstColumn, a2, r - zone.firstRow + 1);
+      if (!col2) return start;
+      const lastRow = Number(row2);
+      if (row2 && zone.anchor && lastRow === zone.firstRow + zone.rows) return `${start}:${b1}${shiftColumn(col2)}`;
+      return `${start}:${b1}${shiftColumn(col2)}${b2}${row2 ? lastRow - zone.firstRow : ""}`;
+    });
+  }
+  function logicalToPhysical(formula, layout) {
+    if (!layout.logicalPattern) return formula;
+    return formula.replace(layout.logicalPattern, (all, title, a1, col, a2, row, b1, col2, b2, row2) => {
+      const zone = layout.zones.find((z) => z.logical === title);
+      if (!zone) {
+        if (!col2 || row2) return all;
+        const edge = layout.zones.find((z) => z.host === title && z.anchor);
+        return edge ? `${quote2(title)}!${a1}${col}${a2}${row}:${b1}${col2}${edge.firstRow}` : all;
+      }
+      const shiftColumn = (x) => column(letters(x) + zone.firstColumn);
+      const start = format(zone.host, a1, letters(col) + zone.firstColumn, a2, Number(row) + zone.firstRow);
+      if (!col2) return start;
+      return `${start}:${b1}${shiftColumn(col2)}${b2}${row2 ? Number(row2) + zone.firstRow : zone.firstRow + zone.rows}`;
+    });
+  }
+  function compile(layout) {
+    const hosts = [...new Set(layout.zones.map((z) => z.host))], names2 = layout.zones.map((z) => z.logical), edges = layout.zones.filter((z) => z.anchor).map((z) => z.host);
+    return { ...layout, hostPattern: hosts.length ? pattern(hosts) : null, logicalPattern: names2.length ? pattern([...names2, ...edges]) : null };
+  }
+  var rewriteCell = (cell2, layout) => {
+    const formula = cell2?.userEnteredValue?.formulaValue;
+    if (typeof formula !== "string" || !formula.includes("'")) return cell2;
+    const next = physicalToLogical(formula, layout);
+    return next === formula ? cell2 : { ...cell2, userEnteredValue: { ...cell2.userEnteredValue, formulaValue: next } };
+  };
+  var rowsOf = (rows) => [{ rowData: Array.from(rows, (row) => ({ values: row ?? [] })) }];
+  function toLogical(source) {
+    const layout = compile(resolveLayout(source));
+    if (!layout.zones.length) return source;
+    const hostTitles = new Set(layout.zones.map((z) => z.host)), sheets = [];
+    const translated = new Map(source.sheets.map((s) => [s.properties.title, grid(source, s.properties.title).map((row) => row?.map((cell2) => rewriteCell(cell2, layout)))]));
+    for (const sheet of source.sheets) {
+      const title = sheet.properties.title, rows = translated.get(title);
+      if (!hostTitles.has(title)) {
+        sheets.push({ ...sheet, data: rowsOf(rows) });
+        continue;
+      }
+      const edge = layout.zones.find((z) => z.host === title && z.anchor);
+      if (edge) sheets.push({ ...sheet, properties: { ...sheet.properties, gridProperties: { ...sheet.properties.gridProperties, rowCount: edge.firstRow } }, data: rowsOf(rows.slice(0, edge.firstRow)) });
+      for (const zone of layout.zones.filter((z) => z.host === title)) {
+        const block = rows.slice(zone.firstRow, zone.firstRow + zone.rows).map((row) => row?.slice(zone.firstColumn, zone.firstColumn + zone.columns));
+        sheets.push({ properties: { ...sheet.properties, sheetId: zone.sheetId, title: zone.logical, gridProperties: { rowCount: zone.rows, columnCount: zone.columns } }, data: rowsOf(block) });
+      }
+    }
+    return { ...source, sheets };
+  }
+  var shiftRange = (range, zone) => ({ ...range, sheetId: zone.hostId, startRowIndex: range.startRowIndex + zone.firstRow, endRowIndex: range.endRowIndex + zone.firstRow, startColumnIndex: range.startColumnIndex + zone.firstColumn, endColumnIndex: range.endColumnIndex + zone.firstColumn });
+  function toPhysical(requests, resolved) {
+    const layout = compile(resolved);
+    const refused = (node) => {
+      if (Array.isArray(node)) return node.some(refused);
+      if (!node || typeof node !== "object") return false;
+      return layout.byId.has(node.sheetId) || Object.values(node).some(refused);
+    };
+    return requests.map((request) => {
+      if (request.updateCells) {
+        const u = request.updateCells, zone = layout.byId.get(u.range.sheetId);
+        return { updateCells: { ...u, range: zone ? shiftRange(u.range, zone) : u.range, rows: (u.rows ?? []).map((row) => ({ ...row, values: (row.values ?? []).map((cell2) => {
+          const f = cell2?.userEnteredValue?.formulaValue;
+          return typeof f === "string" && f.includes("'") ? { ...cell2, userEnteredValue: { ...cell2.userEnteredValue, formulaValue: logicalToPhysical(f, layout) } } : cell2;
+        }) })) } };
+      }
+      if (request.appendDimension) {
+        const zone = layout.byId.get(request.appendDimension.sheetId);
+        return zone ? { appendDimension: { ...request.appendDimension, sheetId: zone.hostId } } : request;
+      }
+      if (refused(request)) throw Error("Unsupported request against a merged block: " + Object.keys(request)[0]);
+      return request;
+    });
+  }
+
   // gas/finance/sheet-repository.mjs
   var column2 = (index) => {
     let result = "";
@@ -2176,12 +2310,13 @@ var __finance = (() => {
           }
         }
         const metadata = this.spreadsheets.get(state2.targetId, { fields: "spreadsheetId,properties(locale,timeZone),sheets(properties)" });
-        const ranges = [...bounds].map(([title, b]) => {
+        const titles = physicalTitles([...bounds.keys()], new Set(metadata.sheets.map((s) => s.properties.title)));
+        const ranges = titles.map((title) => {
           const sheet = metadata.sheets.find((s) => s.properties.title === title);
           if (!sheet) throw Error("Kaynak sekme eksik: " + title);
           const g = sheet.properties.gridProperties;
           if (!g) throw Error("Kaynak sekme \u0131zgaras\u0131 eksik: " + title);
-          return `'${title.replaceAll("'", "''")}'!A1:${column2(g.columnCount)}${title === "_Kasa hesap" ? Math.max(1, b.rows) : g.rowCount}`;
+          return `'${title.replaceAll("'", "''")}'!A1:${column2(g.columnCount)}${title === "_Kasa hesap" ? Math.max(1, bounds.get(title)?.rows ?? 1) : g.rowCount}`;
         });
         const source = { spreadsheetId: metadata.spreadsheetId, properties: metadata.properties, sheets: [] };
         const groupSize = this.spreadsheets.maxRangesPerRequest ?? 1;
@@ -2194,7 +2329,9 @@ var __finance = (() => {
           source.sheets.push(...part.sheets);
           this.log({ phase: "capture-part", sheets: source.sheets.length });
         }
-        return { ...source, targetId: source.spreadsheetId };
+        const physical = { ...source, targetId: source.spreadsheetId };
+        this.layout = resolveLayout(physical);
+        return toLogical(physical);
       }, this.clock, this.log);
     }
     gate(state2, entered2) {
@@ -2211,7 +2348,7 @@ var __finance = (() => {
       return measurePhase("apply", () => {
         this.log({ phase: "cell-write", ...candidate.cells, requests: candidate.requests.length });
         if (!candidate.requests.length) return;
-        this.spreadsheets.batchUpdate({ requests: candidate.requests }, state2.targetId);
+        this.spreadsheets.batchUpdate({ requests: this.layout ? toPhysical(candidate.requests, this.layout) : candidate.requests }, state2.targetId);
         this.flush();
       }, this.clock, this.log);
     }
@@ -2330,7 +2467,7 @@ var __finance = (() => {
   }
 
   // gas/finance/main.mjs
-  var ENGINE_REV = true ? "b69f2214ac62d5650eb8d0c5e16f2c8c74be07453ab1ef5da4c3fbc18a0d0114" : "development";
+  var ENGINE_REV = true ? "ce3dba0b44feddaddcfb387a26f6f19c6765c4579425bf2480860812afba388e" : "development";
   var properties = () => PropertiesService.getScriptProperties();
   var stateStore = () => new DurableStateStore({ properties: properties(), utilities: Utilities });
   var sheetRepository = () => new FinanceSheetRepository({
@@ -2385,6 +2522,19 @@ var __finance = (() => {
     const result = runFinanceRefresh(ports());
     console.log(JSON.stringify({ result }));
     return result;
+  }
+  function rehearseFinance(copyId, prepare = (state2) => state2) {
+    const live = load();
+    let state2 = prepare(JSON.parse(JSON.stringify(live).split(live.targetId).join(copyId)));
+    const result = runFinanceRefresh({
+      ...ports(),
+      load: () => ({ ...state2, config: { ...state2.config, engineHash: ENGINE_REV } }),
+      save: (next) => {
+        state2 = next;
+      }
+    });
+    console.log(JSON.stringify({ rehearsal: result }));
+    return { result, state: state2 };
   }
   function financeEdited(event) {
     if (event?.source?.getId() !== load().targetId) return "ignored";
