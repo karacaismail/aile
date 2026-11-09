@@ -1,6 +1,7 @@
 node_modules
 dist
 dist-ssr
+dist-dashboard-e2e
 coverage
 .DS_Store
 *.local

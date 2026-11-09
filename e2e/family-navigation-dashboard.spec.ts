@@ -68,6 +68,8 @@ test('mobile page drawer is modal, compact, keyboard accessible and shares the s
   await expect(page.locator('.family-mobile-current')).toHaveText('Ödeme takvimi');
   await expect(page.locator('.family-primary, .family-context, .family-directory')).toHaveCount(0);
   expect((await page.locator('.family-mobile-header').boundingBox())!.height).toBeLessThanOrEqual(64);
+  // Arriving data inserts links after the trigger; the Tab walk below must not straddle that change.
+  await expect(page.getByRole('article').first()).toBeVisible();
   await trigger.focus();
   await page.keyboard.press(browserName === 'webkit' ? 'Alt+Tab' : 'Tab');
   await page.keyboard.press(browserName === 'webkit' ? 'Alt+Shift+Tab' : 'Shift+Tab');

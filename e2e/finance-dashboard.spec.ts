@@ -33,6 +33,33 @@ test('vehicle form adapts to space remaining beside global navigation', async ({
 });
 
 
+test('the wide scenario rail is open when it appears; only the narrow panel a person opens animates', async ({ page }) => {
+  await mockLayoutSheets(page);
+  await page.addInitScript(() => {
+    const counted = window as unknown as { settingsHeightTransitions: number };
+    counted.settingsHeightTransitions = 0;
+    document.addEventListener('transitionrun', event => {
+      if ((event.target as Element).id === 'scenario-settings' && event.propertyName === 'height') counted.settingsHeightTransitions += 1;
+    });
+  });
+  const transitions = () => page.evaluate(() => (window as unknown as { settingsHeightTransitions: number }).settingsHeightTransitions);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/aile/#/arac');
+  await expect(page.getByRole('combobox', { name: 'Model', exact: true })).toBeVisible();
+  await page.waitForLoadState('networkidle');
+  await page.evaluate(() => new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done))));
+  expect(await transitions()).toBe(0);
+
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.reload();
+  const toggle = page.getByRole('button', { name: 'Ayarları düzenle', exact: true });
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  expect(await transitions()).toBe(0);
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await expect.poll(transitions).toBeGreaterThan(0);
+});
+
 async function mockLayoutSheets(page:Page,unavailable=()=>false) {
   const sheets=syntheticSheets();
   const map={Pano:'summary',Plan:'plan','Gerçekleşen':'actual','Düzensiz giderler':'irregular'} as const;

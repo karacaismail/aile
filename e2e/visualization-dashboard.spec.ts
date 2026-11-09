@@ -89,7 +89,7 @@ test('Pano shows exact selected values beside every chart and uses visible outli
 
 test('optional chart download failure leaves exact figures and the entire monthly table usable', async ({ page }) => {
   await visualizationSource(page);
-  await page.route('**/src/dashboard/Charts.tsx*', route => route.abort());
+  await page.route('**/assets/Charts-*.js', route => route.abort());
   await page.goto('/aile/#/finansman');
   await page.getByRole('tab', { name: 'Aylık özet', exact: true }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Grafik yüklenemedi' })).toHaveCount(3);
@@ -167,7 +167,7 @@ test('category table headings align with their desktop source values', async ({ 
 test('failed chart download offers a truthful page reload and recovers after the connection returns', async ({ page }) => {
   await visualizationSource(page);
   let blocked = true;
-  await page.route('**/src/dashboard/Charts.tsx*', route => blocked ? route.abort() : route.continue());
+  await page.route('**/assets/Charts-*.js', route => blocked ? route.abort() : route.continue());
   await page.goto('/aile/#/finansman');
   await page.getByRole('tab', { name: 'Aylık özet', exact: true }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Grafik yüklenemedi' })).toHaveCount(3);

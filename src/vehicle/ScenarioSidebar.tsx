@@ -8,7 +8,8 @@ export function ScenarioSidebar({ children, open, onOpenChange, onResult }: {
   children: ReactNode; open: boolean; onOpenChange: (open: boolean) => void; onResult: () => void;
 }) {
   const aside = useRef<HTMLElement>(null);
-  const [desktop, setDesktop] = useState(false);
+  // null until the first layout read: the panel must mount in its real state, or a wide screen animates it open on load.
+  const [desktop, setDesktop] = useState<boolean | null>(null);
   useLayoutEffect(() => {
     const element = aside.current;
     const container = element?.closest('.vehicle-page');
@@ -23,17 +24,17 @@ export function ScenarioSidebar({ children, open, onOpenChange, onResult }: {
   const reduced = useReducedMotion();
   // Remember interaction on desktop so resizing never hides a focused form control.
   const [engaged, setEngaged] = useState(false);
-  const expanded = desktop || open || engaged;
+  const expanded = desktop === true || open || engaged;
   const close = () => { setEngaged(false); onOpenChange(false); };
   return <aside ref={aside} className="scenario-sidebar" aria-label="Senaryo ayarları">
     <button className="settings-toggle" aria-expanded={expanded} aria-controls="scenario-settings"
       onClick={() => { if (expanded) close(); else onOpenChange(true); }}>
       <span>Ayarları düzenle</span><span aria-hidden="true">{expanded ? '−' : '+'}</span>
     </button>
-    <Collapse id="scenario-settings" expanded={expanded} keepMounted aria-hidden={!expanded} inert={!expanded}
+    {desktop !== null && <Collapse id="scenario-settings" expanded={expanded} keepMounted aria-hidden={!expanded} inert={!expanded}
       transitionDuration={reduced ? 0 : tokens.duration} transitionTimingFunction={tokens.ease} animateOpacity={false}>
       <div className="sidebar-scroll" onFocusCapture={() => setEngaged(true)}>{children}</div>
       <button className="settings-done" onClick={() => { close(); onResult(); }}>Sonuçları göster</button>
-    </Collapse>
+    </Collapse>}
   </aside>;
 }

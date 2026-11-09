@@ -37,6 +37,12 @@ describe('depo politikası', () => {
       expect(hits, `${label} şu dosyalarda geçiyor`).toEqual([]);
     });
   }
+  // Kök paket geliştirme sunucusunda tüm ikon kataloğunu çalıştırır; ikon değerleri tek ikon alt yolundan gelir.
+  it('Phosphor kök paketinden değer içe aktarılmaz', () => {
+    const rootBarrel = /^\s*(?:import|export)\s+(?!type\b)[^'"]*from\s+['"]@phosphor-icons\/react['"]/m;
+    const hits = files.filter((f) => /\.tsx?$/.test(f) && !/\.test\./.test(f) && rootBarrel.test(readFileSync(f, 'utf8')));
+    expect(hits, 'kök paketten değer alan dosyalar').toEqual([]);
+  });
 });
 
 // Kapsam: tek dosya kökleri (admin.html) ve sentetik nesil fixture'ı da taranır; kasa-work özel klasör yolu hiçbir yerde geçmez.

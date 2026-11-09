@@ -214,27 +214,24 @@ test('keyboard intent begins in initial HTML and survives the asynchronous React
 
 test('planner loads only used icon modules instead of the complete icon catalogue', async ({ page }, testInfo) => {
   await mockFamily(page);
-  const icons: string[] = [];
   const responses: Response[] = [];
   page.on('response', response => {
-    if (response.request().resourceType() === 'script' && response.url().includes('/node_modules/')) responses.push(response);
-  });
-  page.on('request', request => {
-    if (request.url().includes('phosphor-icons')) icons.push(new URL(request.url()).pathname);
+    if (response.request().resourceType() === 'script') responses.push(response);
   });
   await page.goto('/aile/#/satinalma/yeni');
   await expect(page.getByRole('dialog')).toBeVisible();
-  const catalogue = icons.filter(path => /\/(?:@phosphor-icons_react\.js|@phosphor-icons\/react\/dist\/index\.(?:es|cjs)\.js)$/.test(path));
-  expect(catalogue, 'the editor must not download the multi-megabyte barrel of every icon').toEqual([]);
-  expect(icons.length, 'the existing visible icons are still loaded').toBeGreaterThan(0);
   // Collect during loading, then read bodies after the editor is ready so evidence
   // collection does not compete with the dialog's first-render assertion.
-  const modules = (await Promise.all(responses.map(async response => {
+  const modules = await Promise.all(responses.map(async response => {
     const body = await response.body();
-    return { path: new URL(response.url()).pathname, decodedBytes: body.length, icon: response.url().includes('phosphor-icons') || body.toString('utf8').includes('@phosphor-icons/react/') };
-  }))).filter(module => module.icon);
+    return { path: new URL(response.url()).pathname, decodedBytes: body.length, icons: body.toString('utf8').match(/duotone/g)?.length ?? 0 };
+  }));
+  // Each Phosphor icon carries one duotone path table; the full catalogue holds about 1,500 of them.
+  const icons = modules.reduce((sum, module) => sum + module.icons, 0);
+  expect(icons, 'the editor must not download the multi-megabyte barrel of every icon').toBeLessThan(200);
+  expect(icons, 'the existing visible icons are still loaded').toBeGreaterThan(0);
   const evidence = testInfo.outputPath('icon-network.json');
-  await writeFile(evidence, JSON.stringify({ requests: icons, modules, decodedBytes: modules.reduce((sum, module) => sum + module.decodedBytes, 0) }, null, 2));
+  await writeFile(evidence, JSON.stringify({ icons, modules: modules.filter(module => module.icons > 0), decodedBytes: modules.reduce((sum, module) => sum + module.decodedBytes, 0) }, null, 2));
   await testInfo.attach('requested-icon-modules', { path: evidence, contentType: 'application/json' });
 });
 
