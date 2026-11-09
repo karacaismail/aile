@@ -95,3 +95,54 @@ describe('uzun dashboard yolculuğunun CI kaynak ayrımı', () => {
     });
   }
 });
+
+// Yönetim paneli yayın kapısı (docs/ADMIN-DEPLOY-PROPOSAL.md): admin E2E ayrı işte ve telefon projeleri önce koşar;
+// gizlilik + teslim kapıları sentetik build'den sonra gelir; build kanıtı (.vite, delivery-report.json) Pages'e çıkmaz.
+describe('yönetim paneli CI ve yayın kapısı', () => {
+  const read = (name: string) => readFileSync(join(workflowDir, name), 'utf8');
+  const lines = (source: string) => source.split('\n');
+  const adminRuns = (source: string) => lines(source).filter(line => /run: pnpm e2e:admin\b/.test(line));
+  const at = (source: string, needle: string) => lines(source).findIndex(line => line.includes(needle));
+  for (const workflow of ['ci.yml', 'deploy.yml']) {
+    it(`${workflow} sentetik build'den sonra gizlilik, teslim ve yönetim üretim kapısını koşar`, () => {
+      const source = read(workflow);
+      const build = lines(source).findIndex((line, i, all) => /- run: pnpm build$/.test(line) && (all[i + 2] ?? '').includes('synthetic-budget-sheet-2098'));
+      expect(build, 'sentetik pnpm build adımı').toBeGreaterThanOrEqual(0);
+      for (const needle of ['- run: node scripts/check-dist-privacy.mjs dist', 'node scripts/check-delivery.mjs dist', 'node scripts/check-budgets.mjs dist', '--config playwright.admin-production.config.ts']) {
+        expect(at(source, needle), needle).toBeGreaterThan(build);
+      }
+    });
+    it(`${workflow} teslim kapısını yalnız --strict ile, bütçe kapısını teslim raporundan sonra koşar`, () => {
+      const source = read(workflow);
+      const delivery = lines(source).filter(line => line.includes('node scripts/check-delivery.mjs dist'));
+      expect(delivery.length).toBeGreaterThanOrEqual(1);
+      for (const line of delivery) expect(line, line).toContain('--strict');
+      expect(at(source, 'node scripts/check-budgets.mjs dist')).toBeGreaterThan(at(source, 'node scripts/check-delivery.mjs dist'));
+    });
+    it(`${workflow} yönetim E2E'sini ayrı işte, önce telefon projeleriyle koşar`, () => {
+      const source = read(workflow);
+      expect(source).toMatch(/^ {2}admin:\n {4}runs-on: ubuntu-latest$/m);
+      const runs = adminRuns(source);
+      expect(runs.length).toBeGreaterThanOrEqual(1);
+      expect(runs[0]).toContain('--project=chromium --project=webkit');
+      expect(runs[0]).not.toMatch(/--project=\S*(?:tablet|desktop|short|landscape|360|375)/);
+    });
+  }
+  it('ci.yml telefon → @matrix telefon → geniş sırasını korur', () => {
+    const runs = adminRuns(read('ci.yml'));
+    expect(runs).toHaveLength(3);
+    expect(runs[1]).toMatch(/--project=chromium-short .*--project=chromium-landscape/);
+    expect(runs[2]).toMatch(/--project=webkit-tablet .*--project=chromium-desktop/);
+  });
+  it('deploy.yml yalnız telefon projelerini koşar, yayını admin işine bağlar ve kanıtı artefakttan çıkarır', () => {
+    const source = read('deploy.yml');
+    expect(adminRuns(source)).toHaveLength(1);
+    expect(source).toContain('needs: [build, admin]');
+    const lastBuild = lines(source).findLastIndex(line => /- run: pnpm build$/.test(line));
+    const removal = at(source, 'rm -rf dist/.vite');
+    expect(removal).toBeGreaterThan(lastBuild);
+    expect(at(source, 'rm -f dist/delivery-report.json dist/budget-report.json')).toBeGreaterThan(lastBuild);
+    expect(at(source, '- uses: actions/upload-pages-artifact@')).toBeGreaterThan(removal);
+    expect(source).not.toMatch(/include-hidden-files:\s*true/);
+  });
+});

@@ -41,7 +41,14 @@ jobs:
       - run: pnpm build
         env:
           VITE_BUDGET_SHEET_ID: synthetic-budget-sheet-2098
+      - run: node scripts/check-dist-privacy.mjs dist
+      - run: mkdir -p delivery-evidence && node scripts/check-delivery.mjs dist --strict --report delivery-evidence/delivery-report.json
+      - run: node scripts/check-budgets.mjs dist --delivery-report delivery-evidence/delivery-report.json --report delivery-evidence/budget-report.json
+      - run: cp dist/.vite/manifest.json dist/.vite/delivery-graph.json delivery-evidence/
       - run: pnpm exec playwright test --config playwright.timeline-production.config.ts
+        env:
+          CI: 1
+      - run: pnpm exec playwright test --config playwright.admin-production.config.ts
         env:
           CI: 1
       - uses: actions/upload-artifact@v5
@@ -55,3 +62,47 @@ jobs:
             test-results-dashboard
             playwright-report-dashboard-long
             test-results-dashboard-long
+            delivery-evidence
+      - uses: actions/upload-artifact@v5
+        if: ${{ !cancelled() }}
+        with:
+          name: delivery-evidence
+          path: delivery-evidence
+          retention-days: 14
+  admin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium webkit
+      # Phone first: Chromium 320x568 touch + WebKit 390x844 touch run every admin spec.
+      - id: admin_phone
+        run: pnpm e2e:admin --project=chromium --project=webkit
+        env:
+          CI: 1
+          AILE_PORT: 5300
+      # Phone matrix (@matrix): 320x480, 360x640, 375x667 and 568x320 landscape (still the phone profile).
+      - id: admin_matrix
+        if: ${{ !cancelled() && (steps.admin_phone.outcome == 'success' || steps.admin_phone.outcome == 'failure') }}
+        run: pnpm e2e:admin --project=chromium-short --project=chromium-360 --project=chromium-375 --project=chromium-landscape
+        env:
+          CI: 1
+          AILE_PORT: 5302
+      # Wide last: WebKit tablet 820x1180, WebKit and Chromium desktop 1440x900.
+      - if: ${{ !cancelled() && (steps.admin_phone.outcome == 'success' || steps.admin_phone.outcome == 'failure') }}
+        run: pnpm e2e:admin --project=webkit-tablet --project=webkit-desktop --project=chromium-desktop
+        env:
+          CI: 1
+          AILE_PORT: 5304
+      - uses: actions/upload-artifact@v5
+        if: failure()
+        with:
+          name: admin-test-report
+          path: |
+            playwright-report
+            test-results

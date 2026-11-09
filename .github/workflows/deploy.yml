@@ -45,13 +45,22 @@ jobs:
       - run: pnpm build
         env:
           VITE_BUDGET_SHEET_ID: synthetic-budget-sheet-2098
+      # Admin release gates on the synthetic build (no real sheet id in dist yet).
+      - run: node scripts/check-dist-privacy.mjs dist
+      - run: mkdir -p delivery-evidence/synthetic && node scripts/check-delivery.mjs dist --strict --report delivery-evidence/synthetic/delivery-report.json
+      - run: node scripts/check-budgets.mjs dist --delivery-report delivery-evidence/synthetic/delivery-report.json --report delivery-evidence/synthetic/budget-report.json
       - run: pnpm exec playwright test --config playwright.finansman.config.ts
+        env:
+          CI: 1
+      - run: pnpm exec playwright test --config playwright.admin-production.config.ts
         env:
           CI: 1
       - run: pnpm build
         env:
           VITE_BUDGET_SHEET_ID: ${{ vars.VITE_BUDGET_SHEET_ID }}
           VITE_API_URL: ${{ vars.VITE_API_URL }}
+      # The published build must pass the phone delivery gate too (graph does not depend on env).
+      - run: mkdir -p delivery-evidence/pages && node scripts/check-delivery.mjs dist --strict --report delivery-evidence/pages/delivery-report.json
       - run: pnpm exec playwright test --config playwright.timeline-production.config.ts
         env:
           CI: 1
@@ -66,12 +75,52 @@ jobs:
             test-results-dashboard
             playwright-report-dashboard-long
             test-results-dashboard-long
+            delivery-evidence
+      # Build evidence stays out of the Pages artifact; it is kept as a workflow artifact instead.
+      - name: Move build evidence out of dist
+        run: |
+          mkdir -p delivery-evidence/pages
+          cp dist/.vite/manifest.json dist/.vite/delivery-graph.json delivery-evidence/pages/
+          rm -rf dist/.vite
+          rm -f dist/delivery-report.json dist/budget-report.json
+          leftovers="$(find dist -name '.*' -o -name 'delivery-report.json' -o -name 'budget-report.json')"
+          if [ -n "$leftovers" ]; then echo "evidence left in dist: $leftovers"; exit 1; fi
+      - uses: actions/upload-artifact@v5
+        with:
+          name: delivery-evidence
+          path: delivery-evidence
+          retention-days: 14
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:
           path: dist
+  admin:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium webkit
+      # Release gate for admin.html: phone projects only (Chromium 320x568 touch, WebKit 390x844 touch).
+      - run: pnpm e2e:admin --project=chromium --project=webkit
+        env:
+          CI: 1
+          AILE_PORT: 5300
+      - uses: actions/upload-artifact@v5
+        if: failure()
+        with:
+          name: admin-test-report
+          path: |
+            playwright-report
+            test-results
   deploy:
-    needs: build
+    needs: [build, admin]
     runs-on: ubuntu-latest
     environment:
       name: github-pages
