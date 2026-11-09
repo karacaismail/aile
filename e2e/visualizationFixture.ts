@@ -33,7 +33,7 @@ export async function visualizationSource(page: Page, large = false, longPeriod 
     if (longPeriod && feedName(url) === '_Finans aylık') {
       const rows = raw.summary.map((_, index) => [new Date(Date.UTC(2098, 10 + index, 1)).toISOString().slice(0, 7), ...(syntheticBridgeInflows().rows[index]?.slice(1) ?? [0, 0])]);
       const metadata = syntheticBridgeMetadata(); metadata[6] = [String(rows.length)];
-      return route.fulfill({ contentType: 'application/json', body: url.searchParams.get('range') === 'A10:C36' ? gviz(rows, syntheticBridgeInflows().labels) : gviz(metadata) });
+      return route.fulfill({ contentType: 'application/json', body: url.searchParams.get('range') === 'AN10:AP36' ? gviz(rows, syntheticBridgeInflows().labels) : gviz(metadata) });
     }
     const bridge = syntheticBridgeResponse(url.href);
     if (bridge) return route.fulfill({ contentType: 'application/json', body: bridge });

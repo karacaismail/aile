@@ -190,7 +190,7 @@ test('keyboard intent begins in initial HTML and survives the asynchronous React
   await mockFamily(page);
   let releaseMount!: () => void;
   const mounted = new Promise<void>(resolve => { releaseMount = resolve; });
-  await page.route(/\/src\/app\/mount\.tsx(?:\?|$)/, async route => { await mounted; await route.continue(); });
+  await page.route(/\/(?:src\/app\/mount\.tsx|assets\/mount-[^/]+\.js)(?:\?|$)/, async route => { await mounted; await route.continue(); });
   try {
     await page.goto('/aile/#/satinalma', { waitUntil: 'domcontentloaded' });
     await expect(page.locator('.app-startup')).toBeVisible();
