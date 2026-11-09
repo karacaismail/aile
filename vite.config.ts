@@ -8,9 +8,9 @@ import { adminStartupScript } from './src/admin/startup.ts';
 import { privateDataPlugin } from './src/admin/devServer/privateData.ts';
 import { phosphorRegularOnly } from './src/admin/ui/icons.build.ts';
 
-// PWA ön belleğinin dışında kalan dosyalar. İlk 12 glob ana uygulamanın bilinçli tembel parçalarıdır (ana kabuk
+// PWA ön belleğinin dışında kalan dosyalar. İlk 13 glob ana uygulamanın bilinçli tembel parçalarıdır (ana kabuk
 // bunlara inmez); son 6'sı yönetim girişi, adıyla yönetime ait sağlayıcı parçaları ve geniş-özel `wide-*` parçalarıdır.
-const PRECACHE_IGNORES = ['**/Charts-*', '**/PaymentChart-*', '**/VehiclePage-*', '**/TimelinePage-*', '**/FinancePage-*', '**/timelineStore-*', '**/financeStore-*', '**/LegacyApp-*', '**/HomePlanPage-*', '**/NumberInput-*', '**/Collapse-*', '**/Tabs-*', '**/admin.html', '**/admin-*', '**/antd-*', '**/pro-*', '**/icons-*', '**/wide-*'];
+const PRECACHE_IGNORES = ['**/Charts-*', '**/PaymentChart-*', '**/VehiclePage-*', '**/TimelinePage-*', '**/FinancePage-*', '**/timelineStore-*', '**/financeStore-*', '**/LegacyApp-*', '**/HomePlanPage-*', '**/RetirementPage-*', '**/NumberInput-*', '**/Collapse-*', '**/Tabs-*', '**/admin.html', '**/admin-*', '**/antd-*', '**/pro-*', '**/icons-*', '**/wide-*'];
 
 // Ad listesi tek başına yetmez: ikinci giriş (admin.html) eklenince rolldown, yönetim sayfalarını ve yönetimle tembel
 // ana parçalar arasında paylaşılan modülleri (ECharts alt parçaları, Phosphor/idb-keyval, ortak kabuk) modül adından

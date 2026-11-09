@@ -33,6 +33,7 @@ export const directoryGroups: readonly { title: string; links: readonly PageLink
     { path: '/timeline', label: 'Ödeme takvimi' },
     { path: '/finansman', label: 'Finansman' },
     { path: '/butce', label: 'Harcama kayıtları' },
+    { path: '/emeklilik', label: 'Emeklilik ve SGK' },
   ] },
   { title: 'Ev ve taşınma', links: [
     { path: '/ev', label: 'Alım planı' },

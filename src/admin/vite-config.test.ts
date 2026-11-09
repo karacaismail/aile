@@ -46,7 +46,7 @@ function denylistPatterns(): RegExp[] {
   return match![1].split(/,(?=\s*\/)/).map((s) => s.trim()).filter(Boolean).map((literal) => new Function(`return ${literal};`)() as RegExp);
 }
 
-const LEGACY_IGNORES = ['Charts-*', 'PaymentChart-*', 'VehiclePage-*', 'TimelinePage-*', 'FinancePage-*', 'timelineStore-*', 'financeStore-*', 'LegacyApp-*', 'HomePlanPage-*', 'NumberInput-*', 'Collapse-*', 'Tabs-*'];
+const LEGACY_IGNORES = ['Charts-*', 'PaymentChart-*', 'VehiclePage-*', 'TimelinePage-*', 'FinancePage-*', 'timelineStore-*', 'financeStore-*', 'LegacyApp-*', 'HomePlanPage-*', 'RetirementPage-*', 'NumberInput-*', 'Collapse-*', 'Tabs-*'];
 const ADMIN_IGNORES = ['admin.html', 'admin-*', 'antd-*', 'pro-*', 'icons-*', 'wide-*'];
 
 describe('vite.config.ts admin sözleşmesi', () => {

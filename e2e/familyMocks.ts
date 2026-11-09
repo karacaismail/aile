@@ -7,7 +7,7 @@ import { feedName } from './webFeed';
 
 /** Every family route on synthetic data: Apps Script API, budget sheets and the finance wire. */
 export const familyRoutes = [
-  '/pano', '/timeline', '/finansman', '/butce', '/ev', '/satinalma', '/aydinlatma', '/yerlesim',
+  '/pano', '/timeline', '/finansman', '/butce', '/emeklilik', '/ev', '/satinalma', '/aydinlatma', '/yerlesim',
   '/tadilat', '/tadilat/isler', '/tadilat/ustalar', '/tadilat/kontrol', '/arac', '/ayarlar',
 ] as const;
 

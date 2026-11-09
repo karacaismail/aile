@@ -1,0 +1,7 @@
+.retirement-page { display: grid; gap: var(--budget-spaceSection); min-width: 0; }
+.retirement-page > * { min-width: 0; }
+.retirement-page .page-header { margin-bottom: 0; }
+.retirement-section { display: grid; gap: var(--budget-spaceSmall); min-width: 0; }
+/* The scroll plane shows only the first column on narrow containers: a glance line repeats amount and month there (cells keep the semantics). */
+.retirement-glance { display: none; margin-top: var(--budget-spaceDense); font-weight: var(--budget-headingWeight); font-variant-numeric: tabular-nums; }
+@container (max-width: 36em) { .retirement-glance { display: block; } }

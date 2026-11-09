@@ -7,6 +7,7 @@ import { feedName } from './webFeed';
 
 const destinations = [
   ['/pano', 'Genel bütçe'], ['/timeline', 'Ödeme takvimi'], ['/finansman', 'Finansman'], ['/butce', 'Harcama kayıtları'],
+  ['/emeklilik', 'Emeklilik ve SGK'],
   ['/ev', 'Alım planı'], ['/satinalma', 'Hazırlık listesi'], ['/aydinlatma', 'Aydınlatma'], ['/yerlesim', 'Yerleşim'],
   ['/tadilat', 'Tadilat takvimi'], ['/tadilat/isler', 'Yapılacak işler'], ['/tadilat/ustalar', 'Ustalar'], ['/tadilat/kontrol', 'Kontrol listesi'],
   ['/arac', 'Araç ve finansman'], ['/ayarlar', 'Ayarlar'],
@@ -167,4 +168,24 @@ test('short landscape drawer keeps the last link reachable and preserves focus',
   await expect(trigger).toBeFocused();
   await expect(trigger).toHaveAttribute('aria-expanded', 'false');
   expect(await page.evaluate(() => document.body.style.overflow)).not.toBe('hidden');
+});
+
+test('SGK payments written in the Sheet reach the page at phone width', async ({ page }) => {
+  await mockNavigation(page);
+  const raw = syntheticSheets();
+  raw.irregular[0][0] = 'Sentetik Bağ-Kur borcu ve uzun açıklamalı askerlik borçlanması kalemi';
+  raw.irregular[0][8] = 'Emeklilik';
+  await page.route('**/gviz/tq?*', route => feedName(new URL(route.request().url())) === 'Düzensiz giderler'
+    ? route.fulfill({ contentType: 'application/json', body: gviz(raw.irregular) })
+    : route.fallback());
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.goto('/aile/#/emeklilik');
+  await expect(page.getByRole('heading', { level: 1, name: 'Emeklilik ve SGK' })).toBeVisible();
+  await expect(page.getByRole('group', { name: 'SGK ödemeleri özeti' })).toContainText('500 ₺');
+  await expect(page.getByRole('table')).toContainText('Sentetik Bağ-Kur borcu');
+  await expect(page.locator('.retirement-glance').first()).toBeVisible();
+  await expect(page.locator('.retirement-glance').first()).toContainText('500 ₺');
+  const smallest = await page.locator('.retirement-page').evaluate(root => Math.min(...[...root.querySelectorAll('*')].filter(node => node.childNodes.length && [...node.childNodes].some(child => child.nodeType === 3 && child.textContent?.trim())).map(node => parseFloat(getComputedStyle(node).fontSize))));
+  expect(smallest).toBeGreaterThanOrEqual(14);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
 });
