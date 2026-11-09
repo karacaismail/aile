@@ -1158,6 +1158,25 @@ test.describe('yönetim tipografisi', () => {
     expect(probe.shift?.score, evidence).toBe(0);
   }
 
+  test('üst çubukta sayfa adı Outfit ve yedek fontta aynı yerde başlar (proje görünümü)', { tag: '@matrix' }, async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name.endsWith('-desktop'), 'Masaüstünde üst çubuk yerine yan gezinme var.');
+    await openAdmin(page, '/alimlar');
+    await page.evaluate(() => document.fonts.ready);
+    const konum = await page.evaluate(() => {
+      const baslik = document.querySelector<HTMLElement>('.aile-admin-topbar-title')!;
+      const sol = () => document.querySelector('.aile-admin-topbar-page')!.getBoundingClientRect().left;
+      const outfit = sol();
+      baslik.style.setProperty('font-family', "'Outfit Yedek', system-ui, sans-serif");
+      const yedek = sol();
+      // Yerel yedek yüz henüz hazır değilken metin sistem fontuyla çizilir.
+      baslik.style.setProperty('font-family', 'system-ui, sans-serif');
+      const sistem = sol();
+      return { outfit, yedek, sistem };
+    });
+    expect(Math.abs(konum.yedek - konum.outfit), JSON.stringify(konum)).toBeLessThan(0.5);
+    expect(Math.abs(konum.sistem - konum.outfit), JSON.stringify(konum)).toBeLessThan(0.5);
+  });
+
   test('normal yüklemede font değişimi içerikten önce biter ve kaydırmaz (proje görünümü)', { tag: '@matrix' }, async ({ page }) => {
     await normalSwap(page, null, '/alimlar');
   });

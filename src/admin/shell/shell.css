@@ -21,6 +21,8 @@
 
 .aile-admin .aile-admin-shell {
   --aile-shell-ust-bar: calc(var(--aile-hedef-asgari) + var(--aile-bosluk-3));
+  --aile-shell-marka: 1.875em;
+  --aile-shell-ayrac: 0.375em;
   --aile-shell-dikey-pay: calc((var(--aile-shell-ust-bar) - var(--aile-dokunma-hedefi)) / 2);
   --aile-shell-odak-payi: calc(var(--aile-odak-aralik) + var(--aile-odak-kalinlik) - 1px);
   --aile-shell-alt-pay: max(var(--aile-shell-dikey-pay), var(--aile-shell-odak-payi));
@@ -106,7 +108,9 @@
   margin: 0;
   font-weight: 500;
 }
-.aile-admin .aile-admin-topbar-sep { margin: 0 var(--aile-bosluk-2); color: var(--aile-acik-mavi); }
+/* Marka ve ayraç yedek fontta Outfit'ten geniş çizilir. Sabit kutular, sayfa adını font gelince oynatmaz. */
+.aile-admin .aile-admin-topbar-title .aile-admin-brand { display: inline-block; min-inline-size: var(--aile-shell-marka); }
+.aile-admin .aile-admin-topbar-sep { display: inline-block; min-inline-size: var(--aile-shell-ayrac); margin: 0 var(--aile-bosluk-2); color: var(--aile-acik-mavi); text-align: center; }
 
 /* Sayfalar yüklenirken (düğme aria-busy, çubuk data-bekliyor): çubuğun hemen altında, açık zeminde tek ince belirsiz
    ilerleme şeridi; döner simge ve halka yok, odak çizgisiyle karışmaz (çizgi çubuğun içinde kalır). Örtüdür (mutlak; yapışkan
