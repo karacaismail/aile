@@ -68,7 +68,7 @@ async function pendingInViewport(page: Page, pattern: RegExp): Promise<string[]>
 // --- Sayfa izleyicisi ---------------------------------------------------------------------------------------------
 
 /** Sayfanın kendi iptali: Chromium "net::ERR_ABORTED", WebKit "cancelled". Başarısızlık sayılmaz. */
-const PAGE_CANCELLED = /^(?:net::ERR_ABORTED|cancelled)$/;
+const PAGE_CANCELLED = /^(?:net::ERR_ABORTED|cancelled|Load request cancelled)$/;
 
 interface PageWatch {
   /** İhlaller: konsol hatası, istisna, başarısız istek, ≥400 yanıt, beklenmeyen dış istek. Boş = temiz. */

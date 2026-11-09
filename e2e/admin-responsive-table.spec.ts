@@ -731,9 +731,12 @@ async function dokunarakKaydir(page: Page, alan: Locator) {
   expect(olcu.var, 'taşan yatay kaydırıcı bekleniyor').toBe(true);
   const cdp = await page.context().newCDPSession(page);
   try {
-    await cdp.send('Input.synthesizeScrollGesture', {
-      x: olcu.x, y: olcu.y, xDistance: -220, yDistance: 0, gestureSourceType: 'touch', speed: 1200, preventFling: true,
-    });
+    // Linux Chromium synthesizeScrollGesture ile dokunma kaydırmasını yok sayar; gerçek dokunma olayları her platformda çalışır.
+    const dokun = (type: 'touchStart' | 'touchMove' | 'touchEnd', x?: number) =>
+      cdp.send('Input.dispatchTouchEvent', { type, touchPoints: x === undefined ? [] : [{ x, y: olcu.y }] });
+    await dokun('touchStart', olcu.x);
+    for (let adim = 1; adim <= 11; adim++) { await dokun('touchMove', olcu.x - adim * 20); await page.waitForTimeout(16); }
+    await dokun('touchEnd');
   } finally {
     await cdp.detach();
   }

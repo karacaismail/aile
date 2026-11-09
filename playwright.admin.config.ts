@@ -45,7 +45,8 @@ export const syntheticServerEnv = {
 const port = aileBasePort();
 const origin = `http://127.0.0.1:${port}`;
 const touch = { hasTouch: true };
-const chrome = devices['Desktop Chrome'];
+// Linux'ta hinting harf aralıklarını piksele yuvarlar; font kayması ölçüsü Mac ve gerçek cihazlarla aynı metrikle koşsun.
+const chrome = { ...devices['Desktop Chrome'], launchOptions: { args: ['--font-render-hinting=none'] } };
 const safari = devices['Desktop Safari'];
 const MATRIX = /@matrix/;
 
