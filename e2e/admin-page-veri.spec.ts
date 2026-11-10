@@ -395,9 +395,13 @@ test.describe('Veri › klasörden içe aktar', () => {
     writeFileSync(path.join(bos, 'notlar', 'oku.json'), '{}');
     const chooser = page.waitForEvent('filechooser');
     await ana(page).getByRole('button', { name: ICE_AKTAR }).click();
-    await (await chooser).setFiles(bos);
+    // After a folder upload Playwright waits for an "input" event. On the macOS CI runner WebKit never sent it here
+    // (240 s), while the page had already shown the error below (trace of run 42773461046). The upload is started,
+    // not awaited: every assertion is about what the page shows. A real failure to deliver the files fails them.
+    const yukleme = (await chooser).setFiles(bos).catch(() => {});
     await expect(ana(page).getByRole('alert')).toContainText('Hata: Seçilen klasörde nesil yok');
     await expect(durum(page)).toContainText(`Nesil ${GENERATION_ID.slice(0, 6)}`);
+    void yukleme;
   });
 
   test('ne seçici ne de webkitdirectory varsa düğme devre dışı ve nedeni yanında yazar', async ({ page }) => {

@@ -1129,6 +1129,11 @@ test.describe('Sayfalar çekmecesi', () => {
   test('320×568 reduced-motion: çekmece aynı karede açılır ve kapanır, hareket yok', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await open(page, '/alimlar', PHONE);
+    // The drawer body is a lazy chunk. Load it once, so the timed open below measures motion, not the download.
+    await pagesButton(page).click();
+    await expect(navDialog(page)).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(navDialog(page)).toBeHidden();
     await installMotionProbe(page, 'body');
     await pagesButton(page).click();
     await expect(navDialog(page)).toBeVisible({ timeout: 100 });
