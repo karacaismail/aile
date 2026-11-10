@@ -37,7 +37,7 @@ export function buildCandidate({source:before,config,prior,computed,hash,now}) {
  for(const event of result.planningFx.savingEvents){const map=isolation.mapping.find(m=>m.oldAddress===event.liveReference);if(map)event.liveReference=map.newAddress;}
 const additionalDependencies=[];const add=(title,row,col)=>{const sh=source.sheets.find(s=>s.properties.title===title),c=sourceGrid(title)[row]?.[col]??{};additionalDependencies.push({kind:'cell',title,sheetId:sh.properties.sheetId,row,column:col,address:`'${title}'!${column(col)}${row+1}`,entered:c.userEnteredValue??{},effective:c.effectiveValue??{},tolerance:1e-6});};
 for(const m of controls.mapping)add('_Finans ham',m.targetRow,m.targetColumn);
-for(const row of[2,5,6,7,8,12,13,14,15,16,17,21,22,23,24,25,26,27,28,32,33,37,38,39,43,44,45,46,47,57,58,59,60,61])for(let c=2;c<16;c++)add('Gerçekleşen',row-1,c);
+for(const row of[2,5,6,7,8,12,13,14,15,16,17,18,21,22,23,24,25,26,27,28,32,33,37,38,39,43,44,45,46,47,57,58,59,60,61])for(let c=2;c<16;c++)add('Gerçekleşen',row-1,c);
 for(const m of isolation.mapping)if(m.target.row!==6)add('_Finans ham',m.target.row,m.target.column);
 const arizi=sourceGrid('Arızi Giderler');for(let r=4;r<arizi.length;r++)if(value(arizi[r]?.[15]))for(const c of[3,4,5,6,7])add('Arızi Giderler',r,c);
 const formulaOnlyAddresses=[];const priorityIds=priority.slice(110,206).map(r=>value(r?.[0]));if(priorityIds.some(x=>typeof x!=='string'||!x)||new Set(priorityIds).size!==priorityIds.length)throw new Error('Priority identities must be unique and nonempty');for(let r=110;r<206;r++)add('Öncelik planı',r,0);

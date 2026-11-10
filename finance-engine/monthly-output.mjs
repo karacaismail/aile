@@ -12,7 +12,7 @@ export function monthlyOutput(projection){
   if(r.type==='reserve-transfer')add('reserveTransfer',r.amount);
   if(r.type==='cash'){
    if(r.amount>0){if(/^month-\d+-new-loan$/.test(r.id))add('creditInflow',r.amount);else if(/^month-\d+-withdraw$/.test(r.id))add('withdrawal',r.amount);else if(r.sourceType==='Gelir')add('income',r.amount);else throw new Error('Unclassified positive cash event '+r.id);}
-   else if(r.amount<0){if(/-saving$/.test(r.id))add('savings',-r.amount);else if(/-regular-(12|13)$/.test(r.id))add('loanPayments',-r.amount);else add('otherCashOut',-r.amount);}
+   else if(r.amount<0){if(/-saving$/.test(r.id))add('savings',-r.amount);else if(/-regular-(12|13|18)$/.test(r.id))add('loanPayments',-r.amount);else add('otherCashOut',-r.amount);}
   }
   if(r.type==='purchase')m.banks[r.bank].purchases=round(m.banks[r.bank].purchases+number(r.amount));
   if(r.type==='card-payment'){add('cardPayments',r.amount);const b=m.banks[r.bank];b.payments=round(b.payments+number(r.amount));b.minimumRequired=round(b.minimumRequired+number(r.required));}

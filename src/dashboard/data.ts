@@ -21,7 +21,9 @@ export type Pair = { plan: number; current: number };
 export type Month = { label: string; key: string; source: string; income: Pair; expense: Pair; saving: Pair; free: Pair; balance: Pair; selfFundedCashFlow?: Pair };
 export type Category = { id: string; label: string; group: string; kind: 'income' | 'expense' | 'saving'; plan: (number | null)[]; current: (number | null)[] };
 export type Irregular = { id: string; label: string; type: string; planMonth: string; month: string; plan: number | null; current: number | null; status: string; room: string; note: string; manual: boolean };
-export type Budget = { months: Month[]; categories: Category[]; groups: Category[]; irregular: Irregular[]; schema?: 'cashflow'; bridge?: { fingerprint: string; status: string; scope: string } };
+/** Vehicle loan inputs owned by the Sheet `Parametreler` tab; the site never codes these amounts. */
+export type VehicleLoan = { downPayment: number; loanAmount: number; months: number; annualRate: number; taxRate: number; firstInstalment: string | null; instalment: number; cashDownPayment: number; autoMonthlyRate: number | null };
+export type Budget = { months: Month[]; categories: Category[]; groups: Category[]; irregular: Irregular[]; schema?: 'cashflow'; bridge?: { fingerprint: string; status: string; scope: string }; vehicleLoan?: VehicleLoan | null };
 export type RawBudget = { summary: Grid; plan: Grid; actual: Grid; irregular: Grid; planMonths?: string[]; actualMonths?: string[] };
 const trMonths = ['ocak', 'şubat', 'mart', 'nisan', 'mayıs', 'haziran', 'temmuz', 'ağustos', 'eylül', 'ekim', 'kasım', 'aralık'];
 const str = (v: Cell | undefined) => v == null ? '' : String(v).trim();
@@ -99,6 +101,24 @@ export function buildBudget(raw: RawBudget): Budget {
   });
   return { months, categories, groups: totals, irregular };
 }
+export const PARAMETERS_FEED = { sheet: 'Parametreler', range: 'B4:C40' } as const;
+const VEHICLE_LABELS = {
+  downPayment: 'Araç peşinatı toplamı ₺', loanAmount: 'Araç kredisi tutarı ₺', months: 'Kredi vadesi (ay)', annualRate: 'Kredinin yıllık faizi',
+  taxRate: 'Faiz vergisi (KKDF + BSMV)', instalment: 'Aylık taksit ₺', cashDownPayment: 'Birikimden peşinat ₺',
+} as const;
+const gvizDate = (v: Cell | undefined) => {
+  // GViz sends a date cell as a Sheets serial (days since 1899-12-30) or as Date(y,m,d).
+  if (typeof v === 'number' && Number.isFinite(v)) return new Date(Date.UTC(1899, 11, 30) + Math.round(v) * 86400000).toISOString().slice(0, 10);
+  const m = typeof v === 'string' ? v.match(/^Date\((\d{4}),(\d{1,2}),(\d{1,2})/) : null;
+  return m ? `${m[1]}-${String(Number(m[2]) + 1).padStart(2, '0')}-${m[3].padStart(2, '0')}` : null;
+};
+/** Reads the vehicle loan by its Parametreler labels. A missing required cell yields null, never a coded fallback. */
+export function readVehicleLoan(rows: Grid): VehicleLoan | null {
+  const cells = new Map(rows.map(row => [str(row[0]), row[1]]));
+  const values = Object.fromEntries(Object.entries(VEHICLE_LABELS).map(([key, label]) => [key, num(cells.get(label))])) as Record<keyof typeof VEHICLE_LABELS, number | null>;
+  if (Object.values(values).some(v => v === null)) return null;
+  return { ...(values as Record<keyof typeof VEHICLE_LABELS, number>), firstInstalment: gvizDate(cells.get('İlk taksit tarihi')), autoMonthlyRate: num(cells.get('Taşıt kredisi aylık faizi')) };
+}
 const moneyFormatter = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 export const money = (value: number | null) => value === null ? 'Tutar yok' : `${moneyFormatter.format(value)} ₺`;
 export const percentChange = (value: number, before: number) => before === 0 ? null : (value - before) / Math.abs(before) * 100;
@@ -133,6 +153,7 @@ export async function fetchBudget(signal: AbortSignal): Promise<Budget> {
     read('Plan', 'B2:P79', '0'), read('Pano', 'B49:M63', '1'),
     read('Gerçekleşen', 'B2:P79', '0'), read('Kasa', 'B7:P36', '0'),
     read('Arızi Giderler', 'B4:P344', '1'), read(budgetBridge.sheet, budgetBridge.inflows, '1'),
+    read(PARAMETERS_FEED.sheet, PARAMETERS_FEED.range, '1'),
   ]);
   const value = (index: number) => { const result = results[index]; if (result.status === 'rejected') throw result.reason; return result.value; };
   const rejectIntegrity = (indices: number[]) => {
@@ -150,7 +171,9 @@ export async function fetchBudget(signal: AbortSignal): Promise<Budget> {
   const summary = value(1), inflows = value(5);
   if (current) {
     const actual = value(2), cash = value(3), irregular = value(4);
-    return verify(buildCurrentBudget({ summary: summary.rows, plan: plan.rows, actual: actual.rows, cash: cash.rows, irregular: [irregular.labels, ...irregular.rows] }));
+    // Parametreler only seeds the vehicle page; its absence must not hide the budget.
+    const parameters = results[6], vehicleLoan = parameters.status === 'fulfilled' ? readVehicleLoan(parameters.value.rows) : null;
+    return verify({ ...buildCurrentBudget({ summary: summary.rows, plan: plan.rows, actual: actual.rows, cash: cash.rows, irregular: [irregular.labels, ...irregular.rows] }), vehicleLoan });
   }
   const legacyResults = await Promise.allSettled(Object.entries(FEEDS).map(async ([key, feed]) => {
     // The current schema is primary. Legacy sources reuse Pano and read only

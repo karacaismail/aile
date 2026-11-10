@@ -206,8 +206,8 @@ describe('liveBudget › hata sınıfları', () => {
     });
     const result = await liveBudget({ ...FAST });
     expect(result).toMatchObject({ ok: false, kind: 'empty', title: 'Veri yok', message: 'Hata: Veri yok. Bütçe ayları eksik.', retryable: false, attempts: 1 });
-    // Tek deneme: kaynak metadata + 6 paralel okuma (yeniden deneme olsaydı iki katı olurdu).
-    expect(fetcher.mock.calls.length).toBeLessThanOrEqual(7);
+    // Tek deneme: kaynak metadata + 7 paralel okuma (Parametreler dahil). Yeniden deneme olsaydı iki katı olurdu.
+    expect(fetcher.mock.calls.length).toBeLessThanOrEqual(8);
   });
 
   it('veri yok: ay içermeyen Budget de "Veri yok"tur; boş görünüm başarı sayılmaz', async () => {

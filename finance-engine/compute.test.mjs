@@ -275,3 +275,14 @@ test('stops instead of guessing when the move date in Parametreler is not a date
   input.source.sheets.push({properties: {title: 'Parametreler'}, data: [{rowData: [{}, {}, {}, {}, {values: [{}, {}, cell('yaz')]}]}]});
   assert.throws(() => computeFinance(input), /Parametreler taşınma tarihi/);
 });
+
+test('vehicle loan row 18 needs dated source events and counts as a loan payment',async()=>{
+  const {monthlyOutput}=await import('./monthly-output.mjs');
+  const input=fixture(),sheet=title=>input.source.sheets.find(s=>s.properties.title===title).data[0].rowData;
+  sheet('Plan')[17].values[2]=cell(500);sheet('Gerçekleşen')[17].values[2]=cell(500);
+  assert.throws(()=>computeFinance(input),/Plan 18 month 0 amount missing from source events/);
+  sheet('_Timeline kaynak').push({values:['month-0-regular-18','2030-01-15',30008,'Gider','Kredi araç','Plan!C18',-500,0,0,'Tarih varsayımı','',true].map(cell)});
+  const result=computeFinance(input),jan=monthlyOutput(result.ledger).find(m=>m.month==='2030-01');
+  assert.equal(jan.loanPayments,500);
+  assert.equal(result.ledger.monthEnds[0].cash,500);
+});

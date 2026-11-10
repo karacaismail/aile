@@ -8,8 +8,9 @@ import { monthlyOutput } from './monthly-output.mjs';
 import { cardPaymentTargets } from './card-payment-targets.mjs';
 import { moveDateOverrides } from './move-date.mjs';
 
-const REGULAR_ROWS = [5,6,7,8,12,13,16,17,21,22,23,24,25,26,27,28,32,33,37,38,39,43,44,45,46,47];
-const ACTUAL_ROWS = [5,6,7,8,12,13,14,15,16,17,21,22,23,24,25,26,27,28,32,33,37,38,39,43,44,45,46,47];
+// Row 18 is the vehicle loan installment; its amount comes from Parametreler.
+const REGULAR_ROWS = [5,6,7,8,12,13,16,17,18,21,22,23,24,25,26,27,28,32,33,37,38,39,43,44,45,46,47];
+const ACTUAL_ROWS = [5,6,7,8,12,13,14,15,16,17,18,21,22,23,24,25,26,27,28,32,33,37,38,39,43,44,45,46,47];
 const MONTHS = 14;
 const validDate = date => typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date) && !Number.isNaN(Date.parse(date + 'T00:00:00Z')) && new Date(date + 'T00:00:00Z').toISOString().slice(0,10) === date;
 

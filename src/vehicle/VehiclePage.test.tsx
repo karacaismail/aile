@@ -73,3 +73,14 @@ it('does not state unknown lender income rules as fact', () => {
   expect(screen.getByText('Eşin geliri finansör kabul ederse sayılır.')).toBeInTheDocument();
   expect(screen.queryByText(/Eşin geliri eklenmez/)).not.toBeInTheDocument();
 });
+
+it('starts the credit scenario from the Sheet Parametreler values, not from coded defaults', () => {
+  const budget = { ...buildCurrentBudget(syntheticCurrentSheets()), vehicleLoan: { downPayment: 350000, loanAmount: 120000, months: 24, annualRate: 0.615, taxRate: 0.3, firstInstalment: '2027-02-15', instalment: 7531.81, cashDownPayment: 230000, autoMonthlyRate: 0.029 } };
+  render(<MantineProvider><VehiclePage budget={budget} /></MantineProvider>);
+  expect(screen.getByLabelText('İhtiyaç vadesi (ay)')).toHaveValue('24');
+  expect(screen.getByLabelText('İhtiyaç faizi (aylık %)')).toHaveValue('4.075');
+  expect(screen.getByLabelText('Taşıt faizi (aylık %)')).toHaveValue('2.9');
+  expect((screen.getByLabelText('Peşinat') as HTMLInputElement).value.replace(/\D/g, '')).toBe('230000');
+  expect(screen.getByText('Bütçedeki araç kredisi: 120.000 ₺, 24 ay, aylık 7.531,81 ₺.')).toBeInTheDocument();
+  expect(screen.getByText('İlk taksit 15 Şubat 2027. Değerler Parametreler sayfasından gelir.')).toBeInTheDocument();
+});

@@ -57,7 +57,7 @@ function typedCheck(ref,expected,tolerance){
 function identity(snapshot,title,startRow,col){return grid(snapshot,title).slice(startRow).map(r=>value(r?.[col])).filter(v=>v!==undefined&&v!=='').map(v=>{error(typeof v==='string'&&!v.includes('|'),'Invalid identity key');return v;});}
 function dependents(source,planningFx,inputEventRows){
  const dependencies=[];const ranges=[... (inputEventRows?inputEventRows.flatMap(r=>[['_Timeline kaynak',r,r+1,0,9],['_Timeline kaynak',r,r+1,9,12]]):[['Timeline',6,grid(source,'Timeline').length,0,9],['Timeline',6,grid(source,'Timeline').length,13,15]]),['Kasa',425,427,1,8],['_Taşınma akışı',100,196,0,8]];
- for(const row of[2,5,6,7,8,12,13,14,15,16,17,21,22,23,24,25,26,27,28,32,33,37,38,39,43,44,45,46,47])ranges.push(['Plan',row-1,row,2,16]);
+ for(const row of[2,5,6,7,8,12,13,14,15,16,17,18,21,22,23,24,25,26,27,28,32,33,37,38,39,43,44,45,46,47])ranges.push(['Plan',row-1,row,2,16]);
  const usedKeys=new Set(grid(source,'_Taşınma akışı').slice(100,196).map(r=>value(r?.[0])).filter(Boolean));
  grid(source,'Arızi Giderler').forEach((row,index)=>{const key=value(row?.[15]);if(index<4||!key)return;for(const col of usedKeys.has(key)?[0,2,15]:[2])ranges.push(['Arızi Giderler',index,index+1,col,col+1]);});
  for(const [title,r0,r1,c0,c1]of ranges){const rows=grid(source,title);const sheetId=source.sheets.find(s=>s.properties.title===title).properties.sheetId;for(let row=r0;row<r1;row++)for(let col=c0;col<c1;col++){const st=state(rows[row]?.[col]);error(!st.effective.errorValue,'Source formula error');dependencies.push({kind:'cell',title,sheetId,row,column:col,address:addr(title,row,col),...st,tolerance:st.effective.numberValue===undefined?0:.000001});}}

@@ -43,7 +43,7 @@ it('requires unchanged native generation and both guards around all budget reads
   expect(sheets.at(-1)).toBe('_Web verisi');
 });
 
-it('waits for the first guard, then starts all six data reads in one parallel phase', async () => {
+it('waits for the first guard, then starts all seven data reads in one parallel phase', async () => {
   const immediate = mockSource();
   let releaseMetadata!: () => void; let releasePlan!: () => void;
   const metadataReady = new Promise<void>(resolve => { releaseMetadata = resolve; });
@@ -60,11 +60,12 @@ it('waits for the first guard, then starts all six data reads in one parallel ph
   const result = fetchBudget(new AbortController().signal);
   await vi.waitFor(() => expect(seen).toEqual(['_Web verisi!AN1:AN7']));
   releaseMetadata();
-  await vi.waitFor(() => expect(seen).toHaveLength(7));
-  expect(seen.slice(1).map(key => key.split('!')[0]).sort()).toEqual(['Arızi Giderler', 'Gerçekleşen', 'Kasa', 'Pano', 'Plan', '_Web verisi'].sort());
+  await vi.waitFor(() => expect(seen).toHaveLength(8));
+  expect(seen.slice(1).map(key => key.split('!')[0]).sort()).toEqual(['Arızi Giderler', 'Gerçekleşen', 'Kasa', 'Pano', 'Parametreler', 'Plan', '_Web verisi'].sort());
+  expect(seen).toContain('Parametreler!B4:C40');
   releasePlan();
   await result;
-  expect(seen).toHaveLength(8);
+  expect(seen).toHaveLength(9);
   expect(seen.at(-1)).toBe('_Web verisi!AN1:AN7');
 });
 

@@ -1,10 +1,10 @@
-import { lazy, useMemo, useRef, useState } from 'react';
+import { lazy, useEffect, useMemo, useRef, useState } from 'react';
 import { Checkbox, NumberInput, TextInput, Tabs } from '@mantine/core';
 import { useReducedMotion } from '@mantine/hooks';
 import { Select } from '../dashboard/Select';
 import catalog from './catalog.json';
 import { simulate, minimumCash, RULE_DATE, sources, MAX_MONEY, moneyAmount, type FinanceInput } from './finance';
-import { money, type Budget } from '../dashboard/data';
+import { money, type Budget, type VehicleLoan } from '../dashboard/data';
 import { DataTable, type Column } from '../dashboard/DataTable';
 import { tokens, dropdownTransition } from '../dashboard/tokens';
 import './vehicle.css';
@@ -23,6 +23,10 @@ const STORAGE = 'aile:finance-input:v1';
 const dateLabel = (month: string, offset: number) => { const [y,m]=month.split('-').map(Number); return new Date(Date.UTC(y,m-1+offset,1)).toLocaleDateString('tr-TR',{month:'long',year:'numeric',timeZone:'UTC'}); };
 const initial: FinanceInput = {price:0,value:0,year:2017,startYear:new Date().getFullYear(),autoProvider:'koc',personalProvider:'enpara',autoRate:3.5,personalRate:4,autoMonths:36,personalMonths:36,cash:0,contingencyCash:0,applicantIncome:0,spouseIncome:0,householdIncome:0,existingPersonalPrincipal:null,existingDebt:null,livingCost:null,reserve:0,runningCost:0,otherUpfront:0,debtRatio:40,personalLimit:800000,vehicleVerified:false,sellerApproved:false,creditHistory:'unknown'};
 function loadProfile(): Partial<FinanceInput> { try { const saved=JSON.parse(localStorage.getItem(STORAGE)??'{}'); const fields=['cash','contingencyCash','applicantIncome','spouseIncome','householdIncome','existingPersonalPrincipal','existingDebt','livingCost','reserve','runningCost','otherUpfront']; return Object.fromEntries(fields.filter(k=>saved[k]===null&&['existingPersonalPrincipal','existingDebt','livingCost'].includes(k)||moneyAmount.safeParse(saved[k]).success).map(k=>[k,saved[k]])); } catch { return {}; } }
+const rate3 = (value: number) => Math.round(value * 100000) / 1000;
+/** Sheet Parametreler values for the scenario; coded `initial` only fills fields the Sheet does not own. */
+const fromSheet = (loan: VehicleLoan): Partial<FinanceInput> => ({ cash: loan.cashDownPayment, personalRate: rate3((1 + loan.annualRate) ** (1 / 12) - 1), personalMonths: Math.min(36, Math.max(1, Math.round(loan.months))), ...(loan.autoMonthlyRate === null ? {} : { autoRate: rate3(loan.autoMonthlyRate) }) });
+const longDate = (iso: string | null) => iso ? new Date(`${iso}T00:00:00Z`).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }) : 'tarih yok';
 function assessment(car: Vehicle) {
   if(car.id==='toyota-corolla')return 'İlk aday. Bakımlı araç, doğru motor ve nakit peşinat öncelikli.';
   if(car.id==='citroen-c5')return 'Ucuz ama yaşlı. Ekspertiz ve bakım payı ayırın.';
@@ -40,7 +44,10 @@ export default function VehiclePage({ budget }: { budget: Budget | null }) {
   const [generationChoice,setGenerationChoice]=useState<{model:string;year:number;id:string}|null>(null);
   const generationOptions=generationsFor(car.id,variant.year);
   const generation=resolveGeneration(car.id,variant.year,generationChoice?.model===car.id&&generationChoice.year===variant.year?generationChoice.id:undefined);
-  const [input,setInput]=useState<FinanceInput>(()=>({...initial,...loadProfile(),price:variant.price,value:variant.price,year:variant.year}));
+  const sheetLoan=budget?.vehicleLoan??null;
+  const [input,setInput]=useState<FinanceInput>(()=>({...initial,...loadProfile(),...(sheetLoan?fromSheet(sheetLoan):{}),price:variant.price,value:variant.price,year:variant.year}));
+  const sheetApplied=useRef(sheetLoan!==null);
+  useEffect(()=>{if(sheetLoan&&!sheetApplied.current){sheetApplied.current=true;setInput(prev=>({...prev,...fromSheet(sheetLoan)}));}},[sheetLoan]);
   const [startMonth,setStartMonth]=useState(new Date().toISOString().slice(0,7));
   const [settingsOpen,setSettingsOpen]=useState(false);
   const [editor,setEditor]=useState<string|null>('vehicle');
@@ -136,7 +143,7 @@ export default function VehiclePage({ budget }: { budget: Budget | null }) {
 
         </Tabs.Panel>
         <Tabs.Panel value="credit"><p className="panel-help">Faizler örnek. Aldığınız teklifi girin.</p>
-      <h3 className="field-heading">Taşıt kredisi</h3><div className="form-grid"><Select label="Taşıt finansörü" value={input.autoProvider} onChange={v=>v&&update('autoProvider',v as FinanceInput['autoProvider'])} data={[{value:'koc',label:'Koçfinans'},{value:'garanti',label:'Garanti BBVA'}]} {...selectProps}/>{number('autoRate','Taşıt faizi (aylık %)','Vergiler hariç',{max:20,decimal:3})}{number('autoMonths','Taşıt vadesi (ay)','Sınırı aşarsa kısalır',{max:48})}</div><h3 className="field-heading">İhtiyaç kredisi</h3><div className="form-grid"><Select label="İhtiyaç kredisi bankası" value={input.personalProvider} onChange={v=>v&&update('personalProvider',v as FinanceInput['personalProvider'])} data={[{value:'enpara',label:'Enpara'},{value:'garanti-digital',label:'Garanti BBVA dijital'},{value:'other',label:'Diğer banka'}]} {...selectProps}/>{number('personalRate','İhtiyaç faizi (aylık %)','Vergiler hariç',{max:20,decimal:3})}{number('personalMonths','İhtiyaç vadesi (ay)','Sınırı aşarsa kısalır',{max:36})}{number('personalLimit','İhtiyaç kredisi limiti','Enpara 800.000 ₺ · Garanti 450.000 ₺')}
+      <h3 className="field-heading">Taşıt kredisi</h3><div className="form-grid"><Select label="Taşıt finansörü" value={input.autoProvider} onChange={v=>v&&update('autoProvider',v as FinanceInput['autoProvider'])} data={[{value:'koc',label:'Koçfinans'},{value:'garanti',label:'Garanti BBVA'}]} {...selectProps}/>{number('autoRate','Taşıt faizi (aylık %)','Vergiler hariç',{max:20,decimal:3})}{number('autoMonths','Taşıt vadesi (ay)','Sınırı aşarsa kısalır',{max:48})}</div><h3 className="field-heading">İhtiyaç kredisi</h3><div className="form-grid"><Select label="İhtiyaç kredisi bankası" value={input.personalProvider} onChange={v=>v&&update('personalProvider',v as FinanceInput['personalProvider'])} data={[{value:'enpara',label:'Enpara'},{value:'garanti-digital',label:'Garanti BBVA dijital'},{value:'other',label:'Diğer banka'}]} {...selectProps}/>{number('personalRate','İhtiyaç faizi (aylık %)','Vergiler hariç',{max:20,decimal:3})}{number('personalMonths','İhtiyaç vadesi (ay)','Sınırı aşarsa kısalır',{max:36})}{number('personalLimit','İhtiyaç kredisi limiti','Enpara 800.000 ₺ · Garanti 450.000 ₺')}</div><div className="field-note" data-testid="sheet-loan">{sheetLoan?<><p>{`Bütçedeki araç kredisi: ${money(sheetLoan.loanAmount)}, ${sheetLoan.months} ay, aylık ${money(sheetLoan.instalment)}.`}</p><p>{`İlk taksit ${longDate(sheetLoan.firstInstalment)}. Değerler Parametreler sayfasından gelir.`}</p></>:<p>Parametreler sayfası okunamadı. Faiz ve vade varsayılan değerde.</p>}</div><div className="form-grid">
       <Select label="Kredi geçmişi" value={input.creditHistory} onChange={v=>v&&update('creditHistory',v as FinanceInput['creditHistory'])} data={[{value:'unknown',label:'Değerlendirilmedi'},{value:'clean',label:'Gecikme yok'},{value:'late',label:'Gecikme var'}]} {...selectProps}/></div>
       <div className="confirmation-list"><Checkbox label="Araç bilgilerini teyit ettim" checked={input.vehicleVerified} onChange={e=>update('vehicleVerified',e.currentTarget.checked)}/><Checkbox label="Satıcı ve ekspertizi teyit ettim" checked={input.sellerApproved} onChange={e=>update('sellerApproved',e.currentTarget.checked)}/></div>
 <h3 className="field-heading" id="alternative-rates" tabIndex={-1}>Diğer teklifler</h3><div className="form-grid"><NumberInput label="Diğer taşıt faizi (aylık %)" value={otherAutoRate} error={!validOtherRate(otherAutoRate)?"Faiz 0–20 arasında olmalı.":undefined} min={0} max={20} decimalScale={3} hideControls onChange={v=>setOtherAutoRate(Number(v)||0)}/><NumberInput label="Diğer ihtiyaç faizi (aylık %)" value={otherPersonalRate} error={!validOtherRate(otherPersonalRate)?"Faiz 0–20 arasında olmalı.":undefined} min={0} max={20} decimalScale={3} hideControls onChange={v=>setOtherPersonalRate(Number(v)||0)}/></div>

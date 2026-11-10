@@ -796,7 +796,7 @@ var __finance = (() => {
           else throw new Error("Unclassified positive cash event " + r.id);
         } else if (r.amount < 0) {
           if (/-saving$/.test(r.id)) add2("savings", -r.amount);
-          else if (/-regular-(12|13)$/.test(r.id)) add2("loanPayments", -r.amount);
+          else if (/-regular-(12|13|18)$/.test(r.id)) add2("loanPayments", -r.amount);
           else add2("otherCashOut", -r.amount);
         }
       }
@@ -876,8 +876,8 @@ var __finance = (() => {
   }
 
   // finance-engine/compute.mjs
-  var REGULAR_ROWS = [5, 6, 7, 8, 12, 13, 16, 17, 21, 22, 23, 24, 25, 26, 27, 28, 32, 33, 37, 38, 39, 43, 44, 45, 46, 47];
-  var ACTUAL_ROWS = [5, 6, 7, 8, 12, 13, 14, 15, 16, 17, 21, 22, 23, 24, 25, 26, 27, 28, 32, 33, 37, 38, 39, 43, 44, 45, 46, 47];
+  var REGULAR_ROWS = [5, 6, 7, 8, 12, 13, 16, 17, 18, 21, 22, 23, 24, 25, 26, 27, 28, 32, 33, 37, 38, 39, 43, 44, 45, 46, 47];
+  var ACTUAL_ROWS = [5, 6, 7, 8, 12, 13, 14, 15, 16, 17, 18, 21, 22, 23, 24, 25, 26, 27, 28, 32, 33, 37, 38, 39, 43, 44, 45, 46, 47];
   var MONTHS = 14;
   var validDate = (date2) => typeof date2 === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date2) && !Number.isNaN(Date.parse(date2 + "T00:00:00Z")) && (/* @__PURE__ */ new Date(date2 + "T00:00:00Z")).toISOString().slice(0, 10) === date2;
   function computeFinance({ source, config, hash: hash2, now, sourceHash: suppliedSourceHash }) {
@@ -1156,7 +1156,7 @@ var __finance = (() => {
   function dependents(source, planningFx, inputEventRows) {
     const dependencies = [];
     const ranges = [...inputEventRows ? inputEventRows.flatMap((r) => [["_Timeline kaynak", r, r + 1, 0, 9], ["_Timeline kaynak", r, r + 1, 9, 12]]) : [["Timeline", 6, grid2(source, "Timeline").length, 0, 9], ["Timeline", 6, grid2(source, "Timeline").length, 13, 15]], ["Kasa", 425, 427, 1, 8], ["_Ta\u015F\u0131nma ak\u0131\u015F\u0131", 100, 196, 0, 8]];
-    for (const row of [2, 5, 6, 7, 8, 12, 13, 14, 15, 16, 17, 21, 22, 23, 24, 25, 26, 27, 28, 32, 33, 37, 38, 39, 43, 44, 45, 46, 47]) ranges.push(["Plan", row - 1, row, 2, 16]);
+    for (const row of [2, 5, 6, 7, 8, 12, 13, 14, 15, 16, 17, 18, 21, 22, 23, 24, 25, 26, 27, 28, 32, 33, 37, 38, 39, 43, 44, 45, 46, 47]) ranges.push(["Plan", row - 1, row, 2, 16]);
     const usedKeys = new Set(grid2(source, "_Ta\u015F\u0131nma ak\u0131\u015F\u0131").slice(100, 196).map((r) => value(r?.[0])).filter(Boolean));
     grid2(source, "Ar\u0131zi Giderler").forEach((row, index) => {
       const key2 = value(row?.[15]);
@@ -1857,7 +1857,7 @@ var __finance = (() => {
       additionalDependencies.push({ kind: "cell", title, sheetId: sh.properties.sheetId, row, column: col, address: `'${title}'!${column(col)}${row + 1}`, entered: c.userEnteredValue ?? {}, effective: c.effectiveValue ?? {}, tolerance: 1e-6 });
     };
     for (const m of controls.mapping) add2("_Finans ham", m.targetRow, m.targetColumn);
-    for (const row of [2, 5, 6, 7, 8, 12, 13, 14, 15, 16, 17, 21, 22, 23, 24, 25, 26, 27, 28, 32, 33, 37, 38, 39, 43, 44, 45, 46, 47, 57, 58, 59, 60, 61]) for (let c = 2; c < 16; c++) add2("Ger\xE7ekle\u015Fen", row - 1, c);
+    for (const row of [2, 5, 6, 7, 8, 12, 13, 14, 15, 16, 17, 18, 21, 22, 23, 24, 25, 26, 27, 28, 32, 33, 37, 38, 39, 43, 44, 45, 46, 47, 57, 58, 59, 60, 61]) for (let c = 2; c < 16; c++) add2("Ger\xE7ekle\u015Fen", row - 1, c);
     for (const m of isolation.mapping) if (m.target.row !== 6) add2("_Finans ham", m.target.row, m.target.column);
     const arizi = sourceGrid("Ar\u0131zi Giderler");
     for (let r = 4; r < arizi.length; r++) if (value(arizi[r]?.[15])) for (const c of [3, 4, 5, 6, 7]) add2("Ar\u0131zi Giderler", r, c);
@@ -2467,7 +2467,7 @@ var __finance = (() => {
   }
 
   // gas/finance/main.mjs
-  var ENGINE_REV = true ? "ce3dba0b44feddaddcfb387a26f6f19c6765c4579425bf2480860812afba388e" : "development";
+  var ENGINE_REV = true ? "41c00a543fb8b6800204cc0a02eb4604e56accfd13c28661947a67f80cc80df2" : "development";
   var properties = () => PropertiesService.getScriptProperties();
   var stateStore = () => new DurableStateStore({ properties: properties(), utilities: Utilities });
   var sheetRepository = () => new FinanceSheetRepository({

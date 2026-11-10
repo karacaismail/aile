@@ -19,6 +19,8 @@
 .vehicle-choice > .form-grid:first-child { margin-top: 0; }
 .vehicle-page .mantine-InputWrapper-label { font-weight: var(--budget-labelWeight); margin-bottom: var(--budget-clearText); }
 .vehicle-page .field-heading { font-size: var(--budget-fontSection); margin: var(--budget-clearSection) 0 0; }
+.vehicle-page .field-note { color: var(--budget-muted); font-size: var(--budget-fontSmall); margin: var(--budget-clearField) 0; }
+.vehicle-page .field-note p { margin: 0; }
 .panel-help, .filter-count { color: var(--budget-muted); font-size: var(--budget-fontCaption); }
 .vehicle-page .mantine-InputWrapper-description { font-size: var(--budget-fontCaption); color: var(--budget-muted); }
 .vehicle-page .mantine-InputWrapper-description { margin-top: var(--budget-clearText); }
