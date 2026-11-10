@@ -1,6 +1,6 @@
 import { test, expect, type Locator, type Page } from '@playwright/test';
 import { syntheticBridgeResponse } from '../src/dashboard/bridgeFixtures';
-import { syntheticCurrentSheets } from '../src/dashboard/currentFixtures';
+import { syntheticCurrentSheets, syntheticParameters } from '../src/dashboard/currentFixtures';
 import { gviz } from '../src/dashboard/fixtures';
 import { ADMIN_MAIN, openAdmin } from './admin-helpers';
 import { overflow, selfCheckDetectors } from './admin-detectors';
@@ -155,6 +155,7 @@ const PIXEL_PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC
 function syntheticGviz(url: URL): string | undefined {
   const bridge = syntheticBridgeResponse(url.href);
   if (bridge) return bridge;
+  if (feedName(url) === 'Parametreler') { const p = syntheticParameters(); return gviz(p.rows, p.labels); }
   const key = GVIZ_SHEETS[feedName(url) as keyof typeof GVIZ_SHEETS];
   if (!key) return undefined;
   const raw = syntheticCurrentSheets();

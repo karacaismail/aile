@@ -281,7 +281,9 @@ test.describe('Taraflar ve teklifler', () => {
 
   // Görev koşusunda telefon genişliklerinin kanıtı (matrix projeleri entegrasyonda ayrıca koşar): 320×568 → 320×480 →
   // 360 → 375 → 390 → yatay 568×320. Hepsi telefon profilidir; geniş-özel modül hiçbirinde indirilmez.
-  test('telefon genişlikleri 320×568, 320×480, 360, 375, 390 ve yatay 568×320: telefon sunumu, akordeon, bağlantı hedefi, taşma yok', async ({ page }) => {
+  test('telefon genişlikleri 320×568, 320×480, 360, 375, 390 ve yatay 568×320: telefon sunumu, akordeon, bağlantı hedefi, taşma yok', async ({ page, browserName }) => {
+    // Altı görünüm sırayla açılır. macOS CI'daki WebKit bu yolculukta 30 sn sınırını aşabiliyor, doğrulamalar aynı kalır.
+    test.slow(browserName === 'webkit');
     const genis = genisIstekleri(page);
     await nesil(page, { ...TEKLIFLI, ...USTALI });
     for (const boyut of [{ width: 320, height: 568 }, { width: 320, height: 480 }, { width: 360, height: 640 }, { width: 375, height: 667 }, { width: 390, height: 844 }, { width: 568, height: 320 }]) {

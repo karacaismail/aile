@@ -27,3 +27,10 @@ export function syntheticCurrentSheets(): CurrentBudgetRaw {
     ],
   };
 }
+
+/** Synthetic Sheet `Parametreler` rows (headers=1): label and value, as GViz returns them. Not the real workbook. */
+export const syntheticParameters = (): { labels: string[]; rows: Cell[][] } => ({
+  labels: ['Parametre', 'Değer'],
+  rows: [['Araç peşinatı toplamı ₺', 300], ['Araç kredisi tutarı ₺', 100], ['Kredi vadesi (ay)', 12], ['Kredinin yıllık faizi', 0.5],
+    ['Faiz vergisi (KKDF + BSMV)', 0.3], ['İlk taksit tarihi', 72000], ['Aylık taksit ₺', 10], ['Birikimden peşinat ₺', 200], ['Taşıt kredisi aylık faizi', 0.03]],
+});
