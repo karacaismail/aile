@@ -121,6 +121,11 @@ test('open vehicle menu stays readable with a persisted dark preference',async({
   await page.getByRole('combobox',{name:'Model',exact:true}).click();
   const option=page.getByRole('option',{name:'Toyota Hilux',exact:true});
   await expect(option).toBeVisible();
+  // The click that opened the menu can leave the pointer on an option, whose hover tint fades in about 290 ms later.
+  // Measure the menu's own surface: move the pointer off the menu and let running transitions finish, then read once.
+  await page.mouse.move(0,0);
+  await expect.poll(()=>option.evaluate(e=>e.matches(':hover'))).toBe(false);
+  await option.evaluate(async e=>{const chain:Element[]=[];for(let n:Element|null=e;n;n=n.parentElement)chain.push(n);await Promise.all(chain.flatMap(n=>n.getAnimations()).map(a=>a.finished));});
   const colors=await option.evaluate(e=>{let n:Element|null=e;let bg='';while(n){bg=getComputedStyle(n).backgroundColor;if(bg!=='rgba(0, 0, 0, 0)'&&bg!=='transparent')break;n=n.parentElement;}return {fg:getComputedStyle(e).color,bg};});
   expect(colors.bg).toBe('rgb(255, 255, 255)');
   expect((await new AxeBuilder({page}).include('.budget-app').withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze()).violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>({target:n.target,reason:n.failureSummary}))}))).toEqual([]);
