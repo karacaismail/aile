@@ -281,6 +281,12 @@ test('320×568 telefon reduced-motion: alt sayfa anında açılır ve kapanır, 
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.setViewportSize(PHONE);
   await openAdmin(page, '/genel');
+  // The menu body is a lazy chunk ("Sayfalar yükleniyor…" on a slow CI dev server). Load it once, so the timed
+  // open below measures motion, not the download. The 100 ms bounds stay on the real open and close.
+  await pagesButton(page).click();
+  await expect(navDialog(page)).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.aile-mobile-nav')).toHaveCount(0);
   await pagesButton(page).click();
   await expect(navDialog(page)).toBeVisible({ timeout: 100 });
   const running = await page.evaluate(() => document.getAnimations().filter(animation => {
