@@ -324,6 +324,9 @@ async function seciciYok(page: Page) {
   });
 }
 
+/** WebKit'te <input webkitdirectory> ile klasör seçiminin macOS CI'daki süre bütçesi (yalnız süre, doğrulama değil). */
+const WEBKIT_KLASOR_SURESI = 240_000;
+
 async function neslSec(page: Page, tetik: () => Promise<void>) {
   await tetik();
   const secim = page.getByRole('dialog', { name: 'Nesil seçin' });
@@ -345,6 +348,7 @@ async function neslSec(page: Page, tetik: () => Promise<void>) {
 test.describe('Veri › klasörden içe aktar', () => {
   test('özellik algılama: seçici varsa showDirectoryPicker, yoksa <input webkitdirectory>; iki nesilden biri seçilir', async ({ page }, testInfo) => {
     const supportsPicker = testInfo.project.name.startsWith('chromium');
+    if (!supportsPicker) test.setTimeout(WEBKIT_KLASOR_SURESI);
     if (supportsPicker) await sahteKlasorSecici(page);
     await serve(page, FIXTURE);
     await openAdmin(page, '/veri');
@@ -380,8 +384,9 @@ test.describe('Veri › klasörden içe aktar', () => {
   });
 
   test('klasörde nesil yoksa "Hata:" ile neden ve çözüm yazılır; mevcut nesil korunur', async ({ page }, testInfo) => {
-    // macOS CI'da WebKit'in klasör seçimi tek başına yaklaşık 29 sn sürdü.
-    test.slow();
+    // macOS CI'da WebKit'in klasör seçimi (setInputFiles) tek başına 29 sn, 10 Kasım 2026'da 88 sn sürdü.
+    // Yalnız süre bütçesi büyür, doğrulamalar aynı kalır.
+    test.setTimeout(WEBKIT_KLASOR_SURESI);
     await seciciYok(page);
     await serve(page, FIXTURE);
     await openAdmin(page, '/veri');
